@@ -22,7 +22,7 @@ crypto:
       - ed25519
 
 subject:
-  no_wildcards: false
+  no_wildcards: true
 
 extensions:
   keyUsage:

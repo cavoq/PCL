@@ -30,5 +30,6 @@ func NewLinter(cert *x509.Certificate, pol *policy.Policy) *Linter {
 
 func (l *Linter) LintAll() Result {
 	l.LintValidity()
+	l.LintNameRules()
 	return *l.Result
 }

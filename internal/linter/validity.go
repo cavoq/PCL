@@ -9,6 +9,10 @@ func (l *Linter) LintValidity() {
 	cert := l.Cert
 	rule := l.Policy.Validity
 
+	if rule == nil {
+		return
+	}
+
 	if cert.NotBefore.IsZero() || cert.NotAfter.IsZero() {
 		l.Result.Add("validity.dates", StatusFail, "notBefore/notAfter missing in certificate")
 		return
@@ -28,7 +32,7 @@ func (l *Linter) LintValidity() {
 	}
 
 	min := 0
-	if rule != nil && rule.MinDays != nil {
+	if rule.MinDays != nil {
 		min = *rule.MinDays
 	}
 	msg := fmt.Sprintf("(%d days >= %d days)", daysLeft, min)
@@ -39,7 +43,7 @@ func (l *Linter) LintValidity() {
 	l.Result.Add("validity.min_validity", status, msg)
 
 	max := 0
-	if rule != nil && rule.MaxDays != nil {
+	if rule.MaxDays != nil {
 		max = *rule.MaxDays
 	}
 	msg = fmt.Sprintf("(%d days <= %d days)", totalDays, max)
