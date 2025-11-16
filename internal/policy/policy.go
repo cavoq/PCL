@@ -1,17 +1,19 @@
 package policy
 
 type Policy struct {
-	Validity   *ValidityRule   `yaml:"validity,omitempty"`
-	Subject    *NameRule       `yaml:"subject,omitempty"`
-	Issuer     *NameRule       `yaml:"issuer,omitempty"`
-	Crypto     *CryptoRule     `yaml:"crypto,omitempty"`
-	Extensions *Extensions     `yaml:"extensions,omitempty"`
-	Revocation *RevocationRule `yaml:"revocation,omitempty"`
+	Name        string          `yaml:"name,omitempty"`
+	Description string          `yaml:"description,omitempty"`
+	Validity    *ValidityRule   `yaml:"validity,omitempty"`
+	Subject     *NameRule       `yaml:"subject,omitempty"`
+	Issuer      *NameRule       `yaml:"issuer,omitempty"`
+	Crypto      *CryptoRule     `yaml:"crypto,omitempty"`
+	Extensions  *Extensions     `yaml:"extensions,omitempty"`
+	Revocation  *RevocationRule `yaml:"revocation,omitempty"`
 }
 
 type ValidityRule struct {
-	MinExpiryDays *int `yaml:"min_expiry_days,omitempty"`
-	MaxExpiryDays *int `yaml:"max_expiry_days,omitempty"`
+	MinDays *int `yaml:"min_days,omitempty"`
+	MaxDays *int `yaml:"max_days,omitempty"`
 }
 
 type NameRule struct {
@@ -21,7 +23,20 @@ type NameRule struct {
 }
 
 type CryptoRule struct {
-	MinKeySize map[string]int `yaml:"min_key_size,omitempty"`
+	SubjectPublicKeyInfo *SubjectPublicKeyInfoRule `yaml:"subjectPublicKeyInfo,omitempty"`
+	SignatureAlgorithm   *SignatureAlgorithmRule   `yaml:"signatureAlgorithm,omitempty"`
+}
+
+type SubjectPublicKeyInfoRule struct {
+	AllowedAlgorithms map[string]*KeyAlgorithmRule `yaml:"allowed_algorithms,omitempty"`
+}
+
+type SignatureAlgorithmRule struct {
+	AllowedAlgorithms []string `yaml:"allowed_algorithms,omitempty"`
+}
+
+type KeyAlgorithmRule struct {
+	MinSize int `yaml:"min_size,omitempty"`
 }
 
 type Extensions struct {
@@ -38,6 +53,7 @@ type KeyUsageExtension struct {
 	DigitalSignature bool `yaml:"digitalSignature,omitempty"`
 	KeyCertSign      bool `yaml:"keyCertSign,omitempty"`
 	CRLSign          bool `yaml:"cRLSign,omitempty"`
+	KeyEncipherment  bool `yaml:"keyEncipherment,omitempty"`
 }
 
 type BasicConstraintsExtension struct {
@@ -51,7 +67,7 @@ type ExtendedKeyUsageExtension struct {
 }
 
 type RevocationExtension struct {
-	//
+	// Can be extended if needed
 }
 
 type RevocationRule struct {

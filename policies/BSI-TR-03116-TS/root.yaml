@@ -1,24 +1,40 @@
+name: BSI-TR-03116-TS-Root-Policy
+description: >
+  Policy for root TLS certificates according to BSI-TR-03116-TS.
+  Enforces RFC 5280 v3 structure, cryptographic requirements, validity,
+  and extensions for secure PKI compliance.
+
 validity:
-  min_expiry_days: 365
-  max_expiry_days: 2190   # 6 years
+  min_days: 365
+  max_days: 2190   # 6 years
+
 crypto:
-  min_key_size:
-    RSA: 4096
+  subjectPublicKeyInfo:
+    allowed_algorithms:
+      RSA:
+        min_size: 4096
+      EC:
+        min_size: 256
+  signatureAlgorithm:
+    allowed_algorithms:
+      - sha256WithRSAEncryption
+      - ecdsa-with-SHA256
+      - ed25519
+
 subject:
   no_wildcards: true
+
 extensions:
+  basicConstraints:
+    critical: true
+    ca: true
+    pathLenConstraint: 2
   keyUsage:
     critical: true
     keyCertSign: true
     cRLSign: true
-  basicConstraints:
-    critical: true
-    pathLenConstraint: 2
-  extendedKeyUsage:
-    serverAuth: false
-  san:
-    allowed: []
-  crlDistributionPoints:
-  authorityInfoAccess:
+  crlDistributionPoints: {}
+  authorityInfoAccess: {}
+
 revocation:
   verifyAccess: true

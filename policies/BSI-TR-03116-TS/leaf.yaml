@@ -1,25 +1,40 @@
+name: BSI-TR-03116-TS-Leaf-Policy
+description: >
+  Policy for TLS leaf certificates (end-entity) according to BSI-TR-03116-TS.
+  Enforces RFC 5280 v3 structure, cryptographic requirements, validity,
+  and extensions for secure PKI compliance.
+
 validity:
-  min_expiry_days: 1
-  max_expiry_days: 1095   # 3 years
+  min_days: 1
+  max_days: 1095   # 3 years
+
 crypto:
-  min_key_size:
-    RSA: 2048
+  subjectPublicKeyInfo:
+    allowed_algorithms:
+      RSA:
+        min_size: 2048
+      EC:
+        min_size: 256
+  signatureAlgorithm:
+    allowed_algorithms:
+      - sha256WithRSAEncryption
+      - ecdsa-with-SHA256
+      - ed25519
+
 subject:
-  no_wildcards: true
+  no_wildcards: false
+
 extensions:
   keyUsage:
     critical: true
     digitalSignature: true
     keyCertSign: false
     cRLSign: false
-  basicConstraints:
-    critical: true
-    pathLenConstraint: 0
   extendedKeyUsage:
     serverAuth: true
-  san:
-    allowed: []
-  crlDistributionPoints:
-  authorityInfoAccess:
+    clientAuth: false
+  crlDistributionPoints: {}
+  authorityInfoAccess: {}
+
 revocation:
   verifyAccess: true

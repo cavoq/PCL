@@ -28,8 +28,8 @@ func (l *Linter) LintValidity() {
 	}
 
 	min := 0
-	if rule != nil && rule.MinExpiryDays != nil {
-		min = *rule.MinExpiryDays
+	if rule != nil && rule.MinDays != nil {
+		min = *rule.MinDays
 	}
 	msg := fmt.Sprintf("expires in %d days", daysLeft)
 	status := StatusPass
@@ -39,8 +39,8 @@ func (l *Linter) LintValidity() {
 	l.Result.Add("validity.min_expiry", status, msg)
 
 	max := 0
-	if rule != nil && rule.MaxExpiryDays != nil {
-		max = *rule.MaxExpiryDays
+	if rule != nil && rule.MaxDays != nil {
+		max = *rule.MaxDays
 	}
 	msg = fmt.Sprintf("validity %d days", totalDays)
 	status = StatusPass
