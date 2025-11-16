@@ -22,27 +22,27 @@ func (l *Linter) LintValidity() {
 	case now.Before(cert.NotBefore):
 		l.Result.Add("validity.notBefore", StatusFail, "certificate not yet valid")
 	case now.After(cert.NotAfter):
-		l.Result.Add("validity.notAfter", StatusFail, fmt.Sprintf("expired %d days ago", -daysLeft))
+		l.Result.Add("validity.notAfter", StatusFail, fmt.Sprintf("certificate expired %d days ago", -daysLeft))
 	default:
-		l.Result.Add("validity.current", StatusPass, fmt.Sprintf("valid - %d days left", daysLeft))
+		l.Result.Add("validity", StatusPass, fmt.Sprintf("certificate valid - %d days left", daysLeft))
 	}
 
 	min := 0
 	if rule != nil && rule.MinDays != nil {
 		min = *rule.MinDays
 	}
-	msg := fmt.Sprintf("expires in %d days", daysLeft)
+	msg := fmt.Sprintf("(%d days >= %d days)", daysLeft, min)
 	status := StatusPass
 	if daysLeft < min {
 		status = StatusWarn
 	}
-	l.Result.Add("validity.min_expiry", status, msg)
+	l.Result.Add("validity.min_validity", status, msg)
 
 	max := 0
 	if rule != nil && rule.MaxDays != nil {
 		max = *rule.MaxDays
 	}
-	msg = fmt.Sprintf("validity %d days", totalDays)
+	msg = fmt.Sprintf("(%d days <= %d days)", totalDays, max)
 	status = StatusPass
 	if totalDays > max {
 		status = StatusFail

@@ -1,4 +1,4 @@
-name: BSI-TR-03116-TS intermediate policy
+name: BSI-TR-03116-TS Intermediate-Policy
 description: >
   Policy for intermediate TLS certificates according to BSI-TR-03116-TS.
   Enforces RFC 5280 v3 structure, cryptographic requirements, validity,

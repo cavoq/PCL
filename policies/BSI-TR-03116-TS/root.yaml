@@ -1,4 +1,4 @@
-name: BSI-TR-03116-TS-Root-Policy
+name: BSI-TR-03116-TS Root-Policy
 description: >
   Policy for root TLS certificates according to BSI-TR-03116-TS.
   Enforces RFC 5280 v3 structure, cryptographic requirements, validity,
