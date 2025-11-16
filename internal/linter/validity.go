@@ -7,51 +7,57 @@ import (
 
 func (l *Linter) LintValidity() {
 	rule := l.Policy.Validity
-	if l.Cert.NotBefore.IsZero() || l.Cert.NotAfter.IsZero() {
+	cert := l.Cert
+	if cert.NotBefore.IsZero() || cert.NotAfter.IsZero() {
 		return
 	}
 
-	validityDays := int(l.Cert.NotAfter.Sub(l.Cert.NotBefore).Hours() / 24)
+	now := time.Now()
+	validityDays := int(cert.NotAfter.Sub(cert.NotBefore).Hours() / 24)
+	daysLeft := int(cert.NotAfter.Sub(now).Hours() / 24)
 
 	if rule != nil {
 		if rule.MinExpiryDays != nil && validityDays < *rule.MinExpiryDays {
 			l.Result.AddWarning(
-				"validity",
-				fmt.Sprintf("Validity period %d days < recommended min %d", validityDays, *rule.MinExpiryDays),
-				Semantic,
+				"validity.notAfter",
+				fmt.Sprintf(
+					"Certificate will expire in %d days, recommended minimum validity is %d days",
+					daysLeft,
+					*rule.MinExpiryDays,
+				),
 			)
 		}
+
 		if rule.MaxExpiryDays != nil && validityDays > *rule.MaxExpiryDays {
 			l.Result.AddViolation(
 				"validity",
-				fmt.Sprintf("Validity period %d days > max allowed %d", validityDays, *rule.MaxExpiryDays),
-				Semantic,
+				fmt.Sprintf(
+					"Certificate validity period is %d days, exceeds maximum allowed %d days",
+					validityDays,
+					*rule.MaxExpiryDays,
+				),
 			)
 		}
 	}
 
-	now := time.Now()
-	if now.Before(l.Cert.NotBefore) {
-		if l.Cert.NotBefore.Sub(now) < 5*time.Minute {
+	if now.Before(cert.NotBefore) {
+		if cert.NotBefore.Sub(now) < 5*time.Minute {
 			l.Result.AddWarning(
 				"validity.notBefore",
-				fmt.Sprintf("Certificate will become valid soon at %s", l.Cert.NotBefore),
-				Functional,
+				fmt.Sprintf("Certificate will become valid soon at %s", cert.NotBefore),
 			)
 		} else {
 			l.Result.AddViolation(
 				"validity.notBefore",
-				fmt.Sprintf("Certificate not yet valid: starts at %s", l.Cert.NotBefore),
-				Functional,
+				fmt.Sprintf("Certificate not yet valid: starts at %s", cert.NotBefore),
 			)
 		}
 	}
 
-	if now.After(l.Cert.NotAfter) {
+	if now.After(cert.NotAfter) {
 		l.Result.AddViolation(
 			"validity.notAfter",
-			fmt.Sprintf("Certificate expired: expired at %s", l.Cert.NotAfter),
-			Functional,
+			fmt.Sprintf("Certificate expired: expired at %s", cert.NotAfter),
 		)
 	}
 }
