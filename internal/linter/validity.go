@@ -2,8 +2,14 @@ package linter
 
 import (
 	"fmt"
+	"math"
 	"time"
 )
+
+func daysCeil(d time.Duration) int {
+	h := d.Hours()
+	return int(math.Ceil(h / 24.0))
+}
 
 func (l *Linter) LintValidity() {
 	cert := l.Cert
@@ -18,38 +24,60 @@ func (l *Linter) LintValidity() {
 		return
 	}
 
-	now := time.Now()
-	totalDays := int(cert.NotAfter.Sub(cert.NotBefore).Hours() / 24)
-	daysLeft := max(int(cert.NotAfter.Sub(now).Hours()/24), 0)
+	now := time.Now().UTC()
+	notBefore := cert.NotBefore.UTC()
+	notAfter := cert.NotAfter.UTC()
 
-	switch {
-	case now.Before(cert.NotBefore):
+	if now.Before(notBefore) {
 		l.Result.Add("validity.notBefore", StatusFail, "certificate not yet valid")
-	case now.After(cert.NotAfter):
-		l.Result.Add("validity.notAfter", StatusFail, fmt.Sprintf("certificate expired %d days ago", -daysLeft))
-	default:
+	} else if now.After(notAfter) {
+		daysSince := daysCeil(now.Sub(notAfter))
+		l.Result.Add("validity.notAfter", StatusFail, fmt.Sprintf("certificate expired %d days ago", daysSince))
+	} else {
+		daysLeft := daysCeil(notAfter.Sub(now))
 		l.Result.Add("validity", StatusPass, fmt.Sprintf("certificate valid - %d days left", daysLeft))
 	}
 
-	min := 0
 	if rule.MinDays != nil {
-		min = *rule.MinDays
+		l.LintMinValidity(*rule.MinDays, now, notAfter)
 	}
-	msg := fmt.Sprintf("(%d days >= %d days)", daysLeft, min)
+
+	if rule.MaxDays != nil {
+		l.LintMaxValidity(*rule.MaxDays, notBefore, notAfter)
+	}
+}
+
+func (l *Linter) LintMinValidity(minDays int, now, notAfter time.Time) {
+	field := "validity.min_validity"
+
+	if now.After(notAfter) {
+		l.Result.Add(field, StatusFail, fmt.Sprintf("certificate expired; remaining days < %d", minDays))
+		return
+	}
+
+	daysLeft := daysCeil(notAfter.Sub(now))
+
+	msg := fmt.Sprintf("(%d days remaining >= %d days required)", daysLeft, minDays)
 	status := StatusPass
-	if daysLeft < min {
+	if daysLeft < minDays {
 		status = StatusWarn
 	}
-	l.Result.Add("validity.min_validity", status, msg)
+	l.Result.Add(field, status, msg)
+}
 
-	max := 0
-	if rule.MaxDays != nil {
-		max = *rule.MaxDays
+func (l *Linter) LintMaxValidity(maxDays int, notBefore, notAfter time.Time) {
+	field := "validity.max_validity"
+
+	if notAfter.Before(notBefore) {
+		l.Result.Add(field, StatusFail, "notAfter is before notBefore (invalid validity period)")
+		return
 	}
-	msg = fmt.Sprintf("(%d days <= %d days)", totalDays, max)
-	status = StatusPass
-	if totalDays > max {
+
+	totalDays := daysCeil(notAfter.Sub(notBefore))
+	msg := fmt.Sprintf("(%d days <= %d days maximum)", totalDays, maxDays)
+	status := StatusPass
+	if totalDays > maxDays {
 		status = StatusFail
 	}
-	l.Result.Add("validity.max_validity", status, msg)
+	l.Result.Add(field, status, msg)
 }
