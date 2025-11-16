@@ -1,37 +1,36 @@
 package linter
 
-import "crypto/x509"
+import "time"
 
-type IssueType string
-
-const (
-	Violation IssueType = "violation"
-	Warning   IssueType = "warning"
-)
-
-type Issue struct {
-	Type    IssueType
-	Field   string
+type Finding struct {
+	ID      string
+	Status  Status
 	Message string
 }
 
+type Status string
+
+const (
+	StatusPass Status = "PASS"
+	StatusFail Status = "FAIL"
+	StatusWarn Status = "WARN"
+	StatusInfo Status = "INFO"
+)
+
 type Result struct {
-	Cert   *x509.Certificate
-	Issues []Issue
+	CertFile  string
+	Findings  []Finding
+	Valid     bool
+	CheckedAt time.Time
 }
 
-func (r *Result) AddViolation(field, message string) {
-	r.Issues = append(r.Issues, Issue{
-		Field:   field,
-		Type:    Violation,
-		Message: message,
+func (r *Result) Add(id string, status Status, msg string) {
+	r.Findings = append(r.Findings, Finding{
+		ID:      id,
+		Status:  status,
+		Message: msg,
 	})
-}
-
-func (r *Result) AddWarning(field, message string) {
-	r.Issues = append(r.Issues, Issue{
-		Field:   field,
-		Type:    Warning,
-		Message: message,
-	})
+	if status == StatusFail {
+		r.Valid = false
+	}
 }

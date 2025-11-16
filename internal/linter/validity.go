@@ -6,58 +6,46 @@ import (
 )
 
 func (l *Linter) LintValidity() {
-	rule := l.Policy.Validity
 	cert := l.Cert
+	rule := l.Policy.Validity
+
 	if cert.NotBefore.IsZero() || cert.NotAfter.IsZero() {
+		l.Result.Add("validity.dates", StatusFail, "notBefore/notAfter missing in certificate")
 		return
 	}
 
 	now := time.Now()
-	validityDays := int(cert.NotAfter.Sub(cert.NotBefore).Hours() / 24)
-	daysLeft := int(cert.NotAfter.Sub(now).Hours() / 24)
+	totalDays := int(cert.NotAfter.Sub(cert.NotBefore).Hours() / 24)
+	daysLeft := max(int(cert.NotAfter.Sub(now).Hours()/24), 0)
 
-	if rule != nil {
-		if rule.MinExpiryDays != nil && validityDays < *rule.MinExpiryDays {
-			l.Result.AddWarning(
-				"validity.notAfter",
-				fmt.Sprintf(
-					"Certificate will expire in %d days, recommended minimum validity is %d days",
-					daysLeft,
-					*rule.MinExpiryDays,
-				),
-			)
-		}
-
-		if rule.MaxExpiryDays != nil && validityDays > *rule.MaxExpiryDays {
-			l.Result.AddViolation(
-				"validity",
-				fmt.Sprintf(
-					"Certificate validity period is %d days, exceeds maximum allowed %d days",
-					validityDays,
-					*rule.MaxExpiryDays,
-				),
-			)
-		}
+	switch {
+	case now.Before(cert.NotBefore):
+		l.Result.Add("validity.notBefore", StatusFail, "certificate not yet valid")
+	case now.After(cert.NotAfter):
+		l.Result.Add("validity.notAfter", StatusFail, fmt.Sprintf("expired %d days ago", -daysLeft))
+	default:
+		l.Result.Add("validity.current", StatusPass, fmt.Sprintf("valid - %d days left", daysLeft))
 	}
 
-	if now.Before(cert.NotBefore) {
-		if cert.NotBefore.Sub(now) < 5*time.Minute {
-			l.Result.AddWarning(
-				"validity.notBefore",
-				fmt.Sprintf("Certificate will become valid soon at %s", cert.NotBefore),
-			)
-		} else {
-			l.Result.AddViolation(
-				"validity.notBefore",
-				fmt.Sprintf("Certificate not yet valid: starts at %s", cert.NotBefore),
-			)
-		}
+	min := 0
+	if rule != nil && rule.MinExpiryDays != nil {
+		min = *rule.MinExpiryDays
 	}
+	msg := fmt.Sprintf("expires in %d days", daysLeft)
+	status := StatusPass
+	if daysLeft < min {
+		status = StatusWarn
+	}
+	l.Result.Add("validity.min_expiry", status, msg)
 
-	if now.After(cert.NotAfter) {
-		l.Result.AddViolation(
-			"validity.notAfter",
-			fmt.Sprintf("Certificate expired: expired at %s", cert.NotAfter),
-		)
+	max := 0
+	if rule != nil && rule.MaxExpiryDays != nil {
+		max = *rule.MaxExpiryDays
 	}
+	msg = fmt.Sprintf("validity %d days", totalDays)
+	status = StatusPass
+	if totalDays > max {
+		status = StatusFail
+	}
+	l.Result.Add("validity.max_validity", status, msg)
 }
