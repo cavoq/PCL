@@ -1,0 +1,24 @@
+validity:
+  min_expiry_days: 1
+  max_expiry_days: 1095   # 3 years
+crypto:
+  min_key_size:
+    RSA: 2048
+    ECDSA: 256
+    ED25519: 256
+subject:
+  no_wildcards: true
+san:
+  require: true
+extensions:
+  keyUsage:
+    critical: true
+    digitalSignature: true
+    keyCertSign: false
+    cRLSign: false
+  extendedKeyUsage:
+    serverAuth: true
+    clientAuth: true
+revocation:
+  requireCRL: true
+  requireOCSP: true
