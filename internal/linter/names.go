@@ -16,21 +16,20 @@ func (l *Linter) LintNameRules() {
 
 	if l.Policy.Issuer != nil {
 		issuerNames := utils.GetIssuerNames(cert)
-		l.LintNames(l.Policy.Issuer, issuerNames, "issuer")
+		l.LintNoWildcards(l.Policy.Issuer, issuerNames, "issuer")
 	}
 
 	if l.Policy.Subject != nil {
 		subjectNames := utils.GetSubjectNames(cert)
-		l.LintNames(l.Policy.Subject, subjectNames, "subject")
+		l.LintNoWildcards(l.Policy.Subject, subjectNames, "subject")
 	}
 }
 
-func (l *Linter) LintNames(rule *policy.NameRule, names []string, field string) {
+func (l *Linter) LintNoWildcards(rule *policy.NameRule, names []string, field string) {
 	if rule == nil {
 		return
 	}
 
-	// 1) wildcard check (NoWildcards)
 	if rule.NoWildcards {
 		wildcardFound := false
 		for _, name := range names {
