@@ -17,9 +17,9 @@ crypto:
         min_size: 256
   signatureAlgorithm:
     allowed_algorithms:
-      - sha256WithRSAEncryption
-      - ecdsa-with-SHA256
-      - ed25519
+      - SHA256-RSA
+      - ECDSA-SHA256
+      - Ed25519
 
 subject:
   no_wildcards: true
