@@ -1,6 +1,7 @@
 package policy
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -13,7 +14,9 @@ func LoadPolicy(path string) (*Policy, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	if err := f.Close(); err != nil {
+		fmt.Printf("Error closing file: %v\n", err)
+	}
 
 	data, err := io.ReadAll(f)
 	if err != nil {
