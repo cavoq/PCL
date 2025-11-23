@@ -32,5 +32,6 @@ func (l *Linter) LintAll() Result {
 	l.LintValidity()
 	l.LintNameRules()
 	l.LintSignatureAlgorithm()
+	l.LintSubjectPublicKeyInfo()
 	return *l.Result
 }

@@ -36,7 +36,8 @@ type SignatureAlgorithmRule struct {
 }
 
 type KeyAlgorithmRule struct {
-	MinSize int `yaml:"min_size,omitempty"`
+	MinSize       int      `yaml:"min_size,omitempty"`       // For RSA and EC
+	AllowedCurves []string `yaml:"allowed_curves,omitempty"` // Only for EC
 }
 
 type Extensions struct {

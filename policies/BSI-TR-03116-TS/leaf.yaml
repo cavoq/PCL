@@ -6,7 +6,7 @@ description: >
 
 validity:
   min_days: 1
-  max_days: 1095   # 3 years
+  max_days: 1095 # 3 years
 
 crypto:
   subjectPublicKeyInfo:
@@ -15,6 +15,11 @@ crypto:
         min_size: 2048
       EC:
         min_size: 256
+        allowed_curves:
+          - P-256
+          - P-384
+          - P-521
+          - secp256k1
   signatureAlgorithm:
     allowed_algorithms:
       - SHA256-RSA

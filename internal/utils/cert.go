@@ -1,6 +1,11 @@
 package utils
 
-import "crypto/x509"
+import (
+	"crypto/ecdsa"
+	"crypto/ed25519"
+	"crypto/rsa"
+	"crypto/x509"
+)
 
 func GetSubjectNames(cert *x509.Certificate) []string {
 	var names []string
@@ -25,4 +30,26 @@ func GetIssuerNames(cert *x509.Certificate) []string {
 	}
 
 	return names
+}
+
+type PublicKeyAlgorithm string
+
+const (
+	PubKeyRSA     PublicKeyAlgorithm = "RSA"
+	PubKeyEC      PublicKeyAlgorithm = "EC"
+	PubKeyEd25519 PublicKeyAlgorithm = "Ed25519"
+	PubKeyUnknown PublicKeyAlgorithm = "UNKNOWN"
+)
+
+func GetPublicKeyAlgorithm(cert *x509.Certificate) PublicKeyAlgorithm {
+	switch cert.PublicKey.(type) {
+	case *rsa.PublicKey:
+		return PubKeyRSA
+	case *ecdsa.PublicKey:
+		return PubKeyEC
+	case ed25519.PublicKey:
+		return PubKeyEd25519
+	default:
+		return PubKeyUnknown
+	}
 }
