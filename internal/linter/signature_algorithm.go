@@ -2,35 +2,56 @@ package linter
 
 import (
 	"fmt"
-	"slices"
 )
 
 func (l *Linter) LintSignatureAlgorithm() {
 	cert := l.Cert
 	rule := l.Policy.Crypto
 
-	if rule == nil ||
-		rule.SignatureAlgorithm == nil ||
-		len(rule.SignatureAlgorithm.AllowedAlgorithms) == 0 {
+	if rule == nil || rule.SignatureAlgorithm == nil || len(rule.SignatureAlgorithm.AllowedAlgorithms) == 0 {
 		return
 	}
 
 	actual := cert.SignatureAlgorithm.String()
 	allowed := rule.SignatureAlgorithm.AllowedAlgorithms
 
-	isAllowed := slices.Contains(allowed, "*") || slices.Contains(allowed, actual)
+	status := StatusFail
+	message := ""
 
-	if isAllowed {
+	if isSignatureAlgorithmAllowed(actual, allowed) {
+		status = StatusPass
+		message = fmt.Sprintf("signature algorithm allowed - %s", actual)
+	} else {
+		message = fmt.Sprintf("signature algorithm not allowed - %s", actual)
+	}
+
+	l.Result.Add("crypto.signature_algorithm", status, message)
+}
+
+func (l *Linter) LintSignatureValidity() {
+	cert := l.Cert
+
+	err := cert.CheckSignature(cert.SignatureAlgorithm, cert.RawTBSCertificate, cert.Signature)
+	if err != nil {
 		l.Result.Add(
-			"crypto.signature_algorithm",
-			StatusPass,
-			fmt.Sprintf("signature algorithm allowed - %s", actual),
+			"crypto.signature_valid",
+			StatusFail,
+			fmt.Sprintf("certificate signature is invalid: %v", err),
 		)
 	} else {
 		l.Result.Add(
-			"crypto.signature_algorithm",
-			StatusFail,
-			fmt.Sprintf("signature algorithm not allowed - %s", actual),
+			"crypto.signature_valid",
+			StatusPass,
+			"certificate signature is cryptographically valid",
 		)
 	}
+}
+
+func isSignatureAlgorithmAllowed(actual string, allowed []string) bool {
+	for _, algo := range allowed {
+		if algo == "*" || algo == actual {
+			return true
+		}
+	}
+	return false
 }

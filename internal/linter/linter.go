@@ -28,10 +28,11 @@ func NewLinter(cert *x509.Certificate, pol *policy.Policy) *Linter {
 	}
 }
 
-func (l *Linter) LintAll() Result {
+func (l *Linter) LintAll() *Result {
 	l.LintValidity()
 	l.LintNameRules()
 	l.LintSignatureAlgorithm()
+	l.LintSignatureValidity()
 	l.LintSubjectPublicKeyInfo()
-	return *l.Result
+	return l.Result
 }
