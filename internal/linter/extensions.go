@@ -5,15 +5,35 @@ import (
 	"crypto/x509/pkix"
 	"encoding/asn1"
 	"fmt"
+	"slices"
 )
 
-type UsageCheck struct {
+var (
+	oidExtensionKeyUsage = asn1.ObjectIdentifier{2, 5, 29, 15}
+)
+
+type UsageCheck[T any] struct {
 	Name     string
 	Required bool
-	Flag     x509.KeyUsage
+	Flag     T
 }
 
-func CheckUsages(actual x509.KeyUsage, checks []UsageCheck) (missing []string, present []string) {
+func checkSliceFlags[T comparable](actual []T, checks []UsageCheck[T]) (missing []string, present []string) {
+	for _, c := range checks {
+		if !c.Required {
+			continue
+		}
+		found := slices.Contains(actual, c.Flag)
+		if found {
+			present = append(present, c.Name)
+		} else {
+			missing = append(missing, c.Name)
+		}
+	}
+	return
+}
+
+func checkBitmaskFlags(actual x509.KeyUsage, checks []UsageCheck[x509.KeyUsage]) (missing []string, present []string) {
 	for _, c := range checks {
 		if !c.Required {
 			continue
@@ -45,14 +65,14 @@ func (l *Linter) LintKeyUsage() {
 
 	pol := rule.KeyUsage
 
-	checks := []UsageCheck{
+	checks := []UsageCheck[x509.KeyUsage]{
 		{"digitalSignature", pol.DigitalSignature, x509.KeyUsageDigitalSignature},
 		{"keyEncipherment", pol.KeyEncipherment, x509.KeyUsageKeyEncipherment},
 		{"keyCertSign", pol.KeyCertSign, x509.KeyUsageCertSign},
 		{"cRLSign", pol.CRLSign, x509.KeyUsageCRLSign},
 	}
 
-	missing, present := CheckUsages(cert.KeyUsage, checks)
+	missing, present := checkBitmaskFlags(cert.KeyUsage, checks)
 
 	if len(missing) == 0 {
 		l.Result.Add("crypto.key_usage", StatusPass,
@@ -63,10 +83,35 @@ func (l *Linter) LintKeyUsage() {
 	}
 
 	if pol.Critical {
-		if isCritical(cert.Extensions, asn1.ObjectIdentifier{2, 5, 29, 15}) {
+		if isCritical(cert.Extensions, oidExtensionKeyUsage) {
 			l.Result.Add("crypto.key_usage.critical", StatusPass, "KeyUsage extension is critical")
 		} else {
 			l.Result.Add("crypto.key_usage.critical", StatusFail, "KeyUsage extension is NOT critical")
 		}
+	}
+}
+
+func (l *Linter) LintExtendedKeyUsage() {
+	cert := l.Cert
+	rule := l.Policy.Extensions
+	if rule == nil || rule.ExtendedKeyUsage == nil {
+		return
+	}
+
+	pol := rule.ExtendedKeyUsage
+
+	checks := []UsageCheck[x509.ExtKeyUsage]{
+		{"serverAuth", pol.ServerAuth, x509.ExtKeyUsageServerAuth},
+		{"clientAuth", pol.ClientAuth, x509.ExtKeyUsageClientAuth},
+	}
+
+	missing, present := checkSliceFlags(cert.ExtKeyUsage, checks)
+
+	if len(missing) == 0 {
+		l.Result.Add("crypto.extended_key_usage", StatusPass,
+			fmt.Sprintf("required extended key usages present: %v", present))
+	} else {
+		l.Result.Add("crypto.extended_key_usage", StatusFail,
+			fmt.Sprintf("missing required extended key usages: %v", missing))
 	}
 }
