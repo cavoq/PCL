@@ -9,7 +9,8 @@ import (
 )
 
 var (
-	oidExtensionKeyUsage = asn1.ObjectIdentifier{2, 5, 29, 15}
+	oidExtensionKeyUsage         = asn1.ObjectIdentifier{2, 5, 29, 15}
+	oidExtensionBasicConstraints = asn1.ObjectIdentifier{2, 5, 29, 19}
 )
 
 type UsageCheck[T any] struct {
@@ -39,6 +40,20 @@ func checkBitmaskFlags(actual x509.KeyUsage, checks []UsageCheck[x509.KeyUsage])
 			continue
 		}
 		if actual&c.Flag != 0 {
+			present = append(present, c.Name)
+		} else {
+			missing = append(missing, c.Name)
+		}
+	}
+	return
+}
+
+func checkBoolean(actual bool, checks []UsageCheck[bool]) (missing []string, present []string) {
+	for _, c := range checks {
+		if !c.Required {
+			continue
+		}
+		if actual == c.Flag {
 			present = append(present, c.Name)
 		} else {
 			missing = append(missing, c.Name)
@@ -113,5 +128,61 @@ func (l *Linter) LintExtendedKeyUsage() {
 	} else {
 		l.Result.Add("crypto.extended_key_usage", StatusFail,
 			fmt.Sprintf("missing required extended key usages: %v", missing))
+	}
+}
+
+func (l *Linter) LintBasicConstraints() {
+	cert := l.Cert
+	rule := l.Policy.Extensions
+	if rule == nil || rule.BasicConstraints == nil {
+		return
+	}
+
+	pol := rule.BasicConstraints
+
+	boolChecks := []UsageCheck[bool]{
+		{"isCA", pol.IsCA, true},
+	}
+
+	missingBool, presentBool := checkBoolean(cert.IsCA, boolChecks)
+
+	if len(missingBool) == 0 {
+		if len(presentBool) > 0 {
+			l.Result.Add("crypto.basic_constraints.is_ca", StatusPass,
+				fmt.Sprintf("required basicConstraints isCA present: %v", presentBool))
+		}
+	} else {
+		l.Result.Add("crypto.basic_constraints.is_ca", StatusFail,
+			fmt.Sprintf("missing required basicConstraints isCA: %v", missingBool))
+	}
+
+	if pol.PathLenConstraint != nil {
+		expected := *pol.PathLenConstraint
+
+		actualPathLen := cert.MaxPathLen
+		if cert.MaxPathLenZero {
+			actualPathLen = 0
+		}
+
+		hasPathLen := actualPathLen != -1
+
+		if !hasPathLen {
+			l.Result.Add("crypto.basic_constraints.path_len", StatusFail,
+				fmt.Sprintf("certificate missing pathLenConstraint, but policy requires %d", expected))
+		} else if actualPathLen == expected {
+			l.Result.Add("crypto.basic_constraints.path_len", StatusPass,
+				fmt.Sprintf("pathLenConstraint matches required value: %d", expected))
+		} else {
+			l.Result.Add("crypto.basic_constraints.path_len", StatusFail,
+				fmt.Sprintf("pathLenConstraint mismatch: expected %d, got %d", expected, actualPathLen))
+		}
+	}
+
+	if pol.Critical {
+		if isCritical(cert.Extensions, oidExtensionBasicConstraints) {
+			l.Result.Add("crypto.basic_constraints.critical", StatusPass, "BasicConstraints extension is critical")
+		} else {
+			l.Result.Add("crypto.basic_constraints.critical", StatusFail, "BasicConstraints extension is NOT critical")
+		}
 	}
 }

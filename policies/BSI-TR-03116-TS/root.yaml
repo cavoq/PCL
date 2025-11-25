@@ -27,7 +27,7 @@ subject:
 extensions:
   basicConstraints:
     critical: true
-    ca: true
+    isCA: true
     pathLenConstraint: 2
   keyUsage:
     critical: true

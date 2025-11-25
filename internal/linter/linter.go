@@ -36,5 +36,6 @@ func (l *Linter) LintAll() *Result {
 	l.LintSubjectPublicKeyInfo()
 	l.LintKeyUsage()
 	l.LintExtendedKeyUsage()
+	l.LintBasicConstraints()
 	return l.Result
 }

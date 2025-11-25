@@ -59,7 +59,8 @@ type KeyUsageExtension struct {
 
 type BasicConstraintsExtension struct {
 	Critical          bool `yaml:"critical,omitempty"`
-	PathLenConstraint int  `yaml:"pathLenConstraint,omitempty"`
+	PathLenConstraint *int `yaml:"pathLenConstraint,omitempty"`
+	IsCA              bool `yaml:"isCA,omitempty"`
 }
 
 type ExtendedKeyUsageExtension struct {
