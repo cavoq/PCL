@@ -1,2 +1,6 @@
 *.key
 *.csr
+*.key.pem
+*.csr.pem
+*.srl
+index.txt
