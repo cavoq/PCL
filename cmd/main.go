@@ -2,26 +2,52 @@ package main
 
 import (
 	"fmt"
-	"log"
+	"os"
 
+	"github.com/cavoq/RCV/internal/linter"
 	"github.com/cavoq/RCV/internal/policy"
-	"gopkg.in/yaml.v3"
+	"github.com/cavoq/RCV/internal/report"
+	"github.com/spf13/cobra"
 )
 
 func main() {
-	dir := "policies/BSI-TR-03116-TS"
+	root := &cobra.Command{
+		Use:   "rcvlint",
+		Short: "Policy-based X.509 certificate linter",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			policyPath, _ := cmd.Flags().GetString("policy")
+			certPath, _ := cmd.Flags().GetString("cert")
 
-	policies, err := policy.LoadPolicies(dir)
-	if err != nil {
-		log.Fatalf("failed to load policies: %v", err)
+			if policyPath == "" || certPath == "" {
+				return fmt.Errorf("--policy and --cert are required")
+			}
+
+			pol, err := policy.LoadPolicy(policyPath)
+			if err != nil {
+				return fmt.Errorf("failed to load policy: %w", err)
+			}
+
+			l, err := linter.FromCert(certPath, pol)
+			if err != nil {
+				return fmt.Errorf("failed to create linter: %w", err)
+			}
+
+			r, err := l.LintAll()
+			if err != nil {
+				return fmt.Errorf("lint failed: %w", err)
+			}
+
+			var rr = report.FormatResult(r)
+			fmt.Println(rr)
+			return nil
+		},
 	}
 
-	for name, pol := range policies {
-		fmt.Printf("Policy file: %s\n", name)
-		out, err := yaml.Marshal(pol)
-		if err != nil {
-			log.Fatalf("failed to marshal policy: %v", err)
-		}
-		fmt.Printf("%s\n\n", out)
+	root.Flags().String("policy", "", "Path to policy YAML file")
+	root.Flags().String("cert", "", "Path to certificate file (PEM/DER)")
+
+	if err := root.Execute(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
 	}
 }

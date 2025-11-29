@@ -2,7 +2,6 @@ package policy
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 
@@ -10,25 +9,16 @@ import (
 )
 
 func LoadPolicy(path string) (*Policy, error) {
-	f, err := os.Open(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, err
-	}
-	if err := f.Close(); err != nil {
-		fmt.Printf("Error closing file: %v\n", err)
+		return nil, fmt.Errorf("read %s: %w", path, err)
 	}
 
-	data, err := io.ReadAll(f)
-	if err != nil {
-		return nil, err
+	var pol Policy
+	if err := yaml.Unmarshal(data, &pol); err != nil {
+		return nil, fmt.Errorf("unmarshal %s: %w", path, err)
 	}
-
-	pol := &Policy{}
-	if err := yaml.Unmarshal(data, pol); err != nil {
-		return nil, err
-	}
-
-	return pol, nil
+	return &pol, nil
 }
 
 func LoadPolicies(dir string) (map[string]*Policy, error) {

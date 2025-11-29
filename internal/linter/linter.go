@@ -7,12 +7,21 @@ import (
 	"time"
 
 	"github.com/cavoq/RCV/internal/policy"
+	"github.com/cavoq/RCV/internal/utils"
 )
 
 type Linter struct {
 	Cert   *x509.Certificate
 	Policy *policy.Policy
 	Result *Result
+}
+
+func FromCert(certPath string, pol *policy.Policy) (*Linter, error) {
+	cert, err := utils.LoadCertificate(certPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load certificate: %w", err)
+	}
+	return NewLinter(cert, pol), nil
 }
 
 func NewLinter(cert *x509.Certificate, pol *policy.Policy) *Linter {
@@ -28,7 +37,7 @@ func NewLinter(cert *x509.Certificate, pol *policy.Policy) *Linter {
 	}
 }
 
-func (l *Linter) LintAll() *Result {
+func (l *Linter) LintAll() (*Result, error) {
 	l.LintValidity()
 	l.LintNameRules()
 	l.LintSignatureAlgorithm()
@@ -37,5 +46,5 @@ func (l *Linter) LintAll() *Result {
 	l.LintKeyUsage()
 	l.LintExtendedKeyUsage()
 	l.LintBasicConstraints()
-	return l.Result
+	return l.Result, nil
 }
