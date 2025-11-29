@@ -34,6 +34,3 @@ extensions:
     cRLSign: true
   crlDistributionPoints: {}
   authorityInfoAccess: {}
-
-revocation:
-  verifyAccess: true

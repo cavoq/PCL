@@ -1,14 +1,13 @@
 package policy
 
 type Policy struct {
-	Name        string          `yaml:"name,omitempty"`
-	Description string          `yaml:"description,omitempty"`
-	Validity    *ValidityRule   `yaml:"validity,omitempty"`
-	Subject     *NameRule       `yaml:"subject,omitempty"`
-	Issuer      *NameRule       `yaml:"issuer,omitempty"`
-	Crypto      *CryptoRule     `yaml:"crypto,omitempty"`
-	Extensions  *Extensions     `yaml:"extensions,omitempty"`
-	Revocation  *RevocationRule `yaml:"revocation,omitempty"`
+	Name        string        `yaml:"name,omitempty"`
+	Description string        `yaml:"description,omitempty"`
+	Validity    *ValidityRule `yaml:"validity,omitempty"`
+	Subject     *NameRule     `yaml:"subject,omitempty"`
+	Issuer      *NameRule     `yaml:"issuer,omitempty"`
+	Crypto      *CryptoRule   `yaml:"crypto,omitempty"`
+	Extensions  *Extensions   `yaml:"extensions,omitempty"`
 }
 
 type ValidityRule struct {
@@ -41,12 +40,12 @@ type KeyAlgorithmRule struct {
 }
 
 type Extensions struct {
-	KeyUsage              *KeyUsageExtension         `yaml:"keyUsage,omitempty"`
-	BasicConstraints      *BasicConstraintsExtension `yaml:"basicConstraints,omitempty"`
-	ExtendedKeyUsage      *ExtendedKeyUsageExtension `yaml:"extendedKeyUsage,omitempty"`
-	SAN                   *NameRule                  `yaml:"san,omitempty"`
-	CRLDistributionPoints *RevocationExtension       `yaml:"crlDistributionPoints,omitempty"`
-	AuthorityInfoAccess   *RevocationExtension       `yaml:"authorityInfoAccess,omitempty"`
+	KeyUsage              *KeyUsageExtension              `yaml:"keyUsage,omitempty"`
+	BasicConstraints      *BasicConstraintsExtension      `yaml:"basicConstraints,omitempty"`
+	ExtendedKeyUsage      *ExtendedKeyUsageExtension      `yaml:"extendedKeyUsage,omitempty"`
+	SAN                   *NameRule                       `yaml:"san,omitempty"`
+	CRLDistributionPoints *CRLDistributionPointsExtension `yaml:"crlDistributionPoints,omitempty"`
+	AuthorityInfoAccess   *AuthorityInfoAccessExtension   `yaml:"authorityInfoAccess,omitempty"`
 }
 
 type KeyUsageExtension struct {
@@ -69,10 +68,15 @@ type ExtendedKeyUsageExtension struct {
 	ClientAuth bool `yaml:"clientAuth,omitempty"`
 }
 
-type RevocationExtension struct {
-	// Can be extended if needed
+type CRLDistributionPointsExtension struct {
+	Critical     bool     `yaml:"critical,omitempty"`
+	VerifyAccess bool     `yaml:"verifyAccess,omitempty"`
+	URLs         []string `yaml:"urls,omitempty"`
 }
 
-type RevocationRule struct {
-	VerifyAccess bool `yaml:"verifyAccess,omitempty"`
+type AuthorityInfoAccessExtension struct {
+	Critical     bool     `yaml:"critical,omitempty"`
+	VerifyAccess bool     `yaml:"verifyAccess,omitempty"`
+	OCSP         []string `yaml:"ocsp,omitempty"`
+	CAIssuers    []string `yaml:"caIssuers,omitempty"`
 }
