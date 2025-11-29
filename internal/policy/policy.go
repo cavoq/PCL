@@ -64,6 +64,7 @@ type BasicConstraintsExtension struct {
 }
 
 type ExtendedKeyUsageExtension struct {
+	Critical   bool `yaml:"critical,omitempty"`
 	ServerAuth bool `yaml:"serverAuth,omitempty"`
 	ClientAuth bool `yaml:"clientAuth,omitempty"`
 }

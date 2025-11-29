@@ -11,6 +11,7 @@ import (
 var (
 	oidExtensionKeyUsage         = asn1.ObjectIdentifier{2, 5, 29, 15}
 	oidExtensionBasicConstraints = asn1.ObjectIdentifier{2, 5, 29, 19}
+	oidExtensionExtendedKeyUsage = asn1.ObjectIdentifier{2, 5, 29, 37}
 )
 
 type UsageCheck[T any] struct {
@@ -128,6 +129,14 @@ func (l *Linter) LintExtendedKeyUsage() {
 	} else {
 		l.Result.Add("crypto.extended_key_usage", StatusFail,
 			fmt.Sprintf("missing required extended key usages: %v", missing))
+	}
+
+	if pol.Critical {
+		if isCritical(cert.Extensions, oidExtensionExtendedKeyUsage) {
+			l.Result.Add("crypto.extended_key_usage.critical", StatusPass, "ExtendedKeyUsage extension is critical")
+		} else {
+			l.Result.Add("crypto.extended_key_usage.critical", StatusFail, "ExtendedKeyUsage extension is NOT critical")
+		}
 	}
 }
 
