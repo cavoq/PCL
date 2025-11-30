@@ -7,6 +7,15 @@ import (
 	"github.com/cavoq/RCV/internal/linter"
 )
 
+type CliReporter struct{}
+
+func (c CliReporter) Report(r *linter.Result) (string, error) {
+	if r == nil {
+		return "\033[31mERROR: no result\033[0m", nil
+	}
+	return FormatResult(r), nil
+}
+
 const (
 	reset  = "\033[0m"
 	red    = "\033[31m"

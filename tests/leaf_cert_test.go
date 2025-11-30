@@ -46,5 +46,9 @@ func TestLintLeafCertificate(t *testing.T) {
 		t.Fatalf("Linting failed: %v", err)
 	}
 
-	t.Log(report.FormatResult(result))
+	reportStr, err := report.JsonReporter{}.Report(result)
+	if err != nil {
+		t.Fatalf("Failed to generate report: %v", err)
+	}
+	t.Log(reportStr)
 }
