@@ -17,7 +17,7 @@ type Linter struct {
 }
 
 func FromCert(certPath string, pol *policy.Policy) (*Linter, error) {
-	cert, err := utils.LoadCertificate(certPath)
+	cert, err := utils.GetCertificate(certPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load certificate: %w", err)
 	}
