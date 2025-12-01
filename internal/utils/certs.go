@@ -26,6 +26,32 @@ func GetCertificate(path string) (*x509.Certificate, error) {
 	return cert, nil
 }
 
+func CollectPaths(path string) ([]string, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to access path %s: %w", path, err)
+	}
+
+	if info.IsDir() {
+		var files []string
+		err := filepath.Walk(path, func(p string, fi os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			if !fi.IsDir() {
+				files = append(files, p)
+			}
+			return nil
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to read directory %s: %w", path, err)
+		}
+		return files, nil
+	}
+
+	return []string{path}, nil
+}
+
 func GetCertFiles(path string) ([]string, error) {
 	info, err := os.Stat(path)
 	if err != nil {
