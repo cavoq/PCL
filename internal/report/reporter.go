@@ -5,5 +5,14 @@ import (
 )
 
 type Reporter interface {
-	FormatResult(r *linter.Result) string
+	Report(r *linter.Result) (string, error)
+}
+
+func SelectReporter(fmt string) Reporter {
+	switch fmt {
+	case "json":
+		return JsonReporter{}
+	default:
+		return CliReporter{}
+	}
 }
