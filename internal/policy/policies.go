@@ -8,7 +8,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func LoadPolicy(path string) (*Policy, error) {
+func GetPolicy(path string) (*Policy, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("read %s: %w", path, err)
@@ -21,7 +21,7 @@ func LoadPolicy(path string) (*Policy, error) {
 	return &pol, nil
 }
 
-func LoadPolicies(dir string) (map[string]*Policy, error) {
+func GetPolicies(dir string) (map[string]*Policy, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, err
@@ -33,7 +33,7 @@ func LoadPolicies(dir string) (map[string]*Policy, error) {
 			continue
 		}
 		path := filepath.Join(dir, entry.Name())
-		pol, err := LoadPolicy(path)
+		pol, err := GetPolicy(path)
 		if err != nil {
 			return nil, err
 		}

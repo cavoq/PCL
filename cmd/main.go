@@ -31,7 +31,7 @@ func RunLinter(opts InputOptions) error {
 	}
 
 	for _, polFile := range policyFiles {
-		pol, err := policy.LoadPolicy(polFile)
+		pol, err := policy.GetPolicy(polFile)
 		if err != nil {
 			return fmt.Errorf("failed to load policy %s: %w", polFile, err)
 		}
