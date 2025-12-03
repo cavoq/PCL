@@ -2,6 +2,7 @@ package policy
 
 type Policy struct {
 	Name        string        `yaml:"name,omitempty"`
+	CertOrder   *int          `yaml:"cert_order,omitempty"`
 	Description string        `yaml:"description,omitempty"`
 	Validity    *ValidityRule `yaml:"validity,omitempty"`
 	Subject     *NameRule     `yaml:"subject,omitempty"`
