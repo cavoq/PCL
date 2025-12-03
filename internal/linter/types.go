@@ -1,6 +1,8 @@
 package linter
 
-import "time"
+import (
+	"time"
+)
 
 type Finding struct {
 	ID      string
@@ -17,14 +19,14 @@ const (
 	StatusInfo Status = "INFO"
 )
 
-type Result struct {
+type LintResult struct {
 	CertFile  string
 	Findings  []Finding
 	Valid     bool
 	CheckedAt time.Time
 }
 
-func (r *Result) Add(id string, status Status, msg string) {
+func (r *LintResult) Add(id string, status Status, msg string) {
 	r.Findings = append(r.Findings, Finding{
 		ID:      id,
 		Status:  status,

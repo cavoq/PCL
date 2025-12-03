@@ -4,9 +4,9 @@ import (
 	"fmt"
 )
 
-func (l *Linter) LintSignatureAlgorithm() {
-	cert := l.Cert
-	rule := l.Policy.Crypto
+func LintSignatureAlgorithm(job *LintJob) {
+	cert := job.Cert
+	rule := job.Policy.Crypto
 
 	if rule == nil || rule.SignatureAlgorithm == nil || len(rule.SignatureAlgorithm.AllowedAlgorithms) == 0 {
 		return
@@ -25,21 +25,21 @@ func (l *Linter) LintSignatureAlgorithm() {
 		message = fmt.Sprintf("signature algorithm not allowed - %s", actual)
 	}
 
-	l.Result.Add("crypto.signature_algorithm", status, message)
+	job.Result.Add("crypto.signature_algorithm", status, message)
 }
 
-func (l *Linter) LintSignatureValidity() {
-	cert := l.Cert
+func LintSignatureValidity(job *LintJob) {
+	cert := job.Cert
 
 	err := cert.CheckSignature(cert.SignatureAlgorithm, cert.RawTBSCertificate, cert.Signature)
 	if err != nil {
-		l.Result.Add(
+		job.Result.Add(
 			"crypto.signature_valid",
 			StatusFail,
 			fmt.Sprintf("certificate signature is invalid: %v", err),
 		)
 	} else {
-		l.Result.Add(
+		job.Result.Add(
 			"crypto.signature_valid",
 			StatusPass,
 			"certificate signature is cryptographically valid",

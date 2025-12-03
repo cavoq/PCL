@@ -9,7 +9,7 @@ import (
 
 type CliReporter struct{}
 
-func (c CliReporter) Report(r *linter.Result) (string, error) {
+func (c CliReporter) Report(r *linter.LintResult) (string, error) {
 	if r == nil {
 		return "\033[31mERROR: no result\033[0m", nil
 	}
@@ -29,7 +29,7 @@ func colorize(s, color string) string {
 	return color + s + reset
 }
 
-func FormatResult(r *linter.Result) string {
+func FormatResult(r *linter.LintResult) string {
 	if r == nil {
 		return colorize("ERROR: no result", red)
 	}

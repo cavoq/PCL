@@ -5,7 +5,7 @@ import (
 )
 
 type Reporter interface {
-	Report(r *linter.Result) (string, error)
+	Report(r *linter.LintResult) (string, error)
 }
 
 func SelectReporter(fmt string) Reporter {

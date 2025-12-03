@@ -25,10 +25,12 @@ func RunLinter(opts InputOptions) error {
 		return fmt.Errorf("failed to collect policy files: %w", err)
 	}
 
-	certFiles, err := utils.GetCertificates(opts.CertPath)
+	certs, err := utils.GetCertificates(opts.CertPath)
 	if err != nil {
 		return fmt.Errorf("failed to collect certificates: %w", err)
 	}
+
+	var jobs []*linter.LintJob
 
 	for _, polFile := range policyFiles {
 		pol, err := policy.GetPolicy(polFile)
@@ -36,21 +38,22 @@ func RunLinter(opts InputOptions) error {
 			return fmt.Errorf("failed to load policy %s: %w", polFile, err)
 		}
 
-		for _, certFile := range certFiles {
-			l := linter.NewLinter(certFile, pol)
-
-			result, err := l.LintAll()
-			if err != nil {
-				return fmt.Errorf("lint failed for cert %v: %w", certFile, err)
-			}
-
-			output, err := reporter.Report(result)
-			if err != nil {
-				return fmt.Errorf("failed to format result for cert %v: %w", certFile, err)
-			}
-
-			fmt.Println(output)
+		for _, cert := range certs {
+			job := linter.NewLintJob(cert, pol)
+			jobs = append(jobs, job)
 		}
+	}
+
+	l := &linter.Linter{Jobs: jobs}
+
+	l.Execute()
+
+	for _, job := range l.Jobs {
+		output, err := reporter.Report(job.Result)
+		if err != nil {
+			return fmt.Errorf("failed to format result for cert %v: %w", job.Result.CertFile, err)
+		}
+		fmt.Println(output)
 	}
 
 	return nil

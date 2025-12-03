@@ -8,24 +8,24 @@ import (
 	"github.com/cavoq/RCV/internal/utils"
 )
 
-func (l *Linter) LintNameRules() {
-	cert := l.Cert
-	if l.Policy == nil {
+func LintNameRules(job *LintJob) {
+	cert := job.Cert
+	if job.Policy == nil {
 		return
 	}
 
-	if l.Policy.Issuer != nil {
+	if job.Policy.Issuer != nil {
 		issuerNames := utils.GetIssuerNames(cert)
-		l.LintNoWildcards(l.Policy.Issuer, issuerNames, "issuer")
+		LintNoWildcards(job, job.Policy.Issuer, issuerNames, "issuer")
 	}
 
-	if l.Policy.Subject != nil {
+	if job.Policy.Subject != nil {
 		subjectNames := utils.GetSubjectNames(cert)
-		l.LintNoWildcards(l.Policy.Subject, subjectNames, "subject")
+		LintNoWildcards(job, job.Policy.Subject, subjectNames, "subject")
 	}
 }
 
-func (l *Linter) LintNoWildcards(rule *policy.NameRule, names []string, field string) {
+func LintNoWildcards(job *LintJob, rule *policy.NameRule, names []string, field string) {
 	if rule == nil {
 		return
 	}
@@ -46,6 +46,6 @@ func (l *Linter) LintNoWildcards(rule *policy.NameRule, names []string, field st
 			msg = "wildcards are forbidden but found in name(s)"
 		}
 
-		l.Result.Add(fmt.Sprintf("%s.no_wildcards", field), status, msg)
+		job.Result.Add(fmt.Sprintf("%s.no_wildcards", field), status, msg)
 	}
 }

@@ -8,7 +8,7 @@ import (
 
 type JsonReporter struct{}
 
-func (j JsonReporter) Report(r *linter.Result) (string, error) {
+func (j JsonReporter) Report(r *linter.LintResult) (string, error) {
 	if r == nil {
 		return `{"error": "no result"}`, nil
 	}
