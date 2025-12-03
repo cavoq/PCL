@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 
 	"gopkg.in/yaml.v3"
 )
@@ -21,24 +22,61 @@ func GetPolicy(path string) (*Policy, error) {
 	return &pol, nil
 }
 
-func GetPolicies(dir string) (map[string]*Policy, error) {
-	entries, err := os.ReadDir(dir)
+func GetPolicyChain(path string) (*PolicyChain, error) {
+	info, err := os.Stat(path)
 	if err != nil {
 		return nil, err
 	}
 
-	policies := make(map[string]*Policy)
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
+	chain := &PolicyChain{
+		Name: filepath.Base(path),
+	}
+
+	if info.IsDir() {
+		entries, err := os.ReadDir(path)
+		if err != nil {
+			return nil, err
 		}
-		path := filepath.Join(dir, entry.Name())
+
+		for _, entry := range entries {
+			if entry.IsDir() {
+				continue
+			}
+			polPath := filepath.Join(path, entry.Name())
+			pol, err := GetPolicy(polPath)
+			if err != nil {
+				return nil, err
+			}
+			chain.Policies = append(chain.Policies, pol)
+		}
+
+		OrderPolicies(chain.Policies)
+
+	} else {
 		pol, err := GetPolicy(path)
 		if err != nil {
 			return nil, err
 		}
-		policies[entry.Name()] = pol
+		chain.Policies = []*Policy{pol}
 	}
 
-	return policies, nil
+	return chain, nil
+}
+
+func OrderPolicies(policies []*Policy) {
+	slices.SortFunc(policies, func(a, b *Policy) int {
+		var aOrder, bOrder int
+		if a.CertOrder != nil {
+			aOrder = *a.CertOrder
+		} else {
+			aOrder = 1000
+		}
+		if b.CertOrder != nil {
+			bOrder = *b.CertOrder
+		} else {
+			bOrder = 1000
+		}
+
+		return aOrder - bOrder
+	})
 }

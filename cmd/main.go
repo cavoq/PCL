@@ -20,32 +20,31 @@ type InputOptions struct {
 func RunLinter(opts InputOptions) error {
 	reporter := report.SelectReporter(opts.OutputFmt)
 
-	policyFiles, err := utils.CollectPaths(opts.PolicyPath)
-	if err != nil {
-		return fmt.Errorf("failed to collect policy files: %w", err)
-	}
-
 	certs, err := utils.GetCertificates(opts.CertPath)
 	if err != nil {
 		return fmt.Errorf("failed to collect certificates: %w", err)
 	}
 
+	policyChain, err := policy.GetPolicyChain(opts.PolicyPath)
+	if err != nil {
+		return fmt.Errorf("failed to load policy chain: %w", err)
+	}
+
 	var jobs []*linter.LintJob
+	for i, cert := range certs {
+		var pol *policy.Policy
 
-	for _, polFile := range policyFiles {
-		pol, err := policy.GetPolicy(polFile)
-		if err != nil {
-			return fmt.Errorf("failed to load policy %s: %w", polFile, err)
+		if i < len(policyChain.Policies) {
+			pol = policyChain.Policies[i]
+		} else {
+			pol = policyChain.Policies[len(policyChain.Policies)-1]
 		}
 
-		for _, cert := range certs {
-			job := linter.NewLintJob(cert, pol)
-			jobs = append(jobs, job)
-		}
+		job := linter.NewLintJob(cert, pol)
+		jobs = append(jobs, job)
 	}
 
 	l := &linter.Linter{Jobs: jobs}
-
 	l.Execute()
 
 	for _, job := range l.Jobs {

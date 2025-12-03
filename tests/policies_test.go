@@ -43,29 +43,3 @@ func TestGetPolicy(t *testing.T) {
 		t.Errorf("expected Name %q, got %q", expected.Name, pol.Name)
 	}
 }
-
-func TestGetPolicies(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	p1 := samplePolicy("policy1")
-	p2 := samplePolicy("policy2")
-
-	writeTempPolicy(t, tmpDir, "p1.yaml", p1)
-	writeTempPolicy(t, tmpDir, "p2.yaml", p2)
-
-	policies, err := policy.GetPolicies(tmpDir)
-	if err != nil {
-		t.Fatalf("GetPolicies failed: %v", err)
-	}
-
-	if len(policies) != 2 {
-		t.Fatalf("expected 2 policies, got %d", len(policies))
-	}
-
-	if policies["p1.yaml"].Name != "policy1" {
-		t.Errorf("expected p1.yaml Name=policy1, got %s", policies["p1.yaml"].Name)
-	}
-	if policies["p2.yaml"].Name != "policy2" {
-		t.Errorf("expected p2.yaml Name=policy2, got %s", policies["p2.yaml"].Name)
-	}
-}

@@ -1,5 +1,10 @@
 package policy
 
+type PolicyChain struct {
+	Name     string
+	Policies []*Policy
+}
+
 type Policy struct {
 	Name        string        `yaml:"name,omitempty"`
 	CertOrder   *int          `yaml:"cert_order,omitempty"`
