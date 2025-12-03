@@ -18,8 +18,6 @@ type InputOptions struct {
 }
 
 func RunLinter(opts InputOptions) error {
-	reporter := report.SelectReporter(opts.OutputFmt)
-
 	certs, err := utils.GetCertificates(opts.CertPath)
 	if err != nil {
 		return fmt.Errorf("failed to collect certificates: %w", err)
@@ -30,29 +28,13 @@ func RunLinter(opts InputOptions) error {
 		return fmt.Errorf("failed to load policy chain: %w", err)
 	}
 
-	var jobs []*linter.LintJob
-	for i, cert := range certs {
-		var pol *policy.Policy
-
-		if i < len(policyChain.Policies) {
-			pol = policyChain.Policies[i]
-		} else {
-			pol = policyChain.Policies[len(policyChain.Policies)-1]
-		}
-
-		job := linter.NewLintJob(cert, pol)
-		jobs = append(jobs, job)
-	}
-
-	l := &linter.Linter{Jobs: jobs}
+	l := &linter.Linter{}
+	l.CreateJobs(certs, policyChain)
 	l.Execute()
 
-	for _, job := range l.Jobs {
-		output, err := reporter.Report(job.Result)
-		if err != nil {
-			return fmt.Errorf("failed to format result for cert %v: %w", job.Result.CertFile, err)
-		}
-		fmt.Println(output)
+	reporter := report.SelectReporter(opts.OutputFmt)
+	if err := report.ReportAll(reporter, l.Jobs); err != nil {
+		return err
 	}
 
 	return nil

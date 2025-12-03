@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/cavoq/RCV/internal/policy"
-	"github.com/cavoq/RCV/internal/utils"
 )
 
 type LintJob struct {
@@ -20,18 +19,28 @@ type Linter struct {
 	Jobs []*LintJob
 }
 
+func (l *Linter) CreateJobs(certs []*x509.Certificate, chain *policy.PolicyChain) {
+	var jobs []*LintJob
+
+	for i, cert := range certs {
+		var pol *policy.Policy
+		if i < len(chain.Policies) {
+			pol = chain.Policies[i]
+		} else {
+			pol = chain.Policies[len(chain.Policies)-1]
+		}
+
+		job := NewLintJob(cert, pol)
+		jobs = append(jobs, job)
+	}
+
+	l.Jobs = jobs
+}
+
 func (l *Linter) Execute() {
 	for _, job := range l.Jobs {
 		LintAll(job)
 	}
-}
-
-func FromCert(certPath string, pol *policy.Policy) (*LintJob, error) {
-	cert, err := utils.GetCertificate(certPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load certificate: %w", err)
-	}
-	return NewLintJob(cert, pol), nil
 }
 
 func NewLintJob(cert *x509.Certificate, pol *policy.Policy) *LintJob {
@@ -56,10 +65,4 @@ func LintAll(job *LintJob) {
 	LintKeyUsage(job)
 	LintExtendedKeyUsage(job)
 	LintBasicConstraints(job)
-}
-
-func LintSingle(cert *x509.Certificate, pol *policy.Policy) *LintResult {
-	job := NewLintJob(cert, pol)
-	LintAll(job)
-	return job.Result
 }
