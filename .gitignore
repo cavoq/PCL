@@ -1,6 +1,51 @@
+# Binaries
+pcl
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+coverage.html
+
+# Go workspace file
+go.work
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Certificate files (sensitive)
 *.key
-*.csr
 *.key.pem
+*.csr
 *.csr.pem
 *.srl
+*.p12
+*.pfx
+
+# CA index files
 index.txt
+index.txt.attr
+index.txt.old
+serial
+serial.old
+
+# Build artifacts
+dist/
+bin/
+
+# Debug
+__debug_bin*
