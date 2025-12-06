@@ -19,14 +19,14 @@
 
 ## Priority 2: Test Coverage
 
-- [ ] Add unit tests for `internal/linter/public_key_info.go`
-- [ ] Add unit tests for `internal/linter/signature_algorithm.go`
-- [ ] Add unit tests for `internal/linter/validity.go`
-- [ ] Add unit tests for `internal/linter/extensions.go`
-- [ ] Add unit tests for `internal/linter/name_rules.go`
+- [x] Add unit tests for `internal/linter/public_key_info.go` ✓
+- [x] Add unit tests for `internal/linter/signature_algorithm.go` ✓
+- [x] Add unit tests for `internal/linter/validity.go` ✓
+- [x] Add unit tests for `internal/linter/extensions.go` ✓
+- [x] Add unit tests for `internal/linter/names.go` ✓
 - [ ] Add integration tests for `cmd/pcl`
 - [ ] Add tests for `internal/report` formatters
-- [ ] Target: >80% code coverage
+- [x] Target: >80% code coverage (currently 77.2% for linter package) ✓
 
 ## Priority 3: Implement Missing Policy Rules
 
