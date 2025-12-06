@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/cavoq/PCL/internal/policy"
 	"github.com/invopop/jsonschema"
+
+	"github.com/cavoq/PCL/internal/policy"
 )
 
 func main() {

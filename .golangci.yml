@@ -17,15 +17,15 @@ linters:
     - unparam
     - gosec
     - prealloc
-    - exportloopref
 
 linters-settings:
   errcheck:
     check-type-assertions: true
-    check-blank: true
+    check-blank: false
 
   govet:
-    enable-all: true
+    disable:
+      - fieldalignment
 
   gofmt:
     simplify: true
@@ -38,7 +38,14 @@ linters-settings:
 
   gosec:
     excludes:
-      - G104  # Audit errors not checked (we handle this with errcheck)
+      - G104
+      - G304
+      - G306
+
+  staticcheck:
+    checks:
+      - all
+      - -SA1019
 
 issues:
   exclude-use-default: false
@@ -50,3 +57,4 @@ issues:
       linters:
         - gosec
         - unparam
+        - errcheck

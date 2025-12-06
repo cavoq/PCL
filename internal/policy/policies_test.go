@@ -116,7 +116,7 @@ func TestOrderPolicies_DefaultOrder(t *testing.T) {
 	order0 := 0
 
 	policies := []*Policy{
-		{Name: "no-order"},         // Should use DefaultCertOrder (1000)
+		{Name: "no-order"}, // Should use DefaultCertOrder (1000)
 		{Name: "leaf", CertOrder: &order0},
 	}
 

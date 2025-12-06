@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/spf13/cobra"
+
 	"github.com/cavoq/PCL/internal/linter"
 	"github.com/cavoq/PCL/internal/policy"
 	"github.com/cavoq/PCL/internal/report"
 	"github.com/cavoq/PCL/internal/utils"
-	"github.com/spf13/cobra"
 )
 
 type InputOptions struct {
