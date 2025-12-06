@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 )
 
 func GetCertificate(path string) (*x509.Certificate, error) {
@@ -28,22 +29,72 @@ func GetCertificate(path string) (*x509.Certificate, error) {
 
 func GetCertificates(path string) ([]*x509.Certificate, error) {
 	certFiles, err := GetCertFiles(path)
-
 	if err != nil {
 		return nil, err
 	}
 
 	certs := []*x509.Certificate{}
-
 	for _, f := range certFiles {
 		c, err := GetCertificate(f)
 		if err != nil {
-			return nil, fmt.Errorf("failed to load certificate %s: %w", f, err)
+			continue
 		}
 		certs = append(certs, c)
 	}
 
-	return certs, nil
+	if len(certs) == 0 {
+		return nil, fmt.Errorf("no valid certificates found in %s", path)
+	}
+
+	return FindLongestChain(certs)
+}
+
+func FindLongestChain(certs []*x509.Certificate) ([]*x509.Certificate, error) {
+	if len(certs) == 0 {
+		return nil, fmt.Errorf("no certificates provided")
+	}
+
+	subjectMap := make(map[string]*x509.Certificate)
+
+	for _, c := range certs {
+		subjectMap[c.Subject.String()] = c
+	}
+
+	var longestChain []*x509.Certificate
+
+	for _, leaf := range certs {
+		chain := []*x509.Certificate{leaf}
+		current := leaf
+
+		for {
+			if current.Subject.String() == current.Issuer.String() {
+				break
+			}
+
+			issuer := subjectMap[current.Issuer.String()]
+			if issuer == nil {
+				break
+			}
+
+			alreadyInChain := slices.Contains(chain, issuer)
+			if alreadyInChain {
+				break
+			}
+
+			chain = append(chain, issuer)
+			current = issuer
+		}
+
+		if len(chain) > len(longestChain) {
+			longestChain = chain
+		}
+	}
+
+	if len(longestChain) == 0 {
+		return nil, fmt.Errorf("could not find any valid certificate chain")
+	}
+
+	return longestChain, nil
 }
 
 func GetCertFiles(path string) ([]string, error) {
