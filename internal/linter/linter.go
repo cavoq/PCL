@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/cavoq/RCV/internal/policy"
+	"github.com/cavoq/PCL/internal/policy"
 )
 
 type LintJob struct {

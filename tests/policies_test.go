@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/cavoq/RCV/internal/policy"
+	"github.com/cavoq/PCL/internal/policy"
 	"gopkg.in/yaml.v3"
 )
 

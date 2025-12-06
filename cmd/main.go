@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/cavoq/RCV/internal/linter"
-	"github.com/cavoq/RCV/internal/policy"
-	"github.com/cavoq/RCV/internal/report"
-	"github.com/cavoq/RCV/internal/utils"
+	"github.com/cavoq/PCL/internal/linter"
+	"github.com/cavoq/PCL/internal/policy"
+	"github.com/cavoq/PCL/internal/report"
+	"github.com/cavoq/PCL/internal/utils"
 	"github.com/spf13/cobra"
 )
 

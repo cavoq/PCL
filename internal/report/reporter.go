@@ -3,7 +3,7 @@ package report
 import (
 	"fmt"
 
-	"github.com/cavoq/RCV/internal/linter"
+	"github.com/cavoq/PCL/internal/linter"
 )
 
 type Reporter interface {

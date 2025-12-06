@@ -3,7 +3,7 @@ package report
 import (
 	"encoding/json"
 
-	"github.com/cavoq/RCV/internal/linter"
+	"github.com/cavoq/PCL/internal/linter"
 )
 
 type JsonReporter struct{}

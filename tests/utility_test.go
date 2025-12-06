@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/cavoq/RCV/internal/utils"
+	"github.com/cavoq/PCL/internal/utils"
 )
 
 func testCertDir(t *testing.T) string {

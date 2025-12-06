@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/cavoq/RCV/internal/linter"
+	"github.com/cavoq/PCL/internal/linter"
 )
 
 type CliReporter struct{}

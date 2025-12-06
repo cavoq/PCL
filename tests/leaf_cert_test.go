@@ -7,9 +7,9 @@ import (
 	"os"
 	"testing"
 
-	"github.com/cavoq/RCV/internal/linter"
-	"github.com/cavoq/RCV/internal/policy"
-	"github.com/cavoq/RCV/internal/report"
+	"github.com/cavoq/PCL/internal/linter"
+	"github.com/cavoq/PCL/internal/policy"
+	"github.com/cavoq/PCL/internal/report"
 
 	"gopkg.in/yaml.v3"
 )

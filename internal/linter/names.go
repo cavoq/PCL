@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/cavoq/RCV/internal/policy"
-	"github.com/cavoq/RCV/internal/utils"
+	"github.com/cavoq/PCL/internal/policy"
+	"github.com/cavoq/PCL/internal/utils"
 )
 
 func LintNameRules(job *LintJob) {
