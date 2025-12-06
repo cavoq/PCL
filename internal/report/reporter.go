@@ -10,8 +10,8 @@ type Reporter interface {
 	Report(r *linter.LintResult) (string, error)
 }
 
-func SelectReporter(fmt string) Reporter {
-	switch fmt {
+func SelectReporter(format string) Reporter {
+	switch format {
 	case "json":
 		return JsonReporter{}
 	default:

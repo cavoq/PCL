@@ -1,6 +1,7 @@
 package linter
 
 import (
+	"fmt"
 	"time"
 )
 
@@ -34,5 +35,21 @@ func (r *LintResult) Add(id string, status Status, msg string) {
 	})
 	if status == StatusFail {
 		r.Valid = false
+	}
+}
+
+func (r *LintResult) AddCheck(id string, pass bool, passMsg, failMsg string) {
+	if pass {
+		r.Add(id, StatusPass, passMsg)
+	} else {
+		r.Add(id, StatusFail, failMsg)
+	}
+}
+
+func (r *LintResult) AddRequirementCheck(id string, missing, present []string, requirement string) {
+	if len(missing) == 0 {
+		r.Add(id, StatusPass, fmt.Sprintf("required %s present: %v", requirement, present))
+	} else {
+		r.Add(id, StatusFail, fmt.Sprintf("missing required %s: %v", requirement, missing))
 	}
 }

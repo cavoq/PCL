@@ -72,6 +72,16 @@ func isCritical(exts []pkix.Extension, oid asn1.ObjectIdentifier) bool {
 	return false
 }
 
+func (job *LintJob) addCriticalCheck(id, extName string, oid asn1.ObjectIdentifier) {
+	critical := isCritical(job.Cert.Extensions, oid)
+	job.Result.AddCheck(
+		id,
+		critical,
+		extName+" extension is critical",
+		extName+" extension is NOT critical",
+	)
+}
+
 func LintKeyUsage(job *LintJob) {
 	cert := job.Cert
 	rule := job.Policy.Extensions
@@ -88,18 +98,10 @@ func LintKeyUsage(job *LintJob) {
 	}
 
 	missing, present := checkBitmaskFlags(cert.KeyUsage, checks)
-	if len(missing) == 0 {
-		job.Result.Add("crypto.key_usage", StatusPass, fmt.Sprintf("required key usages present: %v", present))
-	} else {
-		job.Result.Add("crypto.key_usage", StatusFail, fmt.Sprintf("missing required key usages: %v", missing))
-	}
+	job.Result.AddRequirementCheck("crypto.key_usage", missing, present, "key usages")
 
 	if pol.Critical {
-		if isCritical(cert.Extensions, oidExtensionKeyUsage) {
-			job.Result.Add("crypto.key_usage.critical", StatusPass, "KeyUsage extension is critical")
-		} else {
-			job.Result.Add("crypto.key_usage.critical", StatusFail, "KeyUsage extension is NOT critical")
-		}
+		job.addCriticalCheck("crypto.key_usage.critical", "KeyUsage", oidExtensionKeyUsage)
 	}
 }
 
@@ -117,20 +119,10 @@ func LintExtendedKeyUsage(job *LintJob) {
 	}
 
 	missing, present := checkSliceFlags(cert.ExtKeyUsage, checks)
-	if len(missing) == 0 {
-		job.Result.Add("crypto.extended_key_usage", StatusPass,
-			fmt.Sprintf("required extended key usages present: %v", present))
-	} else {
-		job.Result.Add("crypto.extended_key_usage", StatusFail,
-			fmt.Sprintf("missing required extended key usages: %v", missing))
-	}
+	job.Result.AddRequirementCheck("crypto.extended_key_usage", missing, present, "extended key usages")
 
 	if pol.Critical {
-		if isCritical(cert.Extensions, oidExtensionExtendedKeyUsage) {
-			job.Result.Add("crypto.extended_key_usage.critical", StatusPass, "ExtendedKeyUsage extension is critical")
-		} else {
-			job.Result.Add("crypto.extended_key_usage.critical", StatusFail, "ExtendedKeyUsage extension is NOT critical")
-		}
+		job.addCriticalCheck("crypto.extended_key_usage.critical", "ExtendedKeyUsage", oidExtensionExtendedKeyUsage)
 	}
 }
 
@@ -162,23 +154,20 @@ func LintBasicConstraints(job *LintJob) {
 			actualPathLen = 0
 		}
 
-		if actualPathLen == -1 {
+		switch actualPathLen {
+		case -1:
 			job.Result.Add("crypto.basic_constraints.path_len", StatusFail,
 				fmt.Sprintf("certificate missing pathLenConstraint, but policy requires %d", expected))
-		} else if actualPathLen == expected {
+		case expected:
 			job.Result.Add("crypto.basic_constraints.path_len", StatusPass,
 				fmt.Sprintf("pathLenConstraint matches required value: %d", expected))
-		} else {
+		default:
 			job.Result.Add("crypto.basic_constraints.path_len", StatusFail,
 				fmt.Sprintf("pathLenConstraint mismatch: expected %d, got %d", expected, actualPathLen))
 		}
 	}
 
 	if pol.Critical {
-		if isCritical(cert.Extensions, oidExtensionBasicConstraints) {
-			job.Result.Add("crypto.basic_constraints.critical", StatusPass, "BasicConstraints extension is critical")
-		} else {
-			job.Result.Add("crypto.basic_constraints.critical", StatusFail, "BasicConstraints extension is NOT critical")
-		}
+		job.addCriticalCheck("crypto.basic_constraints.critical", "BasicConstraints", oidExtensionBasicConstraints)
 	}
 }
