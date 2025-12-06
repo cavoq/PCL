@@ -44,14 +44,11 @@ crypto:
       - ECDSA-SHA384
       - ECDSA-SHA512
       
-      # DSA with SHA-2 (valid until 2029)
+      # DSA with SHA-2 (valid until 2029, limited Go support)
       - DSA-SHA256
-      - DSA-SHA384
-      - DSA-SHA512
-      
+
       # EdDSA (modern, recommended)
       - Ed25519
-      - Ed448
 
 subject:
   no_wildcards: true
