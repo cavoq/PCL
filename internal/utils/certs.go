@@ -26,30 +26,24 @@ func GetCertificate(path string) (*x509.Certificate, error) {
 	return cert, nil
 }
 
-func CollectPaths(path string) ([]string, error) {
-	info, err := os.Stat(path)
+func GetCertificates(path string) ([]*x509.Certificate, error) {
+	certFiles, err := GetCertFiles(path)
+
 	if err != nil {
-		return nil, fmt.Errorf("failed to access path %s: %w", path, err)
+		return nil, err
 	}
 
-	if info.IsDir() {
-		var files []string
-		err := filepath.Walk(path, func(p string, fi os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-			if !fi.IsDir() {
-				files = append(files, p)
-			}
-			return nil
-		})
+	certs := []*x509.Certificate{}
+
+	for _, f := range certFiles {
+		c, err := GetCertificate(f)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read directory %s: %w", path, err)
+			return nil, fmt.Errorf("failed to load certificate %s: %w", f, err)
 		}
-		return files, nil
+		certs = append(certs, c)
 	}
 
-	return []string{path}, nil
+	return certs, nil
 }
 
 func GetCertFiles(path string) ([]string, error) {
@@ -85,24 +79,4 @@ func GetCertFiles(path string) ([]string, error) {
 	}
 
 	return files, nil
-}
-
-func GetCertificates(path string) ([]*x509.Certificate, error) {
-	certFiles, err := GetCertFiles(path)
-
-	if err != nil {
-		return nil, err
-	}
-
-	certs := []*x509.Certificate{}
-
-	for _, f := range certFiles {
-		c, err := GetCertificate(f)
-		if err != nil {
-			return nil, fmt.Errorf("failed to load certificate %s: %w", f, err)
-		}
-		certs = append(certs, c)
-	}
-
-	return certs, nil
 }
