@@ -1,6 +1,7 @@
 package linter
 
 import (
+	"crypto/dsa" // #nosec G505 - deprecated but needed for legacy certificate validation
 	"crypto/ecdsa"
 	"crypto/ed25519"
 	"crypto/rsa"
@@ -47,6 +48,22 @@ func LintKeyAlgorithmRule(job *LintJob, algName string, pubKey any, rule *policy
 				fmt.Sprintf("crypto.subject_public_key_info.%s", algName),
 				StatusPass,
 				fmt.Sprintf("RSA key size acceptable: %d bits", key.N.BitLen()),
+			)
+		}
+
+	case *dsa.PublicKey:
+		keySize := key.P.BitLen()
+		if rule.MinSize > 0 && keySize < rule.MinSize {
+			job.Result.Add(
+				fmt.Sprintf("crypto.subject_public_key_info.%s", algName),
+				StatusFail,
+				fmt.Sprintf("DSA key too small: %d bits, min required %d", keySize, rule.MinSize),
+			)
+		} else {
+			job.Result.Add(
+				fmt.Sprintf("crypto.subject_public_key_info.%s", algName),
+				StatusPass,
+				fmt.Sprintf("DSA key size acceptable: %d bits", keySize),
 			)
 		}
 
