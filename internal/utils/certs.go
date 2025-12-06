@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"crypto/sha256"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
@@ -9,6 +10,12 @@ import (
 	"path/filepath"
 	"slices"
 )
+
+type CertInfo struct {
+	Cert     *x509.Certificate
+	FilePath string
+	Hash     string
+}
 
 func GetCertificate(path string) (*x509.Certificate, error) {
 	data, err := os.ReadFile(path)
@@ -28,20 +35,25 @@ func GetCertificate(path string) (*x509.Certificate, error) {
 	return cert, nil
 }
 
-func GetCertificates(path string) ([]*x509.Certificate, error) {
+func GetCertificates(path string) ([]*CertInfo, error) {
 	certFiles, err := GetCertFiles(path)
 	if err != nil {
 		return nil, err
 	}
 
-	certs := []*x509.Certificate{}
+	certs := []*CertInfo{}
 	for _, f := range certFiles {
 		c, err := GetCertificate(f)
 		if err != nil {
 			log.Printf("warning: skipping %s: %v", f, err)
 			continue
 		}
-		certs = append(certs, c)
+		hash := sha256.Sum256(c.Raw)
+		certs = append(certs, &CertInfo{
+			Cert:     c,
+			FilePath: f,
+			Hash:     fmt.Sprintf("%x", hash),
+		})
 	}
 
 	if len(certs) == 0 {
@@ -51,29 +63,29 @@ func GetCertificates(path string) ([]*x509.Certificate, error) {
 	return FindLongestChain(certs)
 }
 
-func FindLongestChain(certs []*x509.Certificate) ([]*x509.Certificate, error) {
+func FindLongestChain(certs []*CertInfo) ([]*CertInfo, error) {
 	if len(certs) == 0 {
 		return nil, fmt.Errorf("no certificates provided")
 	}
 
-	subjectMap := make(map[string]*x509.Certificate)
+	subjectMap := make(map[string]*CertInfo)
 
 	for _, c := range certs {
-		subjectMap[c.Subject.String()] = c
+		subjectMap[c.Cert.Subject.String()] = c
 	}
 
-	var longestChain []*x509.Certificate
+	var longestChain []*CertInfo
 
 	for _, leaf := range certs {
-		chain := []*x509.Certificate{leaf}
+		chain := []*CertInfo{leaf}
 		current := leaf
 
 		for {
-			if current.Subject.String() == current.Issuer.String() {
+			if current.Cert.Subject.String() == current.Cert.Issuer.String() {
 				break
 			}
 
-			issuer := subjectMap[current.Issuer.String()]
+			issuer := subjectMap[current.Cert.Issuer.String()]
 			if issuer == nil {
 				break
 			}

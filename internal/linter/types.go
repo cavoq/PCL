@@ -20,11 +20,36 @@ const (
 	StatusInfo Status = "INFO"
 )
 
+type LintRun struct {
+	CertPath   string
+	PolicyPath string
+	StartedAt  time.Time
+	Results    []*LintResult
+}
+
+func (r *LintRun) Summary() (passed, failed, warnings int) {
+	for _, res := range r.Results {
+		if res.Valid {
+			passed++
+		} else {
+			failed++
+		}
+		for _, f := range res.Findings {
+			if f.Status == StatusWarn {
+				warnings++
+			}
+		}
+	}
+	return
+}
+
 type LintResult struct {
-	CertFile  string
-	Findings  []Finding
-	Valid     bool
-	CheckedAt time.Time
+	FilePath   string
+	Hash       string
+	PolicyName string
+	Findings   []Finding
+	Valid      bool
+	CheckedAt  time.Time
 }
 
 func (r *LintResult) Add(id string, status Status, msg string) {

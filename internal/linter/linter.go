@@ -1,12 +1,11 @@
 package linter
 
 import (
-	"crypto/sha256"
 	"crypto/x509"
-	"fmt"
 	"time"
 
 	"github.com/cavoq/PCL/internal/policy"
+	"github.com/cavoq/PCL/internal/utils"
 )
 
 type LintJob struct {
@@ -18,24 +17,33 @@ type LintJob struct {
 
 type Linter struct {
 	Jobs []*LintJob
+	Run  *LintRun
 }
 
-func (l *Linter) CreateJobs(certs []*x509.Certificate, chain *policy.PolicyChain) {
-	var jobs []*LintJob
-
-	for i, cert := range certs {
-		var pol *policy.Policy
-		if i < len(chain.Policies) {
-			pol = chain.Policies[i]
-		} else {
-			pol = chain.Policies[len(chain.Policies)-1]
-		}
-
-		job := NewLintJob(cert, certs, pol)
-		jobs = append(jobs, job)
+func (l *Linter) CreateJobs(certs []*utils.CertInfo, policyChain *policy.PolicyChain, certPath, policyPath string) {
+	l.Run = &LintRun{
+		CertPath:   certPath,
+		PolicyPath: policyPath,
+		StartedAt:  time.Now().UTC(),
 	}
 
-	l.Jobs = jobs
+	chain := make([]*x509.Certificate, len(certs))
+	for i, c := range certs {
+		chain[i] = c.Cert
+	}
+
+	for i, certInfo := range certs {
+		var pol *policy.Policy
+		if i < len(policyChain.Policies) {
+			pol = policyChain.Policies[i]
+		} else {
+			pol = policyChain.Policies[len(policyChain.Policies)-1]
+		}
+
+		job := NewLintJob(certInfo, chain, pol)
+		l.Jobs = append(l.Jobs, job)
+		l.Run.Results = append(l.Run.Results, job.Result)
+	}
 }
 
 func (l *Linter) Execute() {
@@ -44,16 +52,22 @@ func (l *Linter) Execute() {
 	}
 }
 
-func NewLintJob(cert *x509.Certificate, chain []*x509.Certificate, pol *policy.Policy) *LintJob {
-	hash := sha256.Sum256(cert.Raw)
+func NewLintJob(certInfo *utils.CertInfo, chain []*x509.Certificate, pol *policy.Policy) *LintJob {
+	policyName := ""
+	if pol != nil {
+		policyName = pol.Name
+	}
+
 	return &LintJob{
-		Cert:   cert,
+		Cert:   certInfo.Cert,
 		Chain:  chain,
 		Policy: pol,
 		Result: &LintResult{
-			CertFile:  fmt.Sprintf("%x", hash),
-			Valid:     true,
-			CheckedAt: time.Now().UTC(),
+			FilePath:   certInfo.FilePath,
+			Hash:       certInfo.Hash,
+			PolicyName: policyName,
+			Valid:      true,
+			CheckedAt:  time.Now().UTC(),
 		},
 	}
 }

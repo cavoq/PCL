@@ -8,11 +8,11 @@ import (
 
 type JsonReporter struct{}
 
-func (j JsonReporter) Report(r *linter.LintResult) (string, error) {
-	if r == nil {
-		return `{"error": "no result"}`, nil
+func (j JsonReporter) Report(run *linter.LintRun) (string, error) {
+	if run == nil {
+		return `{"error": "no lint run"}`, nil
 	}
-	data, err := json.MarshalIndent(r, "", "  ")
+	data, err := json.MarshalIndent(run, "", "  ")
 	if err != nil {
 		return "", err
 	}

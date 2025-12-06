@@ -29,11 +29,11 @@ func RunLinter(opts InputOptions) error {
 	}
 
 	l := &linter.Linter{}
-	l.CreateJobs(certs, policyChain)
+	l.CreateJobs(certs, policyChain, opts.CertPath, opts.PolicyPath)
 	l.Execute()
 
 	reporter := report.SelectReporter(opts.OutputFmt)
-	if err := report.ReportAll(reporter, l.Jobs); err != nil {
+	if err := report.ReportLintRun(reporter, l.Run); err != nil {
 		return err
 	}
 

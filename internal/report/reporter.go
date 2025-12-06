@@ -7,7 +7,7 @@ import (
 )
 
 type Reporter interface {
-	Report(r *linter.LintResult) (string, error)
+	Report(run *linter.LintRun) (string, error)
 }
 
 func SelectReporter(format string) Reporter {
@@ -19,13 +19,11 @@ func SelectReporter(format string) Reporter {
 	}
 }
 
-func ReportAll(r Reporter, jobs []*linter.LintJob) error {
-	for _, job := range jobs {
-		output, err := r.Report(job.Result)
-		if err != nil {
-			return fmt.Errorf("failed to format result for cert %v: %w", job.Result.CertFile, err)
-		}
-		fmt.Println(output)
+func ReportLintRun(r Reporter, run *linter.LintRun) error {
+	output, err := r.Report(run)
+	if err != nil {
+		return fmt.Errorf("failed to format lint run: %w", err)
 	}
+	fmt.Println(output)
 	return nil
 }
