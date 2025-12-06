@@ -9,6 +9,15 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+const DefaultCertOrder = 1000
+
+func getCertOrder(order *int) int {
+	if order != nil {
+		return *order
+	}
+	return DefaultCertOrder
+}
+
 func GetPolicy(path string) (*Policy, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -65,18 +74,6 @@ func GetPolicyChain(path string) (*PolicyChain, error) {
 
 func OrderPolicies(policies []*Policy) {
 	slices.SortFunc(policies, func(a, b *Policy) int {
-		var aOrder, bOrder int
-		if a.CertOrder != nil {
-			aOrder = *a.CertOrder
-		} else {
-			aOrder = 1000
-		}
-		if b.CertOrder != nil {
-			bOrder = *b.CertOrder
-		} else {
-			bOrder = 1000
-		}
-
-		return aOrder - bOrder
+		return getCertOrder(a.CertOrder) - getCertOrder(b.CertOrder)
 	})
 }
