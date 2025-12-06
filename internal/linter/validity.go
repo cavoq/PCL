@@ -80,5 +80,9 @@ func LintMaxValidity(job *LintJob, maxDays int, notBefore, notAfter time.Time) {
 }
 
 func daysCeil(d time.Duration) int {
-	return int(d.Hours()/24) + 1
+	days := d.Hours() / 24
+	if days == float64(int(days)) {
+		return int(days)
+	}
+	return int(days) + 1
 }

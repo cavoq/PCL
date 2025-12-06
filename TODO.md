@@ -2,17 +2,17 @@
 
 ## Priority 1: Critical Fixes
 
-- [ ] **Fix nil pointer dereference in public_key_info.go**
+- [x] **Fix nil pointer dereference in public_key_info.go** ✓
   - Location: `internal/linter/public_key_info.go:16`
   - Issue: Accesses `job.Policy.Crypto.SubjectPublicKeyInfo` without checking if `job.Policy.Crypto` is nil
   - Impact: Runtime panic if policy has no crypto section
 
-- [ ] **Fix silent error suppression in certificate loading**
+- [x] **Fix silent error suppression in certificate loading** ✓
   - Location: `internal/utils/certs.go:40`
   - Issue: Bad certificates are silently skipped with `continue`
   - Fix: Log which files failed to load, add strict mode flag
 
-- [ ] **Fix daysCeil calculation bug**
+- [x] **Fix daysCeil calculation bug** ✓
   - Location: `internal/linter/validity.go:83`
   - Issue: `int(d.Hours()/24) + 1` always adds 1, overcounting days
   - Example: 24-hour duration returns 2 days instead of 1

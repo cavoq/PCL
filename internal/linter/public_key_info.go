@@ -13,6 +13,10 @@ import (
 )
 
 func LintSubjectPublicKeyInfo(job *LintJob) {
+	if job.Policy.Crypto == nil {
+		return
+	}
+
 	rule := job.Policy.Crypto.SubjectPublicKeyInfo
 	cert := job.Cert
 

@@ -4,6 +4,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"slices"
@@ -37,6 +38,7 @@ func GetCertificates(path string) ([]*x509.Certificate, error) {
 	for _, f := range certFiles {
 		c, err := GetCertificate(f)
 		if err != nil {
+			log.Printf("warning: skipping %s: %v", f, err)
 			continue
 		}
 		certs = append(certs, c)
