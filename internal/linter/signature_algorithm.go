@@ -1,6 +1,7 @@
 package linter
 
 import (
+	"crypto/x509"
 	"fmt"
 )
 
@@ -30,8 +31,30 @@ func LintSignatureAlgorithm(job *LintJob) {
 
 func LintSignatureValidity(job *LintJob) {
 	cert := job.Cert
+	chain := job.Chain
 
-	err := cert.CheckSignature(cert.SignatureAlgorithm, cert.RawTBSCertificate, cert.Signature)
+	var issuer *x509.Certificate
+	for _, c := range chain {
+		if c.Subject.String() == cert.Issuer.String() {
+			issuer = c
+			break
+		}
+	}
+
+	if issuer == nil {
+		if cert.Subject.String() == cert.Issuer.String() {
+			issuer = cert
+		} else {
+			job.Result.Add(
+				"crypto.signature_valid",
+				StatusFail,
+				"issuer certificate not found in chain",
+			)
+			return
+		}
+	}
+
+	err := issuer.CheckSignature(cert.SignatureAlgorithm, cert.RawTBSCertificate, cert.Signature)
 	if err != nil {
 		job.Result.Add(
 			"crypto.signature_valid",

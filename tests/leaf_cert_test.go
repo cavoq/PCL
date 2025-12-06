@@ -40,7 +40,7 @@ func TestLintLeafCertificate(t *testing.T) {
 		t.Fatalf("Failed to unmarshal policy YAML: %v", err)
 	}
 
-	job := linter.NewLintJob(cert, &pol)
+	job := linter.NewLintJob(cert, nil, &pol)
 	linter.LintAll(job)
 	reportStr, err := report.JsonReporter{}.Report(job.Result)
 	if err != nil {

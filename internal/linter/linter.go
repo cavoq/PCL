@@ -11,6 +11,7 @@ import (
 
 type LintJob struct {
 	Cert   *x509.Certificate
+	Chain  []*x509.Certificate
 	Policy *policy.Policy
 	Result *LintResult
 }
@@ -30,7 +31,7 @@ func (l *Linter) CreateJobs(certs []*x509.Certificate, chain *policy.PolicyChain
 			pol = chain.Policies[len(chain.Policies)-1]
 		}
 
-		job := NewLintJob(cert, pol)
+		job := NewLintJob(cert, certs, pol)
 		jobs = append(jobs, job)
 	}
 
@@ -43,10 +44,11 @@ func (l *Linter) Execute() {
 	}
 }
 
-func NewLintJob(cert *x509.Certificate, pol *policy.Policy) *LintJob {
+func NewLintJob(cert *x509.Certificate, chain []*x509.Certificate, pol *policy.Policy) *LintJob {
 	hash := sha256.Sum256(cert.Raw)
 	return &LintJob{
 		Cert:   cert,
+		Chain:  chain,
 		Policy: pol,
 		Result: &LintResult{
 			CertFile:  fmt.Sprintf("%x", hash),
