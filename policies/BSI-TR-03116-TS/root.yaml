@@ -1,53 +1,30 @@
 name: BSI-TR-03116-TS Root-Policy
 cert_order: 2
-description: >
-  Policy for root TLS certificates according to BSI-TR-03116-TS.
-  Enforces RFC 5280 v3 structure, cryptographic requirements, validity,
-  and extensions for secure PKI compliance.
+description: Root CA certificate policy per BSI TR-03116-4
 
 validity:
   min_days: 365
-  max_days: 2190   # 6 years
+  max_days: 2190  # 6 years
 
 crypto:
   subjectPublicKeyInfo:
     allowed_algorithms:
       RSA:
         min_size: 3072
-      DSA:
-        min_size: 3072
       EC:
         min_size: 256
-        allowed_curves:
-          # NIST curves (valid until 2030+)
-          - P-256
-          - P-384
-          - P-521
-          # Brainpool curves (recommended, valid until 2030+)
-          - brainpoolP256r1
-          - brainpoolP384r1
-          - brainpoolP512r1
+        allowed_curves: [P-256, P-384, P-521, brainpoolP256r1, brainpoolP384r1, brainpoolP512r1]
   signatureAlgorithm:
     allowed_algorithms:
-      # RSA with SHA-2 (PKCS #1 v1.5 - valid until 2025)
       - SHA256-RSA
       - SHA384-RSA
       - SHA512-RSA
-      
-      # RSA-PSS (recommended for longer use)
       - SHA256-RSAPSS
       - SHA384-RSAPSS
       - SHA512-RSAPSS
-      
-      # ECDSA with SHA-2 (valid until 2031+)
       - ECDSA-SHA256
       - ECDSA-SHA384
       - ECDSA-SHA512
-      
-      # DSA with SHA-2 (valid until 2029, limited Go support)
-      - DSA-SHA256
-
-      # EdDSA (modern, recommended)
       - Ed25519
 
 subject:
@@ -62,5 +39,3 @@ extensions:
     critical: true
     keyCertSign: true
     cRLSign: true
-  crlDistributionPoints: {}
-  authorityInfoAccess: {}
