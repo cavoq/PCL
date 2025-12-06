@@ -126,6 +126,29 @@ func LintExtendedKeyUsage(job *LintJob) {
 	}
 }
 
+func getActualPathLen(cert *x509.Certificate) int {
+	if cert.MaxPathLenZero {
+		return 0
+	}
+	return cert.MaxPathLen
+}
+
+func (job *LintJob) validatePathLenConstraint(expected int) {
+	actual := getActualPathLen(job.Cert)
+
+	switch actual {
+	case -1:
+		job.Result.Add("crypto.basic_constraints.path_len", StatusFail,
+			fmt.Sprintf("certificate missing pathLenConstraint, but policy requires %d", expected))
+	case expected:
+		job.Result.Add("crypto.basic_constraints.path_len", StatusPass,
+			fmt.Sprintf("pathLenConstraint matches required value: %d", expected))
+	default:
+		job.Result.Add("crypto.basic_constraints.path_len", StatusFail,
+			fmt.Sprintf("pathLenConstraint mismatch: expected %d, got %d", expected, actual))
+	}
+}
+
 func LintBasicConstraints(job *LintJob) {
 	cert := job.Cert
 	rule := job.Policy.Extensions
@@ -135,36 +158,20 @@ func LintBasicConstraints(job *LintJob) {
 
 	pol := rule.BasicConstraints
 
-	boolChecks := []UsageCheck[bool]{
+	checks := []UsageCheck[bool]{
 		{"isCA", pol.IsCA, true},
 	}
-	missingBool, presentBool := checkBoolean(cert.IsCA, boolChecks)
-	if len(missingBool) == 0 && len(presentBool) > 0 {
+	missing, present := checkBoolean(cert.IsCA, checks)
+	if len(missing) == 0 && len(present) > 0 {
 		job.Result.Add("crypto.basic_constraints.is_ca", StatusPass,
-			fmt.Sprintf("required basicConstraints isCA present: %v", presentBool))
-	} else if len(missingBool) > 0 {
+			fmt.Sprintf("required basicConstraints isCA present: %v", present))
+	} else if len(missing) > 0 {
 		job.Result.Add("crypto.basic_constraints.is_ca", StatusFail,
-			fmt.Sprintf("missing required basicConstraints isCA: %v", missingBool))
+			fmt.Sprintf("missing required basicConstraints isCA: %v", missing))
 	}
 
 	if pol.PathLenConstraint != nil {
-		expected := *pol.PathLenConstraint
-		actualPathLen := cert.MaxPathLen
-		if cert.MaxPathLenZero {
-			actualPathLen = 0
-		}
-
-		switch actualPathLen {
-		case -1:
-			job.Result.Add("crypto.basic_constraints.path_len", StatusFail,
-				fmt.Sprintf("certificate missing pathLenConstraint, but policy requires %d", expected))
-		case expected:
-			job.Result.Add("crypto.basic_constraints.path_len", StatusPass,
-				fmt.Sprintf("pathLenConstraint matches required value: %d", expected))
-		default:
-			job.Result.Add("crypto.basic_constraints.path_len", StatusFail,
-				fmt.Sprintf("pathLenConstraint mismatch: expected %d, got %d", expected, actualPathLen))
-		}
+		job.validatePathLenConstraint(*pol.PathLenConstraint)
 	}
 
 	if pol.Critical {
