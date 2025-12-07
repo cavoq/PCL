@@ -5,41 +5,18 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/cavoq/PCL)](https://goreportcard.com/report/github.com/cavoq/PCL)
 [![License: GPL-3.0](https://img.shields.io/badge/License-GPL%203.0-blue.svg)](LICENSE)
 
-A flexible X.509 certificate linter that validates TLS certificates against configurable YAML-based policies. Ensure compliance with organizational standards, regulatory requirements, or industry best practices.
-
-## ✨ Features
-
-- 📋 **Policy-driven validation** — Define custom rules in YAML
-- 🔗 **Certificate chain support** — Different policies for leaf, intermediate, and root
-- 📊 **Multiple outputs** — Human-readable text or JSON for CI/CD
-- 🔍 **Comprehensive checks** — Algorithms, key sizes, validity, extensions
-- 📁 **Flexible input** — PEM/DER formats, files or directories
+A flexible X.509 certificate linter that validates certificates against configurable YAML-based policies. Ensure compliance with organizational standards, regulatory requirements, or industry best practices.
 
 ## 🚀 Quick Start
 
 ```bash
-# Install
 go install github.com/cavoq/PCL/cmd/pcl@latest
-
-# Run
-pcl --policy policies/BSI-TR-03116-TS --cert /path/to/cert.pem
-```
-
-## 📖 Usage
-
-```
 pcl --policy <path> --cert <path> [--output text|json]
 ```
 
-| Flag | Description |
-|------|-------------|
-| `--policy` | Path to policy YAML file or directory |
-| `--cert` | Path to certificate file or directory (PEM/DER) |
-| `--output` | Output format: `text` (default) or `json` |
-
 ## 📝 Policy Configuration
 
-Policies are YAML files defining validation rules. A JSON schema is available at [`policy-schema.json`](policy-schema.json) for IDE support.
+Policies are YAML files defining validation rules. A JSON schema is available at [`policy-schema.json`](policy-schema.json).
 
 ```yaml
 name: Leaf Certificate Policy
@@ -79,32 +56,16 @@ extensions:
 | Extended Key Usage | serverAuth, clientAuth |
 | Basic Constraints | CA flag, pathLenConstraint |
 
-## 🏛️ Included Policies
+## 🏛️ Supported Policies
 
 ### BSI TR-03116-TS
 
-Implements the German Federal Office for Information Security (BSI) Technical Guideline [TR-03116-4](https://www.bsi.bund.de/EN/Themen/Unternehmen-und-Organisationen/Standards-und-Zertifizierung/Technische-Richtlinien/TR-nach-Thema-sortiert/tr03116/tr-03116.html) for TLS certificates.
-
-| Requirement | Value |
-|-------------|-------|
-| Min RSA key size | 3072 bits |
-| Min EC key size | 256 bits |
-| Allowed curves | P-256, P-384, P-521, brainpoolP* |
-| Signature algorithms | SHA-256+, RSA-PSS, ECDSA, Ed25519 |
+The requirements for TLS certificates used in governmental IT systems in Germany are based on the RFC 5280 standard with additional constraints defined by the BSI technical guideline [TR-03116-4](https://www.bsi.bund.de/EN/Themen/Unternehmen-und-Organisationen/Standards-und-Zertifizierung/Technische-Richtlinien/TR-nach-Thema-sortiert/tr03116/tr-03116.html).
 
 ## 🔧 Development
 
 ```bash
-# Build
 go build -o pcl ./cmd/pcl
-
-# Test
 go test ./...
-
-# Lint
 golangci-lint run ./...
 ```
-
-## 📄 License
-
-[GPL-3.0](LICENSE)
