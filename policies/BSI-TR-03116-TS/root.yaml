@@ -2,6 +2,13 @@ name: BSI-TR-03116-TS Root-Policy
 cert_order: 2
 description: Root CA certificate policy per BSI TR-03116-4
 
+basic_fields:
+  require_v3: true
+  serial_number:
+    require_positive: true
+    max_length: 20
+  reject_unique_identifiers: true
+
 validity:
   min_days: 365
   max_days: 2190  # 6 years

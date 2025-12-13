@@ -73,6 +73,7 @@ func NewLintJob(certInfo *utils.CertInfo, chain []*x509.Certificate, pol *policy
 }
 
 func LintAll(job *LintJob) {
+	LintBasicFields(job)
 	LintValidity(job)
 	LintNameRules(job)
 	LintSignatureAlgorithm(job)

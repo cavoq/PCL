@@ -50,6 +50,24 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "BasicFieldsRule": {
+      "properties": {
+        "require_v3": {
+          "type": "boolean",
+          "description": "Require X.509 v3 certificates (recommended for certificates with extensions)"
+        },
+        "serial_number": {
+          "$ref": "#/$defs/SerialNumberRule",
+          "description": "Serial number requirements per RFC 5280"
+        },
+        "reject_unique_identifiers": {
+          "type": "boolean",
+          "description": "Reject certificates with deprecated unique identifiers (issuerUniqueID/subjectUniqueID)"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "CRLDistributionPointsExtension": {
       "properties": {
         "critical": {
@@ -224,6 +242,10 @@
           "type": "string",
           "description": "Detailed policy description"
         },
+        "basic_fields": {
+          "$ref": "#/$defs/BasicFieldsRule",
+          "description": "RFC 5280 basic certificate field requirements"
+        },
         "validity": {
           "$ref": "#/$defs/ValidityRule",
           "description": "Certificate validity constraints"
@@ -251,6 +273,22 @@
         "name",
         "cert_order"
       ]
+    },
+    "SerialNumberRule": {
+      "properties": {
+        "require_positive": {
+          "type": "boolean",
+          "description": "Serial number must be a positive integer per RFC 5280"
+        },
+        "max_length": {
+          "type": "integer",
+          "maximum": 20,
+          "minimum": 1,
+          "description": "Maximum serial number length in octets (RFC 5280 maximum is 20)"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
     },
     "SignatureAlgorithmRule": {
       "properties": {

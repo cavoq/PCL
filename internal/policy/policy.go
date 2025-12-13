@@ -12,19 +12,41 @@ type PolicyChain struct {
 }
 
 type Policy struct {
-	Name        string        `yaml:"name" json:"name" jsonschema:"required,description=Policy name"`
-	CertOrder   *int          `yaml:"cert_order" json:"cert_order" jsonschema:"required,minimum=0,description=Position in certificate chain (0=leaf 1=intermediate 2=root)"`
-	Description string        `yaml:"description,omitempty" json:"description,omitempty" jsonschema:"description=Detailed policy description"`
-	Validity    *ValidityRule `yaml:"validity,omitempty" json:"validity,omitempty" jsonschema:"description=Certificate validity constraints"`
-	Subject     *NameRule     `yaml:"subject,omitempty" json:"subject,omitempty" jsonschema:"description=Subject name requirements"`
-	Issuer      *NameRule     `yaml:"issuer,omitempty" json:"issuer,omitempty" jsonschema:"description=Issuer name requirements"`
-	Crypto      *CryptoRule   `yaml:"crypto,omitempty" json:"crypto,omitempty" jsonschema:"description=Cryptographic requirements"`
-	Extensions  *Extensions   `yaml:"extensions,omitempty" json:"extensions,omitempty" jsonschema:"description=X.509 extension requirements"`
+	Name        string           `yaml:"name" json:"name" jsonschema:"required,description=Policy name"`
+	CertOrder   *int             `yaml:"cert_order" json:"cert_order" jsonschema:"required,minimum=0,description=Position in certificate chain (0=leaf 1=intermediate 2=root)"`
+	Description string           `yaml:"description,omitempty" json:"description,omitempty" jsonschema:"description=Detailed policy description"`
+	BasicFields *BasicFieldsRule `yaml:"basic_fields,omitempty" json:"basic_fields,omitempty" jsonschema:"description=RFC 5280 basic certificate field requirements"`
+	Validity    *ValidityRule    `yaml:"validity,omitempty" json:"validity,omitempty" jsonschema:"description=Certificate validity constraints"`
+	Subject     *NameRule        `yaml:"subject,omitempty" json:"subject,omitempty" jsonschema:"description=Subject name requirements"`
+	Issuer      *NameRule        `yaml:"issuer,omitempty" json:"issuer,omitempty" jsonschema:"description=Issuer name requirements"`
+	Crypto      *CryptoRule      `yaml:"crypto,omitempty" json:"crypto,omitempty" jsonschema:"description=Cryptographic requirements"`
+	Extensions  *Extensions      `yaml:"extensions,omitempty" json:"extensions,omitempty" jsonschema:"description=X.509 extension requirements"`
 }
 
 type ValidityRule struct {
 	MinDays *int `yaml:"min_days,omitempty" json:"min_days,omitempty" jsonschema:"minimum=1,description=Minimum validity period in days"`
 	MaxDays *int `yaml:"max_days,omitempty" json:"max_days,omitempty" jsonschema:"minimum=1,description=Maximum validity period in days"`
+}
+
+// BasicFieldsRule defines RFC 5280 basic certificate field requirements
+type BasicFieldsRule struct {
+	// Version validation (RFC 5280 Section 4.1.2.1)
+	RequireV3 bool `yaml:"require_v3,omitempty" json:"require_v3,omitempty" jsonschema:"description=Require X.509 v3 certificates (recommended for certificates with extensions)"`
+
+	// Serial number validation (RFC 5280 Section 4.1.2.2)
+	SerialNumber *SerialNumberRule `yaml:"serial_number,omitempty" json:"serial_number,omitempty" jsonschema:"description=Serial number requirements per RFC 5280"`
+
+	// Unique identifiers validation (RFC 5280 Section 4.1.2.8)
+	RejectUniqueIdentifiers bool `yaml:"reject_unique_identifiers,omitempty" json:"reject_unique_identifiers,omitempty" jsonschema:"description=Reject certificates with deprecated unique identifiers (issuerUniqueID/subjectUniqueID)"`
+}
+
+// SerialNumberRule defines serial number validation requirements per RFC 5280 Section 4.1.2.2
+type SerialNumberRule struct {
+	// RequirePositive ensures serial number is a positive integer (RFC 5280 requirement)
+	RequirePositive bool `yaml:"require_positive,omitempty" json:"require_positive,omitempty" jsonschema:"description=Serial number must be a positive integer per RFC 5280"`
+
+	// MaxLength is the maximum length in octets (RFC 5280 limits to 20 octets)
+	MaxLength *int `yaml:"max_length,omitempty" json:"max_length,omitempty" jsonschema:"minimum=1,maximum=20,description=Maximum serial number length in octets (RFC 5280 maximum is 20)"`
 }
 
 type NameRule struct {
