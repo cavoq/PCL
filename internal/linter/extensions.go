@@ -5,7 +5,9 @@ import (
 	"crypto/x509/pkix"
 	"encoding/asn1"
 	"fmt"
+	"regexp"
 	"slices"
+	"strings"
 
 	"github.com/cavoq/PCL/internal/policy"
 )
@@ -172,5 +174,286 @@ func LintBasicConstraints(job *LintJob) {
 
 	if pol.Critical {
 		job.addCriticalCheck("crypto.basic_constraints.critical", "BasicConstraints", policy.OIDBasicConstraints)
+	}
+}
+
+func LintAuthorityKeyID(job *LintJob) {
+	cert := job.Cert
+	rule := job.Policy.Extensions
+	if rule == nil || rule.AuthorityKeyID == nil {
+		return
+	}
+
+	pol := rule.AuthorityKeyID
+
+	if pol.Required {
+		hasAKI := len(cert.AuthorityKeyId) > 0
+		if hasAKI {
+			job.Result.Add("extensions.authority_key_id", StatusPass,
+				fmt.Sprintf("Authority Key Identifier present (%d bytes)", len(cert.AuthorityKeyId)))
+		} else {
+			job.Result.Add("extensions.authority_key_id", StatusFail,
+				"Authority Key Identifier extension is missing (required per RFC 5280 for non-self-signed certificates)")
+		}
+	}
+
+	if pol.Critical {
+		job.addCriticalCheck("extensions.authority_key_id.critical", "AuthorityKeyIdentifier", policy.OIDAKI)
+	}
+}
+
+func LintSubjectKeyID(job *LintJob) {
+	cert := job.Cert
+	rule := job.Policy.Extensions
+	if rule == nil || rule.SubjectKeyID == nil {
+		return
+	}
+
+	pol := rule.SubjectKeyID
+
+	if pol.Required {
+		hasSKI := len(cert.SubjectKeyId) > 0
+		if hasSKI {
+			job.Result.Add("extensions.subject_key_id", StatusPass,
+				fmt.Sprintf("Subject Key Identifier present (%d bytes)", len(cert.SubjectKeyId)))
+		} else {
+			job.Result.Add("extensions.subject_key_id", StatusFail,
+				"Subject Key Identifier extension is missing (required per RFC 5280 for CA certificates)")
+		}
+	}
+
+	if pol.Critical {
+		job.addCriticalCheck("extensions.subject_key_id.critical", "SubjectKeyIdentifier", policy.OIDSKI)
+	}
+}
+
+func LintSAN(job *LintJob) {
+	rule := job.Policy.Extensions
+	if rule == nil || rule.SAN == nil {
+		return
+	}
+
+	pol := rule.SAN
+
+	allSANs := collectSANs(job)
+
+	if pol.Required {
+		if len(allSANs) > 0 {
+			job.Result.Add("extensions.san", StatusPass,
+				fmt.Sprintf("Subject Alternative Name present with %d entries", len(allSANs)))
+		} else {
+			job.Result.Add("extensions.san", StatusFail,
+				"Subject Alternative Name extension is missing or empty")
+		}
+	}
+
+	if pol.NoWildcards && len(allSANs) > 0 {
+		wildcardFound := false
+		for _, san := range allSANs {
+			if strings.Contains(san, "*") || strings.Contains(san, "?") {
+				wildcardFound = true
+				break
+			}
+		}
+		if wildcardFound {
+			job.Result.Add("extensions.san.no_wildcards", StatusFail,
+				"SAN contains wildcard entries (policy forbids wildcards)")
+		} else {
+			job.Result.Add("extensions.san.no_wildcards", StatusPass,
+				"SAN contains no wildcard entries")
+		}
+	}
+
+	if len(pol.Allowed) > 0 && len(allSANs) > 0 {
+		lintSANPatterns(job, allSANs, pol.Allowed, true)
+	}
+
+	if len(pol.Forbidden) > 0 && len(allSANs) > 0 {
+		lintSANPatterns(job, allSANs, pol.Forbidden, false)
+	}
+
+	if pol.Critical {
+		job.addCriticalCheck("extensions.san.critical", "SubjectAlternativeName", policy.OIDSAN)
+	}
+}
+
+func collectSANs(job *LintJob) []string {
+	cert := job.Cert
+	var sans []string
+
+	sans = append(sans, cert.DNSNames...)
+
+	for _, email := range cert.EmailAddresses {
+		sans = append(sans, email)
+	}
+
+	for _, ip := range cert.IPAddresses {
+		sans = append(sans, ip.String())
+	}
+
+	for _, uri := range cert.URIs {
+		sans = append(sans, uri.String())
+	}
+
+	return sans
+}
+
+func lintSANPatterns(job *LintJob, sans []string, patterns []string, allowed bool) {
+	field := "extensions.san.allowed"
+	if !allowed {
+		field = "extensions.san.forbidden"
+	}
+
+	for _, san := range sans {
+		matched := false
+		for _, pattern := range patterns {
+			re, err := regexp.Compile(pattern)
+			if err != nil {
+				job.Result.Add(field, StatusFail,
+					fmt.Sprintf("invalid regex pattern: %s", pattern))
+				return
+			}
+			if re.MatchString(san) {
+				matched = true
+				break
+			}
+		}
+
+		if allowed && !matched {
+			job.Result.Add(field, StatusFail,
+				fmt.Sprintf("SAN entry '%s' does not match any allowed pattern", san))
+			return
+		}
+		if !allowed && matched {
+			job.Result.Add(field, StatusFail,
+				fmt.Sprintf("SAN entry '%s' matches a forbidden pattern", san))
+			return
+		}
+	}
+
+	if allowed {
+		job.Result.Add(field, StatusPass, "all SAN entries match allowed patterns")
+	} else {
+		job.Result.Add(field, StatusPass, "no SAN entries match forbidden patterns")
+	}
+}
+
+func LintCRLDistributionPoints(job *LintJob) {
+	cert := job.Cert
+	rule := job.Policy.Extensions
+	if rule == nil || rule.CRLDistributionPoints == nil {
+		return
+	}
+
+	pol := rule.CRLDistributionPoints
+
+	hasCRL := len(cert.CRLDistributionPoints) > 0
+
+	if hasCRL {
+		job.Result.Add("extensions.crl_distribution_points", StatusPass,
+			fmt.Sprintf("CRL Distribution Points present with %d URLs", len(cert.CRLDistributionPoints)))
+	} else {
+		job.Result.Add("extensions.crl_distribution_points", StatusFail,
+			"CRL Distribution Points extension is missing")
+	}
+
+	if len(pol.URLs) > 0 && hasCRL {
+		missing := []string{}
+		for _, expected := range pol.URLs {
+			found := false
+			for _, actual := range cert.CRLDistributionPoints {
+				if actual == expected {
+					found = true
+					break
+				}
+			}
+			if !found {
+				missing = append(missing, expected)
+			}
+		}
+		if len(missing) > 0 {
+			job.Result.Add("extensions.crl_distribution_points.urls", StatusFail,
+				fmt.Sprintf("missing expected CRL URLs: %v", missing))
+		} else {
+			job.Result.Add("extensions.crl_distribution_points.urls", StatusPass,
+				"all expected CRL URLs present")
+		}
+	}
+
+	if pol.Critical {
+		job.addCriticalCheck("extensions.crl_distribution_points.critical", "CRLDistributionPoints", policy.OIDCRLDistPoints)
+	}
+}
+
+func LintAuthorityInfoAccess(job *LintJob) {
+	cert := job.Cert
+	rule := job.Policy.Extensions
+	if rule == nil || rule.AuthorityInfoAccess == nil {
+		return
+	}
+
+	pol := rule.AuthorityInfoAccess
+
+	hasOCSP := len(cert.OCSPServer) > 0
+	hasIssuers := len(cert.IssuingCertificateURL) > 0
+	hasAIA := hasOCSP || hasIssuers
+
+	if hasAIA {
+		job.Result.Add("extensions.authority_info_access", StatusPass,
+			fmt.Sprintf("Authority Information Access present (OCSP: %d, CA Issuers: %d)",
+				len(cert.OCSPServer), len(cert.IssuingCertificateURL)))
+	} else {
+		job.Result.Add("extensions.authority_info_access", StatusFail,
+			"Authority Information Access extension is missing")
+	}
+
+	if len(pol.OCSP) > 0 {
+		missing := []string{}
+		for _, expected := range pol.OCSP {
+			found := false
+			for _, actual := range cert.OCSPServer {
+				if actual == expected {
+					found = true
+					break
+				}
+			}
+			if !found {
+				missing = append(missing, expected)
+			}
+		}
+		if len(missing) > 0 {
+			job.Result.Add("extensions.authority_info_access.ocsp", StatusFail,
+				fmt.Sprintf("missing expected OCSP URLs: %v", missing))
+		} else {
+			job.Result.Add("extensions.authority_info_access.ocsp", StatusPass,
+				"all expected OCSP URLs present")
+		}
+	}
+
+	if len(pol.CAIssuers) > 0 {
+		missing := []string{}
+		for _, expected := range pol.CAIssuers {
+			found := false
+			for _, actual := range cert.IssuingCertificateURL {
+				if actual == expected {
+					found = true
+					break
+				}
+			}
+			if !found {
+				missing = append(missing, expected)
+			}
+		}
+		if len(missing) > 0 {
+			job.Result.Add("extensions.authority_info_access.ca_issuers", StatusFail,
+				fmt.Sprintf("missing expected CA Issuer URLs: %v", missing))
+		} else {
+			job.Result.Add("extensions.authority_info_access.ca_issuers", StatusPass,
+				"all expected CA Issuer URLs present")
+		}
+	}
+
+	if pol.Critical {
+		job.addCriticalCheck("extensions.authority_info_access.critical", "AuthorityInfoAccess", policy.OIDAIA)
 	}
 }

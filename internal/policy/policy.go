@@ -151,7 +151,9 @@ type Extensions struct {
 	KeyUsage              *KeyUsageExtension              `yaml:"keyUsage,omitempty" json:"keyUsage,omitempty" jsonschema:"description=Key usage extension requirements"`
 	BasicConstraints      *BasicConstraintsExtension      `yaml:"basicConstraints,omitempty" json:"basicConstraints,omitempty" jsonschema:"description=Basic constraints extension requirements"`
 	ExtendedKeyUsage      *ExtendedKeyUsageExtension      `yaml:"extendedKeyUsage,omitempty" json:"extendedKeyUsage,omitempty" jsonschema:"description=Extended key usage extension requirements"`
-	SAN                   *NameRule                       `yaml:"san,omitempty" json:"san,omitempty" jsonschema:"description=Subject Alternative Name requirements"`
+	SAN                   *SANExtension                   `yaml:"san,omitempty" json:"san,omitempty" jsonschema:"description=Subject Alternative Name extension requirements"`
+	AuthorityKeyID        *AuthorityKeyIDExtension        `yaml:"authorityKeyIdentifier,omitempty" json:"authorityKeyIdentifier,omitempty" jsonschema:"description=Authority Key Identifier extension requirements"`
+	SubjectKeyID          *SubjectKeyIDExtension          `yaml:"subjectKeyIdentifier,omitempty" json:"subjectKeyIdentifier,omitempty" jsonschema:"description=Subject Key Identifier extension requirements"`
 	CRLDistributionPoints *CRLDistributionPointsExtension `yaml:"crlDistributionPoints,omitempty" json:"crlDistributionPoints,omitempty" jsonschema:"description=CRL Distribution Points extension"`
 	AuthorityInfoAccess   *AuthorityInfoAccessExtension   `yaml:"authorityInfoAccess,omitempty" json:"authorityInfoAccess,omitempty" jsonschema:"description=Authority Information Access extension"`
 }
@@ -187,4 +189,22 @@ type AuthorityInfoAccessExtension struct {
 	VerifyAccess bool     `yaml:"verifyAccess,omitempty" json:"verifyAccess,omitempty" jsonschema:"description=Verify that URLs are accessible"`
 	OCSP         []string `yaml:"ocsp,omitempty" json:"ocsp,omitempty" jsonschema:"description=Expected OCSP responder URLs"`
 	CAIssuers    []string `yaml:"caIssuers,omitempty" json:"caIssuers,omitempty" jsonschema:"description=Expected CA issuer certificate URLs"`
+}
+
+type SANExtension struct {
+	Critical    bool     `yaml:"critical,omitempty" json:"critical,omitempty" jsonschema:"description=Extension must be marked critical"`
+	Required    bool     `yaml:"required,omitempty" json:"required,omitempty" jsonschema:"description=SAN extension must be present"`
+	Allowed     []string `yaml:"allowed,omitempty" json:"allowed,omitempty" jsonschema:"description=Allowed SAN patterns (regex supported)"`
+	Forbidden   []string `yaml:"forbidden,omitempty" json:"forbidden,omitempty" jsonschema:"description=Forbidden SAN patterns (regex supported)"`
+	NoWildcards bool     `yaml:"no_wildcards,omitempty" json:"no_wildcards,omitempty" jsonschema:"description=Disallow wildcard entries in SAN"`
+}
+
+type AuthorityKeyIDExtension struct {
+	Critical bool `yaml:"critical,omitempty" json:"critical,omitempty" jsonschema:"description=Extension must be marked critical (RFC 5280 recommends non-critical)"`
+	Required bool `yaml:"required,omitempty" json:"required,omitempty" jsonschema:"description=AKI extension must be present (required for all certs except self-signed root CAs)"`
+}
+
+type SubjectKeyIDExtension struct {
+	Critical bool `yaml:"critical,omitempty" json:"critical,omitempty" jsonschema:"description=Extension must be marked critical (RFC 5280 recommends non-critical)"`
+	Required bool `yaml:"required,omitempty" json:"required,omitempty" jsonschema:"description=SKI extension must be present (required for CA certificates)"`
 }

@@ -43,3 +43,8 @@ extensions:
     digitalSignature: true
   extendedKeyUsage:
     serverAuth: true
+  authorityKeyIdentifier:
+    required: true
+  san:
+    required: true
+    no_wildcards: true

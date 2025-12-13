@@ -46,3 +46,5 @@ extensions:
     critical: true
     keyCertSign: true
     cRLSign: true
+  subjectKeyIdentifier:
+    required: true

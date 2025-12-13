@@ -82,4 +82,9 @@ func LintAll(job *LintJob) {
 	LintKeyUsage(job)
 	LintExtendedKeyUsage(job)
 	LintBasicConstraints(job)
+	LintAuthorityKeyID(job)
+	LintSubjectKeyID(job)
+	LintSAN(job)
+	LintCRLDistributionPoints(job)
+	LintAuthorityInfoAccess(job)
 }
