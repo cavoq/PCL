@@ -87,4 +87,8 @@ func LintAll(job *LintJob) {
 	LintSAN(job)
 	LintCRLDistributionPoints(job)
 	LintAuthorityInfoAccess(job)
+	LintCertificatePolicies(job)
+	LintNameConstraints(job)
+	LintPolicyConstraints(job)
+	LintInhibitAnyPolicy(job)
 }

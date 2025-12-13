@@ -68,15 +68,35 @@
       "properties": {
         "require_v3": {
           "type": "boolean",
-          "description": "Require X.509 v3 certificates (recommended for certificates with extensions)"
+          "description": "Require X.509 v3 certificates (RFC 5280 4.1.2.1)"
         },
         "serial_number": {
           "$ref": "#/$defs/SerialNumberRule",
-          "description": "Serial number requirements per RFC 5280"
+          "description": "Serial number requirements (RFC 5280 4.1.2.2)"
+        },
+        "signatureAlgorithm": {
+          "$ref": "#/$defs/SignatureAlgorithmRule",
+          "description": "Signature algorithm constraints (RFC 5280 4.1.2.3)"
+        },
+        "issuer": {
+          "$ref": "#/$defs/NameRule",
+          "description": "Issuer name requirements (RFC 5280 4.1.2.4)"
+        },
+        "validity": {
+          "$ref": "#/$defs/ValidityRule",
+          "description": "Validity period constraints (RFC 5280 4.1.2.5)"
+        },
+        "subject": {
+          "$ref": "#/$defs/NameRule",
+          "description": "Subject name requirements (RFC 5280 4.1.2.6)"
+        },
+        "subjectPublicKeyInfo": {
+          "$ref": "#/$defs/SubjectPublicKeyInfoRule",
+          "description": "Public key algorithm constraints (RFC 5280 4.1.2.7)"
         },
         "reject_unique_identifiers": {
           "type": "boolean",
-          "description": "Reject certificates with deprecated unique identifiers (issuerUniqueID/subjectUniqueID)"
+          "description": "Reject deprecated unique identifiers (RFC 5280 4.1.2.8)"
         }
       },
       "additionalProperties": false,
@@ -103,15 +123,29 @@
       "additionalProperties": false,
       "type": "object"
     },
-    "CryptoRule": {
+    "CertificatePoliciesExtension": {
       "properties": {
-        "subjectPublicKeyInfo": {
-          "$ref": "#/$defs/SubjectPublicKeyInfoRule",
-          "description": "Public key algorithm constraints"
+        "critical": {
+          "type": "boolean",
+          "description": "Extension must be marked critical"
         },
-        "signatureAlgorithm": {
-          "$ref": "#/$defs/SignatureAlgorithmRule",
-          "description": "Signature algorithm constraints"
+        "requiredOIDs": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Required policy OIDs (dot notation e.g. 2.16.840.1.101.2.1)"
+        },
+        "forbiddenOIDs": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Forbidden policy OIDs"
+        },
+        "allowAnyPolicy": {
+          "type": "boolean",
+          "description": "Allow anyPolicy OID (2.5.29.32.0)"
         }
       },
       "additionalProperties": false,
@@ -168,6 +202,41 @@
         "authorityInfoAccess": {
           "$ref": "#/$defs/AuthorityInfoAccessExtension",
           "description": "Authority Information Access extension"
+        },
+        "certificatePolicies": {
+          "$ref": "#/$defs/CertificatePoliciesExtension",
+          "description": "Certificate Policies extension (RFC 5280 4.2.1.4)"
+        },
+        "nameConstraints": {
+          "$ref": "#/$defs/NameConstraintsExtension",
+          "description": "Name Constraints extension for CA certificates (RFC 5280 4.2.1.10)"
+        },
+        "policyConstraints": {
+          "$ref": "#/$defs/PolicyConstraintsExtension",
+          "description": "Policy Constraints extension for CA certificates (RFC 5280 4.2.1.11)"
+        },
+        "inhibitAnyPolicy": {
+          "$ref": "#/$defs/InhibitAnyPolicyExtension",
+          "description": "Inhibit anyPolicy extension for CA certificates (RFC 5280 4.2.1.14)"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "InhibitAnyPolicyExtension": {
+      "properties": {
+        "critical": {
+          "type": "boolean",
+          "description": "Extension must be marked critical (RFC 5280 requires critical)"
+        },
+        "required": {
+          "type": "boolean",
+          "description": "Inhibit anyPolicy extension must be present"
+        },
+        "skipCerts": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of additional certs before anyPolicy is inhibited"
         }
       },
       "additionalProperties": false,
@@ -225,6 +294,48 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "NameConstraintsExtension": {
+      "properties": {
+        "critical": {
+          "type": "boolean",
+          "description": "Extension must be marked critical (RFC 5280 requires critical for CA certs)"
+        },
+        "required": {
+          "type": "boolean",
+          "description": "Name Constraints extension must be present"
+        },
+        "permittedDNSDomains": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Expected permitted DNS domains"
+        },
+        "excludedDNSDomains": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Expected excluded DNS domains"
+        },
+        "permittedEmailDomains": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Expected permitted email domains"
+        },
+        "excludedEmailDomains": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Expected excluded email domains"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "NameRule": {
       "properties": {
         "allowed": {
@@ -266,27 +377,11 @@
         },
         "basic_fields": {
           "$ref": "#/$defs/BasicFieldsRule",
-          "description": "RFC 5280 basic certificate field requirements"
-        },
-        "validity": {
-          "$ref": "#/$defs/ValidityRule",
-          "description": "Certificate validity constraints"
-        },
-        "subject": {
-          "$ref": "#/$defs/NameRule",
-          "description": "Subject name requirements"
-        },
-        "issuer": {
-          "$ref": "#/$defs/NameRule",
-          "description": "Issuer name requirements"
-        },
-        "crypto": {
-          "$ref": "#/$defs/CryptoRule",
-          "description": "Cryptographic requirements"
+          "description": "RFC 5280 Section 4.1.2 TBSCertificate field requirements"
         },
         "extensions": {
           "$ref": "#/$defs/Extensions",
-          "description": "X.509 extension requirements"
+          "description": "RFC 5280 Section 4.2 certificate extension requirements"
         }
       },
       "additionalProperties": false,
@@ -295,6 +390,30 @@
         "name",
         "cert_order"
       ]
+    },
+    "PolicyConstraintsExtension": {
+      "properties": {
+        "critical": {
+          "type": "boolean",
+          "description": "Extension must be marked critical"
+        },
+        "required": {
+          "type": "boolean",
+          "description": "Policy Constraints extension must be present"
+        },
+        "requireExplicitPolicy": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of additional certs before explicit policy required"
+        },
+        "inhibitPolicyMapping": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of additional certs before policy mapping inhibited"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
     },
     "SANExtension": {
       "properties": {

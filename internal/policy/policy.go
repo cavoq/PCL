@@ -8,14 +8,18 @@ import (
 )
 
 var (
-	OIDKeyUsage         = asn1.ObjectIdentifier{2, 5, 29, 15}
-	OIDBasicConstraints = asn1.ObjectIdentifier{2, 5, 29, 19}
-	OIDExtendedKeyUsage = asn1.ObjectIdentifier{2, 5, 29, 37}
-	OIDSAN              = asn1.ObjectIdentifier{2, 5, 29, 17}
-	OIDCRLDistPoints    = asn1.ObjectIdentifier{2, 5, 29, 31}
-	OIDAIA              = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 1, 1}
-	OIDAKI              = asn1.ObjectIdentifier{2, 5, 29, 35}
-	OIDSKI              = asn1.ObjectIdentifier{2, 5, 29, 14}
+	OIDKeyUsage           = asn1.ObjectIdentifier{2, 5, 29, 15}
+	OIDBasicConstraints   = asn1.ObjectIdentifier{2, 5, 29, 19}
+	OIDExtendedKeyUsage   = asn1.ObjectIdentifier{2, 5, 29, 37}
+	OIDSAN                = asn1.ObjectIdentifier{2, 5, 29, 17}
+	OIDCRLDistPoints      = asn1.ObjectIdentifier{2, 5, 29, 31}
+	OIDAIA                = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 1, 1}
+	OIDAKI                = asn1.ObjectIdentifier{2, 5, 29, 35}
+	OIDSKI                = asn1.ObjectIdentifier{2, 5, 29, 14}
+	OIDCertificatePolicies = asn1.ObjectIdentifier{2, 5, 29, 32}
+	OIDNameConstraints     = asn1.ObjectIdentifier{2, 5, 29, 30}
+	OIDPolicyConstraints   = asn1.ObjectIdentifier{2, 5, 29, 36}
+	OIDInhibitAnyPolicy    = asn1.ObjectIdentifier{2, 5, 29, 54}
 )
 
 type PolicyChain struct {
@@ -27,12 +31,8 @@ type Policy struct {
 	Name        string           `yaml:"name" json:"name" jsonschema:"required,description=Policy name"`
 	CertOrder   *int             `yaml:"cert_order" json:"cert_order" jsonschema:"required,minimum=0,description=Position in certificate chain (0=leaf 1=intermediate 2=root)"`
 	Description string           `yaml:"description,omitempty" json:"description,omitempty" jsonschema:"description=Detailed policy description"`
-	BasicFields *BasicFieldsRule `yaml:"basic_fields,omitempty" json:"basic_fields,omitempty" jsonschema:"description=RFC 5280 basic certificate field requirements"`
-	Validity    *ValidityRule    `yaml:"validity,omitempty" json:"validity,omitempty" jsonschema:"description=Certificate validity constraints"`
-	Subject     *NameRule        `yaml:"subject,omitempty" json:"subject,omitempty" jsonschema:"description=Subject name requirements"`
-	Issuer      *NameRule        `yaml:"issuer,omitempty" json:"issuer,omitempty" jsonschema:"description=Issuer name requirements"`
-	Crypto      *CryptoRule      `yaml:"crypto,omitempty" json:"crypto,omitempty" jsonschema:"description=Cryptographic requirements"`
-	Extensions  *Extensions      `yaml:"extensions,omitempty" json:"extensions,omitempty" jsonschema:"description=X.509 extension requirements"`
+	BasicFields *BasicFieldsRule `yaml:"basic_fields,omitempty" json:"basic_fields,omitempty" jsonschema:"description=RFC 5280 Section 4.1.2 TBSCertificate field requirements"`
+	Extensions  *Extensions      `yaml:"extensions,omitempty" json:"extensions,omitempty" jsonschema:"description=RFC 5280 Section 4.2 certificate extension requirements"`
 }
 
 type ValidityRule struct {
@@ -40,16 +40,15 @@ type ValidityRule struct {
 	MaxDays *int `yaml:"max_days,omitempty" json:"max_days,omitempty" jsonschema:"minimum=1,description=Maximum validity period in days"`
 }
 
-// BasicFieldsRule defines RFC 5280 basic certificate field requirements
 type BasicFieldsRule struct {
-	// Version validation (RFC 5280 Section 4.1.2.1)
-	RequireV3 bool `yaml:"require_v3,omitempty" json:"require_v3,omitempty" jsonschema:"description=Require X.509 v3 certificates (recommended for certificates with extensions)"`
-
-	// Serial number validation (RFC 5280 Section 4.1.2.2)
-	SerialNumber *SerialNumberRule `yaml:"serial_number,omitempty" json:"serial_number,omitempty" jsonschema:"description=Serial number requirements per RFC 5280"`
-
-	// Unique identifiers validation (RFC 5280 Section 4.1.2.8)
-	RejectUniqueIdentifiers bool `yaml:"reject_unique_identifiers,omitempty" json:"reject_unique_identifiers,omitempty" jsonschema:"description=Reject certificates with deprecated unique identifiers (issuerUniqueID/subjectUniqueID)"`
+	RequireV3               bool                      `yaml:"require_v3,omitempty" json:"require_v3,omitempty" jsonschema:"description=Require X.509 v3 certificates (RFC 5280 4.1.2.1)"`
+	SerialNumber            *SerialNumberRule         `yaml:"serial_number,omitempty" json:"serial_number,omitempty" jsonschema:"description=Serial number requirements (RFC 5280 4.1.2.2)"`
+	SignatureAlgorithm      *SignatureAlgorithmRule   `yaml:"signatureAlgorithm,omitempty" json:"signatureAlgorithm,omitempty" jsonschema:"description=Signature algorithm constraints (RFC 5280 4.1.2.3)"`
+	Issuer                  *NameRule                 `yaml:"issuer,omitempty" json:"issuer,omitempty" jsonschema:"description=Issuer name requirements (RFC 5280 4.1.2.4)"`
+	Validity                *ValidityRule             `yaml:"validity,omitempty" json:"validity,omitempty" jsonschema:"description=Validity period constraints (RFC 5280 4.1.2.5)"`
+	Subject                 *NameRule                 `yaml:"subject,omitempty" json:"subject,omitempty" jsonschema:"description=Subject name requirements (RFC 5280 4.1.2.6)"`
+	SubjectPublicKeyInfo    *SubjectPublicKeyInfoRule `yaml:"subjectPublicKeyInfo,omitempty" json:"subjectPublicKeyInfo,omitempty" jsonschema:"description=Public key algorithm constraints (RFC 5280 4.1.2.7)"`
+	RejectUniqueIdentifiers bool                      `yaml:"reject_unique_identifiers,omitempty" json:"reject_unique_identifiers,omitempty" jsonschema:"description=Reject deprecated unique identifiers (RFC 5280 4.1.2.8)"`
 }
 
 // SerialNumberRule defines serial number validation requirements per RFC 5280 Section 4.1.2.2
@@ -65,11 +64,6 @@ type NameRule struct {
 	Allowed     []string `yaml:"allowed,omitempty" json:"allowed,omitempty" jsonschema:"description=List of allowed name patterns (regex supported)"`
 	Forbidden   []string `yaml:"forbidden,omitempty" json:"forbidden,omitempty" jsonschema:"description=List of forbidden name patterns (regex supported)"`
 	NoWildcards bool     `yaml:"no_wildcards,omitempty" json:"no_wildcards,omitempty" jsonschema:"description=Disallow wildcard certificates"`
-}
-
-type CryptoRule struct {
-	SubjectPublicKeyInfo *SubjectPublicKeyInfoRule `yaml:"subjectPublicKeyInfo,omitempty" json:"subjectPublicKeyInfo,omitempty" jsonschema:"description=Public key algorithm constraints"`
-	SignatureAlgorithm   *SignatureAlgorithmRule   `yaml:"signatureAlgorithm,omitempty" json:"signatureAlgorithm,omitempty" jsonschema:"description=Signature algorithm constraints"`
 }
 
 type SubjectPublicKeyInfoRule struct {
@@ -156,6 +150,10 @@ type Extensions struct {
 	SubjectKeyID          *SubjectKeyIDExtension          `yaml:"subjectKeyIdentifier,omitempty" json:"subjectKeyIdentifier,omitempty" jsonschema:"description=Subject Key Identifier extension requirements"`
 	CRLDistributionPoints *CRLDistributionPointsExtension `yaml:"crlDistributionPoints,omitempty" json:"crlDistributionPoints,omitempty" jsonschema:"description=CRL Distribution Points extension"`
 	AuthorityInfoAccess   *AuthorityInfoAccessExtension   `yaml:"authorityInfoAccess,omitempty" json:"authorityInfoAccess,omitempty" jsonschema:"description=Authority Information Access extension"`
+	CertificatePolicies   *CertificatePoliciesExtension   `yaml:"certificatePolicies,omitempty" json:"certificatePolicies,omitempty" jsonschema:"description=Certificate Policies extension (RFC 5280 4.2.1.4)"`
+	NameConstraints       *NameConstraintsExtension       `yaml:"nameConstraints,omitempty" json:"nameConstraints,omitempty" jsonschema:"description=Name Constraints extension for CA certificates (RFC 5280 4.2.1.10)"`
+	PolicyConstraints     *PolicyConstraintsExtension     `yaml:"policyConstraints,omitempty" json:"policyConstraints,omitempty" jsonschema:"description=Policy Constraints extension for CA certificates (RFC 5280 4.2.1.11)"`
+	InhibitAnyPolicy      *InhibitAnyPolicyExtension      `yaml:"inhibitAnyPolicy,omitempty" json:"inhibitAnyPolicy,omitempty" jsonschema:"description=Inhibit anyPolicy extension for CA certificates (RFC 5280 4.2.1.14)"`
 }
 
 type KeyUsageExtension struct {
@@ -207,4 +205,33 @@ type AuthorityKeyIDExtension struct {
 type SubjectKeyIDExtension struct {
 	Critical bool `yaml:"critical,omitempty" json:"critical,omitempty" jsonschema:"description=Extension must be marked critical (RFC 5280 recommends non-critical)"`
 	Required bool `yaml:"required,omitempty" json:"required,omitempty" jsonschema:"description=SKI extension must be present (required for CA certificates)"`
+}
+
+type CertificatePoliciesExtension struct {
+	Critical        bool     `yaml:"critical,omitempty" json:"critical,omitempty" jsonschema:"description=Extension must be marked critical"`
+	RequiredOIDs    []string `yaml:"requiredOIDs,omitempty" json:"requiredOIDs,omitempty" jsonschema:"description=Required policy OIDs (dot notation e.g. 2.16.840.1.101.2.1)"`
+	ForbiddenOIDs   []string `yaml:"forbiddenOIDs,omitempty" json:"forbiddenOIDs,omitempty" jsonschema:"description=Forbidden policy OIDs"`
+	AllowAnyPolicy  bool     `yaml:"allowAnyPolicy,omitempty" json:"allowAnyPolicy,omitempty" jsonschema:"description=Allow anyPolicy OID (2.5.29.32.0)"`
+}
+
+type NameConstraintsExtension struct {
+	Critical              bool     `yaml:"critical,omitempty" json:"critical,omitempty" jsonschema:"description=Extension must be marked critical (RFC 5280 requires critical for CA certs)"`
+	Required              bool     `yaml:"required,omitempty" json:"required,omitempty" jsonschema:"description=Name Constraints extension must be present"`
+	PermittedDNSDomains   []string `yaml:"permittedDNSDomains,omitempty" json:"permittedDNSDomains,omitempty" jsonschema:"description=Expected permitted DNS domains"`
+	ExcludedDNSDomains    []string `yaml:"excludedDNSDomains,omitempty" json:"excludedDNSDomains,omitempty" jsonschema:"description=Expected excluded DNS domains"`
+	PermittedEmailDomains []string `yaml:"permittedEmailDomains,omitempty" json:"permittedEmailDomains,omitempty" jsonschema:"description=Expected permitted email domains"`
+	ExcludedEmailDomains  []string `yaml:"excludedEmailDomains,omitempty" json:"excludedEmailDomains,omitempty" jsonschema:"description=Expected excluded email domains"`
+}
+
+type PolicyConstraintsExtension struct {
+	Critical                   bool `yaml:"critical,omitempty" json:"critical,omitempty" jsonschema:"description=Extension must be marked critical"`
+	Required                   bool `yaml:"required,omitempty" json:"required,omitempty" jsonschema:"description=Policy Constraints extension must be present"`
+	RequireExplicitPolicy      *int `yaml:"requireExplicitPolicy,omitempty" json:"requireExplicitPolicy,omitempty" jsonschema:"minimum=0,description=Number of additional certs before explicit policy required"`
+	InhibitPolicyMapping       *int `yaml:"inhibitPolicyMapping,omitempty" json:"inhibitPolicyMapping,omitempty" jsonschema:"minimum=0,description=Number of additional certs before policy mapping inhibited"`
+}
+
+type InhibitAnyPolicyExtension struct {
+	Critical     bool `yaml:"critical,omitempty" json:"critical,omitempty" jsonschema:"description=Extension must be marked critical (RFC 5280 requires critical)"`
+	Required     bool `yaml:"required,omitempty" json:"required,omitempty" jsonschema:"description=Inhibit anyPolicy extension must be present"`
+	SkipCerts    *int `yaml:"skipCerts,omitempty" json:"skipCerts,omitempty" jsonschema:"minimum=0,description=Number of additional certs before anyPolicy is inhibited"`
 }

@@ -8,19 +8,6 @@ basic_fields:
     require_positive: true
     max_length: 20
   reject_unique_identifiers: true
-
-validity:
-  min_days: 1
-  max_days: 1095  # 3 years
-
-crypto:
-  subjectPublicKeyInfo:
-    allowed_algorithms:
-      RSA:
-        min_size: 3072
-      EC:
-        min_size: 256
-        allowed_curves: [P-256, P-384, P-521, brainpoolP256r1, brainpoolP384r1, brainpoolP512r1]
   signatureAlgorithm:
     allowed_algorithms:
       - SHA256-RSA
@@ -33,9 +20,18 @@ crypto:
       - ECDSA-SHA384
       - ECDSA-SHA512
       - Ed25519
-
-subject:
-  no_wildcards: true
+  validity:
+    min_days: 1
+    max_days: 1095  # 3 years
+  subject:
+    no_wildcards: true
+  subjectPublicKeyInfo:
+    allowed_algorithms:
+      RSA:
+        min_size: 3072
+      EC:
+        min_size: 256
+        allowed_curves: [P-256, P-384, P-521, brainpoolP256r1, brainpoolP384r1, brainpoolP512r1]
 
 extensions:
   keyUsage:

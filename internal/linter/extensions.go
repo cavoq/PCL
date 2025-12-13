@@ -457,3 +457,194 @@ func LintAuthorityInfoAccess(job *LintJob) {
 		job.addCriticalCheck("extensions.authority_info_access.critical", "AuthorityInfoAccess", policy.OIDAIA)
 	}
 }
+
+func oidToString(oid asn1.ObjectIdentifier) string {
+	s := make([]string, len(oid))
+	for i, v := range oid {
+		s[i] = fmt.Sprintf("%d", v)
+	}
+	return strings.Join(s, ".")
+}
+
+func LintCertificatePolicies(job *LintJob) {
+	cert := job.Cert
+	rule := job.Policy.Extensions
+	if rule == nil || rule.CertificatePolicies == nil {
+		return
+	}
+
+	pol := rule.CertificatePolicies
+	anyPolicyOID := "2.5.29.32.0"
+
+	certPolicies := make([]string, len(cert.PolicyIdentifiers))
+	for i, oid := range cert.PolicyIdentifiers {
+		certPolicies[i] = oidToString(oid)
+	}
+
+	if len(pol.RequiredOIDs) > 0 {
+		missing := []string{}
+		for _, required := range pol.RequiredOIDs {
+			found := slices.Contains(certPolicies, required)
+			if !found {
+				missing = append(missing, required)
+			}
+		}
+		if len(missing) > 0 {
+			job.Result.Add("extensions.certificate_policies.required", StatusFail,
+				fmt.Sprintf("missing required policy OIDs: %v", missing))
+		} else {
+			job.Result.Add("extensions.certificate_policies.required", StatusPass,
+				"all required policy OIDs present")
+		}
+	}
+
+	if len(pol.ForbiddenOIDs) > 0 {
+		found := []string{}
+		for _, forbidden := range pol.ForbiddenOIDs {
+			if slices.Contains(certPolicies, forbidden) {
+				found = append(found, forbidden)
+			}
+		}
+		if len(found) > 0 {
+			job.Result.Add("extensions.certificate_policies.forbidden", StatusFail,
+				fmt.Sprintf("certificate contains forbidden policy OIDs: %v", found))
+		} else {
+			job.Result.Add("extensions.certificate_policies.forbidden", StatusPass,
+				"no forbidden policy OIDs present")
+		}
+	}
+
+	if !pol.AllowAnyPolicy && slices.Contains(certPolicies, anyPolicyOID) {
+		job.Result.Add("extensions.certificate_policies.any_policy", StatusFail,
+			"certificate contains anyPolicy OID which is not allowed")
+	}
+
+	if pol.Critical {
+		job.addCriticalCheck("extensions.certificate_policies.critical", "CertificatePolicies", policy.OIDCertificatePolicies)
+	}
+}
+
+func LintNameConstraints(job *LintJob) {
+	cert := job.Cert
+	rule := job.Policy.Extensions
+	if rule == nil || rule.NameConstraints == nil {
+		return
+	}
+
+	pol := rule.NameConstraints
+
+	hasNC := len(cert.PermittedDNSDomains) > 0 || len(cert.ExcludedDNSDomains) > 0 ||
+		len(cert.PermittedEmailAddresses) > 0 || len(cert.ExcludedEmailAddresses) > 0 ||
+		len(cert.PermittedURIDomains) > 0 || len(cert.ExcludedURIDomains) > 0 ||
+		len(cert.PermittedIPRanges) > 0 || len(cert.ExcludedIPRanges) > 0
+
+	if pol.Required {
+		if hasNC {
+			job.Result.Add("extensions.name_constraints", StatusPass,
+				"Name Constraints extension present")
+		} else {
+			job.Result.Add("extensions.name_constraints", StatusFail,
+				"Name Constraints extension is missing (required for this CA)")
+		}
+	}
+
+	if len(pol.PermittedDNSDomains) > 0 {
+		missing := []string{}
+		for _, expected := range pol.PermittedDNSDomains {
+			if !slices.Contains(cert.PermittedDNSDomains, expected) {
+				missing = append(missing, expected)
+			}
+		}
+		if len(missing) > 0 {
+			job.Result.Add("extensions.name_constraints.permitted_dns", StatusFail,
+				fmt.Sprintf("missing expected permitted DNS domains: %v", missing))
+		} else {
+			job.Result.Add("extensions.name_constraints.permitted_dns", StatusPass,
+				"all expected permitted DNS domains present")
+		}
+	}
+
+	if len(pol.ExcludedDNSDomains) > 0 {
+		missing := []string{}
+		for _, expected := range pol.ExcludedDNSDomains {
+			if !slices.Contains(cert.ExcludedDNSDomains, expected) {
+				missing = append(missing, expected)
+			}
+		}
+		if len(missing) > 0 {
+			job.Result.Add("extensions.name_constraints.excluded_dns", StatusFail,
+				fmt.Sprintf("missing expected excluded DNS domains: %v", missing))
+		} else {
+			job.Result.Add("extensions.name_constraints.excluded_dns", StatusPass,
+				"all expected excluded DNS domains present")
+		}
+	}
+
+	if pol.Critical {
+		job.addCriticalCheck("extensions.name_constraints.critical", "NameConstraints", policy.OIDNameConstraints)
+	}
+}
+
+func LintPolicyConstraints(job *LintJob) {
+	cert := job.Cert
+	rule := job.Policy.Extensions
+	if rule == nil || rule.PolicyConstraints == nil {
+		return
+	}
+
+	pol := rule.PolicyConstraints
+
+	hasPC := false
+	for _, ext := range cert.Extensions {
+		if ext.Id.Equal(policy.OIDPolicyConstraints) {
+			hasPC = true
+			break
+		}
+	}
+
+	if pol.Required {
+		if hasPC {
+			job.Result.Add("extensions.policy_constraints", StatusPass,
+				"Policy Constraints extension present")
+		} else {
+			job.Result.Add("extensions.policy_constraints", StatusFail,
+				"Policy Constraints extension is missing")
+		}
+	}
+
+	if pol.Critical && hasPC {
+		job.addCriticalCheck("extensions.policy_constraints.critical", "PolicyConstraints", policy.OIDPolicyConstraints)
+	}
+}
+
+func LintInhibitAnyPolicy(job *LintJob) {
+	cert := job.Cert
+	rule := job.Policy.Extensions
+	if rule == nil || rule.InhibitAnyPolicy == nil {
+		return
+	}
+
+	pol := rule.InhibitAnyPolicy
+
+	hasIAP := false
+	for _, ext := range cert.Extensions {
+		if ext.Id.Equal(policy.OIDInhibitAnyPolicy) {
+			hasIAP = true
+			break
+		}
+	}
+
+	if pol.Required {
+		if hasIAP {
+			job.Result.Add("extensions.inhibit_any_policy", StatusPass,
+				"Inhibit anyPolicy extension present")
+		} else {
+			job.Result.Add("extensions.inhibit_any_policy", StatusFail,
+				"Inhibit anyPolicy extension is missing")
+		}
+	}
+
+	if pol.Critical && hasIAP {
+		job.addCriticalCheck("extensions.inhibit_any_policy.critical", "InhibitAnyPolicy", policy.OIDInhibitAnyPolicy)
+	}
+}
