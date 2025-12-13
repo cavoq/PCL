@@ -1,9 +1,21 @@
 package policy
 
 import (
+	"encoding/asn1"
 	"encoding/json"
 
 	"github.com/invopop/jsonschema"
+)
+
+var (
+	OIDKeyUsage         = asn1.ObjectIdentifier{2, 5, 29, 15}
+	OIDBasicConstraints = asn1.ObjectIdentifier{2, 5, 29, 19}
+	OIDExtendedKeyUsage = asn1.ObjectIdentifier{2, 5, 29, 37}
+	OIDSAN              = asn1.ObjectIdentifier{2, 5, 29, 17}
+	OIDCRLDistPoints    = asn1.ObjectIdentifier{2, 5, 29, 31}
+	OIDAIA              = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 1, 1}
+	OIDAKI              = asn1.ObjectIdentifier{2, 5, 29, 35}
+	OIDSKI              = asn1.ObjectIdentifier{2, 5, 29, 14}
 )
 
 type PolicyChain struct {

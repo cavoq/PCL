@@ -254,7 +254,7 @@ func TestLintKeyUsage_Critical(t *testing.T) {
 				Cert: &x509.Certificate{
 					KeyUsage: x509.KeyUsageDigitalSignature,
 					Extensions: []pkix.Extension{
-						{Id: oidExtensionKeyUsage, Critical: tt.critical},
+						{Id: policy.OIDKeyUsage, Critical: tt.critical},
 					},
 				},
 				Policy: &policy.Policy{

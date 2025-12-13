@@ -6,12 +6,8 @@ import (
 	"encoding/asn1"
 	"fmt"
 	"slices"
-)
 
-var (
-	oidExtensionKeyUsage         = asn1.ObjectIdentifier{2, 5, 29, 15}
-	oidExtensionBasicConstraints = asn1.ObjectIdentifier{2, 5, 29, 19}
-	oidExtensionExtendedKeyUsage = asn1.ObjectIdentifier{2, 5, 29, 37}
+	"github.com/cavoq/PCL/internal/policy"
 )
 
 type UsageCheck[T any] struct {
@@ -101,7 +97,7 @@ func LintKeyUsage(job *LintJob) {
 	job.Result.AddRequirementCheck("crypto.key_usage", missing, present, "key usages")
 
 	if pol.Critical {
-		job.addCriticalCheck("crypto.key_usage.critical", "KeyUsage", oidExtensionKeyUsage)
+		job.addCriticalCheck("crypto.key_usage.critical", "KeyUsage", policy.OIDKeyUsage)
 	}
 }
 
@@ -122,7 +118,7 @@ func LintExtendedKeyUsage(job *LintJob) {
 	job.Result.AddRequirementCheck("crypto.extended_key_usage", missing, present, "extended key usages")
 
 	if pol.Critical {
-		job.addCriticalCheck("crypto.extended_key_usage.critical", "ExtendedKeyUsage", oidExtensionExtendedKeyUsage)
+		job.addCriticalCheck("crypto.extended_key_usage.critical", "ExtendedKeyUsage", policy.OIDExtendedKeyUsage)
 	}
 }
 
@@ -175,6 +171,6 @@ func LintBasicConstraints(job *LintJob) {
 	}
 
 	if pol.Critical {
-		job.addCriticalCheck("crypto.basic_constraints.critical", "BasicConstraints", oidExtensionBasicConstraints)
+		job.addCriticalCheck("crypto.basic_constraints.critical", "BasicConstraints", policy.OIDBasicConstraints)
 	}
 }
