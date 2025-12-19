@@ -79,6 +79,22 @@ func LintAll(job *LintJob) {
 	LintSignatureAlgorithm(job)
 	LintSignatureValidity(job)
 	LintSubjectPublicKeyInfo(job)
+
+	if job.Policy.BasicFields != nil {
+		if job.Policy.BasicFields.RequireSignatureAlgorithmMatch {
+			LintSignatureAlgorithmMatch(job)
+		}
+		if job.Policy.BasicFields.RequireCorrectTimeEncoding {
+			LintTimeEncoding(job)
+		}
+		if job.Policy.BasicFields.RequireNonEmptyIssuer {
+			LintNonEmptyIssuer(job)
+		}
+		if job.Policy.BasicFields.RequireEmptySubjectSANCritical {
+			LintEmptySubjectSANCritical(job)
+		}
+	}
+
 	LintKeyUsage(job)
 	LintExtendedKeyUsage(job)
 	LintBasicConstraints(job)
@@ -91,4 +107,8 @@ func LintAll(job *LintJob) {
 	LintNameConstraints(job)
 	LintPolicyConstraints(job)
 	LintInhibitAnyPolicy(job)
+
+	if job.Policy.Extensions != nil && job.Policy.Extensions.RejectUnknownCriticalExtensions {
+		LintUnknownCriticalExtensions(job)
+	}
 }

@@ -70,14 +70,28 @@ func isCritical(exts []pkix.Extension, oid asn1.ObjectIdentifier) bool {
 	return false
 }
 
-func (job *LintJob) addCriticalCheck(id, extName string, oid asn1.ObjectIdentifier) {
+func (job *LintJob) addCriticalityCheck(id, extName string, oid asn1.ObjectIdentifier, required *bool) {
+	if required == nil {
+		return
+	}
+
 	critical := isCritical(job.Cert.Extensions, oid)
-	job.Result.AddCheck(
-		id,
-		critical,
-		extName+" extension is critical",
-		extName+" extension is NOT critical",
-	)
+
+	if *required {
+		job.Result.AddCheck(
+			id,
+			critical,
+			extName+" extension is critical",
+			extName+" extension is NOT critical (policy requires critical)",
+		)
+	} else {
+		job.Result.AddCheck(
+			id,
+			!critical,
+			extName+" extension is non-critical",
+			extName+" extension is critical (policy requires non-critical)",
+		)
+	}
 }
 
 func LintKeyUsage(job *LintJob) {
@@ -98,9 +112,7 @@ func LintKeyUsage(job *LintJob) {
 	missing, present := checkBitmaskFlags(cert.KeyUsage, checks)
 	job.Result.AddRequirementCheck("crypto.key_usage", missing, present, "key usages")
 
-	if pol.Critical {
-		job.addCriticalCheck("crypto.key_usage.critical", "KeyUsage", policy.OIDKeyUsage)
-	}
+	job.addCriticalityCheck("crypto.key_usage.critical", "KeyUsage", policy.ExtKeyUsage.OID, pol.Critical)
 }
 
 func LintExtendedKeyUsage(job *LintJob) {
@@ -119,9 +131,7 @@ func LintExtendedKeyUsage(job *LintJob) {
 	missing, present := checkSliceFlags(cert.ExtKeyUsage, checks)
 	job.Result.AddRequirementCheck("crypto.extended_key_usage", missing, present, "extended key usages")
 
-	if pol.Critical {
-		job.addCriticalCheck("crypto.extended_key_usage.critical", "ExtendedKeyUsage", policy.OIDExtendedKeyUsage)
-	}
+	job.addCriticalityCheck("crypto.extended_key_usage.critical", "ExtendedKeyUsage", policy.ExtExtendedKeyUsage.OID, pol.Critical)
 }
 
 func getActualPathLen(cert *x509.Certificate) int {
@@ -172,9 +182,7 @@ func LintBasicConstraints(job *LintJob) {
 		job.validatePathLenConstraint(*pol.PathLenConstraint)
 	}
 
-	if pol.Critical {
-		job.addCriticalCheck("crypto.basic_constraints.critical", "BasicConstraints", policy.OIDBasicConstraints)
-	}
+	job.addCriticalityCheck("crypto.basic_constraints.critical", "BasicConstraints", policy.ExtBasicConstraints.OID, pol.Critical)
 }
 
 func LintAuthorityKeyID(job *LintJob) {
@@ -193,13 +201,11 @@ func LintAuthorityKeyID(job *LintJob) {
 				fmt.Sprintf("Authority Key Identifier present (%d bytes)", len(cert.AuthorityKeyId)))
 		} else {
 			job.Result.Add("extensions.authority_key_id", StatusFail,
-				"Authority Key Identifier extension is missing (required per RFC 5280 for non-self-signed certificates)")
+				"Authority Key Identifier extension is missing")
 		}
 	}
 
-	if pol.Critical {
-		job.addCriticalCheck("extensions.authority_key_id.critical", "AuthorityKeyIdentifier", policy.OIDAKI)
-	}
+	job.addCriticalityCheck("extensions.authority_key_id.critical", "AuthorityKeyIdentifier", policy.ExtAuthorityKeyIdentifier.OID, pol.Critical)
 }
 
 func LintSubjectKeyID(job *LintJob) {
@@ -218,13 +224,11 @@ func LintSubjectKeyID(job *LintJob) {
 				fmt.Sprintf("Subject Key Identifier present (%d bytes)", len(cert.SubjectKeyId)))
 		} else {
 			job.Result.Add("extensions.subject_key_id", StatusFail,
-				"Subject Key Identifier extension is missing (required per RFC 5280 for CA certificates)")
+				"Subject Key Identifier extension is missing")
 		}
 	}
 
-	if pol.Critical {
-		job.addCriticalCheck("extensions.subject_key_id.critical", "SubjectKeyIdentifier", policy.OIDSKI)
-	}
+	job.addCriticalityCheck("extensions.subject_key_id.critical", "SubjectKeyIdentifier", policy.ExtSubjectKeyIdentifier.OID, pol.Critical)
 }
 
 func LintSAN(job *LintJob) {
@@ -272,9 +276,7 @@ func LintSAN(job *LintJob) {
 		lintSANPatterns(job, allSANs, pol.Forbidden, false)
 	}
 
-	if pol.Critical {
-		job.addCriticalCheck("extensions.san.critical", "SubjectAlternativeName", policy.OIDSAN)
-	}
+	job.addCriticalityCheck("extensions.san.critical", "SubjectAlternativeName", policy.ExtSubjectAltName.OID, pol.Critical)
 }
 
 func collectSANs(job *LintJob) []string {
@@ -380,9 +382,7 @@ func LintCRLDistributionPoints(job *LintJob) {
 		}
 	}
 
-	if pol.Critical {
-		job.addCriticalCheck("extensions.crl_distribution_points.critical", "CRLDistributionPoints", policy.OIDCRLDistPoints)
-	}
+	job.addCriticalityCheck("extensions.crl_distribution_points.critical", "CRLDistributionPoints", policy.ExtCRLDistributionPoints.OID, pol.Critical)
 }
 
 func LintAuthorityInfoAccess(job *LintJob) {
@@ -453,9 +453,7 @@ func LintAuthorityInfoAccess(job *LintJob) {
 		}
 	}
 
-	if pol.Critical {
-		job.addCriticalCheck("extensions.authority_info_access.critical", "AuthorityInfoAccess", policy.OIDAIA)
-	}
+	job.addCriticalityCheck("extensions.authority_info_access.critical", "AuthorityInfoAccess", policy.ExtAuthorityInfoAccess.OID, pol.Critical)
 }
 
 func oidToString(oid asn1.ObjectIdentifier) string {
@@ -519,9 +517,7 @@ func LintCertificatePolicies(job *LintJob) {
 			"certificate contains anyPolicy OID which is not allowed")
 	}
 
-	if pol.Critical {
-		job.addCriticalCheck("extensions.certificate_policies.critical", "CertificatePolicies", policy.OIDCertificatePolicies)
-	}
+	job.addCriticalityCheck("extensions.certificate_policies.critical", "CertificatePolicies", policy.ExtCertificatePolicies.OID, pol.Critical)
 }
 
 func LintNameConstraints(job *LintJob) {
@@ -580,9 +576,7 @@ func LintNameConstraints(job *LintJob) {
 		}
 	}
 
-	if pol.Critical {
-		job.addCriticalCheck("extensions.name_constraints.critical", "NameConstraints", policy.OIDNameConstraints)
-	}
+	job.addCriticalityCheck("extensions.name_constraints.critical", "NameConstraints", policy.ExtNameConstraints.OID, pol.Critical)
 }
 
 func LintPolicyConstraints(job *LintJob) {
@@ -596,7 +590,7 @@ func LintPolicyConstraints(job *LintJob) {
 
 	hasPC := false
 	for _, ext := range cert.Extensions {
-		if ext.Id.Equal(policy.OIDPolicyConstraints) {
+		if ext.Id.Equal(policy.ExtPolicyConstraints.OID) {
 			hasPC = true
 			break
 		}
@@ -612,8 +606,8 @@ func LintPolicyConstraints(job *LintJob) {
 		}
 	}
 
-	if pol.Critical && hasPC {
-		job.addCriticalCheck("extensions.policy_constraints.critical", "PolicyConstraints", policy.OIDPolicyConstraints)
+	if hasPC {
+		job.addCriticalityCheck("extensions.policy_constraints.critical", "PolicyConstraints", policy.ExtPolicyConstraints.OID, pol.Critical)
 	}
 }
 
@@ -628,7 +622,7 @@ func LintInhibitAnyPolicy(job *LintJob) {
 
 	hasIAP := false
 	for _, ext := range cert.Extensions {
-		if ext.Id.Equal(policy.OIDInhibitAnyPolicy) {
+		if ext.Id.Equal(policy.ExtInhibitAnyPolicy.OID) {
 			hasIAP = true
 			break
 		}
@@ -644,7 +638,32 @@ func LintInhibitAnyPolicy(job *LintJob) {
 		}
 	}
 
-	if pol.Critical && hasIAP {
-		job.addCriticalCheck("extensions.inhibit_any_policy.critical", "InhibitAnyPolicy", policy.OIDInhibitAnyPolicy)
+	if hasIAP {
+		job.addCriticalityCheck("extensions.inhibit_any_policy.critical", "InhibitAnyPolicy", policy.ExtInhibitAnyPolicy.OID, pol.Critical)
 	}
+}
+
+func LintUnknownCriticalExtensions(job *LintJob) {
+	cert := job.Cert
+	field := "extensions.unknown_critical"
+
+	unknownCritical := []string{}
+
+	for _, ext := range cert.Extensions {
+		if !ext.Critical {
+			continue
+		}
+
+		if !policy.IsKnownExtension(ext.Id) {
+			unknownCritical = append(unknownCritical, ext.Id.String())
+		}
+	}
+
+	if len(unknownCritical) > 0 {
+		job.Result.Add(field, StatusFail,
+			fmt.Sprintf("certificate contains unknown critical extension(s): %v", unknownCritical))
+		return
+	}
+
+	job.Result.Add(field, StatusPass, "no unknown critical extensions found")
 }

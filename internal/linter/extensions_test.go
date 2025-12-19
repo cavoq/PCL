@@ -11,6 +11,11 @@ import (
 	"github.com/cavoq/PCL/internal/policy"
 )
 
+var (
+	criticalTrue  = true
+	criticalFalse = false
+)
+
 func TestIsCritical(t *testing.T) {
 	oid := asn1.ObjectIdentifier{2, 5, 29, 15}
 
@@ -256,13 +261,13 @@ func TestLintKeyUsage_Critical(t *testing.T) {
 				Cert: &x509.Certificate{
 					KeyUsage: x509.KeyUsageDigitalSignature,
 					Extensions: []pkix.Extension{
-						{Id: policy.OIDKeyUsage, Critical: tt.critical},
+						{Id: policy.ExtKeyUsage.OID, Critical: tt.critical},
 					},
 				},
 				Policy: &policy.Policy{
 					Extensions: &policy.Extensions{
 						KeyUsage: &policy.KeyUsageExtension{
-							Critical:         true,
+							Critical:         &criticalTrue,
 							DigitalSignature: true,
 						},
 					},
@@ -520,13 +525,13 @@ func TestLintAuthorityKeyID_Critical(t *testing.T) {
 		Cert: &x509.Certificate{
 			AuthorityKeyId: []byte{1, 2, 3},
 			Extensions: []pkix.Extension{
-				{Id: policy.OIDAKI, Critical: false},
+				{Id: policy.ExtAuthorityKeyIdentifier.OID, Critical: false},
 			},
 		},
 		Policy: &policy.Policy{
 			Extensions: &policy.Extensions{
 				AuthorityKeyID: &policy.AuthorityKeyIDExtension{
-					Critical: true,
+					Critical: &criticalTrue,
 				},
 			},
 		},
