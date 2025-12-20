@@ -23,7 +23,7 @@ func Evaluate(
 	reg *operator.Registry,
 ) Result {
 
-	var results []rule.Result
+	results := make([]rule.Result, 0, len(p.Rules))
 	verdict := "pass"
 
 	for _, r := range p.Rules {

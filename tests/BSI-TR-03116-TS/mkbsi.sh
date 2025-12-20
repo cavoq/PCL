@@ -123,19 +123,19 @@ LEAF_CERT="$TMPDIR/leaf.cert.pem"
 echo "Generating Root CA..."
 gen_key "$ROOT_KEY" 4096
 gen_self_signed "$ROOT_KEY" "$ROOT_CERT" \
-    "/C=DE/ST=Berlin/L=Berlin/O=ExampleOrg/OU=Root CN=BSI Root CA" \
+    "/C=DE/ST=Berlin/L=Berlin/O=ExampleOrg/OU=Root/CN=BSI Root CA" \
     "$DAYS_ROOT" "v3_root_ca"
 
 echo "Generating Intermediate..."
 gen_key "$INTER_KEY" 4096
 gen_csr "$INTER_KEY" "$INTER_CSR" \
-    "/C=DE/ST=Berlin/L=Berlin/O=ExampleOrg/OU=Intermediate CN=BSI Intermediate CA"
+    "/C=DE/ST=Berlin/L=Berlin/O=ExampleOrg/OU=Intermediate/CN=BSI Intermediate CA"
 sign_cert "$INTER_CSR" "$ROOT_CERT" "$ROOT_KEY" "$INTER_CERT" "$DAYS_INTER" "v3_intermediate_ca"
 
 echo "Generating Leaf..."
 gen_key "$LEAF_KEY" 2048
 gen_csr "$LEAF_KEY" "$LEAF_CSR" \
-    "/C=DE/ST=Berlin/L=Berlin/O=ExampleOrg/OU=Leaf CN=leaf.example.test"
+    "/C=DE/ST=Berlin/L=Berlin/O=ExampleOrg/OU=Leaf/CN=leaf.example.test"
 sign_cert "$LEAF_CSR" "$INTER_CERT" "$INTER_KEY" "$LEAF_CERT" "$DAYS_LEAF" "v3_leaf"
 
 copy_certs
