@@ -10,6 +10,11 @@ func (n *Node) Resolve(path string) (*Node, bool) {
 	current := n
 	parts := strings.Split(path, ".")
 
+	// If the first part matches this node's name, skip it
+	if len(parts) > 0 && parts[0] == n.Name {
+		parts = parts[1:]
+	}
+
 	for _, p := range parts {
 		next, ok := current.Children[p]
 		if !ok {
