@@ -1,9 +1,14 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 
+	"github.com/cavoq/PCL/internal/cert"
+	"github.com/cavoq/PCL/internal/cert/zcrypto"
+	"github.com/cavoq/PCL/internal/operator"
+	"github.com/cavoq/PCL/internal/policy"
 	"github.com/spf13/cobra"
 )
 
@@ -14,6 +19,62 @@ type InputOptions struct {
 }
 
 func RunLinter(opts InputOptions) error {
+	policies, err := policy.ParseDir(opts.PolicyPath)
+	if err != nil {
+		policies = nil
+		p, err := policy.ParseFile(opts.PolicyPath)
+		if err != nil {
+			return fmt.Errorf("failed to parse policies: %w", err)
+		}
+		policies = append(policies, p)
+	}
+
+	certs, err := cert.GetCertificates(opts.CertPath)
+	if err != nil {
+		return fmt.Errorf("failed to load certificates: %w", err)
+	}
+
+	chain, err := cert.BuildChain(certs)
+	if err != nil {
+		return fmt.Errorf("failed to build chain: %w", err)
+	}
+
+	reg := operator.NewRegistry()
+	reg.Register(operator.Eq{})
+	reg.Register(operator.Present{})
+
+	var results []policy.Result
+
+	for _, c := range chain {
+		tree := zcrypto.BuildTree(c.Cert)
+		ctx := operator.NewEvaluationContext(tree, c, chain)
+
+		for _, p := range policies {
+			res := policy.Evaluate(p, tree, reg, ctx)
+			results = append(results, res)
+		}
+	}
+
+	return outputResults(results, opts.OutputFmt)
+}
+
+func outputResults(results []policy.Result, format string) error {
+	if format == "json" {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		return enc.Encode(results)
+	}
+
+	for _, res := range results {
+		fmt.Printf("Policy: %s | Verdict: %s\n", res.PolicyID, res.Verdict)
+		for _, r := range res.Results {
+			status := "PASS"
+			if !r.Passed {
+				status = "FAIL"
+			}
+			fmt.Printf("  [%s] %s\n", status, r.RuleID)
+		}
+	}
 	return nil
 }
 
