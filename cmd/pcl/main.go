@@ -5,11 +5,6 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-
-	"github.com/cavoq/PCL/internal/linter"
-	"github.com/cavoq/PCL/internal/policy"
-	"github.com/cavoq/PCL/internal/report"
-	"github.com/cavoq/PCL/internal/utils"
 )
 
 type InputOptions struct {
@@ -19,25 +14,6 @@ type InputOptions struct {
 }
 
 func RunLinter(opts InputOptions) error {
-	certs, err := utils.GetCertificates(opts.CertPath)
-	if err != nil {
-		return fmt.Errorf("failed to collect certificates: %w", err)
-	}
-
-	policyChain, err := policy.GetPolicyChain(opts.PolicyPath)
-	if err != nil {
-		return fmt.Errorf("failed to load policy chain: %w", err)
-	}
-
-	l := &linter.Linter{}
-	l.CreateJobs(certs, policyChain, opts.CertPath, opts.PolicyPath)
-	l.Execute()
-
-	reporter := report.SelectReporter(opts.OutputFmt)
-	if err := report.ReportLintRun(reporter, l.Run); err != nil {
-		return err
-	}
-
 	return nil
 }
 
