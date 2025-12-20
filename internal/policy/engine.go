@@ -7,8 +7,8 @@ import (
 )
 
 type Policy struct {
-	ID    string
-	Rules []rule.Rule
+	ID    string      `yaml:"id"`
+	Rules []rule.Rule `yaml:"rules"`
 }
 
 type Result struct {
