@@ -6,6 +6,6 @@ type Present struct{}
 
 func (Present) Name() string { return "present" }
 
-func (Present) Evaluate(n *node.Node, _ []any) (bool, error) {
+func (Present) Evaluate(n *node.Node, _ *EvaluationContext, _ []any) (bool, error) {
 	return n != nil, nil
 }

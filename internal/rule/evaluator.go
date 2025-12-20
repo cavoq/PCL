@@ -16,8 +16,8 @@ func Evaluate(
 	root *node.Node,
 	r Rule,
 	reg *operator.Registry,
+	ctx *operator.EvaluationContext,
 ) Result {
-
 	n, _ := root.Resolve(r.Target)
 
 	op, err := reg.Get(r.Operator)
@@ -30,7 +30,7 @@ func Evaluate(
 		}
 	}
 
-	ok, err := op.Evaluate(n, r.Operands)
+	ok, err := op.Evaluate(n, ctx, r.Operands)
 	if err != nil {
 		return Result{
 			RuleID:   r.ID,

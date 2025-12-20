@@ -29,7 +29,7 @@ func TestPresentOperator(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ok, err := op.Evaluate(tt.node, nil)
+			ok, err := op.Evaluate(tt.node, nil, nil)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}

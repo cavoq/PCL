@@ -24,13 +24,13 @@ func Evaluate(
 	p Policy,
 	root *node.Node,
 	reg *operator.Registry,
+	ctx *operator.EvaluationContext,
 ) Result {
-
 	results := make([]rule.Result, 0, len(p.Rules))
 	verdict := "pass"
 
 	for _, r := range p.Rules {
-		res := rule.Evaluate(root, r, reg)
+		res := rule.Evaluate(root, r, reg, ctx)
 		results = append(results, res)
 
 		if !res.Passed && r.Severity == "error" {

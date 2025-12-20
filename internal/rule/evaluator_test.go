@@ -22,7 +22,7 @@ func TestRuleEvaluationPass(t *testing.T) {
 		Operands: []any{42},
 	}
 
-	res := rule.Evaluate(root, r, reg)
+	res := rule.Evaluate(root, r, reg, nil)
 
 	if !res.Passed {
 		t.Fatalf("expected rule to pass")
@@ -42,7 +42,7 @@ func TestRuleEvaluationFail(t *testing.T) {
 		Operands: []any{100},
 	}
 
-	res := rule.Evaluate(root, r, reg)
+	res := rule.Evaluate(root, r, reg, nil)
 
 	if res.Passed {
 		t.Fatalf("expected rule to fail")
@@ -62,7 +62,7 @@ func TestRuleEvaluationMissingOperator(t *testing.T) {
 		Operands: []any{42},
 	}
 
-	res := rule.Evaluate(root, r, reg)
+	res := rule.Evaluate(root, r, reg, nil)
 
 	if res.Passed {
 		t.Fatalf("expected rule to fail due to missing operator")

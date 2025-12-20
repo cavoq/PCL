@@ -29,7 +29,7 @@ func TestPolicyPassesWhenAllRulesPass(t *testing.T) {
 		},
 	}
 
-	res := policy.Evaluate(p, root, reg)
+	res := policy.Evaluate(p, root, reg, nil)
 
 	if res.Verdict != "pass" {
 		t.Fatalf("expected verdict 'pass', got %q", res.Verdict)
@@ -64,7 +64,7 @@ func TestPolicyFailsOnErrorSeverity(t *testing.T) {
 		},
 	}
 
-	res := policy.Evaluate(p, root, reg)
+	res := policy.Evaluate(p, root, reg, nil)
 
 	if res.Verdict != "fail" {
 		t.Fatalf("expected verdict 'fail', got %q", res.Verdict)
@@ -103,7 +103,7 @@ func TestPolicyMultipleRules(t *testing.T) {
 		},
 	}
 
-	res := policy.Evaluate(p, root, reg)
+	res := policy.Evaluate(p, root, reg, nil)
 
 	if res.Verdict != "pass" {
 		t.Fatalf("expected verdict 'pass' (no error failures), got %q", res.Verdict)
