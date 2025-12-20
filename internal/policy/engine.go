@@ -1,6 +1,8 @@
 package policy
 
 import (
+	"time"
+
 	"github.com/cavoq/PCL/internal/node"
 	"github.com/cavoq/PCL/internal/operator"
 	"github.com/cavoq/PCL/internal/rule"
@@ -12,9 +14,10 @@ type Policy struct {
 }
 
 type Result struct {
-	PolicyID string
-	Results  []rule.Result
-	Verdict  string
+	PolicyID  string
+	Results   []rule.Result
+	Verdict   string
+	CheckedAt time.Time
 }
 
 func Evaluate(
@@ -36,8 +39,9 @@ func Evaluate(
 	}
 
 	return Result{
-		PolicyID: p.ID,
-		Results:  results,
-		Verdict:  verdict,
+		PolicyID:  p.ID,
+		Results:   results,
+		Verdict:   verdict,
+		CheckedAt: time.Now(),
 	}
 }
