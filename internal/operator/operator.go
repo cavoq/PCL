@@ -9,6 +9,7 @@ type Operator interface {
 
 var All = []Operator{
 	Eq{},
+	Neq{},
 	Present{},
 	Gte{},
 	Gt{},
@@ -17,4 +18,6 @@ var All = []Operator{
 	In{},
 	NotIn{},
 	Contains{},
+	Before{},
+	After{},
 }

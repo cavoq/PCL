@@ -83,3 +83,36 @@ rules:
     operator: present
     operands: []
     severity: warning
+
+  - id: not-expired
+    target: certificate.validity.notAfter
+    operator: after
+    operands: []
+    severity: error
+
+  - id: not-yet-valid
+    target: certificate.validity.notBefore
+    operator: before
+    operands: []
+    severity: error
+
+  - id: ca-key-cert-sign
+    target: certificate.keyUsage.keyCertSign
+    operator: eq
+    operands: [true]
+    severity: error
+    appliesTo: [root, intermediate]
+
+  - id: ca-basic-constraints
+    target: certificate.basicConstraints.cA
+    operator: eq
+    operands: [true]
+    severity: error
+    appliesTo: [root, intermediate]
+
+  - id: leaf-not-ca
+    target: certificate.basicConstraints.cA
+    operator: neq
+    operands: [true]
+    severity: error
+    appliesTo: [leaf]

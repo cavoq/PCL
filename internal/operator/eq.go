@@ -16,3 +16,14 @@ func (Eq) Evaluate(n *node.Node, _ *EvaluationContext, operands []any) (bool, er
 	}
 	return reflect.DeepEqual(n.Value, operands[0]), nil
 }
+
+type Neq struct{}
+
+func (Neq) Name() string { return "neq" }
+
+func (Neq) Evaluate(n *node.Node, _ *EvaluationContext, operands []any) (bool, error) {
+	if n == nil || len(operands) != 1 {
+		return false, nil
+	}
+	return !reflect.DeepEqual(n.Value, operands[0]), nil
+}
