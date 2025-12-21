@@ -12,6 +12,12 @@ rules:
     operands: []
     severity: error
 
+  - id: serial-number-positive
+    target: certificate.serialNumber
+    operator: positive
+    operands: []
+    severity: error
+
   - id: signature-algorithm-secure
     target: certificate.signatureAlgorithm.algorithm
     operator: in
@@ -41,11 +47,24 @@ rules:
     operands: []
     severity: error
 
+  - id: issuer-not-empty
+    target: certificate.issuer
+    operator: notEmpty
+    operands: []
+    severity: error
+
   - id: subject-present
     target: certificate.subject
     operator: present
     operands: []
     severity: warning
+
+  - id: ca-subject-not-empty
+    target: certificate.subject
+    operator: notEmpty
+    operands: []
+    severity: error
+    appliesTo: [root, intermediate]
 
   - id: rsa-key-size-minimum
     target: certificate.subjectPublicKeyInfo.publicKey.keySize

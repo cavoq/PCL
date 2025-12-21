@@ -20,4 +20,12 @@ var All = []Operator{
 	Contains{},
 	Before{},
 	After{},
+	Matches{},
+	Positive{},
+	MaxLength{},
+	MinLength{},
+	IsCritical{},
+	NotCritical{},
+	IsEmpty{},
+	NotEmpty{},
 }

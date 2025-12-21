@@ -69,6 +69,11 @@ rules:
 | `contains` | String/array contains value |
 | `before` | Date is before current time |
 | `after` | Date is after current time |
+| `matches` | Compare two field paths for equality |
+| `positive` | Value is a positive number |
+| `maxLength`, `minLength` | String/array length constraints |
+| `isCritical`, `notCritical` | Extension criticality check |
+| `isEmpty`, `notEmpty` | Value emptiness check |
 
 ## Certificate Chain Support
 
