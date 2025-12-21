@@ -74,6 +74,10 @@ rules:
 | `maxLength`, `minLength` | String/array length constraints |
 | `isCritical`, `notCritical` | Extension criticality check |
 | `isEmpty`, `notEmpty` | Value emptiness check |
+| `regex`, `notRegex` | Regular expression pattern matching |
+| `signedBy` | Cryptographic signature verification |
+| `issuedBy` | Issuer DN matches issuer's subject DN |
+| `akiMatchesSki` | Authority Key ID matches issuer's Subject Key ID |
 
 ## Certificate Chain Support
 

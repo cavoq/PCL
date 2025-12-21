@@ -28,4 +28,9 @@ var All = []Operator{
 	NotCritical{},
 	IsEmpty{},
 	NotEmpty{},
+	Regex{},
+	NotRegex{},
+	SignedBy{},
+	IssuedBy{},
+	AKIMatchesSKI{},
 }

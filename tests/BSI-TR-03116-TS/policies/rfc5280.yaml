@@ -135,3 +135,21 @@ rules:
     operands: [true]
     severity: error
     appliesTo: [leaf]
+
+  - id: signature-valid
+    target: certificate
+    operator: signedBy
+    operands: []
+    severity: error
+
+  - id: issuer-matches-subject
+    target: certificate
+    operator: issuedBy
+    operands: []
+    severity: error
+
+  - id: aki-matches-ski
+    target: certificate
+    operator: akiMatchesSki
+    operands: []
+    severity: warning
