@@ -39,9 +39,7 @@ func RunLinter(opts InputOptions) error {
 		return fmt.Errorf("failed to build chain: %w", err)
 	}
 
-	reg := operator.NewRegistry()
-	reg.Register(operator.Eq{})
-	reg.Register(operator.Present{})
+	reg := operator.DefaultRegistry()
 
 	var results []policy.Result
 

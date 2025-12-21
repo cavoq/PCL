@@ -164,3 +164,36 @@ func TestParseDir_NotFound(t *testing.T) {
 		t.Error("expected error for missing directory")
 	}
 }
+
+func TestParse_ListOperands(t *testing.T) {
+	data := []byte(`
+id: test-policy
+rules:
+  - id: algo-check
+    target: certificate.signatureAlgorithm.algorithm
+    operator: in
+    operands:
+      - SHA256-RSA
+      - SHA384-RSA
+    severity: error
+`)
+
+	p, err := Parse(data)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(p.Rules) != 1 {
+		t.Fatalf("expected 1 rule, got %d", len(p.Rules))
+	}
+
+	operands := p.Rules[0].Operands
+	if len(operands) != 2 {
+		t.Fatalf("expected 2 operands, got %d: %v", len(operands), operands)
+	}
+
+	if operands[0] != "SHA256-RSA" {
+		t.Errorf("expected operand[0] to be 'SHA256-RSA', got %v (type %T)", operands[0], operands[0])
+	}
+}
+

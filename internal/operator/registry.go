@@ -10,8 +10,20 @@ func NewRegistry() *Registry {
 	return &Registry{ops: map[string]Operator{}}
 }
 
+func DefaultRegistry() *Registry {
+	r := NewRegistry()
+	r.RegisterAll(All)
+	return r
+}
+
 func (r *Registry) Register(op Operator) {
 	r.ops[op.Name()] = op
+}
+
+func (r *Registry) RegisterAll(ops []Operator) {
+	for _, op := range ops {
+		r.Register(op)
+	}
 }
 
 func (r *Registry) Get(name string) (Operator, error) {
