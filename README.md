@@ -1,4 +1,4 @@
-# PCL - Policy-based Certificate Linter
+# 🔐 PCL - Policy-based Certificate Linter
 
 [![CI](https://github.com/cavoq/PCL/actions/workflows/ci.yml/badge.svg)](https://github.com/cavoq/PCL/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/cavoq/PCL/branch/master/graph/badge.svg)](https://codecov.io/gh/cavoq/PCL)
@@ -7,14 +7,14 @@
 
 A flexible X.509 certificate linter that validates certificates against configurable YAML-based policies. Ensure compliance with RFC 5280, organizational standards, or industry best practices.
 
-## Quick Start
+## 🚀 Quick Start
 
 ```bash
 go install github.com/cavoq/PCL/cmd/pcl@latest
 pcl --policy <path> --cert <path> [--output text|json]
 ```
 
-## Policy Configuration
+## 📝 Policy Configuration
 
 Policies are YAML files defining validation rules with a simple declarative syntax.
 
@@ -50,7 +50,12 @@ rules:
     appliesTo: [root, intermediate]
 ```
 
-## Operators
+## 🏛️ Supported Policies
+
+- [RFC 5280](https://datatracker.ietf.org/doc/html/rfc5280) - Internet X.509 Public Key Infrastructure Certificate and Certificate Revocation List (CRL) Profile
+
+
+## ➕ Supported Operators
 
 | Operator | Description |
 |----------|-------------|
@@ -75,15 +80,10 @@ PCL automatically builds and validates certificate chains, applying rules based 
 
 Use `appliesTo` in rules to target specific certificate types.
 
-## Development
+## 🔧 Development
 
 ```bash
-# Build
 go build -o pcl ./cmd/pcl
-
-# Test
 go test -v -race ./...
-
-# Lint
 golangci-lint run ./...
 ```
