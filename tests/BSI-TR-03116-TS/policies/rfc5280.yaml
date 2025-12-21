@@ -153,3 +153,42 @@ rules:
     operator: akiMatchesSki
     operands: []
     severity: warning
+
+  - id: path-len-valid
+    target: certificate
+    operator: pathLenValid
+    operands: []
+    severity: error
+
+  - id: san-required-if-empty-subject
+    target: certificate
+    operator: sanRequiredIfEmptySubject
+    operands: []
+    severity: error
+    appliesTo: [leaf]
+
+  - id: ca-key-usage-valid
+    target: certificate
+    operator: keyUsageCA
+    operands: []
+    severity: error
+    appliesTo: [root, intermediate]
+
+  - id: leaf-key-usage-valid
+    target: certificate
+    operator: keyUsageLeaf
+    operands: []
+    severity: error
+    appliesTo: [leaf]
+
+  - id: no-unique-identifiers
+    target: certificate
+    operator: noUniqueIdentifiers
+    operands: []
+    severity: error
+
+  - id: serial-number-unique
+    target: certificate
+    operator: serialNumberUnique
+    operands: []
+    severity: error

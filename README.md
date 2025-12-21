@@ -78,6 +78,14 @@ rules:
 | `signedBy` | Cryptographic signature verification |
 | `issuedBy` | Issuer DN matches issuer's subject DN |
 | `akiMatchesSki` | Authority Key ID matches issuer's Subject Key ID |
+| `pathLenValid` | Path length constraint validation |
+| `validityDays` | Certificate validity period check |
+| `sanRequiredIfEmptySubject` | SAN required when subject is empty |
+| `keyUsageCA`, `keyUsageLeaf` | Key usage validation by cert type |
+| `ekuContains`, `ekuNotContains` | Extended key usage checks |
+| `ekuServerAuth`, `ekuClientAuth` | TLS authentication EKU checks |
+| `noUniqueIdentifiers` | Absence of issuer/subject unique IDs |
+| `serialNumberUnique` | Serial number uniqueness in chain |
 
 ## Certificate Chain Support
 
