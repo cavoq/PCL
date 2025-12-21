@@ -6,6 +6,14 @@ import (
 	"github.com/cavoq/PCL/internal/node"
 )
 
+type Present struct{}
+
+func (Present) Name() string { return "present" }
+
+func (Present) Evaluate(n *node.Node, _ *EvaluationContext, _ []any) (bool, error) {
+	return n != nil, nil
+}
+
 type IsEmpty struct{}
 
 func (IsEmpty) Name() string { return "isEmpty" }

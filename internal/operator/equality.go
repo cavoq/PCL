@@ -7,6 +7,28 @@ import (
 	"github.com/cavoq/PCL/internal/node"
 )
 
+type Eq struct{}
+
+func (Eq) Name() string { return "eq" }
+
+func (Eq) Evaluate(n *node.Node, _ *EvaluationContext, operands []any) (bool, error) {
+	if n == nil || len(operands) != 1 {
+		return false, nil
+	}
+	return reflect.DeepEqual(n.Value, operands[0]), nil
+}
+
+type Neq struct{}
+
+func (Neq) Name() string { return "neq" }
+
+func (Neq) Evaluate(n *node.Node, _ *EvaluationContext, operands []any) (bool, error) {
+	if n == nil || len(operands) != 1 {
+		return false, nil
+	}
+	return !reflect.DeepEqual(n.Value, operands[0]), nil
+}
+
 type Matches struct{}
 
 func (Matches) Name() string { return "matches" }
