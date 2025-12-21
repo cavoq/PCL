@@ -15,6 +15,7 @@ type Policy struct {
 
 type Result struct {
 	PolicyID  string
+	CertType  string
 	Results   []rule.Result
 	Verdict   string
 	CheckedAt time.Time
@@ -38,8 +39,14 @@ func Evaluate(
 		}
 	}
 
+	certType := ""
+	if ctx != nil && ctx.Cert != nil {
+		certType = ctx.Cert.Type
+	}
+
 	return Result{
 		PolicyID:  p.ID,
+		CertType:  certType,
 		Results:   results,
 		Verdict:   verdict,
 		CheckedAt: time.Now(),

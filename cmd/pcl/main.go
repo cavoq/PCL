@@ -64,10 +64,12 @@ func outputResults(results []policy.Result, format string) error {
 	}
 
 	for _, res := range results {
-		fmt.Printf("Policy: %s | Verdict: %s\n", res.PolicyID, res.Verdict)
+		fmt.Printf("Policy: %s | Cert: %s | Verdict: %s\n", res.PolicyID, res.CertType, res.Verdict)
 		for _, r := range res.Results {
 			status := "PASS"
-			if !r.Passed {
+			if r.Skipped {
+				status = "SKIP"
+			} else if !r.Passed {
 				status = "FAIL"
 			}
 			fmt.Printf("  [%s] %s\n", status, r.RuleID)

@@ -64,6 +64,7 @@ rules:
     operator: present
     operands: []
     severity: warning
+    appliesTo: [leaf, intermediate]
 
   - id: subject-key-identifier-present
     target: certificate.subjectKeyIdentifier
