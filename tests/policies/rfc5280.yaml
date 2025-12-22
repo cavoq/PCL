@@ -1,0 +1,288 @@
+id: rfc5280
+version: 1.0
+
+rules:
+
+  # -------------------------------------------------
+  # Certificate structure
+  # -------------------------------------------------
+
+  - id: version-v3
+    target: certificate.version
+    operator: eq
+    operands: [3]
+    severity: error
+
+  - id: serial-number-present
+    target: certificate.serialNumber
+    operator: present
+    severity: error
+
+  - id: serial-number-positive
+    target: certificate.serialNumber
+    operator: positive
+    severity: error
+
+  - id: serial-number-unique
+    target: certificate
+    operator: serialNumberUnique
+    severity: error
+
+  - id: serial-number-length
+    target: certificate.serialNumber
+    operator: maxLength
+    operands: [20]  # 20 bytes = 160 bits
+    severity: error
+
+  # -------------------------------------------------
+  # Signature algorithm
+  # -------------------------------------------------
+
+  - id: signature-algorithm-allowed
+    target: certificate.signatureAlgorithm.algorithm
+    operator: in
+    operands:
+      - SHA256-RSA
+      - SHA384-RSA
+      - SHA512-RSA
+      - ECDSA-SHA256
+      - ECDSA-SHA384
+      - ECDSA-SHA512
+      - Ed25519
+    severity: error
+
+  - id: signature-algorithm-not-weak
+    target: certificate.signatureAlgorithm.algorithm
+    operator: notIn
+    operands:
+      - MD5-RSA
+      - SHA1-RSA
+      - DSA-SHA1
+      - ECDSA-SHA1
+    severity: error
+
+  - id: signature-algorithm-matches-tbs
+    target: certificate
+    operator: signatureAlgorithmMatchesTBS
+    severity: error
+
+  - id: signature-valid
+    target: certificate
+    operator: signedBy
+    severity: error
+
+
+  # -------------------------------------------------
+  # Issuer / Subject
+  # -------------------------------------------------
+
+  - id: issuer-present
+    target: certificate.issuer
+    operator: present
+    severity: error
+
+  - id: issuer-not-empty
+    target: certificate.issuer
+    operator: notEmpty
+    severity: error
+
+  - id: subject-present
+    target: certificate.subject
+    operator: present
+    severity: warning
+
+  - id: subject-not-empty-for-ca
+    target: certificate.subject
+    operator: notEmpty
+    appliesTo: [root, intermediate]
+    severity: error
+
+  - id: issuer-matches-subject-for-root
+    target: certificate
+    operator: issuedBy
+    appliesTo: [root]
+    severity: error
+
+
+  # -------------------------------------------------
+  # Validity
+  # -------------------------------------------------
+
+  - id: not-expired
+    target: certificate.validity.notAfter
+    operator: after
+    severity: error
+
+  - id: not-yet-valid
+    target: certificate.validity.notBefore
+    operator: before
+    severity: error
+
+  - id: validity-order-correct
+    target: certificate
+    operator: validityOrderCorrect
+    severity: error
+
+
+  # -------------------------------------------------
+  # Public key checks (algorithm-specific)
+  # -------------------------------------------------
+
+  ## RSA
+  - id: rsa-key-size-minimum
+    when:
+      target: certificate.subjectPublicKeyInfo.algorithm
+      operator: eq
+      operands: [RSA]
+    target: certificate.subjectPublicKeyInfo.publicKey.keySize
+    operator: gte
+    operands: [2048]
+    severity: error
+
+  - id: rsa-exponent-valid
+    when:
+      target: certificate.subjectPublicKeyInfo.algorithm
+      operator: eq
+      operands: [RSA]
+    target: certificate.subjectPublicKeyInfo.publicKey.exponent
+    operator: odd
+    severity: error
+
+  ## ECDSA
+  - id: ecdsa-curve-allowed
+    when:
+      target: certificate.subjectPublicKeyInfo.algorithm
+      operator: eq
+      operands: [ECDSA]
+    target: certificate.subjectPublicKeyInfo.publicKey.curve
+    operator: in
+    operands:
+      - P-256
+      - P-384
+      - P-521
+    severity: error
+
+  ## Ed25519
+  - id: ed25519-no-params
+    when:
+      target: certificate.subjectPublicKeyInfo.algorithm
+      operator: eq
+      operands: [Ed25519]
+    target: certificate.subjectPublicKeyInfo.parameters
+    operator: absent
+    severity: error
+
+
+  # -------------------------------------------------
+  # Extensions
+  # -------------------------------------------------
+
+  - id: basic-constraints-present
+    target: certificate.basicConstraints
+    operator: present
+    severity: warning
+
+  - id: basic-constraints-critical-for-ca
+    when:
+      target: certificate.basicConstraints.cA
+      operator: eq
+      operands: [true]
+    target: certificate.basicConstraints.critical
+    operator: eq
+    operands: [true]
+    severity: error
+
+  - id: key-usage-present
+    target: certificate.keyUsage
+    operator: present
+    severity: warning
+
+  - id: key-usage-critical-for-ca
+    when:
+      target: certificate.basicConstraints.cA
+      operator: eq
+      operands: [true]
+    target: certificate.keyUsage.critical
+    operator: eq
+    operands: [true]
+    severity: error
+
+  - id: authority-key-identifier-present
+    target: certificate.authorityKeyIdentifier
+    operator: present
+    appliesTo: [leaf, intermediate]
+    severity: warning
+
+  - id: subject-key-identifier-present
+    target: certificate.subjectKeyIdentifier
+    operator: present
+    severity: warning
+
+  - id: aki-matches-ski
+    target: certificate
+    operator: akiMatchesSki
+    severity: warning
+
+  - id: no-unknown-critical-extensions
+    target: certificate
+    operator: noUnknownCriticalExtensions
+    severity: error
+
+
+  # -------------------------------------------------
+  # CA semantics
+  # -------------------------------------------------
+
+  - id: ca-basic-constraints
+    target: certificate.basicConstraints.cA
+    operator: eq
+    operands: [true]
+    appliesTo: [root, intermediate]
+    severity: error
+
+  - id: ca-key-cert-sign
+    target: certificate.keyUsage.keyCertSign
+    operator: eq
+    operands: [true]
+    appliesTo: [root, intermediate]
+    severity: error
+
+  - id: ca-path-len-valid
+    target: certificate
+    operator: pathLenValid
+    appliesTo: [root, intermediate]
+    severity: error
+
+
+  # -------------------------------------------------
+  # Leaf semantics
+  # -------------------------------------------------
+
+  - id: leaf-not-ca
+    target: certificate.basicConstraints.cA
+    operator: neq
+    operands: [true]
+    appliesTo: [leaf]
+    severity: error
+
+  - id: leaf-key-usage-valid
+    target: certificate
+    operator: keyUsageLeaf
+    appliesTo: [leaf]
+    severity: error
+
+  - id: san-required-if-empty-subject
+    target: certificate
+    operator: sanRequiredIfEmptySubject
+    appliesTo: [leaf]
+    severity: error
+
+
+  # -------------------------------------------------
+  # Prohibited features
+  # -------------------------------------------------
+
+  - id: no-unique-identifiers
+    target: certificate
+    operator: noUniqueIdentifiers
+    severity: error

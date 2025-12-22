@@ -1,10 +1,17 @@
 package rule
 
+type Condition struct {
+	Target   string `yaml:"target"`
+	Operator string `yaml:"operator"`
+	Operands []any  `yaml:"operands"`
+}
+
 type Rule struct {
-	ID        string   `yaml:"id"`
-	Target    string   `yaml:"target"`
-	Operator  string   `yaml:"operator"`
-	Operands  []any    `yaml:"operands"`
-	Severity  string   `yaml:"severity"`
-	AppliesTo []string `yaml:"appliesTo,omitempty"`
+	ID        string     `yaml:"id"`
+	Target    string     `yaml:"target"`
+	Operator  string     `yaml:"operator"`
+	Operands  []any      `yaml:"operands"`
+	Severity  string     `yaml:"severity"`
+	AppliesTo []string   `yaml:"appliesTo,omitempty"`
+	When      *Condition `yaml:"when,omitempty"`
 }

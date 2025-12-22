@@ -14,6 +14,14 @@ func (Present) Evaluate(n *node.Node, _ *EvaluationContext, _ []any) (bool, erro
 	return n != nil, nil
 }
 
+type Absent struct{}
+
+func (Absent) Name() string { return "absent" }
+
+func (Absent) Evaluate(n *node.Node, _ *EvaluationContext, _ []any) (bool, error) {
+	return n == nil, nil
+}
+
 type IsEmpty struct{}
 
 func (IsEmpty) Name() string { return "isEmpty" }

@@ -9,8 +9,9 @@ import (
 )
 
 type Policy struct {
-	ID    string      `yaml:"id"`
-	Rules []rule.Rule `yaml:"rules"`
+	ID      string      `yaml:"id"`
+	Version string      `yaml:"version"`
+	Rules   []rule.Rule `yaml:"rules"`
 }
 
 type Result struct {

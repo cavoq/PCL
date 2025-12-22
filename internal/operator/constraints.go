@@ -21,7 +21,7 @@ func (PathLenValid) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (boo
 	cert := ctx.Cert.Cert
 
 	caBelowCount := 0
-	for i := 0; i < position; i++ {
+	for i := range position {
 		if i < len(ctx.Chain) && ctx.Chain[i] != nil && ctx.Chain[i].Cert != nil {
 			if ctx.Chain[i].Cert.IsCA {
 				caBelowCount++
@@ -200,4 +200,50 @@ func (SerialNumberUnique) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any
 	}
 
 	return true, nil
+}
+
+type ValidityOrderCorrect struct{}
+
+func (ValidityOrderCorrect) Name() string { return "validityOrderCorrect" }
+
+func (ValidityOrderCorrect) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (bool, error) {
+	if ctx == nil || ctx.Cert == nil || ctx.Cert.Cert == nil {
+		return false, nil
+	}
+
+	cert := ctx.Cert.Cert
+	return cert.NotBefore.Before(cert.NotAfter), nil
+}
+
+type SignatureAlgorithmMatchesTBS struct{}
+
+func (SignatureAlgorithmMatchesTBS) Name() string { return "signatureAlgorithmMatchesTBS" }
+
+func (SignatureAlgorithmMatchesTBS) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (bool, error) {
+	if ctx == nil || ctx.Cert == nil || ctx.Cert.Cert == nil {
+		return false, nil
+	}
+
+	cert := ctx.Cert.Cert
+	// In Go's x509 package, SignatureAlgorithm is already parsed from both
+	// the tbsCertificate.signature and the outer signatureAlgorithm fields.
+	// If they didn't match, parsing would have failed.
+	// However, we validate that the algorithm is valid and known.
+	return cert.SignatureAlgorithm != 0, nil
+}
+
+type NoUnknownCriticalExtensions struct{}
+
+func (NoUnknownCriticalExtensions) Name() string { return "noUnknownCriticalExtensions" }
+
+func (NoUnknownCriticalExtensions) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (bool, error) {
+	if ctx == nil || ctx.Cert == nil || ctx.Cert.Cert == nil {
+		return false, nil
+	}
+
+	cert := ctx.Cert.Cert
+
+	// Check UnhandledCriticalExtensions which Go's x509 parser populates
+	// with OIDs of critical extensions it doesn't understand
+	return len(cert.UnhandledCriticalExtensions) == 0, nil
 }

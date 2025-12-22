@@ -28,6 +28,28 @@ func Evaluate(
 		}
 	}
 
+	// Check the `when` condition if present
+	if r.When != nil {
+		conditionMet, err := evaluateCondition(root, r.When, reg, ctx)
+		if err != nil {
+			return Result{
+				RuleID:   r.ID,
+				Passed:   false,
+				Message:  "when condition error: " + err.Error(),
+				Severity: r.Severity,
+			}
+		}
+		if !conditionMet {
+			// Condition not met, skip this rule
+			return Result{
+				RuleID:   r.ID,
+				Passed:   true,
+				Skipped:  true,
+				Severity: r.Severity,
+			}
+		}
+	}
+
 	n, _ := root.Resolve(r.Target)
 
 	op, err := reg.Get(r.Operator)
@@ -55,6 +77,22 @@ func Evaluate(
 		Passed:   ok,
 		Severity: r.Severity,
 	}
+}
+
+func evaluateCondition(
+	root *node.Node,
+	cond *Condition,
+	reg *operator.Registry,
+	ctx *operator.EvaluationContext,
+) (bool, error) {
+	n, _ := root.Resolve(cond.Target)
+
+	op, err := reg.Get(cond.Operator)
+	if err != nil {
+		return false, err
+	}
+
+	return op.Evaluate(n, ctx, cond.Operands)
 }
 
 func appliesTo(r Rule, ctx *operator.EvaluationContext) bool {
