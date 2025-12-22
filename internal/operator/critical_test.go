@@ -8,9 +8,9 @@ import (
 
 func TestIsCritical(t *testing.T) {
 	tests := []struct {
-		name     string
-		setup    func() *node.Node
-		want     bool
+		name  string
+		setup func() *node.Node
+		want  bool
 	}{
 		{
 			name: "critical extension",

@@ -3,8 +3,9 @@ package operator
 import (
 	"testing"
 
-	"github.com/cavoq/PCL/internal/cert"
 	"github.com/zmap/zcrypto/x509"
+
+	"github.com/cavoq/PCL/internal/cert"
 )
 
 func TestEKUContainsName(t *testing.T) {

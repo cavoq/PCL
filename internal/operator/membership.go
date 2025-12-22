@@ -57,10 +57,12 @@ func (Contains) Evaluate(n *node.Node, _ *EvaluationContext, operands []any) (bo
 		return false, fmt.Errorf("contains requires exactly 1 operand")
 	}
 
+	target := operands[0]
+
 	val := reflect.ValueOf(n.Value)
 	if val.Kind() == reflect.Slice || val.Kind() == reflect.Array {
 		for i := 0; i < val.Len(); i++ {
-			if equal(val.Index(i).Interface(), operands[0]) {
+			if equal(val.Index(i).Interface(), target) {
 				return true, nil
 			}
 		}
@@ -69,7 +71,7 @@ func (Contains) Evaluate(n *node.Node, _ *EvaluationContext, operands []any) (bo
 
 	if len(n.Children) > 0 {
 		for _, child := range n.Children {
-			if equal(child.Value, operands[0]) {
+			if equal(child.Value, target) {
 				return true, nil
 			}
 		}
@@ -77,7 +79,7 @@ func (Contains) Evaluate(n *node.Node, _ *EvaluationContext, operands []any) (bo
 	}
 
 	if str, ok := n.Value.(string); ok {
-		if substr, ok := operands[0].(string); ok {
+		if substr, ok := target.(string); ok {
 			return len(str) > 0 && len(substr) > 0 && containsSubstring(str, substr), nil
 		}
 	}

@@ -13,7 +13,7 @@ func GetCertificates(path string) ([]*Info, error) {
 		return nil, err
 	}
 
-	var certs []*Info
+	certs := make([]*Info, 0, len(certFiles))
 	for _, f := range certFiles {
 		c, err := GetCertificate(f)
 		if err != nil {

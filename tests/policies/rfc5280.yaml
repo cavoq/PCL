@@ -19,7 +19,7 @@ rules:
     severity: error
 
   - id: serial-number-positive
-    target: certificate.serialNumber
+    target: certificate.serialNumber.value
     operator: positive
     severity: error
 

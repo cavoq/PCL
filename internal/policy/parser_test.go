@@ -196,4 +196,3 @@ rules:
 		t.Errorf("expected operand[0] to be 'SHA256-RSA', got %v (type %T)", operands[0], operands[0])
 	}
 }
-

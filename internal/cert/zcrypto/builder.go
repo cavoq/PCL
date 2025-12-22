@@ -4,9 +4,10 @@ import (
 	"crypto/ecdsa"
 	"crypto/rsa"
 
-	"github.com/cavoq/PCL/internal/node"
 	"github.com/zmap/zcrypto/x509"
 	"github.com/zmap/zcrypto/x509/pkix"
+
+	"github.com/cavoq/PCL/internal/node"
 )
 
 type ZCryptoBuilder struct{}
@@ -29,7 +30,9 @@ func buildCertificate(cert *x509.Certificate) *node.Node {
 	root.Children["version"] = node.New("version", cert.Version)
 
 	if cert.SerialNumber != nil {
-		root.Children["serialNumber"] = node.New("serialNumber", cert.SerialNumber.String())
+		serialNode := node.New("serialNumber", cert.SerialNumber.Bytes())
+		serialNode.Children["value"] = node.New("value", cert.SerialNumber.String())
+		root.Children["serialNumber"] = serialNode
 	}
 
 	root.Children["signatureAlgorithm"] = buildSignatureAlgorithm(cert)

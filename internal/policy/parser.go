@@ -31,7 +31,7 @@ func ParseDir(dir string) ([]Policy, error) {
 		return nil, fmt.Errorf("reading directory: %w", err)
 	}
 
-	var policies []Policy
+	policies := make([]Policy, 0, len(entries))
 	for _, entry := range entries {
 		if entry.IsDir() {
 			continue

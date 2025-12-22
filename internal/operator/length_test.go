@@ -8,10 +8,10 @@ import (
 
 func TestMaxLength(t *testing.T) {
 	tests := []struct {
-		name     string
-		value    any
-		maxLen   int
-		want     bool
+		name   string
+		value  any
+		maxLen int
+		want   bool
 	}{
 		{"string within limit", "hello", 10, true},
 		{"string at limit", "hello", 5, true},

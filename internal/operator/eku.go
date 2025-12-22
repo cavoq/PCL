@@ -1,8 +1,9 @@
 package operator
 
 import (
-	"github.com/cavoq/PCL/internal/node"
 	"github.com/zmap/zcrypto/x509"
+
+	"github.com/cavoq/PCL/internal/node"
 )
 
 type EKUContains struct{}

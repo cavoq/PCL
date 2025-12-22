@@ -6,7 +6,7 @@ import (
 )
 
 func TestGetCertificates_Chain(t *testing.T) {
-	chain, err := GetCertificates("../../tests/BSI-TR-03116-TS/certs")
+	chain, err := GetCertificates("../../tests/certs")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -29,7 +29,7 @@ func TestGetCertificates_Chain(t *testing.T) {
 }
 
 func TestGetCertificates_SingleCert(t *testing.T) {
-	chain, err := GetCertificates("../../tests/BSI-TR-03116-TS/certs/leaf.pem")
+	chain, err := GetCertificates("../../tests/certs/leaf.pem")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -44,7 +44,7 @@ func TestGetCertificates_SingleCert(t *testing.T) {
 }
 
 func TestGetCertificate(t *testing.T) {
-	cert, err := GetCertificate("../../tests/BSI-TR-03116-TS/certs/leaf.pem")
+	cert, err := GetCertificate("../../tests/certs/leaf.pem")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -55,7 +55,7 @@ func TestGetCertificate(t *testing.T) {
 }
 
 func TestGetCertFiles_Directory(t *testing.T) {
-	files, err := GetCertFiles("../../tests/BSI-TR-03116-TS/certs")
+	files, err := GetCertFiles("../../tests/certs")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -66,7 +66,7 @@ func TestGetCertFiles_Directory(t *testing.T) {
 }
 
 func TestGetCertFiles_SingleFile(t *testing.T) {
-	files, err := GetCertFiles("../../tests/BSI-TR-03116-TS/certs/leaf.pem")
+	files, err := GetCertFiles("../../tests/certs/leaf.pem")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -77,7 +77,7 @@ func TestGetCertFiles_SingleFile(t *testing.T) {
 }
 
 func TestBuildChain_Positions(t *testing.T) {
-	chain, err := GetCertificates("../../tests/BSI-TR-03116-TS/certs")
+	chain, err := GetCertificates("../../tests/certs")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -90,7 +90,7 @@ func TestBuildChain_Positions(t *testing.T) {
 }
 
 func TestBuildChain_Hashes(t *testing.T) {
-	chain, err := GetCertificates("../../tests/BSI-TR-03116-TS/certs")
+	chain, err := GetCertificates("../../tests/certs")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -106,7 +106,7 @@ func TestBuildChain_Hashes(t *testing.T) {
 }
 
 func TestBuildChain_FilePaths(t *testing.T) {
-	chain, err := GetCertificates("../../tests/BSI-TR-03116-TS/certs")
+	chain, err := GetCertificates("../../tests/certs")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
