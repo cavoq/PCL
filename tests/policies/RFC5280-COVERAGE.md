@@ -50,7 +50,7 @@ This document tracks implementation coverage of [RFC 5280](https://datatracker.i
 ##### 4.1.2.7 Subject Public Key Info
 - [x] RSA key size MUST be at least 2048 bits - `rsa-key-size-minimum`
 - [x] RSA exponent MUST be odd - `rsa-exponent-valid`
-- [ ] RSA exponent SHOULD be 65537 or greater
+- [x] RSA exponent SHOULD be 65537 or greater - `rsa-exponent-recommended`
 - [x] ECDSA curve MUST be P-256, P-384, or P-521 - `ecdsa-curve-allowed`
 - [x] Ed25519 MUST NOT have parameters - `ed25519-no-params`
 
@@ -68,11 +68,11 @@ This document tracks implementation coverage of [RFC 5280](https://datatracker.i
 ##### 4.2.1.1 Authority Key Identifier
 - [x] AKI SHOULD be present for non-self-issued - `authority-key-identifier-present`
 - [x] AKI keyIdentifier SHOULD match issuer SKI - `aki-matches-ski`
-- [ ] AKI MUST NOT be marked critical
+- [x] AKI MUST NOT be marked critical - `aki-not-critical`
 
 ##### 4.2.1.2 Subject Key Identifier
 - [x] SKI SHOULD be present in all certificates - `subject-key-identifier-present`
-- [ ] SKI MUST NOT be marked critical
+- [x] SKI MUST NOT be marked critical - `ski-not-critical`
 
 ##### 4.2.1.3 Key Usage
 - [x] Key Usage SHOULD be present - `key-usage-present`
@@ -90,19 +90,19 @@ This document tracks implementation coverage of [RFC 5280](https://datatracker.i
 
 ##### 4.2.1.5 Policy Mappings
 - [ ] Policy mappings MAY be present in CA certificates
-- [ ] MUST be critical if present
+- [x] MUST be critical if present - `policy-mappings-critical`
 
 ##### 4.2.1.6 Subject Alternative Name
 - [x] SAN required if subject is empty - `san-required-if-empty-subject`
-- [ ] SAN MUST be critical if subject is empty
+- [x] SAN MUST be critical if subject is empty - `san-critical-if-subject-empty`
 - [ ] SAN entries properly formed (DNS, IP, email, URI)
 
 ##### 4.2.1.7 Issuer Alternative Name
 - [ ] IAN MAY be present
-- [ ] IAN SHOULD NOT be marked critical
+- [x] IAN SHOULD NOT be marked critical - `ian-not-critical`
 
 ##### 4.2.1.8 Subject Directory Attributes
-- [ ] Subject directory attributes MUST NOT be critical
+- [x] Subject directory attributes MUST NOT be critical - `subject-directory-attributes-not-critical`
 
 ##### 4.2.1.9 Basic Constraints
 - [x] Basic Constraints SHOULD be present - `basic-constraints-present`
@@ -113,12 +113,12 @@ This document tracks implementation coverage of [RFC 5280](https://datatracker.i
 
 ##### 4.2.1.10 Name Constraints
 - [ ] Name Constraints MAY be present in CA certificates
-- [ ] Name Constraints MUST be critical
+- [x] Name Constraints MUST be critical - `name-constraints-critical`
 - [ ] Permitted/excluded subtrees properly formed
 
 ##### 4.2.1.11 Policy Constraints
 - [ ] Policy Constraints MAY be present in CA certificates
-- [ ] Policy Constraints MUST be critical
+- [x] Policy Constraints MUST be critical - `policy-constraints-critical`
 - [ ] requireExplicitPolicy/inhibitPolicyMapping values valid
 
 ##### 4.2.1.12 Extended Key Usage
@@ -132,23 +132,23 @@ This document tracks implementation coverage of [RFC 5280](https://datatracker.i
 
 ##### 4.2.1.14 Inhibit anyPolicy
 - [ ] Inhibit anyPolicy MAY be present in CA certificates
-- [ ] Inhibit anyPolicy MUST be critical
+- [x] Inhibit anyPolicy MUST be critical - `inhibit-any-policy-critical`
 
 ##### 4.2.1.15 Freshest CRL
 - [ ] Freshest CRL MAY be present
-- [ ] Freshest CRL MUST NOT be critical
+- [x] Freshest CRL MUST NOT be critical - `freshest-crl-not-critical`
 
 #### 4.2.2 Private Internet Extensions
 
 ##### 4.2.2.1 Authority Information Access
 - [ ] AIA MAY be present
-- [ ] AIA MUST NOT be critical
+- [x] AIA MUST NOT be critical - `aia-not-critical`
 - [ ] OCSP responder URI properly formed
 - [ ] CA Issuers URI properly formed
 
 ##### 4.2.2.2 Subject Information Access
 - [ ] SIA MAY be present
-- [ ] SIA MUST NOT be critical
+- [x] SIA MUST NOT be critical - `sia-not-critical`
 
 ---
 

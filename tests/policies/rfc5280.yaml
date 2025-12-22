@@ -286,3 +286,138 @@ rules:
     target: certificate
     operator: noUniqueIdentifiers
     severity: error
+
+
+  # -------------------------------------------------
+  # Extension criticality requirements
+  # -------------------------------------------------
+
+  ## Extensions that MUST NOT be critical
+  - id: aki-not-critical
+    when:
+      target: certificate.authorityKeyIdentifier
+      operator: present
+    target: certificate.authorityKeyIdentifier.critical
+    operator: eq
+    operands: [false]
+    severity: error
+
+  - id: ski-not-critical
+    when:
+      target: certificate.subjectKeyIdentifier
+      operator: present
+    target: certificate.subjectKeyIdentifier.critical
+    operator: eq
+    operands: [false]
+    severity: error
+
+  - id: aia-not-critical
+    when:
+      target: certificate.authorityInfoAccess
+      operator: present
+    target: certificate.authorityInfoAccess.critical
+    operator: eq
+    operands: [false]
+    severity: error
+
+  - id: sia-not-critical
+    when:
+      target: certificate.subjectInfoAccess
+      operator: present
+    target: certificate.subjectInfoAccess.critical
+    operator: eq
+    operands: [false]
+    severity: error
+
+  - id: ian-not-critical
+    when:
+      target: certificate.issuerAltName
+      operator: present
+    target: certificate.issuerAltName.critical
+    operator: eq
+    operands: [false]
+    severity: warning
+
+  - id: freshest-crl-not-critical
+    when:
+      target: certificate.freshestCRL
+      operator: present
+    target: certificate.freshestCRL.critical
+    operator: eq
+    operands: [false]
+    severity: error
+
+  - id: subject-directory-attributes-not-critical
+    when:
+      target: certificate.subjectDirectoryAttributes
+      operator: present
+    target: certificate.subjectDirectoryAttributes.critical
+    operator: eq
+    operands: [false]
+    severity: error
+
+  ## Extensions that MUST be critical when present
+  - id: policy-mappings-critical
+    when:
+      target: certificate.policyMappings
+      operator: present
+    target: certificate.policyMappings.critical
+    operator: eq
+    operands: [true]
+    severity: error
+
+  - id: name-constraints-critical
+    when:
+      target: certificate.nameConstraints
+      operator: present
+    target: certificate.nameConstraints.critical
+    operator: eq
+    operands: [true]
+    severity: error
+
+  - id: policy-constraints-critical
+    when:
+      target: certificate.policyConstraints
+      operator: present
+    target: certificate.policyConstraints.critical
+    operator: eq
+    operands: [true]
+    severity: error
+
+  - id: inhibit-any-policy-critical
+    when:
+      target: certificate.inhibitAnyPolicy
+      operator: present
+    target: certificate.inhibitAnyPolicy.critical
+    operator: eq
+    operands: [true]
+    severity: error
+
+
+  # -------------------------------------------------
+  # Additional public key checks
+  # -------------------------------------------------
+
+  - id: rsa-exponent-recommended
+    when:
+      target: certificate.subjectPublicKeyInfo.algorithm
+      operator: eq
+      operands: [RSA]
+    target: certificate.subjectPublicKeyInfo.publicKey.exponent
+    operator: gte
+    operands: [65537]
+    severity: warning
+
+
+  # -------------------------------------------------
+  # SAN criticality
+  # -------------------------------------------------
+
+  - id: san-critical-if-subject-empty
+    when:
+      target: certificate.subject
+      operator: isEmpty
+    target: certificate.subjectAltName.critical
+    operator: eq
+    operands: [true]
+    severity: error
