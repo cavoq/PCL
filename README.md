@@ -36,7 +36,12 @@ rules:
       - ECDSA-SHA256
     severity: error
 
+  # Conditional rule using "when" clause
   - id: rsa-key-size-minimum
+    when:
+      target: certificate.subjectPublicKeyInfo.algorithm
+      operator: eq
+      operands: [RSA]
     target: certificate.subjectPublicKeyInfo.publicKey.keySize
     operator: gte
     operands: [2048]
@@ -57,35 +62,84 @@ rules:
 
 ## ➕ Supported Operators
 
+### Comparison Operators
+
 | Operator | Description |
 |----------|-------------|
 | `eq` | Equality check |
 | `neq` | Not equal check |
-| `present` | Field existence check |
 | `gt`, `gte` | Greater than (or equal) |
 | `lt`, `lte` | Less than (or equal) |
 | `in` | Value in allowed list |
 | `notIn` | Value not in disallowed list |
 | `contains` | String/array contains value |
+| `matches` | Compare two field paths for equality |
+
+### Presence & Value Operators
+
+| Operator | Description |
+|----------|-------------|
+| `present` | Field existence check |
+| `absent` | Field does not exist |
+| `isEmpty`, `notEmpty` | Value emptiness check |
+| `positive` | Value is a positive number |
+| `odd` | Value is an odd number (for RSA exponent validation) |
+| `maxLength`, `minLength` | String/array length constraints |
+| `regex`, `notRegex` | Regular expression pattern matching |
+
+### Date Operators
+
+| Operator | Description |
+|----------|-------------|
 | `before` | Date is before current time |
 | `after` | Date is after current time |
-| `matches` | Compare two field paths for equality |
-| `positive` | Value is a positive number |
-| `maxLength`, `minLength` | String/array length constraints |
+| `validityOrderCorrect` | Validates notBefore < notAfter |
+| `validityDays` | Certificate validity period check |
+
+### Extension Operators
+
+| Operator | Description |
+|----------|-------------|
 | `isCritical`, `notCritical` | Extension criticality check |
-| `isEmpty`, `notEmpty` | Value emptiness check |
-| `regex`, `notRegex` | Regular expression pattern matching |
+| `noUnknownCriticalExtensions` | No unhandled critical extensions |
+
+### Certificate Chain Operators
+
+| Operator | Description |
+|----------|-------------|
 | `signedBy` | Cryptographic signature verification |
+| `signatureAlgorithmMatchesTBS` | Signature algorithm matches TBS certificate |
 | `issuedBy` | Issuer DN matches issuer's subject DN |
 | `akiMatchesSki` | Authority Key ID matches issuer's Subject Key ID |
 | `pathLenValid` | Path length constraint validation |
-| `validityDays` | Certificate validity period check |
+| `serialNumberUnique` | Serial number uniqueness in chain |
+
+### Key Usage & Constraints Operators
+
+| Operator | Description |
+|----------|-------------|
 | `sanRequiredIfEmptySubject` | SAN required when subject is empty |
 | `keyUsageCA`, `keyUsageLeaf` | Key usage validation by cert type |
 | `ekuContains`, `ekuNotContains` | Extended key usage checks |
 | `ekuServerAuth`, `ekuClientAuth` | TLS authentication EKU checks |
 | `noUniqueIdentifiers` | Absence of issuer/subject unique IDs |
-| `serialNumberUnique` | Serial number uniqueness in chain |
+
+## 🔀 Conditional Rules
+
+Rules can include a `when` clause to apply only when certain conditions are met:
+
+```yaml
+- id: rsa-exponent-valid
+  when:
+    target: certificate.subjectPublicKeyInfo.algorithm
+    operator: eq
+    operands: [RSA]
+  target: certificate.subjectPublicKeyInfo.publicKey.exponent
+  operator: odd
+  severity: error
+```
+
+This rule only validates RSA exponent when the certificate uses RSA. If the condition is not met, the rule is skipped.
 
 ## Certificate Chain Support
 
