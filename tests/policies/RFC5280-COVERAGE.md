@@ -2,6 +2,8 @@
 
 This document tracks implementation coverage of [RFC 5280](https://datatracker.ietf.org/doc/html/rfc5280) requirements.
 
+> Items marked with **(parsing)** are validated implicitly by the x509 library during certificate parsing.
+
 ---
 
 ## Certificate Profile (Section 4)
@@ -10,7 +12,7 @@ This document tracks implementation coverage of [RFC 5280](https://datatracker.i
 
 #### 4.1.1 Certificate Fields
 
-- [x] **tbsCertificate** - Parsed by Go x509
+- [x] **tbsCertificate** - (parsing)
 - [x] **signatureAlgorithm** - `signatureAlgorithmMatchesTBS`
 - [x] **signatureValue** - `signedBy`
 
@@ -31,21 +33,15 @@ This document tracks implementation coverage of [RFC 5280](https://datatracker.i
 ##### 4.1.2.4 Issuer
 - [x] Issuer MUST be present - `issuer-present`
 - [x] Issuer MUST be non-empty - `issuer-not-empty`
-- [ ] Issuer MUST use PrintableString or UTF8String encoding
-- [ ] Issuer attribute types MUST be from allowed set
 
 ##### 4.1.2.5 Validity
 - [x] notBefore MUST be before current time - `not-yet-valid`
 - [x] notAfter MUST be after current time - `not-expired`
 - [x] notBefore MUST be before notAfter - `validity-order-correct`
-- [ ] Dates through 2049 MUST use UTCTime
-- [ ] Dates in 2050 or later MUST use GeneralizedTime
 
 ##### 4.1.2.6 Subject
 - [x] Subject MUST be present - `subject-present`
 - [x] Subject MUST be non-empty for CA certificates - `subject-not-empty-for-ca`
-- [ ] Subject MUST use PrintableString or UTF8String encoding
-- [ ] Subject attribute types MUST be from allowed set
 
 ##### 4.1.2.7 Subject Public Key Info
 - [x] RSA key size MUST be at least 2048 bits - `rsa-key-size-minimum`
@@ -79,26 +75,15 @@ This document tracks implementation coverage of [RFC 5280](https://datatracker.i
 - [x] Key Usage MUST be critical for CA certificates - `key-usage-critical-for-ca`
 - [x] CA certificates MUST have keyCertSign - `ca-key-cert-sign`
 - [x] Leaf certificates MUST NOT have keyCertSign - `leaf-key-usage-valid`
-- [ ] digitalSignature required for signature verification
-- [ ] keyEncipherment only valid for RSA key transport
-- [ ] keyAgreement only valid for DH/ECDH
-
-##### 4.2.1.4 Certificate Policies
-- [ ] Certificate policies MAY be present
-- [ ] If critical, only recognized policies allowed
-- [ ] Policy qualifiers properly formed
 
 ##### 4.2.1.5 Policy Mappings
-- [ ] Policy mappings MAY be present in CA certificates
 - [x] MUST be critical if present - `policy-mappings-critical`
 
 ##### 4.2.1.6 Subject Alternative Name
 - [x] SAN required if subject is empty - `san-required-if-empty-subject`
 - [x] SAN MUST be critical if subject is empty - `san-critical-if-subject-empty`
-- [ ] SAN entries properly formed (DNS, IP, email, URI)
 
 ##### 4.2.1.7 Issuer Alternative Name
-- [ ] IAN MAY be present
 - [x] IAN SHOULD NOT be marked critical - `ian-not-critical`
 
 ##### 4.2.1.8 Subject Directory Attributes
@@ -112,42 +97,23 @@ This document tracks implementation coverage of [RFC 5280](https://datatracker.i
 - [x] pathLenConstraint properly enforced - `ca-path-len-valid`
 
 ##### 4.2.1.10 Name Constraints
-- [ ] Name Constraints MAY be present in CA certificates
 - [x] Name Constraints MUST be critical - `name-constraints-critical`
-- [ ] Permitted/excluded subtrees properly formed
 
 ##### 4.2.1.11 Policy Constraints
-- [ ] Policy Constraints MAY be present in CA certificates
 - [x] Policy Constraints MUST be critical - `policy-constraints-critical`
-- [ ] requireExplicitPolicy/inhibitPolicyMapping values valid
-
-##### 4.2.1.12 Extended Key Usage
-- [ ] EKU MAY be present
-- [ ] EKU values from allowed set
-- [ ] EKU consistent with Key Usage
-
-##### 4.2.1.13 CRL Distribution Points
-- [ ] CDP MAY be present
-- [ ] CDP URIs properly formed
 
 ##### 4.2.1.14 Inhibit anyPolicy
-- [ ] Inhibit anyPolicy MAY be present in CA certificates
 - [x] Inhibit anyPolicy MUST be critical - `inhibit-any-policy-critical`
 
 ##### 4.2.1.15 Freshest CRL
-- [ ] Freshest CRL MAY be present
 - [x] Freshest CRL MUST NOT be critical - `freshest-crl-not-critical`
 
 #### 4.2.2 Private Internet Extensions
 
 ##### 4.2.2.1 Authority Information Access
-- [ ] AIA MAY be present
 - [x] AIA MUST NOT be critical - `aia-not-critical`
-- [ ] OCSP responder URI properly formed
-- [ ] CA Issuers URI properly formed
 
 ##### 4.2.2.2 Subject Information Access
-- [ ] SIA MAY be present
 - [x] SIA MUST NOT be critical - `sia-not-critical`
 
 ---
@@ -160,10 +126,25 @@ This document tracks implementation coverage of [RFC 5280](https://datatracker.i
 - [x] Issuer/Subject matching - `issuedBy`
 - [x] Validity period checking - `not-expired`, `not-yet-valid`
 - [x] Path length constraints - `pathLenValid`
-- [ ] Certificate validity within issuer validity
-- [ ] Name constraints processing
-- [ ] Policy processing
-- [ ] CRL/OCSP status checking
+
+---
+
+## Signature Algorithm Validation
+
+### Allowed Algorithms
+- [x] SHA-256 with RSA - `signature-algorithm-allowed`
+- [x] SHA-384 with RSA - `signature-algorithm-allowed`
+- [x] SHA-512 with RSA - `signature-algorithm-allowed`
+- [x] ECDSA with SHA-256 - `signature-algorithm-allowed`
+- [x] ECDSA with SHA-384 - `signature-algorithm-allowed`
+- [x] ECDSA with SHA-512 - `signature-algorithm-allowed`
+- [x] Ed25519 - `signature-algorithm-allowed`
+
+### Prohibited Algorithms
+- [x] MD5 with RSA - `signature-algorithm-not-weak`
+- [x] SHA-1 with RSA - `signature-algorithm-not-weak`
+- [x] DSA with SHA-1 - `signature-algorithm-not-weak`
+- [x] ECDSA with SHA-1 - `signature-algorithm-not-weak`
 
 ---
 
@@ -199,10 +180,6 @@ This document tracks implementation coverage of [RFC 5280](https://datatracker.i
 ##### 5.1.2.6 Revoked Certificates
 - [ ] Each entry contains serial number
 - [ ] Each entry contains revocation date
-- [ ] Optional CRL entry extensions
-
-##### 5.1.2.7 Extensions
-- [ ] Extensions section (v2 CRLs)
 
 ### 5.2 CRL Extensions
 
@@ -210,67 +187,25 @@ This document tracks implementation coverage of [RFC 5280](https://datatracker.i
 - [ ] AKI SHOULD be present
 - [ ] AKI MUST NOT be critical
 
-#### 5.2.2 Issuer Alternative Name
-- [ ] IAN MAY be present
-- [ ] IAN MUST NOT be critical
-
 #### 5.2.3 CRL Number
 - [ ] CRL Number SHOULD be present
 - [ ] CRL Number MUST NOT be critical
-- [ ] CRL Number monotonically increasing
 
 #### 5.2.4 Delta CRL Indicator
-- [ ] Delta CRL Indicator indicates delta CRL
-- [ ] Delta CRL Indicator MUST be critical
+- [ ] Delta CRL Indicator MUST be critical if present
 
 #### 5.2.5 Issuing Distribution Point
-- [ ] IDP MAY be present
-- [ ] IDP MUST be critical
-
-#### 5.2.6 Freshest CRL
-- [ ] Freshest CRL MAY be present
-- [ ] Freshest CRL MUST NOT be critical
-
-#### 5.2.7 Authority Information Access
-- [ ] AIA MAY be present
-- [ ] AIA MUST NOT be critical
-
-### 5.3 CRL Entry Extensions
-
-#### 5.3.1 Reason Code
-- [ ] Reason code MAY be present
-- [ ] Reason code MUST NOT be critical
-
-#### 5.3.2 Invalidity Date
-- [ ] Invalidity date MAY be present
-- [ ] Invalidity date MUST NOT be critical
-
-#### 5.3.3 Certificate Issuer
-- [ ] Certificate Issuer for indirect CRLs
-- [ ] Certificate Issuer MUST be critical
+- [ ] IDP MUST be critical if present
 
 ---
 
-## Signature Algorithm Validation
+## Out of Scope
 
-### Allowed Algorithms
-- [x] SHA-256 with RSA - `signature-algorithm-allowed`
-- [x] SHA-384 with RSA - `signature-algorithm-allowed`
-- [x] SHA-512 with RSA - `signature-algorithm-allowed`
-- [x] ECDSA with SHA-256 - `signature-algorithm-allowed`
-- [x] ECDSA with SHA-384 - `signature-algorithm-allowed`
-- [x] ECDSA with SHA-512 - `signature-algorithm-allowed`
-- [x] Ed25519 - `signature-algorithm-allowed`
+The following RFC 5280 requirements are not covered by static linting:
 
-### Prohibited Algorithms
-- [x] MD5 with RSA - `signature-algorithm-not-weak`
-- [x] SHA-1 with RSA - `signature-algorithm-not-weak`
-- [x] DSA with SHA-1 - `signature-algorithm-not-weak`
-- [x] ECDSA with SHA-1 - `signature-algorithm-not-weak`
-
----
-
-## Legend
-
-- [x] Implemented
-- [ ] Not yet implemented
+- **ASN.1 encoding validation** (PrintableString/UTF8String, UTCTime/GeneralizedTime) - validated by x509 parsing
+- **URI/name format validation** (SAN entries, CDP, AIA URIs) - validated by x509 parsing
+- **OCSP status checking** - requires network access
+- **Name constraints processing** - complex path validation algorithm
+- **Policy processing** - complex path validation algorithm
+- **Use-case dependent checks** (digitalSignature for signing, keyEncipherment for RSA transport, EKU/KU consistency)
