@@ -4,9 +4,9 @@ import (
 	"fmt"
 
 	"github.com/zmap/zcrypto/x509"
-	"github.com/zmap/zcrypto/x509/pkix"
 
 	"github.com/cavoq/PCL/internal/node"
+	"github.com/cavoq/PCL/internal/zcrypto"
 )
 
 type CRLBuilder struct{}
@@ -26,7 +26,7 @@ func BuildTree(crl *x509.RevocationList) *node.Node {
 func buildCRL(crl *x509.RevocationList) *node.Node {
 	root := node.New("crl", nil)
 
-	root.Children["issuer"] = buildPkixName("issuer", crl.Issuer)
+	root.Children["issuer"] = zcrypto.BuildPkixName("issuer", crl.Issuer)
 	root.Children["thisUpdate"] = node.New("thisUpdate", crl.ThisUpdate)
 	root.Children["nextUpdate"] = node.New("nextUpdate", crl.NextUpdate)
 	root.Children["signatureAlgorithm"] = buildSignatureAlgorithm(crl)
@@ -44,7 +44,7 @@ func buildCRL(crl *x509.RevocationList) *node.Node {
 	}
 
 	if len(crl.Extensions) > 0 {
-		root.Children["extensions"] = buildExtensions(crl.Extensions)
+		root.Children["extensions"] = zcrypto.BuildExtensions(crl.Extensions)
 	}
 
 	if len(crl.Signature) > 0 {
@@ -71,49 +71,10 @@ func buildRevokedCertificates(revoked []x509.RevokedCertificate) *node.Node {
 		rcNode.Children["revocationDate"] = node.New("revocationDate", rc.RevocationTime)
 
 		if len(rc.Extensions) > 0 {
-			rcNode.Children["extensions"] = buildExtensions(rc.Extensions)
+			rcNode.Children["extensions"] = zcrypto.BuildExtensions(rc.Extensions)
 		}
 
 		n.Children[fmt.Sprintf("%d", i)] = rcNode
-	}
-
-	return n
-}
-
-func buildExtensions(extensions []pkix.Extension) *node.Node {
-	n := node.New("extensions", nil)
-
-	for _, ext := range extensions {
-		extNode := node.New(ext.Id.String(), nil)
-		extNode.Children["oid"] = node.New("oid", ext.Id.String())
-		extNode.Children["critical"] = node.New("critical", ext.Critical)
-		extNode.Children["value"] = node.New("value", ext.Value)
-		n.Children[ext.Id.String()] = extNode
-	}
-
-	return n
-}
-
-func buildPkixName(name string, pkixName pkix.Name) *node.Node {
-	n := node.New(name, nil)
-
-	if len(pkixName.Country) > 0 {
-		n.Children["countryName"] = node.New("countryName", pkixName.Country[0])
-	}
-	if len(pkixName.Organization) > 0 {
-		n.Children["organizationName"] = node.New("organizationName", pkixName.Organization[0])
-	}
-	if len(pkixName.OrganizationalUnit) > 0 {
-		n.Children["organizationalUnitName"] = node.New("organizationalUnitName", pkixName.OrganizationalUnit[0])
-	}
-	if pkixName.CommonName != "" {
-		n.Children["commonName"] = node.New("commonName", pkixName.CommonName)
-	}
-	if len(pkixName.Locality) > 0 {
-		n.Children["localityName"] = node.New("localityName", pkixName.Locality[0])
-	}
-	if len(pkixName.Province) > 0 {
-		n.Children["stateOrProvinceName"] = node.New("stateOrProvinceName", pkixName.Province[0])
 	}
 
 	return n

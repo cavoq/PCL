@@ -6,9 +6,10 @@ import (
 	"encoding/pem"
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/zmap/zcrypto/x509"
+
+	"github.com/cavoq/PCL/internal/io"
 )
 
 type Info struct {
@@ -36,35 +37,7 @@ func GetCRL(path string) (*x509.RevocationList, error) {
 }
 
 func GetCRLFiles(path string) ([]string, error) {
-	info, err := os.Stat(path)
-	if err != nil {
-		return nil, fmt.Errorf("cannot access path %s: %w", path, err)
-	}
-
-	var files []string
-
-	if info.IsDir() {
-		err := filepath.Walk(path, func(p string, fi os.FileInfo, walkErr error) error {
-			if walkErr != nil {
-				return walkErr
-			}
-			if fi.IsDir() {
-				return nil
-			}
-			ext := filepath.Ext(p)
-			if ext == ".crl" || ext == ".pem" {
-				files = append(files, p)
-			}
-			return nil
-		})
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		files = append(files, path)
-	}
-
-	return files, nil
+	return io.GetFilesWithExtensions(path, ".crl", ".pem")
 }
 
 func GetCRLs(path string) ([]*Info, error) {

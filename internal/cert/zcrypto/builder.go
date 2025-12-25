@@ -5,9 +5,9 @@ import (
 	"crypto/rsa"
 
 	"github.com/zmap/zcrypto/x509"
-	"github.com/zmap/zcrypto/x509/pkix"
 
 	"github.com/cavoq/PCL/internal/node"
+	"github.com/cavoq/PCL/internal/zcrypto"
 )
 
 type ZCryptoBuilder struct{}
@@ -36,9 +36,9 @@ func buildCertificate(cert *x509.Certificate) *node.Node {
 	}
 
 	root.Children["signatureAlgorithm"] = buildSignatureAlgorithm(cert)
-	root.Children["issuer"] = buildPkixName("issuer", cert.Issuer)
+	root.Children["issuer"] = zcrypto.BuildPkixName("issuer", cert.Issuer)
 	root.Children["validity"] = buildValidity(cert)
-	root.Children["subject"] = buildPkixName("subject", cert.Subject)
+	root.Children["subject"] = zcrypto.BuildPkixName("subject", cert.Subject)
 	root.Children["subjectPublicKeyInfo"] = buildSubjectPublicKeyInfo(cert)
 
 	if cert.IssuerUniqueId.BitLength > 0 {
@@ -50,7 +50,7 @@ func buildCertificate(cert *x509.Certificate) *node.Node {
 	}
 
 	if len(cert.Extensions) > 0 {
-		root.Children["extensions"] = buildExtensions(cert)
+		root.Children["extensions"] = zcrypto.BuildExtensions(cert.Extensions)
 	}
 
 	root.Children["keyUsage"] = buildKeyUsage(cert.KeyUsage)
@@ -190,20 +190,6 @@ func buildBasicConstraints(cert *x509.Certificate) *node.Node {
 	return n
 }
 
-func buildExtensions(cert *x509.Certificate) *node.Node {
-	n := node.New("extensions", nil)
-
-	for _, ext := range cert.Extensions {
-		extNode := node.New(ext.Id.String(), nil)
-		extNode.Children["oid"] = node.New("oid", ext.Id.String())
-		extNode.Children["critical"] = node.New("critical", ext.Critical)
-		extNode.Children["value"] = node.New("value", ext.Value)
-		n.Children[ext.Id.String()] = extNode
-	}
-
-	return n
-}
-
 func hasSAN(cert *x509.Certificate) bool {
 	return len(cert.DNSNames) > 0 ||
 		len(cert.EmailAddresses) > 0 ||
@@ -244,40 +230,6 @@ func buildSubjectAltName(cert *x509.Certificate) *node.Node {
 			uriNode.Children[string(rune('0'+i))] = node.New(string(rune('0'+i)), uri)
 		}
 		n.Children["uniformResourceIdentifier"] = uriNode
-	}
-
-	return n
-}
-
-func buildPkixName(name string, pkixName pkix.Name) *node.Node {
-	n := node.New(name, nil)
-
-	if len(pkixName.Country) > 0 {
-		n.Children["countryName"] = node.New("countryName", pkixName.Country[0])
-	}
-	if len(pkixName.Organization) > 0 {
-		n.Children["organizationName"] = node.New("organizationName", pkixName.Organization[0])
-	}
-	if len(pkixName.OrganizationalUnit) > 0 {
-		n.Children["organizationalUnitName"] = node.New("organizationalUnitName", pkixName.OrganizationalUnit[0])
-	}
-	if pkixName.CommonName != "" {
-		n.Children["commonName"] = node.New("commonName", pkixName.CommonName)
-	}
-	if len(pkixName.Locality) > 0 {
-		n.Children["localityName"] = node.New("localityName", pkixName.Locality[0])
-	}
-	if len(pkixName.Province) > 0 {
-		n.Children["stateOrProvinceName"] = node.New("stateOrProvinceName", pkixName.Province[0])
-	}
-	if len(pkixName.StreetAddress) > 0 {
-		n.Children["streetAddress"] = node.New("streetAddress", pkixName.StreetAddress[0])
-	}
-	if len(pkixName.PostalCode) > 0 {
-		n.Children["postalCode"] = node.New("postalCode", pkixName.PostalCode[0])
-	}
-	if pkixName.SerialNumber != "" {
-		n.Children["serialNumber"] = node.New("serialNumber", pkixName.SerialNumber)
 	}
 
 	return n

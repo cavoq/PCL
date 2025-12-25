@@ -2,6 +2,7 @@ package cert
 
 import (
 	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"log"
 	"slices"
@@ -24,7 +25,7 @@ func GetCertificates(path string) ([]*Info, error) {
 		certs = append(certs, &Info{
 			Cert:     c,
 			FilePath: f,
-			Hash:     fmt.Sprintf("%x", hash),
+			Hash:     hex.EncodeToString(hash[:]),
 		})
 	}
 
