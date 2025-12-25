@@ -12,7 +12,7 @@ import (
 func loadTestCRL(t *testing.T, name string) *x509.RevocationList {
 	t.Helper()
 
-	path := filepath.Join("testdata", name)
+	path := filepath.Join("..", "testdata", name)
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("failed to read test CRL %s: %v", name, err)

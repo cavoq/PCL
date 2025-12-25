@@ -73,7 +73,7 @@ func GetCRLs(path string) ([]*Info, error) {
 		return nil, err
 	}
 
-	var crls []*Info
+	crls := make([]*Info, 0, len(files))
 	for _, f := range files {
 		crl, err := GetCRL(f)
 		if err != nil {

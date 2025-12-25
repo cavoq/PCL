@@ -9,24 +9,6 @@ type Options struct {
 	ShowMeta    bool
 }
 
-func DefaultOptions() Options {
-	return Options{
-		ShowPassed:  true,
-		ShowFailed:  true,
-		ShowSkipped: true,
-		ShowMeta:    true,
-	}
-}
-
-func FailedOnlyOptions() Options {
-	return Options{
-		ShowPassed:  false,
-		ShowFailed:  true,
-		ShowSkipped: false,
-		ShowMeta:    true,
-	}
-}
-
 type Formatter interface {
 	Format(w io.Writer, output LintOutput) error
 }

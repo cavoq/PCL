@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"io"
 	"strings"
-
-	"github.com/cavoq/PCL/internal/rule"
 )
 
 type TextFormatter struct {
@@ -50,14 +48,4 @@ func (f *TextFormatter) Format(w io.Writer, out LintOutput) error {
 
 func verdictLabel(verdict string) string {
 	return strings.ToUpper(verdict)
-}
-
-func VerdictFromResult(passed, skipped bool) string {
-	if skipped {
-		return rule.VerdictSkip
-	}
-	if !passed {
-		return rule.VerdictFail
-	}
-	return rule.VerdictPass
 }
