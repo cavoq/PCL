@@ -39,7 +39,7 @@ func TestPolicyPassesWhenAllRulesPass(t *testing.T) {
 		t.Fatalf("expected 1 rule result, got %d", len(res.Results))
 	}
 
-	if !res.Results[0].Passed {
+	if res.Results[0].Verdict != rule.VerdictPass {
 		t.Fatalf("expected rule to pass")
 	}
 }
@@ -70,7 +70,7 @@ func TestPolicyFailsOnErrorSeverity(t *testing.T) {
 		t.Fatalf("expected verdict 'fail', got %q", res.Verdict)
 	}
 
-	if res.Results[0].Passed {
+	if res.Results[0].Verdict != rule.VerdictFail {
 		t.Fatalf("expected rule to fail")
 	}
 }

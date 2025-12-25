@@ -15,11 +15,11 @@ type Policy struct {
 }
 
 type Result struct {
-	PolicyID  string
-	CertType  string
-	Results   []rule.Result
-	Verdict   string
-	CheckedAt time.Time
+	PolicyID  string        `json:"policy_id" yaml:"policy_id"`
+	CertType  string        `json:"cert_type" yaml:"cert_type"`
+	Results   []rule.Result `json:"rules" yaml:"rules"`
+	Verdict   string        `json:"verdict" yaml:"verdict"`
+	CheckedAt time.Time     `json:"checked_at" yaml:"checked_at"`
 }
 
 func Evaluate(
@@ -35,7 +35,7 @@ func Evaluate(
 		res := rule.Evaluate(root, r, reg, ctx)
 		results = append(results, res)
 
-		if !res.Passed && r.Severity == "error" {
+		if res.Verdict == rule.VerdictFail && r.Severity == "error" {
 			verdict = "fail"
 		}
 	}

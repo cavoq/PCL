@@ -5,12 +5,17 @@ import (
 	"github.com/cavoq/PCL/internal/operator"
 )
 
+const (
+	VerdictPass = "pass"
+	VerdictFail = "fail"
+	VerdictSkip = "skip"
+)
+
 type Result struct {
-	RuleID   string
-	Passed   bool
-	Skipped  bool
-	Message  string
-	Severity string
+	RuleID   string `json:"rule_id" yaml:"rule_id"`
+	Verdict  string `json:"verdict" yaml:"verdict"`
+	Severity string `json:"severity" yaml:"severity"`
+	Message  string `json:"message,omitempty" yaml:"message,omitempty"`
 }
 
 func Evaluate(
@@ -22,29 +27,25 @@ func Evaluate(
 	if !appliesTo(r, ctx) {
 		return Result{
 			RuleID:   r.ID,
-			Passed:   true,
-			Skipped:  true,
+			Verdict:  VerdictSkip,
 			Severity: r.Severity,
 		}
 	}
 
-	// Check the `when` condition if present
 	if r.When != nil {
 		conditionMet, err := evaluateCondition(root, r.When, reg, ctx)
 		if err != nil {
 			return Result{
 				RuleID:   r.ID,
-				Passed:   false,
+				Verdict:  VerdictFail,
 				Message:  "when condition error: " + err.Error(),
 				Severity: r.Severity,
 			}
 		}
 		if !conditionMet {
-			// Condition not met, skip this rule
 			return Result{
 				RuleID:   r.ID,
-				Passed:   true,
-				Skipped:  true,
+				Verdict:  VerdictSkip,
 				Severity: r.Severity,
 			}
 		}
@@ -56,7 +57,7 @@ func Evaluate(
 	if err != nil {
 		return Result{
 			RuleID:   r.ID,
-			Passed:   false,
+			Verdict:  VerdictFail,
 			Message:  "operator not found",
 			Severity: r.Severity,
 		}
@@ -66,15 +67,20 @@ func Evaluate(
 	if err != nil {
 		return Result{
 			RuleID:   r.ID,
-			Passed:   false,
+			Verdict:  VerdictFail,
 			Message:  err.Error(),
 			Severity: r.Severity,
 		}
 	}
 
+	verdict := VerdictPass
+	if !ok {
+		verdict = VerdictFail
+	}
+
 	return Result{
 		RuleID:   r.ID,
-		Passed:   ok,
+		Verdict:  verdict,
 		Severity: r.Severity,
 	}
 }

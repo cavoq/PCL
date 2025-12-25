@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 
@@ -10,13 +9,18 @@ import (
 	"github.com/cavoq/PCL/internal/cert"
 	"github.com/cavoq/PCL/internal/cert/zcrypto"
 	"github.com/cavoq/PCL/internal/operator"
+	"github.com/cavoq/PCL/internal/output"
 	"github.com/cavoq/PCL/internal/policy"
 )
 
 type InputOptions struct {
-	PolicyPath string
-	CertPath   string
-	OutputFmt  string
+	PolicyPath  string
+	CertPath    string
+	OutputFmt   string
+	ShowPassed  bool
+	ShowFailed  bool
+	ShowSkipped bool
+	ShowMeta    bool
 }
 
 func RunLinter(opts InputOptions) error {
@@ -54,29 +58,18 @@ func RunLinter(opts InputOptions) error {
 		}
 	}
 
-	return outputResults(results, opts.OutputFmt)
-}
-
-func outputResults(results []policy.Result, format string) error {
-	if format == "json" {
-		enc := json.NewEncoder(os.Stdout)
-		enc.SetIndent("", "  ")
-		return enc.Encode(results)
+	outputOpts := output.Options{
+		ShowPassed:  opts.ShowPassed,
+		ShowFailed:  opts.ShowFailed,
+		ShowSkipped: opts.ShowSkipped,
+		ShowMeta:    opts.ShowMeta,
 	}
 
-	for _, res := range results {
-		fmt.Printf("Policy: %s | Cert: %s | Verdict: %s\n", res.PolicyID, res.CertType, res.Verdict)
-		for _, r := range res.Results {
-			status := "PASS"
-			if r.Skipped {
-				status = "SKIP"
-			} else if !r.Passed {
-				status = "FAIL"
-			}
-			fmt.Printf("  [%s] %s\n", status, r.RuleID)
-		}
-	}
-	return nil
+	lintOutput := output.FromPolicyResults(results)
+	lintOutput = output.FilterRules(lintOutput, outputOpts)
+
+	formatter := output.GetFormatter(opts.OutputFmt, outputOpts)
+	return formatter.Format(os.Stdout, lintOutput)
 }
 
 func main() {
@@ -95,7 +88,11 @@ func main() {
 
 	root.Flags().StringVar(&opts.PolicyPath, "policy", "", "Path to policy YAML file or directory")
 	root.Flags().StringVar(&opts.CertPath, "cert", "", "Path to certificate file or directory (PEM/DER)")
-	root.Flags().StringVar(&opts.OutputFmt, "output", "text", "Output format: text or json")
+	root.Flags().StringVar(&opts.OutputFmt, "output", "text", "Output format: text, json, or yaml")
+	root.Flags().BoolVar(&opts.ShowPassed, "show-passed", true, "Show passed rules")
+	root.Flags().BoolVar(&opts.ShowFailed, "show-failed", true, "Show failed rules")
+	root.Flags().BoolVar(&opts.ShowSkipped, "show-skipped", true, "Show skipped rules")
+	root.Flags().BoolVar(&opts.ShowMeta, "show-meta", true, "Show lint meta information")
 
 	if err := root.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
