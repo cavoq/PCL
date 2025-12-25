@@ -88,24 +88,7 @@ type EKUServerAuth struct{}
 func (EKUServerAuth) Name() string { return "ekuServerAuth" }
 
 func (EKUServerAuth) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (bool, error) {
-	if ctx == nil || ctx.Cert == nil || ctx.Cert.Cert == nil {
-		return false, nil
-	}
-
-	cert := ctx.Cert.Cert
-
-	// No EKU means any purpose is allowed
-	if len(cert.ExtKeyUsage) == 0 {
-		return true, nil
-	}
-
-	for _, eku := range cert.ExtKeyUsage {
-		if eku == x509.ExtKeyUsageServerAuth || eku == x509.ExtKeyUsageAny {
-			return true, nil
-		}
-	}
-
-	return false, nil
+	return hasEKU(ctx, x509.ExtKeyUsageServerAuth)
 }
 
 type EKUClientAuth struct{}
@@ -113,19 +96,22 @@ type EKUClientAuth struct{}
 func (EKUClientAuth) Name() string { return "ekuClientAuth" }
 
 func (EKUClientAuth) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (bool, error) {
+	return hasEKU(ctx, x509.ExtKeyUsageClientAuth)
+}
+
+func hasEKU(ctx *EvaluationContext, targetEKU x509.ExtKeyUsage) (bool, error) {
 	if ctx == nil || ctx.Cert == nil || ctx.Cert.Cert == nil {
 		return false, nil
 	}
 
 	cert := ctx.Cert.Cert
 
-	// No EKU means any purpose is allowed
 	if len(cert.ExtKeyUsage) == 0 {
 		return true, nil
 	}
 
 	for _, eku := range cert.ExtKeyUsage {
-		if eku == x509.ExtKeyUsageClientAuth || eku == x509.ExtKeyUsageAny {
+		if eku == targetEKU || eku == x509.ExtKeyUsageAny {
 			return true, nil
 		}
 	}
