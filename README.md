@@ -11,7 +11,7 @@ A flexible X.509 certificate linter that validates certificates against configur
 
 ```bash
 go install github.com/cavoq/PCL/cmd/pcl@latest
-pcl --policy <path> --cert <path> [--output text|json]
+pcl --policy <path> --cert <path> [--crl <path>] [--output text|json|yaml]
 ```
 
 ## 📝 Policy Configuration
@@ -123,6 +123,15 @@ rules:
 | `ekuContains`, `ekuNotContains` | Extended key usage checks |
 | `ekuServerAuth`, `ekuClientAuth` | TLS authentication EKU checks |
 | `noUniqueIdentifiers` | Absence of issuer/subject unique IDs |
+
+### CRL Operators
+
+| Operator | Description |
+|----------|-------------|
+| `crlValid` | CRL is within thisUpdate/nextUpdate window |
+| `crlNotExpired` | CRL nextUpdate is in the future |
+| `crlSignedBy` | CRL signature verification against chain |
+| `notRevoked` | Certificate not in CRL revoked list |
 
 ## 🔀 Conditional Rules
 

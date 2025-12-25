@@ -49,4 +49,8 @@ var All = []Operator{
 	EKUClientAuth{},
 	NoUniqueIdentifiers{},
 	SerialNumberUnique{},
+	CRLValid{},
+	CRLNotExpired{},
+	CRLSignedBy{},
+	NotRevoked{},
 }

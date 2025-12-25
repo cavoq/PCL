@@ -153,9 +153,9 @@ This document tracks implementation coverage of [RFC 5280](https://datatracker.i
 ### 5.1 CRL Fields
 
 #### 5.1.1 CertificateList Fields
-- [ ] **tbsCertList** - Parsed structure
-- [ ] **signatureAlgorithm** - Matches outer algorithm
-- [ ] **signatureValue** - Cryptographic validation
+- [x] **tbsCertList** - (parsing)
+- [x] **signatureAlgorithm** - `crlSignedBy`
+- [x] **signatureValue** - `crlSignedBy`
 
 #### 5.1.2 TBSCertList
 
@@ -163,32 +163,32 @@ This document tracks implementation coverage of [RFC 5280](https://datatracker.i
 - [ ] Version MUST be v2 when extensions present
 
 ##### 5.1.2.2 Signature
-- [ ] Algorithm MUST match outer signatureAlgorithm
+- [x] Algorithm MUST match outer signatureAlgorithm - `crlSignedBy`
 
 ##### 5.1.2.3 Issuer
-- [ ] Issuer MUST be present and non-empty
-- [ ] Issuer MUST match CA certificate subject
+- [x] Issuer MUST be present and non-empty - (parsing)
+- [x] Issuer MUST match CA certificate subject - `crlSignedBy`
 
 ##### 5.1.2.4 This Update
-- [ ] thisUpdate MUST be present
-- [ ] thisUpdate MUST NOT be in the future
+- [x] thisUpdate MUST be present - (parsing)
+- [x] thisUpdate MUST NOT be in the future - `crlValid`
 
 ##### 5.1.2.5 Next Update
-- [ ] nextUpdate SHOULD be present
-- [ ] nextUpdate MUST be after thisUpdate
+- [x] nextUpdate SHOULD be present - (parsing)
+- [x] nextUpdate MUST be after thisUpdate - `crlValid`, `crlNotExpired`
 
 ##### 5.1.2.6 Revoked Certificates
-- [ ] Each entry contains serial number
-- [ ] Each entry contains revocation date
+- [x] Each entry contains serial number - `notRevoked`
+- [x] Each entry contains revocation date - (parsing)
 
 ### 5.2 CRL Extensions
 
 #### 5.2.1 Authority Key Identifier
-- [ ] AKI SHOULD be present
+- [x] AKI SHOULD be present - (node tree)
 - [ ] AKI MUST NOT be critical
 
 #### 5.2.3 CRL Number
-- [ ] CRL Number SHOULD be present
+- [x] CRL Number SHOULD be present - (node tree)
 - [ ] CRL Number MUST NOT be critical
 
 #### 5.2.4 Delta CRL Indicator
@@ -196,6 +196,15 @@ This document tracks implementation coverage of [RFC 5280](https://datatracker.i
 
 #### 5.2.5 Issuing Distribution Point
 - [ ] IDP MUST be critical if present
+
+### 5.3 CRL Operators
+
+| Operator | Description |
+|----------|-------------|
+| `crlValid` | Validates CRL is within thisUpdate/nextUpdate window |
+| `crlNotExpired` | Checks CRL nextUpdate is in the future |
+| `crlSignedBy` | Verifies CRL signature against chain certificates |
+| `notRevoked` | Checks certificate serial is not in revoked list |
 
 ---
 

@@ -8,6 +8,7 @@ import (
 
 	"github.com/cavoq/PCL/internal/cert"
 	"github.com/cavoq/PCL/internal/cert/zcrypto"
+	"github.com/cavoq/PCL/internal/crl"
 	"github.com/cavoq/PCL/internal/operator"
 	"github.com/cavoq/PCL/internal/output"
 	"github.com/cavoq/PCL/internal/policy"
@@ -16,6 +17,7 @@ import (
 type InputOptions struct {
 	PolicyPath  string
 	CertPath    string
+	CRLPath     string
 	OutputFmt   string
 	ShowPassed  bool
 	ShowFailed  bool
@@ -44,13 +46,21 @@ func RunLinter(opts InputOptions) error {
 		return fmt.Errorf("failed to build chain: %w", err)
 	}
 
+	var crls []*crl.Info
+	if opts.CRLPath != "" {
+		crls, err = crl.GetCRLs(opts.CRLPath)
+		if err != nil {
+			return fmt.Errorf("failed to load CRLs: %w", err)
+		}
+	}
+
 	reg := operator.DefaultRegistry()
 
 	var results []policy.Result
 
 	for _, c := range chain {
 		tree := zcrypto.BuildTree(c.Cert)
-		ctx := operator.NewEvaluationContext(tree, c, chain)
+		ctx := operator.NewEvaluationContext(tree, c, chain, crls...)
 
 		for _, p := range policies {
 			res := policy.Evaluate(p, tree, reg, ctx)
@@ -88,6 +98,7 @@ func main() {
 
 	root.Flags().StringVar(&opts.PolicyPath, "policy", "", "Path to policy YAML file or directory")
 	root.Flags().StringVar(&opts.CertPath, "cert", "", "Path to certificate file or directory (PEM/DER)")
+	root.Flags().StringVar(&opts.CRLPath, "crl", "", "Path to CRL file or directory (PEM/DER)")
 	root.Flags().StringVar(&opts.OutputFmt, "output", "text", "Output format: text, json, or yaml")
 	root.Flags().BoolVar(&opts.ShowPassed, "show-passed", true, "Show passed rules")
 	root.Flags().BoolVar(&opts.ShowFailed, "show-failed", true, "Show failed rules")

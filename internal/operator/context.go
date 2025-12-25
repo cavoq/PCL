@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/cavoq/PCL/internal/cert"
+	"github.com/cavoq/PCL/internal/crl"
 	"github.com/cavoq/PCL/internal/node"
 )
 
@@ -12,13 +13,15 @@ type EvaluationContext struct {
 	Now   time.Time
 	Cert  *cert.Info
 	Chain []*cert.Info
+	CRLs  []*crl.Info
 }
 
-func NewEvaluationContext(root *node.Node, c *cert.Info, chain []*cert.Info) *EvaluationContext {
+func NewEvaluationContext(root *node.Node, c *cert.Info, chain []*cert.Info, crls ...*crl.Info) *EvaluationContext {
 	return &EvaluationContext{
 		Root:  root,
 		Now:   time.Now(),
 		Cert:  c,
 		Chain: chain,
+		CRLs:  crls,
 	}
 }
