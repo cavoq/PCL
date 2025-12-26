@@ -3,6 +3,7 @@ package operator
 import (
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/cavoq/PCL/internal/node"
 )
@@ -80,7 +81,7 @@ func (Contains) Evaluate(n *node.Node, _ *EvaluationContext, operands []any) (bo
 
 	if str, ok := n.Value.(string); ok {
 		if substr, ok := target.(string); ok {
-			return len(str) > 0 && len(substr) > 0 && containsSubstring(str, substr), nil
+			return len(str) > 0 && len(substr) > 0 && strings.Contains(str, substr), nil
 		}
 	}
 
@@ -97,16 +98,4 @@ func equal(a, b any) bool {
 		return af == bf
 	}
 	return fmt.Sprintf("%v", a) == fmt.Sprintf("%v", b)
-}
-
-func containsSubstring(s, substr string) bool {
-	if len(substr) > len(s) {
-		return false
-	}
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }

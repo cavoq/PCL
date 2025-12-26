@@ -73,29 +73,6 @@ func TestAKIMatchesSKINilContext(t *testing.T) {
 	}
 }
 
-func TestBytesEqual(t *testing.T) {
-	tests := []struct {
-		name string
-		a    []byte
-		b    []byte
-		want bool
-	}{
-		{"equal", []byte{1, 2, 3}, []byte{1, 2, 3}, true},
-		{"not equal", []byte{1, 2, 3}, []byte{1, 2, 4}, false},
-		{"different length", []byte{1, 2}, []byte{1, 2, 3}, false},
-		{"both empty", []byte{}, []byte{}, true},
-		{"one empty", []byte{1}, []byte{}, false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := bytesEqual(tt.a, tt.b); got != tt.want {
-				t.Errorf("bytesEqual() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestSignedByRootSelfCheck(t *testing.T) {
 	op := SignedBy{}
 	ctx := &EvaluationContext{

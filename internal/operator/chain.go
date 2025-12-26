@@ -1,6 +1,8 @@
 package operator
 
 import (
+	"bytes"
+
 	"github.com/cavoq/PCL/internal/node"
 )
 
@@ -84,7 +86,7 @@ func (AKIMatchesSKI) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (bo
 		if len(cert.SubjectKeyId) == 0 {
 			return true, nil
 		}
-		return bytesEqual(cert.AuthorityKeyId, cert.SubjectKeyId), nil
+		return bytes.Equal(cert.AuthorityKeyId, cert.SubjectKeyId), nil
 	}
 
 	// For other certificates, check against issuer's SKI
@@ -102,17 +104,5 @@ func (AKIMatchesSKI) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (bo
 		return true, nil
 	}
 
-	return bytesEqual(cert.AuthorityKeyId, issuer.Cert.SubjectKeyId), nil
-}
-
-func bytesEqual(a, b []byte) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
+	return bytes.Equal(cert.AuthorityKeyId, issuer.Cert.SubjectKeyId), nil
 }
