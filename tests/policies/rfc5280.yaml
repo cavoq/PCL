@@ -421,3 +421,71 @@ rules:
     operator: eq
     operands: [true]
     severity: error
+
+
+  # -------------------------------------------------
+  # CRL validation (Section 5)
+  # -------------------------------------------------
+
+  ## CRL signature and validity
+  - id: crl-valid
+    target: crl
+    operator: crlValid
+    severity: error
+
+  - id: crl-not-expired
+    target: crl
+    operator: crlNotExpired
+    severity: error
+
+  - id: crl-signed-by
+    target: crl
+    operator: crlSignedBy
+    severity: error
+
+  - id: cert-not-revoked
+    target: certificate
+    operator: notRevoked
+    severity: error
+
+  ## CRL extension criticality requirements (RFC 5280 Section 5.2)
+
+  # Authority Key Identifier (2.5.29.35) MUST NOT be critical
+  - id: crl-aki-not-critical
+    when:
+      target: crl.extensions.2.5.29.35
+      operator: present
+    target: crl.extensions.2.5.29.35.critical
+    operator: eq
+    operands: [false]
+    severity: error
+
+  # CRL Number (2.5.29.20) MUST NOT be critical
+  - id: crl-number-not-critical
+    when:
+      target: crl.extensions.2.5.29.20
+      operator: present
+    target: crl.extensions.2.5.29.20.critical
+    operator: eq
+    operands: [false]
+    severity: error
+
+  # Delta CRL Indicator (2.5.29.27) MUST be critical if present
+  - id: crl-delta-indicator-critical
+    when:
+      target: crl.extensions.2.5.29.27
+      operator: present
+    target: crl.extensions.2.5.29.27.critical
+    operator: eq
+    operands: [true]
+    severity: error
+
+  # Issuing Distribution Point (2.5.29.28) MUST be critical if present
+  - id: crl-idp-critical
+    when:
+      target: crl.extensions.2.5.29.28
+      operator: present
+    target: crl.extensions.2.5.29.28.critical
+    operator: eq
+    operands: [true]
+    severity: error

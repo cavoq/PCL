@@ -160,7 +160,7 @@ This document tracks implementation coverage of [RFC 5280](https://datatracker.i
 #### 5.1.2 TBSCertList
 
 ##### 5.1.2.1 Version
-- [ ] Version MUST be v2 when extensions present
+- [x] Version MUST be v2 when extensions present - (parsing) zcrypto only parses v2 CRLs
 
 ##### 5.1.2.2 Signature
 - [x] Algorithm MUST match outer signatureAlgorithm - `crlSignedBy`
@@ -185,17 +185,17 @@ This document tracks implementation coverage of [RFC 5280](https://datatracker.i
 
 #### 5.2.1 Authority Key Identifier
 - [x] AKI SHOULD be present - (node tree)
-- [ ] AKI MUST NOT be critical
+- [x] AKI MUST NOT be critical - `crl-aki-not-critical`
 
 #### 5.2.3 CRL Number
 - [x] CRL Number SHOULD be present - (node tree)
-- [ ] CRL Number MUST NOT be critical
+- [x] CRL Number MUST NOT be critical - `crl-number-not-critical`
 
 #### 5.2.4 Delta CRL Indicator
-- [ ] Delta CRL Indicator MUST be critical if present
+- [x] Delta CRL Indicator MUST be critical if present - `crl-delta-indicator-critical`
 
 #### 5.2.5 Issuing Distribution Point
-- [ ] IDP MUST be critical if present
+- [x] IDP MUST be critical if present - `crl-idp-critical`
 
 ### 5.3 CRL Operators
 
