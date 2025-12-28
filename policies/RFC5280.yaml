@@ -7,11 +7,34 @@ rules:
   # Certificate structure (Section 4.1)
   # -------------------------------------------------
 
-  - id: version-v3
+  # Version MUST be 3 when extensions are present
+  - id: version-v3-when-extensions
+    when:
+      target: certificate.extensions
+      operator: present
     target: certificate.version
     operator: eq
     operands: [3]
     severity: error
+
+  # Version SHOULD be 2 when UniqueIdentifier present but no extensions
+  - id: version-v2-when-unique-id
+    when:
+      target: certificate.issuerUniqueID
+      operator: present
+    target: certificate.version
+    operator: gte
+    operands: [2]
+    severity: warning
+
+  - id: version-v2-when-subject-unique-id
+    when:
+      target: certificate.subjectUniqueID
+      operator: present
+    target: certificate.version
+    operator: gte
+    operands: [2]
+    severity: warning
 
   - id: serial-number-present
     target: certificate.serialNumber

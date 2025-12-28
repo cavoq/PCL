@@ -11,7 +11,9 @@ This document tracks implementation of [RFC 5280](https://datatracker.ietf.org/d
 ### 4.1.2.1 Version
 | Requirement | Level | Rule |
 |-------------|-------|------|
-| Version MUST be 3 when extensions present | MUST | `version-v3` |
+| Version MUST be 3 when extensions present | MUST | `version-v3-when-extensions` |
+| Version SHOULD be ≥2 when UniqueIdentifier present | SHOULD | `version-v2-when-unique-id`, `version-v2-when-subject-unique-id` |
+| Version SHOULD be 1 when only basic fields | SHOULD | (not enforced - all versions valid) |
 
 ### 4.1.2.2 Serial Number
 | Requirement | Level | Rule |
