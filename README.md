@@ -107,7 +107,7 @@ rules:
 
 | Operator | Description |
 |----------|-------------|
-| `signedBy` | Cryptographic signature verification |
+| `signatureValid` | Cryptographic signature verification |
 | `signatureAlgorithmMatchesTBS` | Signature algorithm matches TBS certificate |
 | `issuedBy` | Issuer DN matches issuer's subject DN |
 | `akiMatchesSki` | Authority Key ID matches issuer's Subject Key ID |

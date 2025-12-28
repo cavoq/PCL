@@ -7,15 +7,15 @@ import (
 	"github.com/cavoq/PCL/internal/node"
 )
 
-func TestSignedByName(t *testing.T) {
-	op := SignedBy{}
-	if op.Name() != "signedBy" {
+func TestSignatureValidName(t *testing.T) {
+	op := SignatureValid{}
+	if op.Name() != "signatureValid" {
 		t.Error("wrong name")
 	}
 }
 
-func TestSignedByNilContext(t *testing.T) {
-	op := SignedBy{}
+func TestSignatureValidNilContext(t *testing.T) {
+	op := SignatureValid{}
 	got, err := op.Evaluate(nil, nil, nil)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -25,8 +25,8 @@ func TestSignedByNilContext(t *testing.T) {
 	}
 }
 
-func TestSignedByNilCert(t *testing.T) {
-	op := SignedBy{}
+func TestSignatureValidNilCert(t *testing.T) {
+	op := SignatureValid{}
 	ctx := &EvaluationContext{Cert: nil}
 	got, err := op.Evaluate(nil, ctx, nil)
 	if err != nil {
@@ -73,8 +73,8 @@ func TestAKIMatchesSKINilContext(t *testing.T) {
 	}
 }
 
-func TestSignedByRootSelfCheck(t *testing.T) {
-	op := SignedBy{}
+func TestSignatureValidRootSelfCheck(t *testing.T) {
+	op := SignatureValid{}
 	ctx := &EvaluationContext{
 		Cert: &cert.Info{
 			Type:     "root",

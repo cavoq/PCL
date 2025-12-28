@@ -6,11 +6,11 @@ import (
 	"github.com/cavoq/PCL/internal/node"
 )
 
-type SignedBy struct{}
+type SignatureValid struct{}
 
-func (SignedBy) Name() string { return "signedBy" }
+func (SignatureValid) Name() string { return "signatureValid" }
 
-func (SignedBy) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (bool, error) {
+func (SignatureValid) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (bool, error) {
 	if ctx == nil || ctx.Cert == nil || ctx.Cert.Cert == nil {
 		return false, nil
 	}

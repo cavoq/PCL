@@ -64,7 +64,7 @@ rules:
 
   - id: signature-valid
     target: certificate
-    operator: signedBy
+    operator: signatureValid
     severity: error
 
 

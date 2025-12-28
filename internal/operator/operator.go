@@ -32,7 +32,7 @@ var All = []Operator{
 	NotEmpty{},
 	Regex{},
 	NotRegex{},
-	SignedBy{},
+	SignatureValid{},
 	IssuedBy{},
 	AKIMatchesSKI{},
 	PathLenValid{},

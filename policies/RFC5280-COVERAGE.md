@@ -26,7 +26,7 @@ This document tracks implementation of [RFC 5280](https://datatracker.ietf.org/d
 | Requirement | Level | Rule |
 |-------------|-------|------|
 | Algorithm MUST match outer signatureAlgorithm | MUST | `signatureAlgorithmMatchesTBS` |
-| Signature MUST be valid | MUST | `signedBy` |
+| Signature MUST be valid | MUST | `signatureValid` |
 
 ### 4.1.2.4 Issuer
 | Requirement | Level | Rule |
@@ -151,7 +151,7 @@ This document tracks implementation of [RFC 5280](https://datatracker.ietf.org/d
 
 | Requirement | Level | Rule |
 |-------------|-------|------|
-| Signature verification | MUST | `signedBy` |
+| Signature verification | MUST | `signatureValid` |
 | Issuer/Subject DN chaining | MUST | `issuedBy` |
 | Validity period checking | MUST | `not-expired`, `not-yet-valid` |
 | Path length constraints | MUST | `pathLenValid` |
