@@ -1,307 +1,211 @@
-# RFC 5280 Policy Coverage Analysis
+# RFC 5280 Policy Coverage
 
-This document tracks implementation coverage of [RFC 5280](https://datatracker.ietf.org/doc/html/rfc5280) requirements.
+This document tracks implementation of [RFC 5280](https://datatracker.ietf.org/doc/html/rfc5280) requirements.
 
-> Items marked with **(parsing)** are validated implicitly by the x509 library during certificate parsing.
-
----
-
-## Certificate Profile (Section 4)
-
-### 4.1 Basic Certificate Fields
-
-#### 4.1.1 Certificate Fields
-
-- [x] **tbsCertificate** - (parsing)
-- [x] **signatureAlgorithm** - `signatureAlgorithmMatchesTBS`
-- [x] **signatureValue** - `signedBy`
-
-#### 4.1.2 TBSCertificate
-
-##### 4.1.2.1 Version
-- [x] Version MUST be v3 when extensions present - `version-v3`
-
-##### 4.1.2.2 Serial Number
-- [x] Serial number MUST be present - `serial-number-present`
-- [x] Serial number MUST be positive - `serial-number-positive`
-- [x] Serial number MUST be unique per CA - `serial-number-unique`
-- [x] Serial number MUST NOT exceed 20 octets - `serial-number-length`
-
-##### 4.1.2.3 Signature
-- [x] Algorithm MUST match outer signatureAlgorithm - `signatureAlgorithmMatchesTBS`
-
-##### 4.1.2.4 Issuer
-- [x] Issuer MUST be present - `issuer-present`
-- [x] Issuer MUST be non-empty - `issuer-not-empty`
-
-##### 4.1.2.5 Validity
-- [x] notBefore MUST be before current time - `not-yet-valid`
-- [x] notAfter MUST be after current time - `not-expired`
-- [x] notBefore MUST be before notAfter - `validity-order-correct`
-
-##### 4.1.2.6 Subject
-- [x] Subject MUST be present - `subject-present`
-- [x] Subject MUST be non-empty for CA certificates - `subject-not-empty-for-ca`
-
-##### 4.1.2.7 Subject Public Key Info
-- [x] RSA key size MUST be at least 2048 bits - `rsa-key-size-minimum`
-- [x] RSA exponent MUST be odd - `rsa-exponent-valid`
-- [x] RSA exponent SHOULD be 65537 or greater - `rsa-exponent-recommended`
-- [x] ECDSA curve MUST be P-256, P-384, or P-521 - `ecdsa-curve-allowed`
-- [x] Ed25519 MUST NOT have parameters - `ed25519-no-params`
-
-##### 4.1.2.8 Unique Identifiers
-- [x] Unique identifiers MUST NOT be used - `no-unique-identifiers`
-
-##### 4.1.2.9 Extensions
-- [x] Extensions section present (implied by v3)
-- [x] Unknown critical extensions MUST cause rejection - `no-unknown-critical-extensions`
-
-### 4.2 Certificate Extensions
-
-#### 4.2.1 Standard Extensions
-
-##### 4.2.1.1 Authority Key Identifier
-- [x] AKI SHOULD be present for non-self-issued - `authority-key-identifier-present`
-- [x] AKI keyIdentifier SHOULD match issuer SKI - `aki-matches-ski`
-- [x] AKI MUST NOT be marked critical - `aki-not-critical`
-
-##### 4.2.1.2 Subject Key Identifier
-- [x] SKI SHOULD be present in all certificates - `subject-key-identifier-present`
-- [x] SKI MUST NOT be marked critical - `ski-not-critical`
-
-##### 4.2.1.3 Key Usage
-- [x] Key Usage SHOULD be present - `key-usage-present`
-- [x] Key Usage MUST be critical for CA certificates - `key-usage-critical-for-ca`
-- [x] CA certificates MUST have keyCertSign - `ca-key-cert-sign`
-- [x] Leaf certificates MUST NOT have keyCertSign - `leaf-key-usage-valid`
-
-##### 4.2.1.5 Policy Mappings
-- [x] MUST be critical if present - `policy-mappings-critical`
-
-##### 4.2.1.6 Subject Alternative Name
-- [x] SAN required if subject is empty - `san-required-if-empty-subject`
-- [x] SAN MUST be critical if subject is empty - `san-critical-if-subject-empty`
-
-##### 4.2.1.7 Issuer Alternative Name
-- [x] IAN SHOULD NOT be marked critical - `ian-not-critical`
-
-##### 4.2.1.8 Subject Directory Attributes
-- [x] Subject directory attributes MUST NOT be critical - `subject-directory-attributes-not-critical`
-
-##### 4.2.1.9 Basic Constraints
-- [x] Basic Constraints SHOULD be present - `basic-constraints-present`
-- [x] Basic Constraints MUST be critical for CA - `basic-constraints-critical-for-ca`
-- [x] cA MUST be TRUE for CA certificates - `ca-basic-constraints`
-- [x] cA MUST NOT be TRUE for leaf certificates - `leaf-not-ca`
-- [x] pathLenConstraint properly enforced - `ca-path-len-valid`
-
-##### 4.2.1.10 Name Constraints
-- [x] Name Constraints MUST be critical - `name-constraints-critical`
-- [x] Name Constraints validation through chain - `nameConstraintsValid`
-
-##### 4.2.1.11 Policy Constraints
-- [x] Policy Constraints MUST be critical - `policy-constraints-critical`
-
-##### 4.2.1.14 Inhibit anyPolicy
-- [x] Inhibit anyPolicy MUST be critical - `inhibit-any-policy-critical`
-
-##### 4.2.1.15 Freshest CRL
-- [x] Freshest CRL MUST NOT be critical - `freshest-crl-not-critical`
-
-#### 4.2.2 Private Internet Extensions
-
-##### 4.2.2.1 Authority Information Access
-- [x] AIA MUST NOT be critical - `aia-not-critical`
-
-##### 4.2.2.2 Subject Information Access
-- [x] SIA MUST NOT be critical - `sia-not-critical`
+> Items marked **(parsing)** are validated by the x509 library during parsing.
 
 ---
 
-## Certification Path Validation (Section 6)
+## Certificate Fields (Section 4.1)
 
-### 6.1 Basic Path Validation
+### 4.1.2.1 Version
+| Requirement | Level | Rule |
+|-------------|-------|------|
+| Version MUST be 3 when extensions present | MUST | `version-v3` |
 
-- [x] Signature verification - `signedBy`
-- [x] Issuer/Subject matching - `issuedBy`
-- [x] Validity period checking - `not-expired`, `not-yet-valid`
-- [x] Path length constraints - `pathLenValid`
-- [x] Name constraints processing - `nameConstraintsValid`
-- [x] Policy processing - `certificatePolicyValid`
+### 4.1.2.2 Serial Number
+| Requirement | Level | Rule |
+|-------------|-------|------|
+| Serial number MUST be positive integer | MUST | `serial-number-positive` |
+| Serial number MUST be unique per CA | MUST | `serial-number-unique` |
+| Serial number MUST NOT exceed 20 octets | MUST | `serial-number-length` |
+
+### 4.1.2.3 Signature
+| Requirement | Level | Rule |
+|-------------|-------|------|
+| Algorithm MUST match outer signatureAlgorithm | MUST | `signatureAlgorithmMatchesTBS` |
+| Signature MUST be valid | MUST | `signedBy` |
+
+### 4.1.2.4 Issuer
+| Requirement | Level | Rule |
+|-------------|-------|------|
+| Issuer MUST contain non-empty DN | MUST | `issuer-not-empty` |
+
+### 4.1.2.5 Validity
+| Requirement | Level | Rule |
+|-------------|-------|------|
+| Certificate MUST be within validity period | MUST | `not-expired`, `not-yet-valid` |
+| notBefore MUST precede notAfter | MUST | `validity-order-correct` |
+
+### 4.1.2.6 Subject
+| Requirement | Level | Rule |
+|-------------|-------|------|
+| Subject MUST be non-empty for CA certs | MUST | `subject-not-empty-for-ca` |
+| If subject empty, SAN MUST be present | MUST | `san-required-if-empty-subject` |
+
+### 4.1.2.8 Unique Identifiers
+| Requirement | Level | Rule |
+|-------------|-------|------|
+| Unique identifiers MUST NOT appear in conforming certs | MUST NOT | `no-unique-identifiers` |
 
 ---
 
-## Signature Algorithm Validation
+## Extensions (Section 4.2)
 
-### Allowed Algorithms
-- [x] SHA-256 with RSA - `signature-algorithm-allowed`
-- [x] SHA-384 with RSA - `signature-algorithm-allowed`
-- [x] SHA-512 with RSA - `signature-algorithm-allowed`
-- [x] ECDSA with SHA-256 - `signature-algorithm-allowed`
-- [x] ECDSA with SHA-384 - `signature-algorithm-allowed`
-- [x] ECDSA with SHA-512 - `signature-algorithm-allowed`
-- [x] Ed25519 - `signature-algorithm-allowed`
+### 4.2.1.1 Authority Key Identifier
+| Requirement | Level | Rule |
+|-------------|-------|------|
+| AKI MUST be included (except self-signed) | MUST | `authority-key-identifier-present` |
+| AKI MUST NOT be critical | MUST NOT | `aki-not-critical` |
+| AKI SHOULD match issuer SKI | SHOULD | `aki-matches-ski` |
 
-### Prohibited Algorithms
-- [x] MD5 with RSA - `signature-algorithm-not-weak`
-- [x] SHA-1 with RSA - `signature-algorithm-not-weak`
-- [x] DSA with SHA-1 - `signature-algorithm-not-weak`
-- [x] ECDSA with SHA-1 - `signature-algorithm-not-weak`
+### 4.2.1.2 Subject Key Identifier
+| Requirement | Level | Rule |
+|-------------|-------|------|
+| SKI MUST appear in CA certificates | MUST | `subject-key-identifier-present` |
+| SKI MUST NOT be critical | MUST NOT | `ski-not-critical` |
+
+### 4.2.1.3 Key Usage
+| Requirement | Level | Rule |
+|-------------|-------|------|
+| Key Usage SHOULD be present | SHOULD | `key-usage-present` |
+| Key Usage SHOULD be critical | SHOULD | `key-usage-critical-for-ca` |
+| CA certs MUST have keyCertSign | MUST | `ca-key-cert-sign` |
+| Non-CA certs MUST NOT have keyCertSign | MUST NOT | `leaf-key-usage-valid` |
+
+### 4.2.1.5 Policy Mappings
+| Requirement | Level | Rule |
+|-------------|-------|------|
+| Policy Mappings MUST be critical | MUST | `policy-mappings-critical` |
+
+### 4.2.1.6 Subject Alternative Name
+| Requirement | Level | Rule |
+|-------------|-------|------|
+| SAN MUST be present if subject empty | MUST | `san-required-if-empty-subject` |
+| SAN MUST be critical if subject empty | MUST | `san-critical-if-subject-empty` |
+
+### 4.2.1.7 Issuer Alternative Name
+| Requirement | Level | Rule |
+|-------------|-------|------|
+| IAN SHOULD NOT be critical | SHOULD NOT | `ian-not-critical` |
+
+### 4.2.1.8 Subject Directory Attributes
+| Requirement | Level | Rule |
+|-------------|-------|------|
+| MUST NOT be critical | MUST NOT | `subject-directory-attributes-not-critical` |
+
+### 4.2.1.9 Basic Constraints
+| Requirement | Level | Rule |
+|-------------|-------|------|
+| MUST be in CA certificates | MUST | `basic-constraints-present` |
+| MUST be critical in CA certs | MUST | `basic-constraints-critical-for-ca` |
+| cA MUST be TRUE for CA certs | MUST | `ca-basic-constraints` |
+| pathLenConstraint enforced | MUST | `ca-path-len-valid` |
+
+### 4.2.1.10 Name Constraints
+| Requirement | Level | Rule |
+|-------------|-------|------|
+| MUST be critical | MUST | `name-constraints-critical` |
+| MUST be enforced in path validation | MUST | `nameConstraintsValid` |
+
+### 4.2.1.11 Policy Constraints
+| Requirement | Level | Rule |
+|-------------|-------|------|
+| MUST be critical | MUST | `policy-constraints-critical` |
+
+### 4.2.1.12 Extended Key Usage
+| Requirement | Level | Rule |
+|-------------|-------|------|
+| Certificate used only for indicated purposes | MUST | `ekuContains`, `ekuServerAuth`, `ekuClientAuth` |
+
+### 4.2.1.13 CRL Distribution Points
+| Requirement | Level | Rule |
+|-------------|-------|------|
+| SHOULD be non-critical | SHOULD | (not enforced) |
+
+### 4.2.1.14 Inhibit anyPolicy
+| Requirement | Level | Rule |
+|-------------|-------|------|
+| MUST be critical | MUST | `inhibit-any-policy-critical` |
+
+### 4.2.1.15 Freshest CRL
+| Requirement | Level | Rule |
+|-------------|-------|------|
+| MUST NOT be critical | MUST NOT | `freshest-crl-not-critical` |
+
+### 4.2.2.1 Authority Information Access
+| Requirement | Level | Rule |
+|-------------|-------|------|
+| MUST NOT be critical | MUST NOT | `aia-not-critical` |
+
+### 4.2.2.2 Subject Information Access
+| Requirement | Level | Rule |
+|-------------|-------|------|
+| MUST NOT be critical | MUST NOT | `sia-not-critical` |
+
+---
+
+## Path Validation (Section 6)
+
+| Requirement | Level | Rule |
+|-------------|-------|------|
+| Signature verification | MUST | `signedBy` |
+| Issuer/Subject DN chaining | MUST | `issuedBy` |
+| Validity period checking | MUST | `not-expired`, `not-yet-valid` |
+| Path length constraints | MUST | `pathLenValid` |
+| Name constraints processing | MUST | `nameConstraintsValid` |
+| Policy processing | MUST | `certificatePolicyValid` |
+| Unknown critical extensions rejection | MUST | `noUnknownCriticalExtensions` |
 
 ---
 
 ## CRL Profile (Section 5)
 
-### 5.1 CRL Fields
+### CRL Fields
+| Requirement | Level | Rule |
+|-------------|-------|------|
+| Signature valid | MUST | `crlSignedBy` |
+| thisUpdate not in future | MUST | `crlValid` |
+| nextUpdate after thisUpdate | MUST | `crlValid`, `crlNotExpired` |
+| Serial number not in revoked list | MUST | `notRevoked` |
 
-#### 5.1.1 CertificateList Fields
-- [x] **tbsCertList** - (parsing)
-- [x] **signatureAlgorithm** - `crlSignedBy`
-- [x] **signatureValue** - `crlSignedBy`
-
-#### 5.1.2 TBSCertList
-
-##### 5.1.2.1 Version
-- [x] Version MUST be v2 when extensions present - (parsing) zcrypto only parses v2 CRLs
-
-##### 5.1.2.2 Signature
-- [x] Algorithm MUST match outer signatureAlgorithm - `crlSignedBy`
-
-##### 5.1.2.3 Issuer
-- [x] Issuer MUST be present and non-empty - (parsing)
-- [x] Issuer MUST match CA certificate subject - `crlSignedBy`
-
-##### 5.1.2.4 This Update
-- [x] thisUpdate MUST be present - (parsing)
-- [x] thisUpdate MUST NOT be in the future - `crlValid`
-
-##### 5.1.2.5 Next Update
-- [x] nextUpdate SHOULD be present - (parsing)
-- [x] nextUpdate MUST be after thisUpdate - `crlValid`, `crlNotExpired`
-
-##### 5.1.2.6 Revoked Certificates
-- [x] Each entry contains serial number - `notRevoked`
-- [x] Each entry contains revocation date - (parsing)
-
-### 5.2 CRL Extensions
-
-#### 5.2.1 Authority Key Identifier
-- [x] AKI SHOULD be present - (node tree)
-- [x] AKI MUST NOT be critical - `crl-aki-not-critical`
-
-#### 5.2.3 CRL Number
-- [x] CRL Number SHOULD be present - (node tree)
-- [x] CRL Number MUST NOT be critical - `crl-number-not-critical`
-
-#### 5.2.4 Delta CRL Indicator
-- [x] Delta CRL Indicator MUST be critical if present - `crl-delta-indicator-critical`
-
-#### 5.2.5 Issuing Distribution Point
-- [x] IDP MUST be critical if present - `crl-idp-critical`
-
-### 5.3 CRL Operators
-
-| Operator | Description |
-|----------|-------------|
-| `crlValid` | Validates CRL is within thisUpdate/nextUpdate window |
-| `crlNotExpired` | Checks CRL nextUpdate is in the future |
-| `crlSignedBy` | Verifies CRL signature against chain certificates |
-| `notRevoked` | Checks certificate serial is not in revoked list |
+### CRL Extensions
+| Requirement | Level | Rule |
+|-------------|-------|------|
+| AKI MUST NOT be critical | MUST NOT | `crl-aki-not-critical` |
+| CRL Number MUST NOT be critical | MUST NOT | `crl-number-not-critical` |
+| Delta CRL Indicator MUST be critical | MUST | `crl-delta-indicator-critical` |
+| IDP MUST be critical | MUST | `crl-idp-critical` |
 
 ---
 
 ## OCSP (RFC 6960)
 
-### OCSP Response Validation
-
-- [x] Response validity window checking - `ocspValid`
-- [x] Response signature verification - `ocspValid`
-- [x] Certificate not revoked via OCSP - `notRevokedOCSP`
-- [x] Certificate has Good status - `ocspGood`
-
-### OCSP Operators
-
-| Operator | Description |
-|----------|-------------|
-| `ocspValid` | Validates OCSP response is within thisUpdate/nextUpdate window and signature is valid |
-| `notRevokedOCSP` | Checks certificate is not revoked according to OCSP (no OCSP = pass) |
-| `ocspGood` | Requires explicit Good status in matching OCSP response |
+| Requirement | Rule |
+|-------------|------|
+| Response within validity window | `ocspValid` |
+| Response signature valid | `ocspValid` |
+| Certificate not revoked | `notRevokedOCSP` |
+| Certificate has Good status | `ocspGood` |
 
 ---
 
-## Name Constraints Validation
+## Best Practices (Not RFC 5280)
 
-| Operator | Description |
-|----------|-------------|
-| `nameConstraintsValid` | Validates certificate names against accumulated permitted/excluded subtrees from chain |
+The following rules enforce modern security practices beyond RFC 5280:
 
-Supports:
-- DNS name constraints
-- Email address constraints
-- URI constraints (host matching)
-- IP address constraints (CIDR matching)
-
----
-
-## Certificate Policy Validation
-
-| Operator | Description |
-|----------|-------------|
-| `certificatePolicyValid` | Validates certificate policy OIDs through chain with policy mappings and constraints |
-
-Supports:
-- Policy intersection through chain
-- anyPolicy (2.5.29.32.0) handling
-- Policy mappings (OID 2.5.29.33)
-- Policy constraints (requireExplicitPolicy, inhibitPolicyMapping)
-- Inhibit anyPolicy (OID 2.5.29.54)
-
----
-
-## Use-Case Dependent Checks
-
-Key usage and EKU validation can be defined per use-case via policy files:
-
-```yaml
-# Example: TLS Server use case
-rules:
-  - id: tls-digitalSignature
-    target: certificate.keyUsage.digitalSignature
-    operator: present
-    appliesTo: [leaf]
-
-  - id: tls-serverAuth
-    target: certificate.extKeyUsage.serverAuth
-    operator: present
-    appliesTo: [leaf]
-```
-
-Available key usage targets:
-- `certificate.keyUsage.digitalSignature`
-- `certificate.keyUsage.keyEncipherment`
-- `certificate.keyUsage.dataEncipherment`
-- `certificate.keyUsage.keyAgreement`
-- `certificate.keyUsage.keyCertSign`
-- `certificate.keyUsage.cRLSign`
-- `certificate.keyUsage.encipherOnly`
-- `certificate.keyUsage.decipherOnly`
-- `certificate.keyUsage.contentCommitment`
-
-Available EKU targets:
-- `certificate.extKeyUsage.serverAuth`
-- `certificate.extKeyUsage.clientAuth`
-- `certificate.extKeyUsage.codeSigning`
-- `certificate.extKeyUsage.emailProtection`
-- `certificate.extKeyUsage.timeStamping`
-- `certificate.extKeyUsage.ocspSigning`
-- `certificate.extKeyUsage.any`
+| Rule | Description |
+|------|-------------|
+| `rsa-key-size-minimum` | RSA keys >= 2048 bits |
+| `rsa-exponent-valid` | RSA exponent is odd |
+| `rsa-exponent-recommended` | RSA exponent >= 65537 |
+| `ecdsa-curve-allowed` | ECDSA uses P-256/P-384/P-521 |
+| `signature-algorithm-allowed` | Modern signature algorithms only |
+| `signature-algorithm-not-weak` | No MD5/SHA-1 signatures |
 
 ---
 
 ## Extension OID Reference
-
-Extension criticality checks use OID-based paths. Common extension OIDs:
 
 | Extension | OID | Path |
 |-----------|-----|------|
@@ -320,13 +224,12 @@ Extension criticality checks use OID-based paths. Common extension OIDs:
 | Inhibit anyPolicy | 2.5.29.54 | `certificate.extensions.2.5.29.54.critical` |
 | Authority Information Access | 1.3.6.1.5.5.7.1.1 | `certificate.extensions.1.3.6.1.5.5.7.1.1.critical` |
 | Subject Information Access | 1.3.6.1.5.5.7.1.11 | `certificate.extensions.1.3.6.1.5.5.7.1.11.critical` |
-| Subject Directory Attributes | 2.5.29.9 | `certificate.extensions.2.5.29.9.critical` |
 
 ---
 
 ## Out of Scope
 
-The following are handled by the x509 parsing library:
-
-- **ASN.1 encoding validation** (PrintableString/UTF8String, UTCTime/GeneralizedTime)
-- **URI/name format validation** (SAN entries, CDP, AIA URIs)
+Handled by the x509 parsing library:
+- ASN.1 encoding validation
+- UTCTime/GeneralizedTime encoding rules
+- URI/name format validation
