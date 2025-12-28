@@ -187,7 +187,7 @@ rules:
       target: certificate.basicConstraints.cA
       operator: eq
       operands: [true]
-    target: certificate.basicConstraints.critical
+    target: certificate.extensions.2.5.29.19.critical
     operator: eq
     operands: [true]
     severity: error
@@ -202,7 +202,7 @@ rules:
       target: certificate.basicConstraints.cA
       operator: eq
       operands: [true]
-    target: certificate.keyUsage.critical
+    target: certificate.extensions.2.5.29.15.critical
     operator: eq
     operands: [true]
     severity: error
@@ -253,6 +253,11 @@ rules:
     appliesTo: [root, intermediate]
     severity: error
 
+  - id: name-constraints-valid
+    target: certificate
+    operator: nameConstraintsValid
+    severity: error
+
 
   # -------------------------------------------------
   # Leaf semantics
@@ -292,103 +297,114 @@ rules:
   # Extension criticality requirements
   # -------------------------------------------------
 
-  ## Extensions that MUST NOT be critical
+  ## Extensions that MUST NOT be critical (using OID paths)
+  # Authority Key Identifier (2.5.29.35)
   - id: aki-not-critical
     when:
-      target: certificate.authorityKeyIdentifier
+      target: certificate.extensions.2.5.29.35
       operator: present
-    target: certificate.authorityKeyIdentifier.critical
+    target: certificate.extensions.2.5.29.35.critical
     operator: eq
     operands: [false]
     severity: error
 
+  # Subject Key Identifier (2.5.29.14)
   - id: ski-not-critical
     when:
-      target: certificate.subjectKeyIdentifier
+      target: certificate.extensions.2.5.29.14
       operator: present
-    target: certificate.subjectKeyIdentifier.critical
+    target: certificate.extensions.2.5.29.14.critical
     operator: eq
     operands: [false]
     severity: error
 
+  # Authority Information Access (1.3.6.1.5.5.7.1.1)
   - id: aia-not-critical
     when:
-      target: certificate.authorityInfoAccess
+      target: certificate.extensions.1.3.6.1.5.5.7.1.1
       operator: present
-    target: certificate.authorityInfoAccess.critical
+    target: certificate.extensions.1.3.6.1.5.5.7.1.1.critical
     operator: eq
     operands: [false]
     severity: error
 
+  # Subject Information Access (1.3.6.1.5.5.7.1.11)
   - id: sia-not-critical
     when:
-      target: certificate.subjectInfoAccess
+      target: certificate.extensions.1.3.6.1.5.5.7.1.11
       operator: present
-    target: certificate.subjectInfoAccess.critical
+    target: certificate.extensions.1.3.6.1.5.5.7.1.11.critical
     operator: eq
     operands: [false]
     severity: error
 
+  # Issuer Alternative Name (2.5.29.18)
   - id: ian-not-critical
     when:
-      target: certificate.issuerAltName
+      target: certificate.extensions.2.5.29.18
       operator: present
-    target: certificate.issuerAltName.critical
+    target: certificate.extensions.2.5.29.18.critical
     operator: eq
     operands: [false]
     severity: warning
 
+  # Freshest CRL (2.5.29.46)
   - id: freshest-crl-not-critical
     when:
-      target: certificate.freshestCRL
+      target: certificate.extensions.2.5.29.46
       operator: present
-    target: certificate.freshestCRL.critical
+    target: certificate.extensions.2.5.29.46.critical
     operator: eq
     operands: [false]
     severity: error
 
+  # Subject Directory Attributes (2.5.29.9)
   - id: subject-directory-attributes-not-critical
     when:
-      target: certificate.subjectDirectoryAttributes
+      target: certificate.extensions.2.5.29.9
       operator: present
-    target: certificate.subjectDirectoryAttributes.critical
+    target: certificate.extensions.2.5.29.9.critical
     operator: eq
     operands: [false]
     severity: error
 
   ## Extensions that MUST be critical when present
+  # Policy Mappings (2.5.29.33)
   - id: policy-mappings-critical
     when:
-      target: certificate.policyMappings
+      target: certificate.extensions.2.5.29.33
       operator: present
-    target: certificate.policyMappings.critical
+    target: certificate.extensions.2.5.29.33.critical
     operator: eq
     operands: [true]
     severity: error
 
+  # Name Constraints (2.5.29.30)
   - id: name-constraints-critical
     when:
-      target: certificate.nameConstraints
+      target: certificate.extensions.2.5.29.30
       operator: present
-    target: certificate.nameConstraints.critical
+    target: certificate.extensions.2.5.29.30.critical
     operator: eq
     operands: [true]
     severity: error
 
+  # Policy Constraints (2.5.29.36)
   - id: policy-constraints-critical
     when:
-      target: certificate.policyConstraints
+      target: certificate.extensions.2.5.29.36
       operator: present
-    target: certificate.policyConstraints.critical
+    target: certificate.extensions.2.5.29.36.critical
     operator: eq
     operands: [true]
     severity: error
 
+  # Inhibit anyPolicy (2.5.29.54)
   - id: inhibit-any-policy-critical
     when:
-      target: certificate.inhibitAnyPolicy
+      target: certificate.extensions.2.5.29.54
       operator: present
-    target: certificate.inhibitAnyPolicy.critical
+    target: certificate.extensions.2.5.29.54.critical
     operator: eq
     operands: [true]
     severity: error
@@ -417,7 +433,7 @@ rules:
     when:
       target: certificate.subject
       operator: isEmpty
-    target: certificate.subjectAltName.critical
+    target: certificate.extensions.2.5.29.17.critical
     operator: eq
     operands: [true]
     severity: error
@@ -446,6 +462,17 @@ rules:
   - id: cert-not-revoked
     target: certificate
     operator: notRevoked
+    severity: error
+
+  ## OCSP validation (RFC 6960)
+  - id: ocsp-valid
+    target: certificate
+    operator: ocspValid
+    severity: error
+
+  - id: ocsp-not-revoked
+    target: certificate
+    operator: notRevokedOCSP
     severity: error
 
   ## CRL extension criticality requirements (RFC 5280 Section 5.2)

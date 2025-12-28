@@ -11,7 +11,7 @@ A flexible X.509 certificate linter that validates certificates against configur
 
 ```bash
 go install github.com/cavoq/PCL/cmd/pcl@latest
-pcl --policy <path> --cert <path> [--crl <path>] [--output text|json|yaml]
+pcl --policy <path> --cert <path> [--crl <path>] [--ocsp <path>] [--output text|json|yaml]
 ```
 
 ## 📝 Policy Configuration
@@ -132,6 +132,21 @@ rules:
 | `crlNotExpired` | CRL nextUpdate is in the future |
 | `crlSignedBy` | CRL signature verification against chain |
 | `notRevoked` | Certificate not in CRL revoked list |
+
+### OCSP Operators
+
+| Operator | Description |
+|----------|-------------|
+| `ocspValid` | OCSP response is within validity window and signature is valid |
+| `notRevokedOCSP` | Certificate not revoked according to OCSP |
+| `ocspGood` | Certificate has explicit Good status in OCSP response |
+
+### Path Validation Operators
+
+| Operator | Description |
+|----------|-------------|
+| `nameConstraintsValid` | Validates names against permitted/excluded subtrees from chain |
+| `certificatePolicyValid` | Validates policy OIDs through chain with mappings and constraints |
 
 ## 🔀 Conditional Rules
 

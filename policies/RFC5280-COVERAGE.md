@@ -259,10 +259,74 @@ Supports:
 
 ---
 
+## Use-Case Dependent Checks
+
+Key usage and EKU validation can be defined per use-case via policy files:
+
+```yaml
+# Example: TLS Server use case
+rules:
+  - id: tls-digitalSignature
+    target: certificate.keyUsage.digitalSignature
+    operator: present
+    appliesTo: [leaf]
+
+  - id: tls-serverAuth
+    target: certificate.extKeyUsage.serverAuth
+    operator: present
+    appliesTo: [leaf]
+```
+
+Available key usage targets:
+- `certificate.keyUsage.digitalSignature`
+- `certificate.keyUsage.keyEncipherment`
+- `certificate.keyUsage.dataEncipherment`
+- `certificate.keyUsage.keyAgreement`
+- `certificate.keyUsage.keyCertSign`
+- `certificate.keyUsage.cRLSign`
+- `certificate.keyUsage.encipherOnly`
+- `certificate.keyUsage.decipherOnly`
+- `certificate.keyUsage.contentCommitment`
+
+Available EKU targets:
+- `certificate.extKeyUsage.serverAuth`
+- `certificate.extKeyUsage.clientAuth`
+- `certificate.extKeyUsage.codeSigning`
+- `certificate.extKeyUsage.emailProtection`
+- `certificate.extKeyUsage.timeStamping`
+- `certificate.extKeyUsage.ocspSigning`
+- `certificate.extKeyUsage.any`
+
+---
+
+## Extension OID Reference
+
+Extension criticality checks use OID-based paths. Common extension OIDs:
+
+| Extension | OID | Path |
+|-----------|-----|------|
+| Authority Key Identifier | 2.5.29.35 | `certificate.extensions.2.5.29.35.critical` |
+| Subject Key Identifier | 2.5.29.14 | `certificate.extensions.2.5.29.14.critical` |
+| Key Usage | 2.5.29.15 | `certificate.extensions.2.5.29.15.critical` |
+| Subject Alternative Name | 2.5.29.17 | `certificate.extensions.2.5.29.17.critical` |
+| Issuer Alternative Name | 2.5.29.18 | `certificate.extensions.2.5.29.18.critical` |
+| Basic Constraints | 2.5.29.19 | `certificate.extensions.2.5.29.19.critical` |
+| Name Constraints | 2.5.29.30 | `certificate.extensions.2.5.29.30.critical` |
+| Certificate Policies | 2.5.29.32 | `certificate.extensions.2.5.29.32.critical` |
+| Policy Mappings | 2.5.29.33 | `certificate.extensions.2.5.29.33.critical` |
+| Policy Constraints | 2.5.29.36 | `certificate.extensions.2.5.29.36.critical` |
+| Extended Key Usage | 2.5.29.37 | `certificate.extensions.2.5.29.37.critical` |
+| Freshest CRL | 2.5.29.46 | `certificate.extensions.2.5.29.46.critical` |
+| Inhibit anyPolicy | 2.5.29.54 | `certificate.extensions.2.5.29.54.critical` |
+| Authority Information Access | 1.3.6.1.5.5.7.1.1 | `certificate.extensions.1.3.6.1.5.5.7.1.1.critical` |
+| Subject Information Access | 1.3.6.1.5.5.7.1.11 | `certificate.extensions.1.3.6.1.5.5.7.1.11.critical` |
+| Subject Directory Attributes | 2.5.29.9 | `certificate.extensions.2.5.29.9.critical` |
+
+---
+
 ## Out of Scope
 
-The following RFC 5280 requirements are not covered by static linting:
+The following are handled by the x509 parsing library:
 
-- **ASN.1 encoding validation** (PrintableString/UTF8String, UTCTime/GeneralizedTime) - validated by x509 parsing
-- **URI/name format validation** (SAN entries, CDP, AIA URIs) - validated by x509 parsing
-- **Use-case dependent checks** (digitalSignature for signing, keyEncipherment for RSA transport, EKU/KU consistency)
+- **ASN.1 encoding validation** (PrintableString/UTF8String, UTCTime/GeneralizedTime)
+- **URI/name format validation** (SAN entries, CDP, AIA URIs)
