@@ -1,10 +1,20 @@
 package zcrypto
 
 import (
+	stdx509 "crypto/x509"
+
+	zx509 "github.com/zmap/zcrypto/x509"
 	"github.com/zmap/zcrypto/x509/pkix"
 
 	"github.com/cavoq/PCL/internal/node"
 )
+
+func ToStdCert(cert *zx509.Certificate) (*stdx509.Certificate, error) {
+	if cert == nil {
+		return nil, nil
+	}
+	return stdx509.ParseCertificate(cert.Raw)
+}
 
 func BuildPkixName(name string, pkixName pkix.Name) *node.Node {
 	n := node.New(name, nil)

@@ -9,6 +9,7 @@ import (
 	"github.com/cavoq/PCL/internal/cert"
 	"github.com/cavoq/PCL/internal/cert/zcrypto"
 	"github.com/cavoq/PCL/internal/crl"
+	"github.com/cavoq/PCL/internal/ocsp"
 	"github.com/cavoq/PCL/internal/operator"
 	"github.com/cavoq/PCL/internal/output"
 	"github.com/cavoq/PCL/internal/policy"
@@ -18,6 +19,7 @@ type InputOptions struct {
 	PolicyPath  string
 	CertPath    string
 	CRLPath     string
+	OCSPPath    string
 	OutputFmt   string
 	ShowPassed  bool
 	ShowFailed  bool
@@ -46,12 +48,22 @@ func RunLinter(opts InputOptions) error {
 		return fmt.Errorf("failed to build chain: %w", err)
 	}
 
-	var crls []*crl.Info
+	var ctxOpts []operator.ContextOption
+
 	if opts.CRLPath != "" {
-		crls, err = crl.GetCRLs(opts.CRLPath)
+		crls, err := crl.GetCRLs(opts.CRLPath)
 		if err != nil {
 			return fmt.Errorf("failed to load CRLs: %w", err)
 		}
+		ctxOpts = append(ctxOpts, operator.WithCRLs(crls))
+	}
+
+	if opts.OCSPPath != "" {
+		ocsps, err := ocsp.GetOCSPs(opts.OCSPPath)
+		if err != nil {
+			return fmt.Errorf("failed to load OCSP responses: %w", err)
+		}
+		ctxOpts = append(ctxOpts, operator.WithOCSPs(ocsps))
 	}
 
 	reg := operator.DefaultRegistry()
@@ -60,7 +72,7 @@ func RunLinter(opts InputOptions) error {
 
 	for _, c := range chain {
 		tree := zcrypto.BuildTree(c.Cert)
-		ctx := operator.NewEvaluationContext(tree, c, chain, crls...)
+		ctx := operator.NewEvaluationContext(tree, c, chain, ctxOpts...)
 
 		for _, p := range policies {
 			res := policy.Evaluate(p, tree, reg, ctx)
@@ -99,6 +111,7 @@ func main() {
 	root.Flags().StringVar(&opts.PolicyPath, "policy", "", "Path to policy YAML file or directory")
 	root.Flags().StringVar(&opts.CertPath, "cert", "", "Path to certificate file or directory (PEM/DER)")
 	root.Flags().StringVar(&opts.CRLPath, "crl", "", "Path to CRL file or directory (PEM/DER)")
+	root.Flags().StringVar(&opts.OCSPPath, "ocsp", "", "Path to OCSP response file or directory (DER/PEM)")
 	root.Flags().StringVar(&opts.OutputFmt, "output", "text", "Output format: text, json, or yaml")
 	root.Flags().BoolVar(&opts.ShowPassed, "show-passed", true, "Show passed rules")
 	root.Flags().BoolVar(&opts.ShowFailed, "show-failed", true, "Show failed rules")

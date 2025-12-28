@@ -53,4 +53,7 @@ var All = []Operator{
 	CRLNotExpired{},
 	CRLSignedBy{},
 	NotRevoked{},
+	OCSPValid{},
+	NotRevokedOCSP{},
+	OCSPGood{},
 }
