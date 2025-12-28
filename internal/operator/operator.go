@@ -56,4 +56,6 @@ var All = []Operator{
 	OCSPValid{},
 	NotRevokedOCSP{},
 	OCSPGood{},
+	NameConstraintsValid{},
+	CertificatePolicyValid{},
 }

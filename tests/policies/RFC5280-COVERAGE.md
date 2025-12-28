@@ -98,6 +98,7 @@ This document tracks implementation coverage of [RFC 5280](https://datatracker.i
 
 ##### 4.2.1.10 Name Constraints
 - [x] Name Constraints MUST be critical - `name-constraints-critical`
+- [x] Name Constraints validation through chain - `nameConstraintsValid`
 
 ##### 4.2.1.11 Policy Constraints
 - [x] Policy Constraints MUST be critical - `policy-constraints-critical`
@@ -126,6 +127,8 @@ This document tracks implementation coverage of [RFC 5280](https://datatracker.i
 - [x] Issuer/Subject matching - `issuedBy`
 - [x] Validity period checking - `not-expired`, `not-yet-valid`
 - [x] Path length constraints - `pathLenValid`
+- [x] Name constraints processing - `nameConstraintsValid`
+- [x] Policy processing - `certificatePolicyValid`
 
 ---
 
@@ -208,13 +211,58 @@ This document tracks implementation coverage of [RFC 5280](https://datatracker.i
 
 ---
 
+## OCSP (RFC 6960)
+
+### OCSP Response Validation
+
+- [x] Response validity window checking - `ocspValid`
+- [x] Response signature verification - `ocspValid`
+- [x] Certificate not revoked via OCSP - `notRevokedOCSP`
+- [x] Certificate has Good status - `ocspGood`
+
+### OCSP Operators
+
+| Operator | Description |
+|----------|-------------|
+| `ocspValid` | Validates OCSP response is within thisUpdate/nextUpdate window and signature is valid |
+| `notRevokedOCSP` | Checks certificate is not revoked according to OCSP (no OCSP = pass) |
+| `ocspGood` | Requires explicit Good status in matching OCSP response |
+
+---
+
+## Name Constraints Validation
+
+| Operator | Description |
+|----------|-------------|
+| `nameConstraintsValid` | Validates certificate names against accumulated permitted/excluded subtrees from chain |
+
+Supports:
+- DNS name constraints
+- Email address constraints
+- URI constraints (host matching)
+- IP address constraints (CIDR matching)
+
+---
+
+## Certificate Policy Validation
+
+| Operator | Description |
+|----------|-------------|
+| `certificatePolicyValid` | Validates certificate policy OIDs through chain with policy mappings and constraints |
+
+Supports:
+- Policy intersection through chain
+- anyPolicy (2.5.29.32.0) handling
+- Policy mappings (OID 2.5.29.33)
+- Policy constraints (requireExplicitPolicy, inhibitPolicyMapping)
+- Inhibit anyPolicy (OID 2.5.29.54)
+
+---
+
 ## Out of Scope
 
 The following RFC 5280 requirements are not covered by static linting:
 
 - **ASN.1 encoding validation** (PrintableString/UTF8String, UTCTime/GeneralizedTime) - validated by x509 parsing
 - **URI/name format validation** (SAN entries, CDP, AIA URIs) - validated by x509 parsing
-- **OCSP status checking** - requires network access
-- **Name constraints processing** - complex path validation algorithm
-- **Policy processing** - complex path validation algorithm
 - **Use-case dependent checks** (digitalSignature for signing, keyEncipherment for RSA transport, EKU/KU consistency)
