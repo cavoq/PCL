@@ -1,9 +1,10 @@
 package operator
 
 import (
+	"golang.org/x/crypto/ocsp"
+
 	"github.com/cavoq/PCL/internal/node"
 	"github.com/cavoq/PCL/internal/zcrypto"
-	"golang.org/x/crypto/ocsp"
 )
 
 type OCSPValid struct{}

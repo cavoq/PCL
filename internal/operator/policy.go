@@ -123,7 +123,6 @@ func parsePolicyMappings(cert *x509.Certificate) []policyMapping {
 }
 
 func decodePolicyMappings(data []byte) []policyMapping {
-	var mappings []policyMapping
 	var seq []struct {
 		IssuerDomain  asn1.ObjectIdentifier
 		SubjectDomain asn1.ObjectIdentifier
@@ -131,6 +130,7 @@ func decodePolicyMappings(data []byte) []policyMapping {
 	if _, err := asn1.Unmarshal(data, &seq); err != nil {
 		return nil
 	}
+	mappings := make([]policyMapping, 0, len(seq))
 	for _, m := range seq {
 		mappings = append(mappings, policyMapping{
 			issuerPolicy:  m.IssuerDomain.String(),

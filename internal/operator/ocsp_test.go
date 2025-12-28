@@ -5,11 +5,12 @@ import (
 	"testing"
 	"time"
 
+	stdocsp "golang.org/x/crypto/ocsp"
+
 	"github.com/zmap/zcrypto/x509"
 
 	"github.com/cavoq/PCL/internal/cert"
 	"github.com/cavoq/PCL/internal/ocsp"
-	stdocsp "golang.org/x/crypto/ocsp"
 )
 
 func TestOCSPValidName(t *testing.T) {
