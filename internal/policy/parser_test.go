@@ -132,6 +132,11 @@ rules:
 	if len(policies) != 2 {
 		t.Errorf("expected 2 policies, got %d", len(policies))
 	}
+	if len(policies) == 2 {
+		if policies[0].ID != "policy1" || policies[1].ID != "policy2" {
+			t.Errorf("expected policies in name order, got %q then %q", policies[0].ID, policies[1].ID)
+		}
+	}
 }
 
 func TestParseDir_SkipsSubdirs(t *testing.T) {

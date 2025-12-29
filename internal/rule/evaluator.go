@@ -1,6 +1,9 @@
 package rule
 
 import (
+	"fmt"
+	"slices"
+
 	"github.com/cavoq/PCL/internal/node"
 	"github.com/cavoq/PCL/internal/operator"
 )
@@ -63,7 +66,7 @@ func Evaluate(
 			RuleID:    r.ID,
 			Reference: r.Reference,
 			Verdict:   VerdictFail,
-			Message:   "operator not found",
+			Message:   fmt.Sprintf("operator not found: %s", r.Operator),
 			Severity:  r.Severity,
 		}
 	}
@@ -74,7 +77,7 @@ func Evaluate(
 			RuleID:    r.ID,
 			Reference: r.Reference,
 			Verdict:   VerdictFail,
-			Message:   err.Error(),
+			Message:   fmt.Sprintf("operator %s on %s: %v", r.Operator, r.Target, err),
 			Severity:  r.Severity,
 		}
 	}
@@ -102,7 +105,7 @@ func evaluateCondition(
 
 	op, err := reg.Get(cond.Operator)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("operator not found: %s", cond.Operator)
 	}
 
 	return op.Evaluate(n, ctx, cond.Operands)
@@ -115,10 +118,5 @@ func appliesTo(r Rule, ctx *operator.EvaluationContext) bool {
 	if ctx == nil || ctx.Cert == nil {
 		return true
 	}
-	for _, t := range r.AppliesTo {
-		if t == ctx.Cert.Type {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(r.AppliesTo, ctx.Cert.Type)
 }

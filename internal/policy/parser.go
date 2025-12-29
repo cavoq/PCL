@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -30,6 +31,10 @@ func ParseDir(dir string) ([]Policy, error) {
 	if err != nil {
 		return nil, fmt.Errorf("reading directory: %w", err)
 	}
+
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Name() < entries[j].Name()
+	})
 
 	policies := make([]Policy, 0, len(entries))
 	for _, entry := range entries {
