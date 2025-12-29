@@ -3,30 +3,35 @@ package operator_test
 import (
 	"testing"
 
+	"github.com/cavoq/PCL/internal/node"
 	"github.com/cavoq/PCL/internal/operator"
 )
 
-func TestRegistry(t *testing.T) {
+type testOp struct{}
+
+func (testOp) Name() string { return "test" }
+
+func (testOp) Evaluate(_ *node.Node, _ *operator.EvaluationContext, _ []any) (bool, error) {
+	return true, nil
+}
+
+func TestRegistryGetUnknown(t *testing.T) {
 	reg := operator.NewRegistry()
-
-	eq := operator.Eq{}
-	reg.Register(eq)
-
-	op, err := reg.Get("eq")
-	if err != nil {
-		t.Fatalf("expected operator to be found")
-	}
-
-	if op.Name() != "eq" {
-		t.Fatalf("expected eq operator, got %s", op.Name())
+	_, err := reg.Get("missing")
+	if err == nil {
+		t.Fatalf("expected error for missing operator")
 	}
 }
 
-func TestRegistryMissingOperator(t *testing.T) {
+func TestRegistryRegisterAndGet(t *testing.T) {
 	reg := operator.NewRegistry()
+	reg.Register(testOp{})
 
-	_, err := reg.Get("does_not_exist")
-	if err == nil {
-		t.Fatalf("expected error for missing operator")
+	op, err := reg.Get("test")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if op.Name() != "test" {
+		t.Fatalf("unexpected operator name: %s", op.Name())
 	}
 }

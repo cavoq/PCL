@@ -182,6 +182,82 @@ func TestParseFile_NotFound(t *testing.T) {
 	}
 }
 
+func TestParseFile_IncludesMerge(t *testing.T) {
+	dir := t.TempDir()
+
+	base := []byte(`
+id: base
+rules:
+  - id: base-rule
+    target: certificate.version
+    operator: eq
+    operands: [3]
+`)
+	child := []byte(`
+id: child
+includes:
+  - base.yaml
+rules:
+  - id: child-rule
+    target: certificate.serialNumber
+    operator: present
+`)
+
+	if err := os.WriteFile(filepath.Join(dir, "base.yaml"), base, 0644); err != nil {
+		t.Fatalf("unexpected write error: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "child.yaml"), child, 0644); err != nil {
+		t.Fatalf("unexpected write error: %v", err)
+	}
+
+	p, err := ParseFile(filepath.Join(dir, "child.yaml"))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(p.Rules) != 2 {
+		t.Fatalf("expected 2 rules, got %d", len(p.Rules))
+	}
+	if p.Rules[0].ID != "base-rule" || p.Rules[1].ID != "child-rule" {
+		t.Fatalf("unexpected rule order: %q then %q", p.Rules[0].ID, p.Rules[1].ID)
+	}
+}
+
+func TestParseFile_IncludesCycle(t *testing.T) {
+	dir := t.TempDir()
+
+	a := []byte(`
+id: a
+includes:
+  - b.yaml
+rules:
+  - id: a-rule
+    target: certificate.version
+    operator: eq
+    operands: [3]
+`)
+	b := []byte(`
+id: b
+includes:
+  - a.yaml
+rules:
+  - id: b-rule
+    target: certificate.serialNumber
+    operator: present
+`)
+
+	if err := os.WriteFile(filepath.Join(dir, "a.yaml"), a, 0644); err != nil {
+		t.Fatalf("unexpected write error: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "b.yaml"), b, 0644); err != nil {
+		t.Fatalf("unexpected write error: %v", err)
+	}
+
+	_, err := ParseFile(filepath.Join(dir, "a.yaml"))
+	if err == nil {
+		t.Fatalf("expected include cycle error")
+	}
+}
+
 func TestParseDir(t *testing.T) {
 	dir := t.TempDir()
 
