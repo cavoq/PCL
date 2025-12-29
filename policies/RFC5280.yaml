@@ -9,6 +9,7 @@ rules:
 
   # Version MUST be 3 when extensions are present
   - id: version-v3-when-extensions
+    reference: RFC5280 4.1.2.1
     when:
       target: certificate.extensions
       operator: present
@@ -19,6 +20,7 @@ rules:
 
   # Version SHOULD be 2 when UniqueIdentifier present but no extensions
   - id: version-v2-when-unique-id
+    reference: RFC5280 4.1.2.1
     when:
       target: certificate.issuerUniqueID
       operator: present
@@ -28,6 +30,7 @@ rules:
     severity: warning
 
   - id: version-v2-when-subject-unique-id
+    reference: RFC5280 4.1.2.1
     when:
       target: certificate.subjectUniqueID
       operator: present
@@ -37,32 +40,38 @@ rules:
     severity: warning
 
   - id: serial-number-present
+    reference: RFC5280 4.1.2.2
     target: certificate.serialNumber
     operator: present
     severity: error
 
   - id: serial-number-positive
+    reference: RFC5280 4.1.2.2
     target: certificate.serialNumber.value
     operator: positive
     severity: error
 
   - id: serial-number-unique
+    reference: RFC5280 4.1.2.2
     target: certificate
     operator: serialNumberUnique
     severity: error
 
   - id: serial-number-length
+    reference: RFC5280 4.1.2.2
     target: certificate.serialNumber
     operator: maxLength
     operands: [20]
     severity: error
 
   - id: signature-algorithm-matches-tbs
+    reference: RFC5280 4.1.2.3
     target: certificate
     operator: signatureAlgorithmMatchesTBS
     severity: error
 
   - id: signature-valid
+    reference: RFC5280 4.1.2.3
     target: certificate
     operator: signatureValid
     severity: error
@@ -73,17 +82,20 @@ rules:
   # -------------------------------------------------
 
   - id: issuer-not-empty
+    reference: RFC5280 4.1.2.4
     target: certificate.issuer
     operator: notEmpty
     severity: error
 
   - id: subject-not-empty-for-ca
+    reference: RFC5280 4.1.2.6
     target: certificate.subject
     operator: notEmpty
     appliesTo: [root, intermediate]
     severity: error
 
   - id: issuer-matches-subject-for-root
+    reference: RFC5280 6
     target: certificate
     operator: issuedBy
     appliesTo: [root]
@@ -95,16 +107,19 @@ rules:
   # -------------------------------------------------
 
   - id: not-expired
+    reference: RFC5280 4.1.2.5
     target: certificate.validity.notAfter
     operator: after
     severity: error
 
   - id: not-yet-valid
+    reference: RFC5280 4.1.2.5
     target: certificate.validity.notBefore
     operator: before
     severity: error
 
   - id: validity-order-correct
+    reference: RFC5280 4.1.2.5
     target: certificate
     operator: validityOrderCorrect
     severity: error
@@ -115,6 +130,7 @@ rules:
   # -------------------------------------------------
 
   - id: no-unique-identifiers
+    reference: RFC5280 4.1.2.8
     target: certificate
     operator: noUniqueIdentifiers
     severity: error
@@ -125,6 +141,7 @@ rules:
   # -------------------------------------------------
 
   - id: no-unknown-critical-extensions
+    reference: RFC5280 6
     target: certificate
     operator: noUnknownCriticalExtensions
     severity: error
@@ -135,12 +152,14 @@ rules:
   # -------------------------------------------------
 
   - id: authority-key-identifier-present
+    reference: RFC5280 4.2.1.1
     target: certificate.authorityKeyIdentifier
     operator: present
     appliesTo: [leaf, intermediate]
     severity: warning
 
   - id: aki-not-critical
+    reference: RFC5280 4.2.1.1
     when:
       target: certificate.extensions.2.5.29.35
       operator: present
@@ -150,6 +169,7 @@ rules:
     severity: error
 
   - id: aki-matches-ski
+    reference: RFC5280 4.2.1.1
     target: certificate
     operator: akiMatchesSki
     severity: warning
@@ -160,12 +180,14 @@ rules:
   # -------------------------------------------------
 
   - id: subject-key-identifier-present
+    reference: RFC5280 4.2.1.2
     target: certificate.subjectKeyIdentifier
     operator: present
     appliesTo: [root, intermediate]
     severity: warning
 
   - id: ski-not-critical
+    reference: RFC5280 4.2.1.2
     when:
       target: certificate.extensions.2.5.29.14
       operator: present
@@ -180,11 +202,13 @@ rules:
   # -------------------------------------------------
 
   - id: key-usage-present
+    reference: RFC5280 4.2.1.3
     target: certificate.keyUsage
     operator: present
     severity: warning
 
   - id: key-usage-critical-for-ca
+    reference: RFC5280 4.2.1.3
     when:
       target: certificate.basicConstraints.cA
       operator: eq
@@ -195,6 +219,7 @@ rules:
     severity: warning
 
   - id: ca-key-cert-sign
+    reference: RFC5280 4.2.1.3
     target: certificate.keyUsage.keyCertSign
     operator: eq
     operands: [true]
@@ -202,6 +227,7 @@ rules:
     severity: error
 
   - id: leaf-key-usage-valid
+    reference: RFC5280 4.2.1.3
     target: certificate
     operator: keyUsageLeaf
     appliesTo: [leaf]
@@ -213,6 +239,7 @@ rules:
   # -------------------------------------------------
 
   - id: policy-mappings-critical
+    reference: RFC5280 4.2.1.5
     when:
       target: certificate.extensions.2.5.29.33
       operator: present
@@ -227,12 +254,14 @@ rules:
   # -------------------------------------------------
 
   - id: san-required-if-empty-subject
+    reference: RFC5280 4.2.1.6
     target: certificate
     operator: sanRequiredIfEmptySubject
     appliesTo: [leaf]
     severity: error
 
   - id: san-critical-if-subject-empty
+    reference: RFC5280 4.2.1.6
     when:
       target: certificate.subject
       operator: isEmpty
@@ -247,6 +276,7 @@ rules:
   # -------------------------------------------------
 
   - id: ian-not-critical
+    reference: RFC5280 4.2.1.7
     when:
       target: certificate.extensions.2.5.29.18
       operator: present
@@ -261,6 +291,7 @@ rules:
   # -------------------------------------------------
 
   - id: subject-directory-attributes-not-critical
+    reference: RFC5280 4.2.1.8
     when:
       target: certificate.extensions.2.5.29.9
       operator: present
@@ -275,12 +306,14 @@ rules:
   # -------------------------------------------------
 
   - id: basic-constraints-present
+    reference: RFC5280 4.2.1.9
     target: certificate.basicConstraints
     operator: present
     appliesTo: [root, intermediate]
     severity: error
 
   - id: basic-constraints-critical-for-ca
+    reference: RFC5280 4.2.1.9
     when:
       target: certificate.basicConstraints.cA
       operator: eq
@@ -291,6 +324,7 @@ rules:
     severity: error
 
   - id: ca-basic-constraints
+    reference: RFC5280 4.2.1.9
     target: certificate.basicConstraints.cA
     operator: eq
     operands: [true]
@@ -298,6 +332,7 @@ rules:
     severity: error
 
   - id: leaf-not-ca
+    reference: RFC5280 4.2.1.9
     target: certificate.basicConstraints.cA
     operator: neq
     operands: [true]
@@ -305,6 +340,7 @@ rules:
     severity: error
 
   - id: ca-path-len-valid
+    reference: RFC5280 4.2.1.9
     target: certificate
     operator: pathLenValid
     appliesTo: [root, intermediate]
@@ -316,6 +352,7 @@ rules:
   # -------------------------------------------------
 
   - id: name-constraints-critical
+    reference: RFC5280 4.2.1.10
     when:
       target: certificate.extensions.2.5.29.30
       operator: present
@@ -325,6 +362,7 @@ rules:
     severity: error
 
   - id: name-constraints-valid
+    reference: RFC5280 4.2.1.10
     target: certificate
     operator: nameConstraintsValid
     severity: error
@@ -347,6 +385,7 @@ rules:
   # -------------------------------------------------
 
   - id: policy-constraints-critical
+    reference: RFC5280 4.2.1.11
     when:
       target: certificate.extensions.2.5.29.36
       operator: present
@@ -361,6 +400,7 @@ rules:
   # -------------------------------------------------
 
   - id: inhibit-any-policy-critical
+    reference: RFC5280 4.2.1.14
     when:
       target: certificate.extensions.2.5.29.54
       operator: present
@@ -375,6 +415,7 @@ rules:
   # -------------------------------------------------
 
   - id: freshest-crl-not-critical
+    reference: RFC5280 4.2.1.15
     when:
       target: certificate.extensions.2.5.29.46
       operator: present
@@ -389,6 +430,7 @@ rules:
   # -------------------------------------------------
 
   - id: aia-not-critical
+    reference: RFC5280 4.2.2.1
     when:
       target: certificate.extensions.1.3.6.1.5.5.7.1.1
       operator: present
@@ -403,6 +445,7 @@ rules:
   # -------------------------------------------------
 
   - id: sia-not-critical
+    reference: RFC5280 4.2.2.2
     when:
       target: certificate.extensions.1.3.6.1.5.5.7.1.11
       operator: present
@@ -417,26 +460,43 @@ rules:
   # -------------------------------------------------
 
   - id: crl-valid
+    reference: RFC5280 5.1
+    when:
+      target: crl
+      operator: present
     target: crl
     operator: crlValid
     severity: error
 
   - id: crl-not-expired
+    reference: RFC5280 5.1
+    when:
+      target: crl
+      operator: present
     target: crl
     operator: crlNotExpired
     severity: error
 
   - id: crl-signed-by
+    reference: RFC5280 5.1
+    when:
+      target: crl
+      operator: present
     target: crl
     operator: crlSignedBy
     severity: error
 
   - id: cert-not-revoked
+    reference: RFC5280 5.1
+    when:
+      target: crl
+      operator: present
     target: certificate
     operator: notRevoked
     severity: error
 
   - id: crl-aki-not-critical
+    reference: RFC5280 5.2
     when:
       target: crl.extensions.2.5.29.35
       operator: present
@@ -446,6 +506,7 @@ rules:
     severity: error
 
   - id: crl-number-not-critical
+    reference: RFC5280 5.2
     when:
       target: crl.extensions.2.5.29.20
       operator: present
@@ -455,6 +516,7 @@ rules:
     severity: error
 
   - id: crl-delta-indicator-critical
+    reference: RFC5280 5.2
     when:
       target: crl.extensions.2.5.29.27
       operator: present
@@ -464,6 +526,7 @@ rules:
     severity: error
 
   - id: crl-idp-critical
+    reference: RFC5280 5.2
     when:
       target: crl.extensions.2.5.29.28
       operator: present
@@ -478,11 +541,19 @@ rules:
   # -------------------------------------------------
 
   - id: ocsp-valid
+    reference: RFC6960
+    when:
+      target: ocsp
+      operator: present
     target: certificate
     operator: ocspValid
     severity: error
 
   - id: ocsp-not-revoked
+    reference: RFC6960
+    when:
+      target: ocsp
+      operator: present
     target: certificate
     operator: notRevokedOCSP
     severity: error

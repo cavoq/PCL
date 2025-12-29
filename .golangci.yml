@@ -14,7 +14,6 @@ linters:
     - goimports
     - misspell
     - unconvert
-    - unparamcd 
     - gosec
     - prealloc
 

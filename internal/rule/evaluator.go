@@ -12,10 +12,11 @@ const (
 )
 
 type Result struct {
-	RuleID   string `json:"rule_id" yaml:"rule_id"`
-	Verdict  string `json:"verdict" yaml:"verdict"`
-	Severity string `json:"severity" yaml:"severity"`
-	Message  string `json:"message,omitempty" yaml:"message,omitempty"`
+	RuleID    string `json:"rule_id" yaml:"rule_id"`
+	Reference string `json:"reference,omitempty" yaml:"reference,omitempty"`
+	Verdict   string `json:"verdict" yaml:"verdict"`
+	Severity  string `json:"severity" yaml:"severity"`
+	Message   string `json:"message,omitempty" yaml:"message,omitempty"`
 }
 
 func Evaluate(
@@ -26,9 +27,10 @@ func Evaluate(
 ) Result {
 	if !appliesTo(r, ctx) {
 		return Result{
-			RuleID:   r.ID,
-			Verdict:  VerdictSkip,
-			Severity: r.Severity,
+			RuleID:    r.ID,
+			Reference: r.Reference,
+			Verdict:   VerdictSkip,
+			Severity:  r.Severity,
 		}
 	}
 
@@ -36,17 +38,19 @@ func Evaluate(
 		conditionMet, err := evaluateCondition(root, r.When, reg, ctx)
 		if err != nil {
 			return Result{
-				RuleID:   r.ID,
-				Verdict:  VerdictFail,
-				Message:  "when condition error: " + err.Error(),
-				Severity: r.Severity,
+				RuleID:    r.ID,
+				Reference: r.Reference,
+				Verdict:   VerdictFail,
+				Message:   "when condition error: " + err.Error(),
+				Severity:  r.Severity,
 			}
 		}
 		if !conditionMet {
 			return Result{
-				RuleID:   r.ID,
-				Verdict:  VerdictSkip,
-				Severity: r.Severity,
+				RuleID:    r.ID,
+				Reference: r.Reference,
+				Verdict:   VerdictSkip,
+				Severity:  r.Severity,
 			}
 		}
 	}
@@ -56,20 +60,22 @@ func Evaluate(
 	op, err := reg.Get(r.Operator)
 	if err != nil {
 		return Result{
-			RuleID:   r.ID,
-			Verdict:  VerdictFail,
-			Message:  "operator not found",
-			Severity: r.Severity,
+			RuleID:    r.ID,
+			Reference: r.Reference,
+			Verdict:   VerdictFail,
+			Message:   "operator not found",
+			Severity:  r.Severity,
 		}
 	}
 
 	ok, err := op.Evaluate(n, ctx, r.Operands)
 	if err != nil {
 		return Result{
-			RuleID:   r.ID,
-			Verdict:  VerdictFail,
-			Message:  err.Error(),
-			Severity: r.Severity,
+			RuleID:    r.ID,
+			Reference: r.Reference,
+			Verdict:   VerdictFail,
+			Message:   err.Error(),
+			Severity:  r.Severity,
 		}
 	}
 
@@ -79,9 +85,10 @@ func Evaluate(
 	}
 
 	return Result{
-		RuleID:   r.ID,
-		Verdict:  verdict,
-		Severity: r.Severity,
+		RuleID:    r.ID,
+		Reference: r.Reference,
+		Verdict:   verdict,
+		Severity:  r.Severity,
 	}
 }
 

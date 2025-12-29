@@ -15,12 +15,28 @@ func (n *Node) Resolve(path string) (*Node, bool) {
 		parts = parts[1:]
 	}
 
-	for _, p := range parts {
+	for i := 0; i < len(parts); i++ {
+		p := parts[i]
 		next, ok := current.Children[p]
-		if !ok {
+		if ok {
+			current = next
+			continue
+		}
+
+		matched := false
+		for j := len(parts); j > i+1; j-- {
+			candidate := strings.Join(parts[i:j], ".")
+			next, ok = current.Children[candidate]
+			if ok {
+				current = next
+				i = j - 1
+				matched = true
+				break
+			}
+		}
+		if !matched {
 			return nil, false
 		}
-		current = next
 	}
 
 	return current, true

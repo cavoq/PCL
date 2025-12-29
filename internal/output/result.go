@@ -24,18 +24,26 @@ type LintOutput struct {
 func FromPolicyResults(policyResults []policy.Result) LintOutput {
 	var passed, failed, skipped, totalRules int
 
-	for _, pr := range policyResults {
-		for _, rr := range pr.Results {
+	for i := range policyResults {
+		counts := policy.Counts{}
+		for _, rr := range policyResults[i].Results {
 			totalRules++
 			switch rr.Verdict {
 			case rule.VerdictPass:
 				passed++
+				counts.Passed++
 			case rule.VerdictFail:
 				failed++
+				counts.Failed++
+				if rr.Severity == "warning" {
+					counts.Warned++
+				}
 			case rule.VerdictSkip:
 				skipped++
+				counts.Skipped++
 			}
 		}
+		policyResults[i].Counts = counts
 	}
 
 	checkedAt := time.Now()
@@ -63,8 +71,10 @@ func FilterRules(output LintOutput, opts Options) LintOutput {
 		filteredResult := policy.Result{
 			PolicyID:  pr.PolicyID,
 			CertType:  pr.CertType,
+			CertPath:  pr.CertPath,
 			Verdict:   pr.Verdict,
 			CheckedAt: pr.CheckedAt,
+			Counts:    pr.Counts,
 			Results:   make([]rule.Result, 0),
 		}
 

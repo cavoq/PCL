@@ -55,6 +55,13 @@ rules:
     operands: [true]
     severity: error
     appliesTo: [root, intermediate]
+
+  # Optional document reference (used by text output)
+  - id: key-usage-leaf
+    reference: RFC5280 4.2.1.3
+    target: certificate.keyUsage
+    operator: keyUsageLeaf
+    severity: error
 ```
 
 ## 🏛️ Supported Policies

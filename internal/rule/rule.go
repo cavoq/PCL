@@ -8,6 +8,7 @@ type Condition struct {
 
 type Rule struct {
 	ID        string     `yaml:"id"`
+	Reference string     `yaml:"reference,omitempty"`
 	Target    string     `yaml:"target"`
 	Operator  string     `yaml:"operator"`
 	Operands  []any      `yaml:"operands"`

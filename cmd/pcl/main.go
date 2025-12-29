@@ -16,13 +16,13 @@ import (
 )
 
 type InputOptions struct {
-	PolicyPath  string
-	CertPath    string
-	CRLPath     string
-	OCSPPath    string
-	OutputFmt   string
-	Verbosity   int
-	ShowMeta    bool
+	PolicyPath string
+	CertPath   string
+	CRLPath    string
+	OCSPPath   string
+	OutputFmt  string
+	Verbosity  int
+	ShowMeta   bool
 }
 
 func RunLinter(opts InputOptions) error {

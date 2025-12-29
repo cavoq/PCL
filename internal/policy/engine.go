@@ -17,9 +17,18 @@ type Policy struct {
 type Result struct {
 	PolicyID  string        `json:"policy_id" yaml:"policy_id"`
 	CertType  string        `json:"cert_type" yaml:"cert_type"`
+	CertPath  string        `json:"cert_path" yaml:"cert_path"`
 	Results   []rule.Result `json:"rules" yaml:"rules"`
 	Verdict   string        `json:"verdict" yaml:"verdict"`
 	CheckedAt time.Time     `json:"checked_at" yaml:"checked_at"`
+	Counts    Counts        `json:"-" yaml:"-"`
+}
+
+type Counts struct {
+	Passed  int
+	Failed  int
+	Skipped int
+	Warned  int
 }
 
 func Evaluate(
@@ -41,13 +50,16 @@ func Evaluate(
 	}
 
 	certType := ""
+	certPath := ""
 	if ctx != nil && ctx.Cert != nil {
 		certType = ctx.Cert.Type
+		certPath = ctx.Cert.FilePath
 	}
 
 	return Result{
 		PolicyID:  p.ID,
 		CertType:  certType,
+		CertPath:  certPath,
 		Results:   results,
 		Verdict:   verdict,
 		CheckedAt: time.Now(),
