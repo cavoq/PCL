@@ -7,8 +7,10 @@ import (
 
 	"github.com/zmap/zcrypto/x509"
 
-	"github.com/cavoq/PCL/internal/io"
+	"github.com/cavoq/PCL/internal/loader"
 )
+
+var extensions = []string{".pem", ".der", ".crt", ".cer"}
 
 type Info struct {
 	Cert     *x509.Certificate
@@ -37,7 +39,7 @@ func GetCertificate(path string) (*x509.Certificate, error) {
 }
 
 func GetCertFiles(path string) ([]string, error) {
-	return io.GetFilesWithExtensions(path, ".pem", ".der", ".crt", ".cer")
+	return loader.GetFiles(path, extensions...)
 }
 
 func isSelfSigned(cert *x509.Certificate) bool {

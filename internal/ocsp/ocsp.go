@@ -1,16 +1,16 @@
 package ocsp
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/pem"
 	"fmt"
 	"os"
 
 	"golang.org/x/crypto/ocsp"
 
-	"github.com/cavoq/PCL/internal/io"
+	"github.com/cavoq/PCL/internal/loader"
 )
+
+var extensions = []string{".ocsp", ".der", ".pem"}
 
 type Info struct {
 	Response *ocsp.Response
@@ -37,33 +37,27 @@ func GetOCSP(path string) (*ocsp.Response, error) {
 }
 
 func GetOCSPFiles(path string) ([]string, error) {
-	return io.GetFilesWithExtensions(path, ".ocsp", ".der", ".pem")
+	return loader.GetFiles(path, extensions...)
 }
 
 func GetOCSPs(path string) ([]*Info, error) {
-	files, err := GetOCSPFiles(path)
+	results, err := loader.LoadAll(
+		path,
+		extensions,
+		GetOCSP,
+		func(resp *ocsp.Response) []byte { return resp.Raw },
+	)
 	if err != nil {
 		return nil, err
 	}
 
-	resps := make([]*Info, 0, len(files))
-	for _, f := range files {
-		resp, err := GetOCSP(f)
-		if err != nil {
-			continue
+	infos := make([]*Info, len(results))
+	for i, r := range results {
+		infos[i] = &Info{
+			Response: r.Data,
+			FilePath: r.FilePath,
+			Hash:     r.Hash,
 		}
-
-		hash := sha256.Sum256(resp.Raw)
-		resps = append(resps, &Info{
-			Response: resp,
-			FilePath: f,
-			Hash:     hex.EncodeToString(hash[:]),
-		})
 	}
-
-	if len(resps) == 0 && len(files) > 0 {
-		return nil, fmt.Errorf("no valid OCSP responses found in %s", path)
-	}
-
-	return resps, nil
+	return infos, nil
 }

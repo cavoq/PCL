@@ -7,9 +7,10 @@ import (
 	"testing"
 	"time"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/cavoq/PCL/internal/policy"
 	"github.com/cavoq/PCL/internal/rule"
-	"gopkg.in/yaml.v3"
 )
 
 func TestGetFormatter_Text(t *testing.T) {

@@ -1,39 +1,34 @@
 package cert
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
-	"log"
 	"slices"
+
+	"github.com/zmap/zcrypto/x509"
+
+	"github.com/cavoq/PCL/internal/loader"
 )
 
 func LoadCertificates(path string) ([]*Info, error) {
-	certFiles, err := GetCertFiles(path)
+	results, err := loader.LoadAll(
+		path,
+		extensions,
+		GetCertificate,
+		func(cert *x509.Certificate) []byte { return cert.Raw },
+	)
 	if err != nil {
 		return nil, err
 	}
 
-	certs := make([]*Info, 0, len(certFiles))
-	for _, f := range certFiles {
-		c, err := GetCertificate(f)
-		if err != nil {
-			log.Printf("warning: skipping %s: %v", f, err)
-			continue
+	infos := make([]*Info, len(results))
+	for i, r := range results {
+		infos[i] = &Info{
+			Cert:     r.Data,
+			FilePath: r.FilePath,
+			Hash:     r.Hash,
 		}
-		hash := sha256.Sum256(c.Raw)
-		certs = append(certs, &Info{
-			Cert:     c,
-			FilePath: f,
-			Hash:     hex.EncodeToString(hash[:]),
-		})
 	}
-
-	if len(certs) == 0 {
-		return nil, fmt.Errorf("no valid certificates found in %s", path)
-	}
-
-	return certs, nil
+	return infos, nil
 }
 
 func BuildChain(certs []*Info) ([]*Info, error) {

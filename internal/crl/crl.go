@@ -1,16 +1,16 @@
 package crl
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/pem"
 	"fmt"
 	"os"
 
 	"github.com/zmap/zcrypto/x509"
 
-	"github.com/cavoq/PCL/internal/io"
+	"github.com/cavoq/PCL/internal/loader"
 )
+
+var extensions = []string{".crl", ".pem"}
 
 type Info struct {
 	CRL      *x509.RevocationList
@@ -37,33 +37,27 @@ func GetCRL(path string) (*x509.RevocationList, error) {
 }
 
 func GetCRLFiles(path string) ([]string, error) {
-	return io.GetFilesWithExtensions(path, ".crl", ".pem")
+	return loader.GetFiles(path, extensions...)
 }
 
 func GetCRLs(path string) ([]*Info, error) {
-	files, err := GetCRLFiles(path)
+	results, err := loader.LoadAll(
+		path,
+		extensions,
+		GetCRL,
+		func(crl *x509.RevocationList) []byte { return crl.Raw },
+	)
 	if err != nil {
 		return nil, err
 	}
 
-	crls := make([]*Info, 0, len(files))
-	for _, f := range files {
-		crl, err := GetCRL(f)
-		if err != nil {
-			continue
+	infos := make([]*Info, len(results))
+	for i, r := range results {
+		infos[i] = &Info{
+			CRL:      r.Data,
+			FilePath: r.FilePath,
+			Hash:     r.Hash,
 		}
-
-		hash := sha256.Sum256(crl.Raw)
-		crls = append(crls, &Info{
-			CRL:      crl,
-			FilePath: f,
-			Hash:     hex.EncodeToString(hash[:]),
-		})
 	}
-
-	if len(crls) == 0 && len(files) > 0 {
-		return nil, fmt.Errorf("no valid CRLs found in %s", path)
-	}
-
-	return crls, nil
+	return infos, nil
 }
