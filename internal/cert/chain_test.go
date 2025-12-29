@@ -5,8 +5,13 @@ import (
 	"testing"
 )
 
-func TestGetCertificates_Chain(t *testing.T) {
-	chain, err := GetCertificates("../../tests/certs")
+func TestLoadCertificates_Chain(t *testing.T) {
+	certs, err := LoadCertificates("../../tests/certs")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	chain, err := BuildChain(certs)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -28,8 +33,13 @@ func TestGetCertificates_Chain(t *testing.T) {
 	}
 }
 
-func TestGetCertificates_SingleCert(t *testing.T) {
-	chain, err := GetCertificates("../../tests/certs/leaf.pem")
+func TestLoadCertificates_SingleCert(t *testing.T) {
+	certs, err := LoadCertificates("../../tests/certs/leaf.pem")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	chain, err := BuildChain(certs)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -77,7 +87,12 @@ func TestGetCertFiles_SingleFile(t *testing.T) {
 }
 
 func TestBuildChain_Positions(t *testing.T) {
-	chain, err := GetCertificates("../../tests/certs")
+	certs, err := LoadCertificates("../../tests/certs")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	chain, err := BuildChain(certs)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -90,7 +105,12 @@ func TestBuildChain_Positions(t *testing.T) {
 }
 
 func TestBuildChain_Hashes(t *testing.T) {
-	chain, err := GetCertificates("../../tests/certs")
+	certs, err := LoadCertificates("../../tests/certs")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	chain, err := BuildChain(certs)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -106,7 +126,12 @@ func TestBuildChain_Hashes(t *testing.T) {
 }
 
 func TestBuildChain_FilePaths(t *testing.T) {
-	chain, err := GetCertificates("../../tests/certs")
+	certs, err := LoadCertificates("../../tests/certs")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	chain, err := BuildChain(certs)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

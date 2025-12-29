@@ -8,7 +8,7 @@ import (
 	"slices"
 )
 
-func GetCertificates(path string) ([]*Info, error) {
+func LoadCertificates(path string) ([]*Info, error) {
 	certFiles, err := GetCertFiles(path)
 	if err != nil {
 		return nil, err
@@ -33,7 +33,7 @@ func GetCertificates(path string) ([]*Info, error) {
 		return nil, fmt.Errorf("no valid certificates found in %s", path)
 	}
 
-	return BuildChain(certs)
+	return certs, nil
 }
 
 func BuildChain(certs []*Info) ([]*Info, error) {

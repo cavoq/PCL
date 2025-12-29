@@ -38,7 +38,7 @@ func RunLinter(opts InputOptions) error {
 		policies = append(policies, p)
 	}
 
-	certs, err := cert.GetCertificates(opts.CertPath)
+	certs, err := cert.LoadCertificates(opts.CertPath)
 	if err != nil {
 		return fmt.Errorf("failed to load certificates: %w", err)
 	}
