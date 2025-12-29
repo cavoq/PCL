@@ -23,6 +23,9 @@ func Parse(data []byte) (Policy, error) {
 	if err := yaml.Unmarshal(data, &p); err != nil {
 		return Policy{}, fmt.Errorf("parsing yaml: %w", err)
 	}
+	if err := validatePolicy(p); err != nil {
+		return Policy{}, err
+	}
 	return p, nil
 }
 
@@ -55,4 +58,30 @@ func ParseDir(dir string) ([]Policy, error) {
 	}
 
 	return policies, nil
+}
+
+func validatePolicy(p Policy) error {
+	if strings.TrimSpace(p.ID) == "" {
+		return fmt.Errorf("policy id is required")
+	}
+	for i, r := range p.Rules {
+		if strings.TrimSpace(r.ID) == "" {
+			return fmt.Errorf("rule %d: id is required", i)
+		}
+		if strings.TrimSpace(r.Target) == "" {
+			return fmt.Errorf("rule %s: target is required", r.ID)
+		}
+		if strings.TrimSpace(r.Operator) == "" {
+			return fmt.Errorf("rule %s: operator is required", r.ID)
+		}
+		if r.When != nil {
+			if strings.TrimSpace(r.When.Target) == "" {
+				return fmt.Errorf("rule %s: when.target is required", r.ID)
+			}
+			if strings.TrimSpace(r.When.Operator) == "" {
+				return fmt.Errorf("rule %s: when.operator is required", r.ID)
+			}
+		}
+	}
+	return nil
 }

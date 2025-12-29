@@ -69,6 +69,88 @@ func TestParse_InvalidYAML(t *testing.T) {
 	}
 }
 
+func TestParse_InvalidPolicy(t *testing.T) {
+	cases := []struct {
+		name string
+		data []byte
+	}{
+		{
+			name: "missing policy id",
+			data: []byte(`
+rules:
+  - id: r1
+    target: certificate.version
+    operator: eq
+    operands: [3]
+`),
+		},
+		{
+			name: "missing rule id",
+			data: []byte(`
+id: test-policy
+rules:
+  - target: certificate.version
+    operator: eq
+    operands: [3]
+`),
+		},
+		{
+			name: "missing target",
+			data: []byte(`
+id: test-policy
+rules:
+  - id: r1
+    operator: eq
+    operands: [3]
+`),
+		},
+		{
+			name: "missing operator",
+			data: []byte(`
+id: test-policy
+rules:
+  - id: r1
+    target: certificate.version
+`),
+		},
+		{
+			name: "missing when target",
+			data: []byte(`
+id: test-policy
+rules:
+  - id: r1
+    when:
+      operator: present
+    target: certificate.version
+    operator: eq
+    operands: [3]
+`),
+		},
+		{
+			name: "missing when operator",
+			data: []byte(`
+id: test-policy
+rules:
+  - id: r1
+    when:
+      target: certificate.extensions
+    target: certificate.version
+    operator: eq
+    operands: [3]
+`),
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := Parse(tc.data)
+			if err == nil {
+				t.Fatalf("expected error")
+			}
+		})
+	}
+}
+
 func TestParseFile(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "policy.yaml")
