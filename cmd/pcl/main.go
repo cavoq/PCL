@@ -21,9 +21,7 @@ type InputOptions struct {
 	CRLPath     string
 	OCSPPath    string
 	OutputFmt   string
-	ShowPassed  bool
-	ShowFailed  bool
-	ShowSkipped bool
+	Verbosity   int
 	ShowMeta    bool
 }
 
@@ -81,9 +79,9 @@ func RunLinter(opts InputOptions) error {
 	}
 
 	outputOpts := output.Options{
-		ShowPassed:  opts.ShowPassed,
-		ShowFailed:  opts.ShowFailed,
-		ShowSkipped: opts.ShowSkipped,
+		ShowPassed:  opts.Verbosity >= 1,
+		ShowFailed:  true,
+		ShowSkipped: opts.Verbosity >= 2,
 		ShowMeta:    opts.ShowMeta,
 	}
 
@@ -113,9 +111,7 @@ func main() {
 	root.Flags().StringVar(&opts.CRLPath, "crl", "", "Path to CRL file or directory (PEM/DER)")
 	root.Flags().StringVar(&opts.OCSPPath, "ocsp", "", "Path to OCSP response file or directory (DER/PEM)")
 	root.Flags().StringVar(&opts.OutputFmt, "output", "text", "Output format: text, json, or yaml")
-	root.Flags().BoolVar(&opts.ShowPassed, "show-passed", true, "Show passed rules")
-	root.Flags().BoolVar(&opts.ShowFailed, "show-failed", true, "Show failed rules")
-	root.Flags().BoolVar(&opts.ShowSkipped, "show-skipped", true, "Show skipped rules")
+	root.Flags().CountVarP(&opts.Verbosity, "verbose", "v", "Increase output detail: -v shows passed, -vv includes skipped")
 	root.Flags().BoolVar(&opts.ShowMeta, "show-meta", true, "Show lint meta information")
 
 	if err := root.Execute(); err != nil {

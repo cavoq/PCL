@@ -14,6 +14,8 @@ go install github.com/cavoq/PCL/cmd/pcl@latest
 pcl --policy <path> --cert <path> [--crl <path>] [--ocsp <path>] [--output text|json|yaml]
 ```
 
+By default, only failed rules are shown. Use `-v` to include passed rules and `-vv` to include skipped rules.
+
 ## 📝 Policy Configuration
 
 Policies are YAML files defining validation rules with a simple declarative syntax.
