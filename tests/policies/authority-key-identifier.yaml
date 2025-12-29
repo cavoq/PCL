@@ -1,0 +1,9 @@
+id: integration-authority-key-identifier
+version: 1.0
+
+rules:
+  - id: aki-present
+    target: certificate.authorityKeyIdentifier
+    operator: present
+    appliesTo: [leaf, intermediate]
+    severity: error

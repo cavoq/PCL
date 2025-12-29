@@ -1,0 +1,16 @@
+id: integration-extensions-criticality
+version: 1.0
+
+rules:
+  - id: key-usage-critical
+    target: certificate.extensions.2.5.29.15.critical
+    operator: eq
+    operands: [true]
+    severity: error
+
+  - id: basic-constraints-critical-for-ca
+    target: certificate.extensions.2.5.29.19.critical
+    operator: eq
+    operands: [true]
+    appliesTo: [root, intermediate]
+    severity: error

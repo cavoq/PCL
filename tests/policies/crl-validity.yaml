@@ -1,0 +1,13 @@
+id: integration-crl-validity
+version: 1.0
+
+rules:
+  - id: crl-valid
+    target: crl
+    operator: crlValid
+    severity: error
+
+  - id: crl-not-expired
+    target: crl
+    operator: crlNotExpired
+    severity: error

@@ -1,0 +1,16 @@
+name: subject-alt-name
+policy: policies/subject-alt-name.yaml
+certs: certs
+expected:
+  leaf:
+    pass: 1
+    fail: 0
+    skip: 0
+  intermediate:
+    pass: 0
+    fail: 0
+    skip: 1
+  root:
+    pass: 0
+    fail: 0
+    skip: 1

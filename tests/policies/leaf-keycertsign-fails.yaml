@@ -1,0 +1,10 @@
+id: integration-leaf-keycertsign-fails
+version: 1.0
+
+rules:
+  - id: leaf-keycertsign-must-be-true
+    target: certificate.keyUsage.keyCertSign
+    operator: eq
+    operands: [true]
+    appliesTo: [leaf]
+    severity: error

@@ -1,0 +1,16 @@
+name: extensions-criticality
+policy: policies/extensions-criticality.yaml
+certs: certs
+expected:
+  leaf:
+    pass: 1
+    fail: 0
+    skip: 1
+  intermediate:
+    pass: 2
+    fail: 0
+    skip: 0
+  root:
+    pass: 2
+    fail: 0
+    skip: 0

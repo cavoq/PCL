@@ -1,0 +1,8 @@
+id: integration-ocsp-missing-fails
+version: 1.0
+
+rules:
+  - id: ocsp-valid
+    target: certificate
+    operator: ocspValid
+    severity: error

@@ -1,0 +1,11 @@
+id: integration-ocsp-conditional-skip
+version: 1.0
+
+rules:
+  - id: ocsp-valid-when-present
+    when:
+      target: ocsp
+      operator: present
+    target: certificate
+    operator: ocspValid
+    severity: error

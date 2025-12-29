@@ -1,0 +1,17 @@
+name: crl-validity
+policy: policies/crl-validity.yaml
+certs: certs
+crl: ../internal/crl/testdata/test.crl
+expected:
+  leaf:
+    pass: 2
+    fail: 0
+    skip: 0
+  intermediate:
+    pass: 2
+    fail: 0
+    skip: 0
+  root:
+    pass: 2
+    fail: 0
+    skip: 0

@@ -5,12 +5,15 @@ import (
 	"path/filepath"
 	"testing"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/cavoq/PCL/internal/cert"
 	"github.com/cavoq/PCL/internal/cert/zcrypto"
+	"github.com/cavoq/PCL/internal/crl"
+	"github.com/cavoq/PCL/internal/ocsp"
 	"github.com/cavoq/PCL/internal/operator"
 	"github.com/cavoq/PCL/internal/policy"
 	"github.com/cavoq/PCL/internal/rule"
-	"gopkg.in/yaml.v3"
 )
 
 func TestIntegrationPolicies(t *testing.T) {
@@ -37,6 +40,8 @@ type testCase struct {
 	Name     string            `yaml:"name"`
 	Policy   string            `yaml:"policy"`
 	Certs    string            `yaml:"certs"`
+	CRL      string            `yaml:"crl,omitempty"`
+	OCSP     string            `yaml:"ocsp,omitempty"`
 	Expected map[string]counts `yaml:"expected"`
 }
 
@@ -67,6 +72,14 @@ func runCase(t *testing.T, caseDir string, tc testCase) {
 	testsDir := filepath.Dir(caseDir)
 	policyPath := filepath.Join(testsDir, tc.Policy)
 	certsPath := filepath.Join(testsDir, tc.Certs)
+	crlPath := ""
+	ocspPath := ""
+	if tc.CRL != "" {
+		crlPath = filepath.Join(testsDir, tc.CRL)
+	}
+	if tc.OCSP != "" {
+		ocspPath = filepath.Join(testsDir, tc.OCSP)
+	}
 
 	p, err := policy.ParseFile(policyPath)
 	if err != nil {
@@ -85,10 +98,25 @@ func runCase(t *testing.T, caseDir string, tc testCase) {
 
 	reg := operator.DefaultRegistry()
 	results := make([]policy.Result, 0, len(chain))
+	ctxOpts := make([]operator.ContextOption, 0)
+	if crlPath != "" {
+		crls, err := crl.GetCRLs(crlPath)
+		if err != nil {
+			t.Fatalf("unexpected CRL load error: %v", err)
+		}
+		ctxOpts = append(ctxOpts, operator.WithCRLs(crls))
+	}
+	if ocspPath != "" {
+		ocsps, err := ocsp.GetOCSPs(ocspPath)
+		if err != nil {
+			t.Fatalf("unexpected OCSP load error: %v", err)
+		}
+		ctxOpts = append(ctxOpts, operator.WithOCSPs(ocsps))
+	}
 
 	for _, c := range chain {
 		tree := zcrypto.BuildTree(c.Cert)
-		ctx := operator.NewEvaluationContext(tree, c, chain)
+		ctx := operator.NewEvaluationContext(tree, c, chain, ctxOpts...)
 		results = append(results, policy.Evaluate(p, tree, reg, ctx))
 	}
 

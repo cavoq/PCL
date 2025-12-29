@@ -7,8 +7,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/cavoq/PCL/internal/rule"
 	"gopkg.in/yaml.v3"
+
+	"github.com/cavoq/PCL/internal/rule"
 )
 
 func ParseFile(path string) (Policy, error) {
