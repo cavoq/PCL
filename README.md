@@ -16,6 +16,12 @@ pcl --policy <path> --cert <path> [--crl <path>] [--ocsp <path>] [--output text|
 
 By default, only failed rules are shown. Use `-v` to include passed rules and `-vv` to include skipped rules.
 
+You can also fetch a TLS certificate chain from HTTPS URLs:
+
+```bash
+pcl --policy <path> --cert-url https://example.test --cert-url-timeout 10s --cert-url-save-dir ./downloads
+```
+
 ## 📝 Policy Configuration
 
 Policies are YAML files defining validation rules with a simple declarative syntax.

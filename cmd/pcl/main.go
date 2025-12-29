@@ -3,118 +3,46 @@ package main
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/spf13/cobra"
 
-	"github.com/cavoq/PCL/internal/cert"
-	"github.com/cavoq/PCL/internal/cert/zcrypto"
-	"github.com/cavoq/PCL/internal/crl"
-	"github.com/cavoq/PCL/internal/ocsp"
-	"github.com/cavoq/PCL/internal/operator"
-	"github.com/cavoq/PCL/internal/output"
-	"github.com/cavoq/PCL/internal/policy"
+	"github.com/cavoq/PCL/internal/linter"
 )
 
-type InputOptions struct {
-	PolicyPath string
-	CertPath   string
-	CRLPath    string
-	OCSPPath   string
-	OutputFmt  string
-	Verbosity  int
-	ShowMeta   bool
-}
-
-func RunLinter(opts InputOptions) error {
-	policies, err := policy.ParseDir(opts.PolicyPath)
-	if err != nil {
-		policies = nil
-		p, err := policy.ParseFile(opts.PolicyPath)
-		if err != nil {
-			return fmt.Errorf("failed to parse policies: %w", err)
-		}
-		policies = append(policies, p)
-	}
-
-	certs, err := cert.LoadCertificates(opts.CertPath)
-	if err != nil {
-		return fmt.Errorf("failed to load certificates: %w", err)
-	}
-
-	chain, err := cert.BuildChain(certs)
-	if err != nil {
-		return fmt.Errorf("failed to build chain: %w", err)
-	}
-
-	var ctxOpts []operator.ContextOption
-
-	if opts.CRLPath != "" {
-		crls, err := crl.GetCRLs(opts.CRLPath)
-		if err != nil {
-			return fmt.Errorf("failed to load CRLs: %w", err)
-		}
-		ctxOpts = append(ctxOpts, operator.WithCRLs(crls))
-	}
-
-	if opts.OCSPPath != "" {
-		ocsps, err := ocsp.GetOCSPs(opts.OCSPPath)
-		if err != nil {
-			return fmt.Errorf("failed to load OCSP responses: %w", err)
-		}
-		ctxOpts = append(ctxOpts, operator.WithOCSPs(ocsps))
-	}
-
-	reg := operator.DefaultRegistry()
-
-	var results []policy.Result
-
-	for _, c := range chain {
-		tree := zcrypto.BuildTree(c.Cert)
-		ctx := operator.NewEvaluationContext(tree, c, chain, ctxOpts...)
-
-		for _, p := range policies {
-			res := policy.Evaluate(p, tree, reg, ctx)
-			results = append(results, res)
-		}
-	}
-
-	outputOpts := output.Options{
-		ShowPassed:  opts.Verbosity >= 1,
-		ShowFailed:  true,
-		ShowSkipped: opts.Verbosity >= 2,
-		ShowMeta:    opts.ShowMeta,
-	}
-
-	lintOutput := output.FromPolicyResults(results)
-	lintOutput = output.FilterRules(lintOutput, outputOpts)
-
-	formatter := output.GetFormatter(opts.OutputFmt, outputOpts)
-	return formatter.Format(os.Stdout, lintOutput)
-}
-
-func main() {
-	var opts InputOptions
-
+func newRootCmd(opts *linter.Config) *cobra.Command {
 	root := &cobra.Command{
 		Use:   "PCL",
 		Short: "Policy-based X.509 certificate linter",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if opts.PolicyPath == "" || opts.CertPath == "" {
-				return fmt.Errorf("--policy and --cert are required")
+			if opts.PolicyPath == "" {
+				return fmt.Errorf("--policy is required")
 			}
-			return RunLinter(opts)
+			if opts.CertPath == "" && len(opts.CertURLs) == 0 {
+				return fmt.Errorf("--cert or --cert-url is required")
+			}
+			return linter.Run(*opts, cmd.OutOrStdout())
 		},
 	}
 
 	root.Flags().StringVar(&opts.PolicyPath, "policy", "", "Path to policy YAML file or directory")
 	root.Flags().StringVar(&opts.CertPath, "cert", "", "Path to certificate file or directory (PEM/DER)")
+	root.Flags().StringSliceVar(&opts.CertURLs, "cert-url", nil, "Certificate URL (repeatable)")
+	root.Flags().DurationVar(&opts.CertTimeout, "cert-url-timeout", 10*time.Second, "Certificate URL timeout (e.g. 10s, 1m)")
+	root.Flags().StringVar(&opts.CertSaveDir, "cert-url-save-dir", "", "Directory to save downloaded certs (optional)")
 	root.Flags().StringVar(&opts.CRLPath, "crl", "", "Path to CRL file or directory (PEM/DER)")
 	root.Flags().StringVar(&opts.OCSPPath, "ocsp", "", "Path to OCSP response file or directory (DER/PEM)")
 	root.Flags().StringVar(&opts.OutputFmt, "output", "text", "Output format: text, json, or yaml")
 	root.Flags().CountVarP(&opts.Verbosity, "verbose", "v", "Increase output detail: -v shows passed, -vv includes skipped")
 	root.Flags().BoolVar(&opts.ShowMeta, "show-meta", true, "Show lint meta information")
 
-	if err := root.Execute(); err != nil {
+	return root
+}
+
+func main() {
+	var opts linter.Config
+
+	if err := newRootCmd(&opts).Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
