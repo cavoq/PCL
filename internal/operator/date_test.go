@@ -1,11 +1,10 @@
-package operator_test
+package operator
 
 import (
 	"testing"
 	"time"
 
 	"github.com/cavoq/PCL/internal/node"
-	"github.com/cavoq/PCL/internal/operator"
 )
 
 func TestBeforeOperator(t *testing.T) {
@@ -13,7 +12,7 @@ func TestBeforeOperator(t *testing.T) {
 	past := now.Add(-24 * time.Hour)
 	future := now.Add(24 * time.Hour)
 
-	ctx := &operator.EvaluationContext{Now: now}
+	ctx := &EvaluationContext{Now: now}
 
 	tests := []struct {
 		name     string
@@ -24,7 +23,7 @@ func TestBeforeOperator(t *testing.T) {
 		{"future is not before now", future, false},
 	}
 
-	op := operator.Before{}
+	op := Before{}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			n := node.New("test", tt.value)
@@ -44,7 +43,7 @@ func TestAfterOperator(t *testing.T) {
 	past := now.Add(-24 * time.Hour)
 	future := now.Add(24 * time.Hour)
 
-	ctx := &operator.EvaluationContext{Now: now}
+	ctx := &EvaluationContext{Now: now}
 
 	tests := []struct {
 		name     string
@@ -55,7 +54,7 @@ func TestAfterOperator(t *testing.T) {
 		{"past is not after now", past, false},
 	}
 
-	op := operator.After{}
+	op := After{}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			n := node.New("test", tt.value)
@@ -74,9 +73,9 @@ func TestBeforeWithExplicitNow(t *testing.T) {
 	now := time.Now()
 	past := now.Add(-24 * time.Hour)
 
-	ctx := &operator.EvaluationContext{Now: now}
+	ctx := &EvaluationContext{Now: now}
 
-	op := operator.Before{}
+	op := Before{}
 	n := node.New("test", past)
 	got, err := op.Evaluate(n, ctx, []any{"now"})
 	if err != nil {
@@ -88,7 +87,7 @@ func TestBeforeWithExplicitNow(t *testing.T) {
 }
 
 func TestDateOperatorNilNode(t *testing.T) {
-	ops := []operator.Operator{operator.Before{}, operator.After{}}
+	ops := []Operator{Before{}, After{}}
 	for _, op := range ops {
 		got, _ := op.Evaluate(nil, nil, []any{})
 		if got != false {

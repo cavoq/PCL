@@ -1,11 +1,9 @@
-package zcrypto_test
+package zcrypto
 
 import (
 	"os"
 	"path/filepath"
 	"testing"
-
-	"github.com/cavoq/PCL/internal/cert/zcrypto"
 )
 
 func loadTestCert(t *testing.T, name string) []byte {
@@ -21,7 +19,7 @@ func loadTestCert(t *testing.T, name string) []byte {
 }
 
 func TestLoader_LoadValidPEM(t *testing.T) {
-	loader := zcrypto.NewLoader()
+	loader := NewLoader()
 
 	data := loadTestCert(t, "leaf.pem")
 
@@ -36,7 +34,7 @@ func TestLoader_LoadValidPEM(t *testing.T) {
 }
 
 func TestLoader_InvalidPEM(t *testing.T) {
-	loader := zcrypto.NewLoader()
+	loader := NewLoader()
 
 	_, err := loader.Load([]byte("this is not a certificate"))
 	if err == nil {
@@ -45,7 +43,7 @@ func TestLoader_InvalidPEM(t *testing.T) {
 }
 
 func TestLoader_EmptyInput(t *testing.T) {
-	loader := zcrypto.NewLoader()
+	loader := NewLoader()
 
 	_, err := loader.Load(nil)
 	if err == nil {

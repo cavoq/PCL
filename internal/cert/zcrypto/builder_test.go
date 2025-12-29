@@ -1,10 +1,9 @@
-package zcrypto_test
+package zcrypto
 
 import (
 	"testing"
 	"time"
 
-	"github.com/cavoq/PCL/internal/cert/zcrypto"
 	"github.com/cavoq/PCL/internal/node"
 )
 
@@ -36,8 +35,8 @@ func assertPathValue(t *testing.T, root *node.Node, path string, want any) {
 
 func loadCert(t *testing.T, name string) *node.Node {
 	t.Helper()
-	loader := zcrypto.NewLoader()
-	builder := zcrypto.NewZCryptoBuilder()
+	loader := NewLoader()
+	builder := NewZCryptoBuilder()
 
 	cert, err := loader.Load(loadTestCert(t, name))
 	if err != nil {
@@ -232,13 +231,13 @@ func TestBuilder_SignatureValue(t *testing.T) {
 }
 
 func TestBuilder_BuildTree(t *testing.T) {
-	loader := zcrypto.NewLoader()
+	loader := NewLoader()
 	cert, err := loader.Load(loadTestCert(t, "leaf.pem"))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	root := zcrypto.BuildTree(cert)
+	root := BuildTree(cert)
 	if root.Name != "certificate" {
 		t.Errorf("expected root name 'certificate', got %q", root.Name)
 	}

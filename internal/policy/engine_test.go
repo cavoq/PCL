@@ -1,11 +1,10 @@
-package policy_test
+package policy
 
 import (
 	"testing"
 
 	"github.com/cavoq/PCL/internal/node"
 	"github.com/cavoq/PCL/internal/operator"
-	"github.com/cavoq/PCL/internal/policy"
 	"github.com/cavoq/PCL/internal/rule"
 )
 
@@ -16,7 +15,7 @@ func TestPolicyPassesWhenAllRulesPass(t *testing.T) {
 	reg := operator.NewRegistry()
 	reg.Register(operator.Eq{})
 
-	p := policy.Policy{
+	p := Policy{
 		ID: "test-policy",
 		Rules: []rule.Rule{
 			{
@@ -29,7 +28,7 @@ func TestPolicyPassesWhenAllRulesPass(t *testing.T) {
 		},
 	}
 
-	res := policy.Evaluate(p, root, reg, nil)
+	res := Evaluate(p, root, reg, nil)
 
 	if res.Verdict != "pass" {
 		t.Fatalf("expected verdict 'pass', got %q", res.Verdict)
@@ -51,7 +50,7 @@ func TestPolicyFailsOnErrorSeverity(t *testing.T) {
 	reg := operator.NewRegistry()
 	reg.Register(operator.Eq{})
 
-	p := policy.Policy{
+	p := Policy{
 		ID: "test-policy",
 		Rules: []rule.Rule{
 			{
@@ -64,7 +63,7 @@ func TestPolicyFailsOnErrorSeverity(t *testing.T) {
 		},
 	}
 
-	res := policy.Evaluate(p, root, reg, nil)
+	res := Evaluate(p, root, reg, nil)
 
 	if res.Verdict != "fail" {
 		t.Fatalf("expected verdict 'fail', got %q", res.Verdict)
@@ -83,7 +82,7 @@ func TestPolicyMultipleRules(t *testing.T) {
 	reg := operator.NewRegistry()
 	reg.Register(operator.Eq{})
 
-	p := policy.Policy{
+	p := Policy{
 		ID: "multi-rule-policy",
 		Rules: []rule.Rule{
 			{
@@ -103,7 +102,7 @@ func TestPolicyMultipleRules(t *testing.T) {
 		},
 	}
 
-	res := policy.Evaluate(p, root, reg, nil)
+	res := Evaluate(p, root, reg, nil)
 
 	if res.Verdict != "pass" {
 		t.Fatalf("expected verdict 'pass' (no error failures), got %q", res.Verdict)
