@@ -3,10 +3,10 @@ package ocsp
 import (
 	"encoding/pem"
 	"fmt"
-	"os"
 
 	"golang.org/x/crypto/ocsp"
 
+	"github.com/cavoq/PCL/internal/io"
 	"github.com/cavoq/PCL/internal/loader"
 )
 
@@ -18,12 +18,7 @@ type Info struct {
 	Hash     string
 }
 
-func GetOCSP(path string) (*ocsp.Response, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-
+func ParseOCSP(data []byte) (*ocsp.Response, error) {
 	block, _ := pem.Decode(data)
 	if block != nil && block.Type == "OCSP RESPONSE" {
 		return ocsp.ParseResponse(block.Bytes, nil)
@@ -37,14 +32,14 @@ func GetOCSP(path string) (*ocsp.Response, error) {
 }
 
 func GetOCSPFiles(path string) ([]string, error) {
-	return loader.GetFiles(path, extensions...)
+	return io.GetFilesWithExtensions(path, extensions...)
 }
 
 func GetOCSPs(path string) ([]*Info, error) {
 	results, err := loader.LoadAll(
 		path,
 		extensions,
-		GetOCSP,
+		ParseOCSP,
 		func(resp *ocsp.Response) []byte { return resp.Raw },
 	)
 	if err != nil {

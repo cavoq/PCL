@@ -4,10 +4,12 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/cavoq/PCL/internal/loader"
 )
 
-func TestGetCRL_PEM(t *testing.T) {
-	crl, err := GetCRL(filepath.Join("testdata", "test.pem"))
+func TestParseCRL_PEM(t *testing.T) {
+	crl, err := loader.Load(filepath.Join("testdata", "test.pem"), ParseCRL)
 	if err != nil {
 		t.Fatalf("failed to load PEM CRL: %v", err)
 	}
@@ -19,8 +21,8 @@ func TestGetCRL_PEM(t *testing.T) {
 	}
 }
 
-func TestGetCRL_DER(t *testing.T) {
-	crl, err := GetCRL(filepath.Join("testdata", "test.crl"))
+func TestParseCRL_DER(t *testing.T) {
+	crl, err := loader.Load(filepath.Join("testdata", "test.crl"), ParseCRL)
 	if err != nil {
 		t.Fatalf("failed to load DER CRL: %v", err)
 	}
@@ -29,20 +31,8 @@ func TestGetCRL_DER(t *testing.T) {
 	}
 }
 
-func TestGetCRL_NotFound(t *testing.T) {
-	_, err := GetCRL("nonexistent.crl")
-	if err == nil {
-		t.Fatal("expected error for nonexistent file")
-	}
-}
-
-func TestGetCRL_Invalid(t *testing.T) {
-	tmpFile := filepath.Join(t.TempDir(), "invalid.crl")
-	if err := os.WriteFile(tmpFile, []byte("not a CRL"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	_, err := GetCRL(tmpFile)
+func TestParseCRL_Invalid(t *testing.T) {
+	_, err := ParseCRL([]byte("not a CRL"))
 	if err == nil {
 		t.Fatal("expected error for invalid CRL data")
 	}

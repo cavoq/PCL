@@ -3,11 +3,10 @@ package cert
 import (
 	"encoding/pem"
 	"fmt"
-	"os"
 
 	"github.com/zmap/zcrypto/x509"
 
-	"github.com/cavoq/PCL/internal/loader"
+	"github.com/cavoq/PCL/internal/io"
 )
 
 var extensions = []string{".pem", ".der", ".crt", ".cer"}
@@ -20,12 +19,7 @@ type Info struct {
 	Type     string
 }
 
-func GetCertificate(path string) (*x509.Certificate, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-
+func ParseCertificate(data []byte) (*x509.Certificate, error) {
 	block, _ := pem.Decode(data)
 	if block != nil && block.Type == "CERTIFICATE" {
 		return x509.ParseCertificate(block.Bytes)
@@ -39,7 +33,7 @@ func GetCertificate(path string) (*x509.Certificate, error) {
 }
 
 func GetCertFiles(path string) ([]string, error) {
-	return loader.GetFiles(path, extensions...)
+	return io.GetFilesWithExtensions(path, extensions...)
 }
 
 func isSelfSigned(cert *x509.Certificate) bool {

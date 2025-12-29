@@ -3,6 +3,8 @@ package cert
 import (
 	"path/filepath"
 	"testing"
+
+	"github.com/cavoq/PCL/internal/loader"
 )
 
 func TestLoadCertificates_Chain(t *testing.T) {
@@ -53,8 +55,8 @@ func TestLoadCertificates_SingleCert(t *testing.T) {
 	}
 }
 
-func TestGetCertificate(t *testing.T) {
-	cert, err := GetCertificate("../../tests/certs/leaf.pem")
+func TestParseCertificate(t *testing.T) {
+	cert, err := loader.Load("../../tests/certs/leaf.pem", ParseCertificate)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

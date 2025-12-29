@@ -50,25 +50,6 @@ func TestLoad_ParseError(t *testing.T) {
 	}
 }
 
-func TestGetFiles(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	files := []string{"a.txt", "b.pem", "c.txt"}
-	for _, f := range files {
-		if err := os.WriteFile(filepath.Join(tmpDir, f), []byte("test"), 0o644); err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	result, err := GetFiles(tmpDir, ".txt")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(result) != 2 {
-		t.Errorf("expected 2 files, got %d", len(result))
-	}
-}
-
 func TestLoadAll_Success(t *testing.T) {
 	tmpDir := t.TempDir()
 
@@ -82,11 +63,7 @@ func TestLoadAll_Success(t *testing.T) {
 	results, err := LoadAll(
 		tmpDir,
 		[]string{".txt"},
-		func(path string) (string, error) {
-			data, err := os.ReadFile(path)
-			if err != nil {
-				return "", err
-			}
+		func(data []byte) (string, error) {
 			return string(data), nil
 		},
 		func(s string) []byte {
@@ -123,11 +100,7 @@ func TestLoadAll_SkipsInvalidFiles(t *testing.T) {
 	results, err := LoadAll(
 		tmpDir,
 		[]string{".txt"},
-		func(path string) (string, error) {
-			data, err := os.ReadFile(path)
-			if err != nil {
-				return "", err
-			}
+		func(data []byte) (string, error) {
 			if string(data) == "invalid" {
 				return "", fmt.Errorf("invalid content")
 			}
@@ -155,7 +128,7 @@ func TestLoadAll_AllInvalid(t *testing.T) {
 	_, err := LoadAll(
 		tmpDir,
 		[]string{".txt"},
-		func(path string) (string, error) {
+		func(data []byte) (string, error) {
 			return "", fmt.Errorf("parse error")
 		},
 		func(s string) []byte {
@@ -173,7 +146,7 @@ func TestLoadAll_EmptyDirectory(t *testing.T) {
 	results, err := LoadAll(
 		tmpDir,
 		[]string{".txt"},
-		func(path string) (string, error) {
+		func(data []byte) (string, error) {
 			return "", nil
 		},
 		func(s string) []byte {

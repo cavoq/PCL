@@ -3,10 +3,10 @@ package crl
 import (
 	"encoding/pem"
 	"fmt"
-	"os"
 
 	"github.com/zmap/zcrypto/x509"
 
+	"github.com/cavoq/PCL/internal/io"
 	"github.com/cavoq/PCL/internal/loader"
 )
 
@@ -18,12 +18,7 @@ type Info struct {
 	Hash     string
 }
 
-func GetCRL(path string) (*x509.RevocationList, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-
+func ParseCRL(data []byte) (*x509.RevocationList, error) {
 	block, _ := pem.Decode(data)
 	if block != nil && block.Type == "X509 CRL" {
 		return x509.ParseRevocationList(block.Bytes)
@@ -37,14 +32,14 @@ func GetCRL(path string) (*x509.RevocationList, error) {
 }
 
 func GetCRLFiles(path string) ([]string, error) {
-	return loader.GetFiles(path, extensions...)
+	return io.GetFilesWithExtensions(path, extensions...)
 }
 
 func GetCRLs(path string) ([]*Info, error) {
 	results, err := loader.LoadAll(
 		path,
 		extensions,
-		GetCRL,
+		ParseCRL,
 		func(crl *x509.RevocationList) []byte { return crl.Raw },
 	)
 	if err != nil {

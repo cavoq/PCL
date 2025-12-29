@@ -13,7 +13,7 @@ func LoadCertificates(path string) ([]*Info, error) {
 	results, err := loader.LoadAll(
 		path,
 		extensions,
-		GetCertificate,
+		ParseCertificate,
 		func(cert *x509.Certificate) []byte { return cert.Raw },
 	)
 	if err != nil {

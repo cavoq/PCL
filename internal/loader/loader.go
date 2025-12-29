@@ -9,14 +9,25 @@ import (
 	"github.com/cavoq/PCL/internal/io"
 )
 
-// ParseFunc is a function that parses raw file bytes into a typed result.
-type ParseFunc[T any] func(path string) (T, error)
+type ParseFunc[T any] func(data []byte) (T, error)
 
-// RawDataFunc extracts raw bytes from a parsed object for hashing.
 type RawDataFunc[T any] func(T) []byte
 
-// LoadAll loads all files matching the given extensions from a path,
-// parses each one, and returns a slice of Info structs.
+type Info[T any] struct {
+	Data     T
+	FilePath string
+	Hash     string
+}
+
+func Load[T any](path string, parse ParseFunc[T]) (T, error) {
+	var zero T
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return zero, err
+	}
+	return parse(data)
+}
+
 func LoadAll[T any](
 	path string,
 	extensions []string,
@@ -30,7 +41,7 @@ func LoadAll[T any](
 
 	results := make([]*Info[T], 0, len(files))
 	for _, f := range files {
-		item, err := parse(f)
+		item, err := Load(f, parse)
 		if err != nil {
 			continue
 		}
@@ -48,26 +59,4 @@ func LoadAll[T any](
 	}
 
 	return results, nil
-}
-
-// Info holds a parsed item along with its file path and content hash.
-type Info[T any] struct {
-	Data     T
-	FilePath string
-	Hash     string
-}
-
-// Load loads a single file from disk and parses it.
-func Load[T any](path string, parse func([]byte) (T, error)) (T, error) {
-	var zero T
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return zero, err
-	}
-	return parse(data)
-}
-
-// GetFiles returns all files matching the given extensions from a path.
-func GetFiles(path string, extensions ...string) ([]string, error) {
-	return io.GetFilesWithExtensions(path, extensions...)
 }

@@ -6,35 +6,19 @@ import (
 	"testing"
 )
 
-func TestGetOCSP_NotFound(t *testing.T) {
-	_, err := GetOCSP("nonexistent.ocsp")
-	if err == nil {
-		t.Fatal("expected error for nonexistent file")
-	}
-}
-
-func TestGetOCSP_Invalid(t *testing.T) {
-	tmpFile := filepath.Join(t.TempDir(), "invalid.ocsp")
-	if err := os.WriteFile(tmpFile, []byte("not an ocsp response"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	_, err := GetOCSP(tmpFile)
+func TestParseOCSP_Invalid(t *testing.T) {
+	_, err := ParseOCSP([]byte("not an ocsp response"))
 	if err == nil {
 		t.Fatal("expected error for invalid OCSP data")
 	}
 }
 
-func TestGetOCSP_InvalidPEM(t *testing.T) {
-	tmpFile := filepath.Join(t.TempDir(), "invalid.pem")
+func TestParseOCSP_InvalidPEM(t *testing.T) {
 	pemData := `-----BEGIN OCSP RESPONSE-----
 bm90IHZhbGlkIGRhdGE=
 -----END OCSP RESPONSE-----`
-	if err := os.WriteFile(tmpFile, []byte(pemData), 0o644); err != nil {
-		t.Fatal(err)
-	}
 
-	_, err := GetOCSP(tmpFile)
+	_, err := ParseOCSP([]byte(pemData))
 	if err == nil {
 		t.Fatal("expected error for invalid PEM OCSP data")
 	}
