@@ -1,0 +1,16 @@
+name: policy-includes
+policy: policies/with-include.yaml
+certs: certs
+expected:
+  leaf:
+    pass: 2
+    fail: 0
+    skip: 1
+  intermediate:
+    pass: 2
+    fail: 0
+    skip: 1
+  root:
+    pass: 2
+    fail: 0
+    skip: 1

@@ -7,15 +7,12 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/cavoq/PCL/internal/rule"
 	"gopkg.in/yaml.v3"
 )
 
 func ParseFile(path string) (Policy, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return Policy{}, fmt.Errorf("reading file: %w", err)
-	}
-	return Parse(data)
+	return parseFileWithIncludes(path, map[string]bool{})
 }
 
 func Parse(data []byte) (Policy, error) {
@@ -64,6 +61,11 @@ func validatePolicy(p Policy) error {
 	if strings.TrimSpace(p.ID) == "" {
 		return fmt.Errorf("policy id is required")
 	}
+	for i, inc := range p.Includes {
+		if strings.TrimSpace(inc) == "" {
+			return fmt.Errorf("include %d: path is required", i)
+		}
+	}
 	for i, r := range p.Rules {
 		if strings.TrimSpace(r.ID) == "" {
 			return fmt.Errorf("rule %d: id is required", i)
@@ -84,4 +86,48 @@ func validatePolicy(p Policy) error {
 		}
 	}
 	return nil
+}
+
+func parseFileWithIncludes(path string, seen map[string]bool) (Policy, error) {
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return Policy{}, fmt.Errorf("resolving path: %w", err)
+	}
+	if seen[absPath] {
+		return Policy{}, fmt.Errorf("include cycle detected: %s", absPath)
+	}
+	seen[absPath] = true
+
+	data, err := os.ReadFile(absPath)
+	if err != nil {
+		return Policy{}, fmt.Errorf("reading file: %w", err)
+	}
+
+	p, err := Parse(data)
+	if err != nil {
+		return Policy{}, err
+	}
+
+	if len(p.Includes) == 0 {
+		return p, nil
+	}
+
+	merged := p
+	merged.Rules = make([]rule.Rule, 0, len(p.Rules))
+	baseDir := filepath.Dir(absPath)
+
+	for _, inc := range p.Includes {
+		incPath := inc
+		if !filepath.IsAbs(incPath) {
+			incPath = filepath.Join(baseDir, incPath)
+		}
+		incPolicy, err := parseFileWithIncludes(incPath, seen)
+		if err != nil {
+			return Policy{}, fmt.Errorf("including %s: %w", inc, err)
+		}
+		merged.Rules = append(merged.Rules, incPolicy.Rules...)
+	}
+
+	merged.Rules = append(merged.Rules, p.Rules...)
+	return merged, nil
 }

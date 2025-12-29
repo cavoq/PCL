@@ -1,0 +1,12 @@
+id: integration-with-include
+version: 1.0
+includes:
+  - common.yaml
+
+rules:
+  - id: ca-basic-constraints
+    target: certificate.basicConstraints.cA
+    operator: eq
+    operands: [true]
+    appliesTo: [root, intermediate]
+    severity: error

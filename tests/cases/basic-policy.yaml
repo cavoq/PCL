@@ -1,0 +1,16 @@
+name: basic-policy
+policy: policies/basic.yaml
+certs: certs
+expected:
+  leaf:
+    pass: 2
+    fail: 0
+    skip: 2
+  intermediate:
+    pass: 2
+    fail: 0
+    skip: 2
+  root:
+    pass: 3
+    fail: 0
+    skip: 1

@@ -1,0 +1,28 @@
+id: integration-basic
+version: 1.0
+
+rules:
+  - id: version-v3
+    target: certificate.version
+    operator: eq
+    operands: [3]
+    severity: error
+
+  - id: ca-basic-constraints
+    target: certificate.basicConstraints.cA
+    operator: eq
+    operands: [true]
+    appliesTo: [root, intermediate]
+    severity: error
+
+  - id: leaf-subject-present
+    target: certificate.subject.commonName
+    operator: notEmpty
+    appliesTo: [leaf]
+    severity: error
+
+  - id: root-serial-present
+    target: certificate.serialNumber
+    operator: present
+    appliesTo: [root]
+    severity: warning
