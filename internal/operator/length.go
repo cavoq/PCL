@@ -15,7 +15,7 @@ func (MaxLength) Evaluate(n *node.Node, _ *EvaluationContext, operands []any) (b
 		return false, nil
 	}
 
-	maxLen, ok := toInt(operands[0])
+	maxLen, ok := ToInt(operands[0])
 	if !ok {
 		return false, nil
 	}
@@ -37,7 +37,7 @@ func (MinLength) Evaluate(n *node.Node, _ *EvaluationContext, operands []any) (b
 		return false, nil
 	}
 
-	minLen, ok := toInt(operands[0])
+	minLen, ok := ToInt(operands[0])
 	if !ok {
 		return false, nil
 	}
@@ -68,18 +68,5 @@ func getLength(n *node.Node) int {
 		default:
 			return -1
 		}
-	}
-}
-
-func toInt(v any) (int, bool) {
-	switch val := v.(type) {
-	case int:
-		return val, true
-	case int64:
-		return int(val), true
-	case float64:
-		return int(val), true
-	default:
-		return 0, false
 	}
 }

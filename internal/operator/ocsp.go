@@ -12,7 +12,7 @@ type OCSPValid struct{}
 func (OCSPValid) Name() string { return "ocspValid" }
 
 func (OCSPValid) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (bool, error) {
-	if ctx == nil || len(ctx.OCSPs) == 0 || len(ctx.Chain) == 0 {
+	if !ctx.HasOCSPs() || !ctx.HasChain() {
 		return false, nil
 	}
 
@@ -56,7 +56,7 @@ type NotRevokedOCSP struct{}
 func (NotRevokedOCSP) Name() string { return "notRevokedOCSP" }
 
 func (NotRevokedOCSP) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (bool, error) {
-	if ctx == nil || ctx.Cert == nil || ctx.Cert.Cert == nil {
+	if !ctx.HasCert() {
 		return false, nil
 	}
 
@@ -89,7 +89,7 @@ type OCSPGood struct{}
 func (OCSPGood) Name() string { return "ocspGood" }
 
 func (OCSPGood) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (bool, error) {
-	if ctx == nil || ctx.Cert == nil || ctx.Cert.Cert == nil {
+	if !ctx.HasCert() {
 		return false, nil
 	}
 

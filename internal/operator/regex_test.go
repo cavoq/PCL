@@ -108,3 +108,39 @@ func TestNotRegexName(t *testing.T) {
 		t.Error("wrong name")
 	}
 }
+
+func TestRegexCaching(t *testing.T) {
+	pattern := `^test-pattern-\d+$`
+	n := node.New("test", "test-pattern-123")
+	op := Regex{}
+
+	got1, err := op.Evaluate(n, nil, []any{pattern})
+	if err != nil {
+		t.Fatalf("first call error: %v", err)
+	}
+	if !got1 {
+		t.Error("first call should match")
+	}
+
+	got2, err := op.Evaluate(n, nil, []any{pattern})
+	if err != nil {
+		t.Fatalf("second call error: %v", err)
+	}
+	if !got2 {
+		t.Error("second call should match")
+	}
+
+	regexCacheMu.RLock()
+	_, cached := regexCache[pattern]
+	regexCacheMu.RUnlock()
+	if !cached {
+		t.Error("pattern should be cached")
+	}
+}
+
+func TestGetCompiledRegexInvalidPattern(t *testing.T) {
+	_, err := getCompiledRegex("[invalid")
+	if err == nil {
+		t.Error("should return error for invalid pattern")
+	}
+}

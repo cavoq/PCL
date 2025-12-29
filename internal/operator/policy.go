@@ -21,7 +21,7 @@ type CertificatePolicyValid struct{}
 func (CertificatePolicyValid) Name() string { return "certificatePolicyValid" }
 
 func (CertificatePolicyValid) Evaluate(_ *node.Node, ctx *EvaluationContext, operands []any) (bool, error) {
-	if ctx == nil || ctx.Cert == nil || ctx.Cert.Cert == nil || len(ctx.Chain) == 0 {
+	if !ctx.HasCert() || !ctx.HasChain() {
 		return false, nil
 	}
 

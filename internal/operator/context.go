@@ -18,6 +18,22 @@ type EvaluationContext struct {
 	OCSPs []*ocsp.Info
 }
 
+func (ctx *EvaluationContext) HasCert() bool {
+	return ctx != nil && ctx.Cert != nil && ctx.Cert.Cert != nil
+}
+
+func (ctx *EvaluationContext) HasChain() bool {
+	return ctx != nil && len(ctx.Chain) > 0
+}
+
+func (ctx *EvaluationContext) HasCRLs() bool {
+	return ctx != nil && len(ctx.CRLs) > 0
+}
+
+func (ctx *EvaluationContext) HasOCSPs() bool {
+	return ctx != nil && len(ctx.OCSPs) > 0
+}
+
 type ContextOption func(*EvaluationContext)
 
 func WithCRLs(crls []*crl.Info) ContextOption {

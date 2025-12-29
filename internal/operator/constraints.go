@@ -75,8 +75,8 @@ func (ValidityPeriodDays) Evaluate(n *node.Node, ctx *EvaluationContext, operand
 		return false, nil
 	}
 
-	minDays, ok1 := toInt(operands[0])
-	maxDays, ok2 := toInt(operands[1])
+	minDays, ok1 := ToInt(operands[0])
+	maxDays, ok2 := ToInt(operands[1])
 	if !ok1 || !ok2 {
 		return false, nil
 	}

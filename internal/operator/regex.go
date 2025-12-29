@@ -3,9 +3,36 @@ package operator
 import (
 	"fmt"
 	"regexp"
+	"sync"
 
 	"github.com/cavoq/PCL/internal/node"
 )
+
+var (
+	regexCache   = make(map[string]*regexp.Regexp)
+	regexCacheMu sync.RWMutex
+)
+
+func getCompiledRegex(pattern string) (*regexp.Regexp, error) {
+	regexCacheMu.RLock()
+	re, exists := regexCache[pattern]
+	regexCacheMu.RUnlock()
+
+	if exists {
+		return re, nil
+	}
+
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		return nil, fmt.Errorf("invalid regex pattern: %w", err)
+	}
+
+	regexCacheMu.Lock()
+	regexCache[pattern] = re
+	regexCacheMu.Unlock()
+
+	return re, nil
+}
 
 type Regex struct{}
 
@@ -37,9 +64,9 @@ func matchRegex(n *node.Node, operands []any) (bool, error) {
 		return false, fmt.Errorf("regex operator requires a string pattern operand")
 	}
 
-	re, err := regexp.Compile(pattern)
+	re, err := getCompiledRegex(pattern)
 	if err != nil {
-		return false, fmt.Errorf("invalid regex pattern: %w", err)
+		return false, err
 	}
 
 	str, ok := n.Value.(string)

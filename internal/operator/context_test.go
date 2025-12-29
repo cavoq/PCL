@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/zmap/zcrypto/x509"
+
 	"github.com/cavoq/PCL/internal/cert"
 	"github.com/cavoq/PCL/internal/crl"
 	"github.com/cavoq/PCL/internal/node"
@@ -150,5 +152,96 @@ func TestWithCRLs_EmptySlice(t *testing.T) {
 	}
 	if len(ctx.CRLs) != 0 {
 		t.Errorf("expected 0 CRLs, got %d", len(ctx.CRLs))
+	}
+}
+
+func TestHasCert_NilContext(t *testing.T) {
+	var ctx *EvaluationContext
+	if ctx.HasCert() {
+		t.Error("nil context should return false")
+	}
+}
+
+func TestHasCert_NilCert(t *testing.T) {
+	ctx := &EvaluationContext{}
+	if ctx.HasCert() {
+		t.Error("nil Cert should return false")
+	}
+}
+
+func TestHasCert_NilCertCert(t *testing.T) {
+	ctx := &EvaluationContext{Cert: &cert.Info{}}
+	if ctx.HasCert() {
+		t.Error("nil Cert.Cert should return false")
+	}
+}
+
+func TestHasCert_Valid(t *testing.T) {
+	ctx := &EvaluationContext{Cert: &cert.Info{Cert: &x509.Certificate{}}}
+	if !ctx.HasCert() {
+		t.Error("valid cert should return true")
+	}
+}
+
+func TestHasChain_NilContext(t *testing.T) {
+	var ctx *EvaluationContext
+	if ctx.HasChain() {
+		t.Error("nil context should return false")
+	}
+}
+
+func TestHasChain_EmptyChain(t *testing.T) {
+	ctx := &EvaluationContext{Chain: []*cert.Info{}}
+	if ctx.HasChain() {
+		t.Error("empty chain should return false")
+	}
+}
+
+func TestHasChain_Valid(t *testing.T) {
+	ctx := &EvaluationContext{Chain: []*cert.Info{{}}}
+	if !ctx.HasChain() {
+		t.Error("non-empty chain should return true")
+	}
+}
+
+func TestHasCRLs_NilContext(t *testing.T) {
+	var ctx *EvaluationContext
+	if ctx.HasCRLs() {
+		t.Error("nil context should return false")
+	}
+}
+
+func TestHasCRLs_EmptyCRLs(t *testing.T) {
+	ctx := &EvaluationContext{CRLs: []*crl.Info{}}
+	if ctx.HasCRLs() {
+		t.Error("empty CRLs should return false")
+	}
+}
+
+func TestHasCRLs_Valid(t *testing.T) {
+	ctx := &EvaluationContext{CRLs: []*crl.Info{{}}}
+	if !ctx.HasCRLs() {
+		t.Error("non-empty CRLs should return true")
+	}
+}
+
+func TestHasOCSPs_NilContext(t *testing.T) {
+	var ctx *EvaluationContext
+	if ctx.HasOCSPs() {
+		t.Error("nil context should return false")
+	}
+}
+
+func TestHasOCSPs_EmptyOCSPs(t *testing.T) {
+	ctx := &EvaluationContext{OCSPs: []*ocsp.Info{}}
+	if ctx.HasOCSPs() {
+		t.Error("empty OCSPs should return false")
+	}
+}
+
+func TestHasOCSPs_Valid(t *testing.T) {
+	ctx := &EvaluationContext{OCSPs: []*ocsp.Info{{}}}
+	if !ctx.HasOCSPs() {
+		t.Error("non-empty OCSPs should return true")
 	}
 }

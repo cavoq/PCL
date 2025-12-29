@@ -9,7 +9,7 @@ type CRLValid struct{}
 func (CRLValid) Name() string { return "crlValid" }
 
 func (CRLValid) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (bool, error) {
-	if ctx == nil || len(ctx.CRLs) == 0 {
+	if !ctx.HasCRLs() {
 		return false, nil
 	}
 
@@ -35,7 +35,7 @@ type CRLNotExpired struct{}
 func (CRLNotExpired) Name() string { return "crlNotExpired" }
 
 func (CRLNotExpired) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (bool, error) {
-	if ctx == nil || len(ctx.CRLs) == 0 {
+	if !ctx.HasCRLs() {
 		return false, nil
 	}
 
@@ -58,7 +58,7 @@ type CRLSignedBy struct{}
 func (CRLSignedBy) Name() string { return "crlSignedBy" }
 
 func (CRLSignedBy) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (bool, error) {
-	if ctx == nil || len(ctx.CRLs) == 0 || len(ctx.Chain) == 0 {
+	if !ctx.HasCRLs() || !ctx.HasChain() {
 		return false, nil
 	}
 
@@ -98,7 +98,7 @@ type NotRevoked struct{}
 func (NotRevoked) Name() string { return "notRevoked" }
 
 func (NotRevoked) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (bool, error) {
-	if ctx == nil || ctx.Cert == nil || ctx.Cert.Cert == nil {
+	if !ctx.HasCert() {
 		return false, nil
 	}
 

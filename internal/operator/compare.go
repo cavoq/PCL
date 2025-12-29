@@ -64,46 +64,15 @@ func (Lt) Evaluate(n *node.Node, ctx *EvaluationContext, operands []any) (bool, 
 }
 
 func compareNumbers(val, operand any, cmp func(a, b float64) bool) (bool, error) {
-	a, ok := toFloat64(val)
+	a, ok := ToFloat64(val)
 	if !ok {
 		return false, fmt.Errorf("value is not a number: %v", val)
 	}
-	b, ok := toFloat64(operand)
+	b, ok := ToFloat64(operand)
 	if !ok {
 		return false, fmt.Errorf("operand is not a number: %v", operand)
 	}
 	return cmp(a, b), nil
-}
-
-func toFloat64(v any) (float64, bool) {
-	switch n := v.(type) {
-	case int:
-		return float64(n), true
-	case int8:
-		return float64(n), true
-	case int16:
-		return float64(n), true
-	case int32:
-		return float64(n), true
-	case int64:
-		return float64(n), true
-	case uint:
-		return float64(n), true
-	case uint8:
-		return float64(n), true
-	case uint16:
-		return float64(n), true
-	case uint32:
-		return float64(n), true
-	case uint64:
-		return float64(n), true
-	case float32:
-		return float64(n), true
-	case float64:
-		return n, true
-	default:
-		return 0, false
-	}
 }
 
 type Positive struct{}

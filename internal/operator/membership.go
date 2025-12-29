@@ -92,8 +92,8 @@ func equal(a, b any) bool {
 	if a == b {
 		return true
 	}
-	af, aok := toFloat64(a)
-	bf, bok := toFloat64(b)
+	af, aok := ToFloat64(a)
+	bf, bok := ToFloat64(b)
 	if aok && bok {
 		return af == bf
 	}
