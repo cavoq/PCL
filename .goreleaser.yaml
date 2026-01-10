@@ -1,0 +1,16 @@
+version: 2
+
+project_name: pcl
+
+builds:
+  - id: pcl
+    main: ./cmd/pcl
+    env:
+      - CGO_ENABLED=0
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    ignore:
+      - goos: windows
+        goarch: arm64
+
+dist: dist
