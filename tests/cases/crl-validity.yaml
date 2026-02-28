@@ -2,6 +2,7 @@ name: crl-validity
 policy: policies/crl-validity.yaml
 certs: certs
 crl: ../internal/crl/testdata/test.crl
+eval_time: "2026-01-10T00:00:00Z"
 expected:
   leaf:
     pass: 2

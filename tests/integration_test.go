@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"gopkg.in/yaml.v3"
 
@@ -42,6 +43,7 @@ type testCase struct {
 	Certs    string            `yaml:"certs"`
 	CRL      string            `yaml:"crl,omitempty"`
 	OCSP     string            `yaml:"ocsp,omitempty"`
+	EvalTime string            `yaml:"eval_time,omitempty"`
 	Expected map[string]counts `yaml:"expected"`
 }
 
@@ -80,6 +82,14 @@ func runCase(t *testing.T, caseDir string, tc testCase) {
 	if tc.OCSP != "" {
 		ocspPath = filepath.Join(testsDir, tc.OCSP)
 	}
+	var evalTime time.Time
+	if tc.EvalTime != "" {
+		parsed, err := time.Parse(time.RFC3339, tc.EvalTime)
+		if err != nil {
+			t.Fatalf("invalid eval_time %q: %v", tc.EvalTime, err)
+		}
+		evalTime = parsed
+	}
 
 	p, err := policy.ParseFile(policyPath)
 	if err != nil {
@@ -117,6 +127,9 @@ func runCase(t *testing.T, caseDir string, tc testCase) {
 	for _, c := range chain {
 		tree := zcrypto.BuildTree(c.Cert)
 		ctx := operator.NewEvaluationContext(tree, c, chain, ctxOpts...)
+		if !evalTime.IsZero() {
+			ctx.Now = evalTime
+		}
 		results = append(results, policy.Evaluate(p, tree, reg, ctx))
 	}
 
