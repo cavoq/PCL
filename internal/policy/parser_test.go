@@ -258,6 +258,69 @@ rules:
 	}
 }
 
+func TestParseFile_IncludesSharedDependency(t *testing.T) {
+	dir := t.TempDir()
+
+	root := []byte(`
+id: root
+includes:
+  - a.yaml
+  - b.yaml
+rules:
+  - id: root-rule
+    target: certificate.version
+    operator: eq
+    operands: [3]
+`)
+	a := []byte(`
+id: a
+includes:
+  - common.yaml
+rules:
+  - id: a-rule
+    target: certificate.serialNumber
+    operator: present
+`)
+	b := []byte(`
+id: b
+includes:
+  - common.yaml
+rules:
+  - id: b-rule
+    target: certificate.subject
+    operator: present
+`)
+	common := []byte(`
+id: common
+rules:
+  - id: common-rule
+    target: certificate.issuer
+    operator: present
+`)
+
+	if err := os.WriteFile(filepath.Join(dir, "root.yaml"), root, 0o644); err != nil {
+		t.Fatalf("unexpected write error: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "a.yaml"), a, 0o644); err != nil {
+		t.Fatalf("unexpected write error: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "b.yaml"), b, 0o644); err != nil {
+		t.Fatalf("unexpected write error: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "common.yaml"), common, 0o644); err != nil {
+		t.Fatalf("unexpected write error: %v", err)
+	}
+
+	p, err := ParseFile(filepath.Join(dir, "root.yaml"))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(p.Rules) != 5 {
+		t.Fatalf("expected 5 rules, got %d", len(p.Rules))
+	}
+}
+
 func TestParseDir(t *testing.T) {
 	dir := t.TempDir()
 

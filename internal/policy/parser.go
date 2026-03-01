@@ -98,6 +98,7 @@ func parseFileWithIncludes(path string, seen map[string]bool) (Policy, error) {
 		return Policy{}, fmt.Errorf("include cycle detected: %s", absPath)
 	}
 	seen[absPath] = true
+	defer delete(seen, absPath)
 
 	data, err := os.ReadFile(absPath)
 	if err != nil {
