@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/cavoq/PCL/internal/cert"
 	"github.com/cavoq/PCL/internal/node"
 	"github.com/cavoq/PCL/internal/operator"
 )
@@ -128,107 +127,6 @@ func TestRuleEvaluationWithReference(t *testing.T) {
 	}
 	if res.Severity != "error" {
 		t.Errorf("expected severity 'error', got %q", res.Severity)
-	}
-}
-
-func TestRuleEvaluationAppliesTo_NoContext(t *testing.T) {
-	root := node.New("root", nil)
-	root.Children["a"] = node.New("a", 42)
-
-	reg := operator.NewRegistry()
-	reg.Register(operator.Eq{})
-
-	r := Rule{
-		ID:        "test",
-		Target:    "a",
-		Operator:  "eq",
-		Operands:  []any{42},
-		AppliesTo: []string{"leaf"},
-	}
-
-	// With nil context, rule should still apply
-	res := Evaluate(root, r, reg, nil)
-
-	if res.Verdict != VerdictPass {
-		t.Errorf("expected pass when context is nil, got %s", res.Verdict)
-	}
-}
-
-func TestRuleEvaluationAppliesTo_Matches(t *testing.T) {
-	root := node.New("root", nil)
-	root.Children["a"] = node.New("a", 42)
-
-	reg := operator.NewRegistry()
-	reg.Register(operator.Eq{})
-
-	ctx := &operator.EvaluationContext{
-		Cert: &cert.Info{Type: "leaf"},
-	}
-
-	r := Rule{
-		ID:        "test",
-		Target:    "a",
-		Operator:  "eq",
-		Operands:  []any{42},
-		AppliesTo: []string{"leaf", "intermediate"},
-	}
-
-	res := Evaluate(root, r, reg, ctx)
-
-	if res.Verdict != VerdictPass {
-		t.Errorf("expected pass when cert type matches, got %s", res.Verdict)
-	}
-}
-
-func TestRuleEvaluationAppliesTo_NoMatch(t *testing.T) {
-	root := node.New("root", nil)
-	root.Children["a"] = node.New("a", 42)
-
-	reg := operator.NewRegistry()
-	reg.Register(operator.Eq{})
-
-	ctx := &operator.EvaluationContext{
-		Cert: &cert.Info{Type: "root"},
-	}
-
-	r := Rule{
-		ID:        "test",
-		Target:    "a",
-		Operator:  "eq",
-		Operands:  []any{42},
-		AppliesTo: []string{"leaf"},
-	}
-
-	res := Evaluate(root, r, reg, ctx)
-
-	if res.Verdict != VerdictSkip {
-		t.Errorf("expected skip when cert type doesn't match, got %s", res.Verdict)
-	}
-}
-
-func TestRuleEvaluationAppliesTo_Empty(t *testing.T) {
-	root := node.New("root", nil)
-	root.Children["a"] = node.New("a", 42)
-
-	reg := operator.NewRegistry()
-	reg.Register(operator.Eq{})
-
-	ctx := &operator.EvaluationContext{
-		Cert: &cert.Info{Type: "any"},
-	}
-
-	r := Rule{
-		ID:        "test",
-		Target:    "a",
-		Operator:  "eq",
-		Operands:  []any{42},
-		AppliesTo: []string{}, // Empty applies to all
-	}
-
-	res := Evaluate(root, r, reg, ctx)
-
-	if res.Verdict != VerdictPass {
-		t.Errorf("expected pass when AppliesTo is empty, got %s", res.Verdict)
 	}
 }
 

@@ -3,7 +3,6 @@ package rule
 import (
 	"fmt"
 	"slices"
-	"strings"
 
 	"github.com/cavoq/PCL/internal/node"
 	"github.com/cavoq/PCL/internal/operator"
@@ -45,23 +44,12 @@ func Evaluate(
 	reg *operator.Registry,
 	ctx *operator.EvaluationContext,
 ) Result {
-	// Check if rule target matches the input type
-	if !targetMatchesInputType(root, r.Target) {
+	if !certTypeMatches(r, ctx) {
 		return Result{
-			RuleID:    r.ID,
+			RuleID:   r.ID,
 			Reference: r.Reference,
-			Verdict:   VerdictSkip,
-			Severity:  r.Severity,
-			Message:   "rule target does not match input type",
-		}
-	}
-
-	if !appliesTo(r, ctx) {
-		return Result{
-			RuleID:    r.ID,
-			Reference: r.Reference,
-			Verdict:   VerdictSkip,
-			Severity:  r.Severity,
+			Verdict:  VerdictSkip,
+			Severity: r.Severity,
 		}
 	}
 
@@ -190,14 +178,14 @@ func evaluateCondition(
 	return op.Evaluate(n, ctx, normalizeOperands(cond.Operands))
 }
 
-func appliesTo(r Rule, ctx *operator.EvaluationContext) bool {
-	if len(r.AppliesTo) == 0 {
+func certTypeMatches(r Rule, ctx *operator.EvaluationContext) bool {
+	if len(r.CertType) == 0 {
 		return true
 	}
 	if ctx == nil || ctx.Cert == nil {
 		return true
 	}
-	return slices.Contains(r.AppliesTo, ctx.Cert.Type)
+	return slices.Contains(r.CertType, ctx.Cert.Type)
 }
 
 // isKeyUsageBooleanField checks if the target is a keyUsage boolean field.
@@ -218,55 +206,3 @@ func isKeyUsageBooleanField(target string) bool {
 	return slices.Contains(keyUsageFields, target)
 }
 
-// targetMatchesInputType checks if the rule's target is compatible with the input type.
-// Returns true if the target prefix matches the tree structure, or if target is generic.
-// Returns false if target prefix doesn't match (e.g., certificate rule on CRL input).
-func targetMatchesInputType(root *node.Node, target string) bool {
-	if root == nil {
-		return true // No tree, can't determine type
-	}
-
-	return matchesTreePrefix(root, target)
-}
-
-// matchesTreePrefix checks if the target's prefix matches the tree structure.
-// Returns true if:
-// - target prefix matches root.Name (Resolve will skip this prefix)
-// - target prefix exists as child in tree
-// - target is generic (no known prefix)
-func matchesTreePrefix(root *node.Node, target string) bool {
-	// Extract prefix from target (e.g., "certificate" from "certificate.xxx")
-	prefix := extractPrefix(target)
-	if prefix == "" {
-		return true // Generic target, applies to all
-	}
-
-	// If prefix matches root name, Resolve will skip it and work correctly
-	if root.Name == prefix {
-		return true
-	}
-
-	// Check if prefix exists as child in tree
-	if root.Children != nil {
-		_, exists := root.Children[prefix]
-		return exists
-	}
-
-	return false
-}
-
-// extractPrefix extracts the input type prefix from a target string.
-// E.g., "certificate.xxx" -> "certificate", "crl.xxx" -> "crl"
-func extractPrefix(target string) string {
-	// Check known prefixes
-	if strings.HasPrefix(target, "certificate.") || target == "certificate" {
-		return "certificate"
-	}
-	if strings.HasPrefix(target, "crl.") || target == "crl" {
-		return "crl"
-	}
-	if strings.HasPrefix(target, "ocsp.") || target == "ocsp" {
-		return "ocsp"
-	}
-	return "" // Unknown or generic target
-}

@@ -1,4 +1,4 @@
-package match
+package policy
 
 import (
 	"slices"
@@ -8,7 +8,6 @@ import (
 
 	"github.com/cavoq/PCL/internal/crl"
 	"github.com/cavoq/PCL/internal/oid"
-	"github.com/cavoq/PCL/internal/policy"
 	"github.com/cavoq/PCL/internal/rule"
 )
 
@@ -21,8 +20,8 @@ const (
 	InputAttrCert = "attrCert"
 )
 
-func ByInput(policies []policy.Policy, inputType string) []policy.Policy {
-	var filtered []policy.Policy
+func ByInput(policies []Policy, inputType string) []Policy {
+	var filtered []Policy
 	for _, p := range policies {
 		if AppliesToInput(p, inputType) {
 			filtered = append(filtered, p)
@@ -31,8 +30,8 @@ func ByInput(policies []policy.Policy, inputType string) []policy.Policy {
 	return filtered
 }
 
-func ByCertificate(policies []policy.Policy, cert *x509.Certificate) []policy.Policy {
-	var filtered []policy.Policy
+func ByCertificate(policies []Policy, cert *x509.Certificate) []Policy {
+	var filtered []Policy
 	for _, p := range policies {
 		if AppliesToCertificate(p, cert) {
 			filtered = append(filtered, p)
@@ -41,8 +40,8 @@ func ByCertificate(policies []policy.Policy, cert *x509.Certificate) []policy.Po
 	return filtered
 }
 
-func ByCRL(policies []policy.Policy, revocationList *x509.RevocationList) []policy.Policy {
-	var filtered []policy.Policy
+func ByCRL(policies []Policy, revocationList *x509.RevocationList) []Policy {
+	var filtered []Policy
 	hasDeltaIndicator := crl.HasDeltaIndicator(revocationList)
 	isIndirect := crl.IsIndirect(revocationList)
 	for _, p := range policies {
@@ -53,7 +52,7 @@ func ByCRL(policies []policy.Policy, revocationList *x509.RevocationList) []poli
 	return filtered
 }
 
-func AppliesToInput(p policy.Policy, inputType string) bool {
+func AppliesToInput(p Policy, inputType string) bool {
 	if len(p.AppliesTo) > 0 {
 		return slices.Contains(p.AppliesTo, inputType)
 	}
@@ -66,7 +65,7 @@ func AppliesToInput(p policy.Policy, inputType string) bool {
 	return true
 }
 
-func AppliesToCertificate(p policy.Policy, cert *x509.Certificate) bool {
+func AppliesToCertificate(p Policy, cert *x509.Certificate) bool {
 	if cert == nil || !AppliesToInput(p, InputCert) {
 		return false
 	}
@@ -107,7 +106,7 @@ func AppliesToCertificate(p policy.Policy, cert *x509.Certificate) bool {
 	return false
 }
 
-func AppliesToCRL(p policy.Policy, hasDeltaIndicator bool, isIndirectCRL bool) bool {
+func AppliesToCRL(p Policy, hasDeltaIndicator bool, isIndirectCRL bool) bool {
 	if !appliesToCRLInput(p) {
 		return false
 	}
@@ -170,7 +169,7 @@ func inferInputTypeFromRules(rules []rule.Rule) string {
 	return ""
 }
 
-func appliesToCRLInput(p policy.Policy) bool {
+func appliesToCRLInput(p Policy) bool {
 	if len(p.AppliesTo) > 0 {
 		return slices.Contains(p.AppliesTo, InputCRL)
 	}
@@ -186,4 +185,3 @@ func appliesToCRLInput(p policy.Policy) bool {
 
 	return false
 }
-

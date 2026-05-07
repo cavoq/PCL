@@ -10,7 +10,6 @@ import (
 	ocspzcrypto "github.com/cavoq/PCL/internal/ocsp/zcrypto"
 	"github.com/cavoq/PCL/internal/operator"
 	"github.com/cavoq/PCL/internal/policy"
-	"github.com/cavoq/PCL/internal/policy/match"
 	"github.com/cavoq/PCL/internal/source"
 	"github.com/cavoq/PCL/internal/zcrypto"
 	"github.com/zmap/zcrypto/x509"
@@ -54,7 +53,7 @@ func Chain(ctx Context) []policy.Result {
 		}
 		evalCtx := operator.NewEvaluationContext(tree, c, ctx.Chain, evalOpts...)
 
-		filteredPolicies := match.ByCertificate(ctx.Policies, c.Cert)
+		filteredPolicies := policy.ByCertificate(ctx.Policies, c.Cert)
 		for _, p := range filteredPolicies {
 			res := policy.Evaluate(p, tree, ctx.Registry, evalCtx)
 			results = append(results, res)
@@ -87,7 +86,7 @@ func OCSP(ctx Context) []policy.Result {
 		evalOpts := []operator.ContextOption{operator.WithOCSPs(ctx.OCSPs)}
 		evalCtx := operator.NewEvaluationContext(tree, ocspCertInfo, ctx.Chain, evalOpts...)
 
-		filteredPolicies := match.ByInput(ctx.Policies, match.InputOCSP)
+		filteredPolicies := policy.ByInput(ctx.Policies, policy.InputOCSP)
 		for _, p := range filteredPolicies {
 			res := policy.Evaluate(p, tree, ctx.Registry, evalCtx)
 			results = append(results, res)
@@ -126,7 +125,7 @@ func CRL(ctx Context) []policy.Result {
 		evalOpts := []operator.ContextOption{operator.WithCRLs(ctx.CRLs)}
 		evalCtx := operator.NewEvaluationContext(tree, crlCertInfo, ctx.Chain, evalOpts...)
 
-		filteredPolicies := match.ByCRL(ctx.Policies, crlInfo.CRL)
+		filteredPolicies := policy.ByCRL(ctx.Policies, crlInfo.CRL)
 		for _, p := range filteredPolicies {
 			res := policy.Evaluate(p, tree, ctx.Registry, evalCtx)
 			results = append(results, res)
@@ -171,7 +170,7 @@ func ocspSigningCert(policies []policy.Policy, registry *operator.Registry, ocsp
 	evalCtx := operator.NewEvaluationContext(ocspSignerTree, ocspSignerInfo, chain, evalOpts...)
 
 	var results []policy.Result
-	signerPolicies := match.ByCertificate(policies, zcryptoSignerCert)
+	signerPolicies := policy.ByCertificate(policies, zcryptoSignerCert)
 	for _, p := range signerPolicies {
 		res := policy.Evaluate(p, ocspSignerTree, registry, evalCtx)
 		results = append(results, res)

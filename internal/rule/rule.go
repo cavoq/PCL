@@ -13,6 +13,6 @@ type Rule struct {
 	Operator  string     `yaml:"operator"`
 	Operands  any        `yaml:"operands"` // Can be []any or map[string]any
 	Severity  string     `yaml:"severity"`
-	AppliesTo []string   `yaml:"appliesTo,omitempty"`
+	CertType  []string   `yaml:"certType,omitempty"`
 	When      *Condition `yaml:"when,omitempty"`
 }

@@ -12,5 +12,5 @@ rules:
     target: certificate.extensions.2.5.29.19.critical
     operator: eq
     operands: [true]
-    appliesTo: [root, intermediate]
+    certType: [root, intermediate]
     severity: error

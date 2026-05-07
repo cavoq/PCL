@@ -8,6 +8,7 @@ import (
 
 	"github.com/cavoq/PCL/internal/cert"
 	"github.com/cavoq/PCL/internal/crl"
+	"github.com/cavoq/PCL/internal/evaluator"
 	"github.com/cavoq/PCL/internal/ocsp"
 	"github.com/cavoq/PCL/internal/operator"
 	"github.com/cavoq/PCL/internal/output"
@@ -55,9 +56,9 @@ func Run(cfg Config, w io.Writer) error {
 	if hasCert {
 		results, cleanup = processCertificates(cfg, policies, reg, crls, ocsps, issuers, cleanup, w)
 	} else if len(crls) > 0 {
-		results = evaluateCRLOnly(policies, reg, crls, issuers)
+		results = evaluator.CRLOnly(policies, reg, crls, issuers)
 	} else if len(ocsps) > 0 {
-		results = evaluateOCSPOnly(policies, reg, ocsps)
+		results = evaluator.OCSPOnly(policies, reg, ocsps)
 	} else {
 		return fmt.Errorf("no certificates, CRLs, or OCSP responses provided")
 	}
@@ -194,24 +195,21 @@ func processCertificates(cfg Config, policies []policy.Policy, reg *operator.Reg
 		ocsps = append(ocsps, autoOCSPs...)
 	}
 
-	// Evaluate certificates
-	evalCtx := EvaluationContext{
+	evalCtx := evaluator.Context{
 		Policies: policies,
 		Registry: reg,
 		CRLs:     crls,
 		OCSPs:    ocsps,
 		Chain:    chain,
 	}
-	results := evaluateChain(evalCtx)
+	results := evaluator.Chain(evalCtx)
 
-	// Evaluate OCSP if present
 	if len(ocsps) > 0 {
-		results = append(results, evaluateOCSP(evalCtx)...)
+		results = append(results, evaluator.OCSP(evalCtx)...)
 	}
 
-	// Evaluate CRLs if present (dual evaluation)
 	if len(crls) > 0 {
-		results = append(results, evaluateCRL(evalCtx)...)
+		results = append(results, evaluator.CRL(evalCtx)...)
 	}
 
 	return results, cleanup
