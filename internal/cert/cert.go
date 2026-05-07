@@ -12,14 +12,6 @@ import (
 
 var extensions = []string{".pem", ".der", ".crt", ".cer"}
 
-type Format string
-
-const (
-	FormatDER   Format = "DER"
-	FormatPEM   Format = "PEM"
-	FormatPKCS7 Format = "PKCS7"
-)
-
 type Info struct {
 	Cert     *x509.Certificate
 	FilePath string
@@ -27,7 +19,7 @@ type Info struct {
 	Position int
 	Type     string
 	Source   source.Info
-	Format   Format
+	Format   source.Format
 }
 
 func ParseCertificate(data []byte) (*x509.Certificate, error) {
@@ -35,21 +27,21 @@ func ParseCertificate(data []byte) (*x509.Certificate, error) {
 	return cert, err
 }
 
-func parseCertificate(data []byte) (*x509.Certificate, Format, error) {
+func parseCertificate(data []byte) (*x509.Certificate, source.Format, error) {
 	block, _ := pem.Decode(data)
 	if block != nil && block.Type == "CERTIFICATE" {
 		cert, err := x509.ParseCertificate(block.Bytes)
 		if err != nil {
 			return nil, "", err
 		}
-		return cert, FormatPEM, nil
+		return cert, source.FormatPEM, nil
 	}
 
 	cert, err := x509.ParseCertificate(data)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to parse PEM or DER certificate: %w", err)
 	}
-	return cert, FormatDER, nil
+	return cert, source.FormatDER, nil
 }
 
 func GetCertFiles(path string) ([]string, error) {

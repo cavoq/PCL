@@ -111,14 +111,14 @@ func climbChain(chain []*cert.Info, timeout time.Duration, maxDepth int, w io.Wr
 		sourceInfo := source.Info{
 			Type:   source.Downloaded,
 			URL:    url,
-			Format: string(pkcs7Result.Format),
+			Format: pkcs7Result.Format,
 		}
 		switch pkcs7Result.Format {
-		case aia.FormatPKCS7:
+		case source.FormatPKCS7:
 			sourceInfo.Type = source.Extracted
 			sourceInfo.Description = "extracted from PKCS#7"
-		case aia.FormatDER:
-		case aia.FormatPEM:
+		case source.FormatDER:
+		case source.FormatPEM:
 			sourceInfo.Description = "downloaded PEM"
 			_, _ = fmt.Fprintf(w, "Warning: CA Issuers URL %s returned PEM format (RFC 5280 requires DER/BER)\n", url)
 		}
@@ -128,7 +128,7 @@ func climbChain(chain []*cert.Info, timeout time.Duration, maxDepth int, w io.Wr
 			Type:     cert.GetCertType(issuerCert, len(result), len(result)+1),
 			Position: len(result),
 			Source:   sourceInfo,
-			Format:   cert.Format(pkcs7Result.Format),
+			Format:   pkcs7Result.Format,
 		}
 		result = append(result, issuerInfo)
 

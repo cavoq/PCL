@@ -33,7 +33,7 @@ func LoadCertificates(path string) ([]*Info, error) {
 			Cert:     cert,
 			FilePath: file,
 			Hash:     hex.EncodeToString(hash[:]),
-			Source:   source.Info{Type: source.Local, Format: string(format)},
+			Source:   source.Info{Type: source.Local, Format: format},
 			Format:   format,
 		})
 	}

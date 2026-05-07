@@ -90,7 +90,7 @@ func TestGetCRLs_SingleFile(t *testing.T) {
 	if crls[0].Source.Type != source.Local {
 		t.Fatalf("expected local source, got %q", crls[0].Source.Type)
 	}
-	if crls[0].Format != FormatPEM {
+	if crls[0].Format != source.FormatPEM {
 		t.Fatalf("expected PEM format, got %q", crls[0].Format)
 	}
 }
@@ -153,7 +153,7 @@ func TestFetchCRL_DER(t *testing.T) {
 	if result.CRL == nil {
 		t.Fatal("expected CRL, got nil")
 	}
-	if result.Format != FormatDER {
+	if result.Format != source.FormatDER {
 		t.Fatalf("expected DER format, got %q", result.Format)
 	}
 	if result.Source.Type != source.Downloaded {
@@ -188,7 +188,7 @@ func TestFetchCRL_PEM(t *testing.T) {
 	if result.CRL == nil {
 		t.Fatal("expected CRL, got nil")
 	}
-	if result.Format != FormatPEM {
+	if result.Format != source.FormatPEM {
 		t.Fatalf("expected PEM format, got %q", result.Format)
 	}
 	if result.Source.Type != source.Downloaded {

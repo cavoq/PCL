@@ -18,19 +18,12 @@ import (
 
 var extensions = []string{".crl", ".pem"}
 
-type Format string
-
-const (
-	FormatDER Format = "DER" // RFC 5280 required format
-	FormatPEM Format = "PEM" // Fallback format
-)
-
 type Info struct {
 	CRL      *x509.RevocationList
 	FilePath string
 	Hash     string
 	Source   source.Info
-	Format   Format
+	Format   source.Format
 }
 
 func ParseCRL(data []byte) (*x509.RevocationList, error) {
@@ -38,10 +31,10 @@ func ParseCRL(data []byte) (*x509.RevocationList, error) {
 	return crl, err
 }
 
-func parseCRL(data []byte) (*x509.RevocationList, Format, error) {
+func parseCRL(data []byte) (*x509.RevocationList, source.Format, error) {
 	crl, err := x509.ParseRevocationList(data)
 	if err == nil {
-		return crl, FormatDER, nil
+		return crl, source.FormatDER, nil
 	}
 	derErr := err
 
@@ -51,7 +44,7 @@ func parseCRL(data []byte) (*x509.RevocationList, Format, error) {
 		if err != nil {
 			return nil, "", fmt.Errorf("failed to parse PEM CRL: %w", err)
 		}
-		return crl, FormatPEM, nil
+		return crl, source.FormatPEM, nil
 	}
 
 	return nil, "", fmt.Errorf("failed to parse PEM or DER CRL: %w", derErr)
@@ -84,7 +77,7 @@ func GetCRLs(path string) ([]*Info, error) {
 			CRL:      crl,
 			FilePath: file,
 			Hash:     hex.EncodeToString(hash[:]),
-			Source:   source.Info{Type: source.Local, Format: string(format)},
+			Source:   source.Info{Type: source.Local, Format: format},
 			Format:   format,
 		})
 	}
@@ -127,7 +120,7 @@ func FetchCRL(url string, timeout time.Duration) (*Info, error) {
 		CRL:      crl,
 		FilePath: url,
 		Hash:     hex.EncodeToString(hash[:]),
-		Source:   source.Info{Type: source.Downloaded, URL: url, Format: string(format)},
+		Source:   source.Info{Type: source.Downloaded, URL: url, Format: format},
 		Format:   format,
 	}, nil
 }
