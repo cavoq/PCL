@@ -5,15 +5,15 @@ import (
 	"encoding/hex"
 	"encoding/pem"
 	"fmt"
-	stdio "io"
+	"io"
 	"net/http"
 	"os"
 	"time"
 
+	"github.com/cavoq/PCL/internal/cert"
+	fileio "github.com/cavoq/PCL/internal/io"
 	"github.com/cavoq/PCL/internal/source"
 	"github.com/zmap/zcrypto/x509"
-
-	fileio "github.com/cavoq/PCL/internal/io"
 )
 
 var extensions = []string{".crl", ".pem"}
@@ -105,7 +105,7 @@ func FetchCRL(url string, timeout time.Duration) (*Info, error) {
 		return nil, fmt.Errorf("CRL server returned status %d", resp.StatusCode)
 	}
 
-	body, err := stdio.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read CRL response: %w", err)
 	}
@@ -139,4 +139,28 @@ func FetchCRLs(urls []string, timeout time.Duration) ([]*Info, []error) {
 	}
 
 	return results, errs
+}
+
+func FetchForChain(chain []*cert.Info, timeout time.Duration, w io.Writer) []*Info {
+	var results []*Info
+
+	for _, c := range chain {
+		if c.Cert == nil || len(c.Cert.CRLDistributionPoints) == 0 {
+			continue
+		}
+
+		for _, url := range c.Cert.CRLDistributionPoints {
+			fetchResult, err := FetchCRL(url, timeout)
+			if err != nil {
+				if w != nil {
+					_, _ = fmt.Fprintf(w, "Warning: failed to fetch CRL from %s: %v\n", url, err)
+				}
+				continue
+			}
+
+			results = append(results, fetchResult)
+		}
+	}
+
+	return results
 }

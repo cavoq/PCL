@@ -160,7 +160,7 @@ func processCertificates(cfg Config, policies []policy.Policy, reg *operator.Reg
 				continue
 			}
 			miniChain := []*cert.Info{c}
-			miniChain = climbChain(miniChain, cfg.CertTimeout, cfg.MaxChainDepth, w)
+			miniChain = cert.ClimbChain(miniChain, cfg.CertTimeout, cfg.MaxChainDepth, w)
 			climbedCerts = append(climbedCerts, miniChain...)
 		}
 		allCerts = append(climbedCerts, issuers...)
@@ -176,13 +176,22 @@ func processCertificates(cfg Config, policies []policy.Policy, reg *operator.Reg
 
 	// Auto-validate: fetch CRLs
 	if cfg.AutoValidate && !cfg.NoAutoCRL {
-		autoCRLs := fetchAutoCRL(chain, cfg.OCSPTimeout, w)
+		autoCRLs := crl.FetchForChain(chain, cfg.OCSPTimeout, w)
 		crls = append(crls, autoCRLs...)
 	}
 
 	// Auto-validate: fetch OCSP
 	if cfg.AutoValidate && !cfg.NoAutoOCSP {
-		ocsps = append(ocsps, fetchAutoOCSPForChain(chain, cfg, nonceOpts, w)...)
+		autoOCSPs, errs := ocsp.FetchForChain(chain, cfg.OCSPTimeout, nonceOpts)
+		for _, err := range errs {
+			_, _ = fmt.Fprintf(w, "Warning: auto OCSP fetch failed for %v\n", err)
+		}
+		if cfg.Verbosity >= 2 {
+			for _, ocspInfo := range autoOCSPs {
+				printOCSPResponseDebug(w, ocspInfo, nonceOpts)
+			}
+		}
+		ocsps = append(ocsps, autoOCSPs...)
 	}
 
 	// Evaluate certificates
@@ -206,35 +215,6 @@ func processCertificates(cfg Config, policies []policy.Policy, reg *operator.Reg
 	}
 
 	return results, cleanup
-}
-
-func fetchAutoOCSPForChain(chain []*cert.Info, cfg Config, nonceOpts *ocsp.NonceOptions, w io.Writer) []*ocsp.Info {
-	var ocsps []*ocsp.Info
-
-	for i := 0; i < len(chain)-1; i++ {
-		c := chain[i]
-		if c.Cert == nil || len(c.Cert.OCSPServer) == 0 {
-			continue
-		}
-
-		miniChain := []*cert.Info{c, chain[i+1]}
-		autoOCSPs, err := fetchAutoOCSP(miniChain, cfg.OCSPTimeout, nonceOpts)
-		if err != nil {
-			_, _ = fmt.Fprintf(w, "Warning: auto OCSP fetch failed for cert %d: %v\n", i, err)
-			continue
-		}
-
-		// Debug output
-		if cfg.Verbosity >= 2 && len(autoOCSPs) > 0 {
-			for _, ocspInfo := range autoOCSPs {
-				printOCSPResponseDebug(w, ocspInfo, nonceOpts)
-			}
-		}
-
-		ocsps = append(ocsps, autoOCSPs...)
-	}
-
-	return ocsps
 }
 
 func outputResults(cfg Config, results []policy.Result, w io.Writer) error {

@@ -4,9 +4,12 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"os"
 	"slices"
+	"time"
 
+	"github.com/cavoq/PCL/internal/aia"
 	"github.com/cavoq/PCL/internal/source"
 )
 
@@ -109,4 +112,94 @@ func BuildChain(certs []*Info) ([]*Info, error) {
 	}
 
 	return longestChain, nil
+}
+
+// ClimbChain recursively fetches issuer certificates via CA Issuers URLs.
+func ClimbChain(chain []*Info, timeout time.Duration, maxDepth int, w io.Writer) []*Info {
+	if len(chain) == 0 || maxDepth <= 0 {
+		return chain
+	}
+
+	seen := make(map[string]bool)
+	for _, c := range chain {
+		if c.Cert != nil && c.Cert.SerialNumber != nil {
+			seen[c.Cert.SerialNumber.String()] = true
+		}
+	}
+
+	result := chain
+	depth := 0
+
+	for depth < maxDepth {
+		top := result[len(result)-1]
+		if top.Cert == nil || IsSelfSigned(top.Cert) {
+			break
+		}
+
+		if len(top.Cert.IssuingCertificateURL) == 0 {
+			break
+		}
+
+		url := top.Cert.IssuingCertificateURL[0]
+		issuerResult, err := aia.FetchCAIssuer(url, timeout)
+		if err != nil {
+			warnf(w, "Warning: failed to climb chain from %s: %v\n", url, err)
+			break
+		}
+
+		issuerCert, matched := aia.SelectIssuer(top.Cert, issuerResult.Certs)
+		if issuerCert == nil {
+			break
+		}
+		if !matched && len(issuerResult.Certs) > 1 {
+			warnf(w, "Warning: PKCS#7 bundle contains %d certs, no exact issuer match found, using first cert\n", len(issuerResult.Certs))
+		}
+
+		if issuerCert.SerialNumber != nil {
+			serial := issuerCert.SerialNumber.String()
+			if seen[serial] {
+				warnf(w, "Warning: circular certificate detected at %s\n", url)
+				break
+			}
+			seen[serial] = true
+		}
+
+		sourceInfo := issuerResult.Source
+		switch issuerResult.Source.Format {
+		case source.FormatPKCS7:
+			sourceInfo.Type = source.Extracted
+			sourceInfo.Description = "extracted from PKCS#7"
+		case source.FormatPEM:
+			sourceInfo.Description = "downloaded PEM"
+			warnf(w, "Warning: CA Issuers URL %s returned PEM format (RFC 5280 requires DER/BER)\n", url)
+		}
+
+		result = append(result, &Info{
+			Cert:     issuerCert,
+			FilePath: url,
+			Type:     GetCertType(issuerCert, len(result), len(result)+1),
+			Position: len(result),
+			Source:   sourceInfo,
+			Format:   issuerResult.Source.Format,
+		})
+
+		depth++
+	}
+
+	RebuildChainMetadata(result)
+	return result
+}
+
+func RebuildChainMetadata(chain []*Info) {
+	for i, c := range chain {
+		c.Position = i
+		c.Type = GetCertType(c.Cert, i, len(chain))
+	}
+}
+
+func warnf(w io.Writer, format string, args ...any) {
+	if w == nil {
+		return
+	}
+	_, _ = fmt.Fprintf(w, format, args...)
 }
