@@ -135,11 +135,14 @@ func TestBuildExtensions_WithExtensions(t *testing.T) {
 
 	node := BuildExtensions(extensions)
 
-	if len(node.Children) != 2 {
-		t.Fatalf("expected 2 extension children, got %d", len(node.Children))
+	// Each extension is added twice: once under OID, once under friendly name
+	// keyUsage -> 2.5.29.15 + keyUsage
+	// extKeyUsage -> 2.5.29.37 + extKeyUsage
+	if len(node.Children) != 4 {
+		t.Fatalf("expected 4 extension children (2 OIDs + 2 names), got %d", len(node.Children))
 	}
 
-	// Check keyUsage extension
+	// Check keyUsage extension by OID
 	kuOID := "2.5.29.15"
 	kuExt, ok := node.Children[kuOID]
 	if !ok {
@@ -153,7 +156,7 @@ func TestBuildExtensions_WithExtensions(t *testing.T) {
 		t.Errorf("expected critical=true, got %v", kuExt.Children["critical"].Value)
 	}
 
-	// Check extKeyUsage extension
+	// Check extKeyUsage extension by OID
 	ekuOID := "2.5.29.37"
 	ekuExt, ok := node.Children[ekuOID]
 	if !ok {
@@ -162,6 +165,19 @@ func TestBuildExtensions_WithExtensions(t *testing.T) {
 
 	if ekuExt.Children["critical"].Value != false {
 		t.Errorf("expected critical=false, got %v", ekuExt.Children["critical"].Value)
+	}
+
+	// Check friendly names also exist
+	if _, ok := node.Children["keyUsage"]; !ok {
+		t.Error("expected friendly name 'keyUsage'")
+	}
+	if _, ok := node.Children["extKeyUsage"]; !ok {
+		t.Error("expected friendly name 'extKeyUsage'")
+	}
+
+	// Verify friendly name and OID point to same node
+	if node.Children["keyUsage"] != node.Children[kuOID] {
+		t.Error("keyUsage and OID should point to same node")
 	}
 }
 

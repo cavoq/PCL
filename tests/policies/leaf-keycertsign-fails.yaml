@@ -6,5 +6,5 @@ rules:
     target: certificate.keyUsage.keyCertSign
     operator: eq
     operands: [true]
-    appliesTo: [leaf]
+    certType: [leaf]
     severity: error

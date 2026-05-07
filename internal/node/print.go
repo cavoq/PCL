@@ -28,7 +28,7 @@ func printNode(b *strings.Builder, n *Node, prefix string, last bool) {
 	b.WriteString(n.Name)
 	if n.Value != nil {
 		b.WriteString(": ")
-		b.WriteString(fmt.Sprintf("%v", n.Value))
+		fmt.Fprintf(b, "%v", n.Value)
 	}
 	b.WriteString("\n")
 

@@ -69,6 +69,21 @@ func matchRegex(n *node.Node, operands []any) (bool, error) {
 		return false, err
 	}
 
+	// Handle parent node with children (like dNSName with indexed children)
+	// Returns true if ANY child matches (useful for presence checks)
+	if n.Value == nil && len(n.Children) > 0 {
+		for _, child := range n.Children {
+			str, ok := child.Value.(string)
+			if !ok {
+				continue
+			}
+			if re.MatchString(str) {
+				return true, nil
+			}
+		}
+		return false, nil
+	}
+
 	str, ok := n.Value.(string)
 	if !ok {
 		return false, nil

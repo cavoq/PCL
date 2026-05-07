@@ -5,5 +5,5 @@ rules:
   - id: san-present-for-leaf
     target: certificate.subjectAltName
     operator: present
-    appliesTo: [leaf]
+    certType: [leaf]
     severity: error

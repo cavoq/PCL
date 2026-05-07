@@ -8,5 +8,5 @@ rules:
     target: certificate.basicConstraints.cA
     operator: eq
     operands: [true]
-    appliesTo: [root, intermediate]
+    certType: [root, intermediate]
     severity: error

@@ -1,6 +1,7 @@
 package operator
 
 import (
+	"encoding/hex"
 	"fmt"
 	"reflect"
 	"strings"
@@ -54,38 +55,106 @@ func (Contains) Evaluate(n *node.Node, _ *EvaluationContext, operands []any) (bo
 	if n == nil {
 		return false, nil
 	}
-	if len(operands) != 1 {
-		return false, fmt.Errorf("contains requires exactly 1 operand")
+	if len(operands) == 0 {
+		return false, fmt.Errorf("contains requires at least 1 operand")
 	}
-
-	target := operands[0]
 
 	val := reflect.ValueOf(n.Value)
 	if val.Kind() == reflect.Slice || val.Kind() == reflect.Array {
 		for i := 0; i < val.Len(); i++ {
-			if equal(val.Index(i).Interface(), target) {
-				return true, nil
+			for _, target := range operands {
+				if equal(val.Index(i).Interface(), target) {
+					return true, nil
+				}
 			}
 		}
 		return false, nil
 	}
 
 	if len(n.Children) > 0 {
+		// First check child values
 		for _, child := range n.Children {
-			if equal(child.Value, target) {
-				return true, nil
+			for _, target := range operands {
+				if equal(child.Value, target) {
+					return true, nil
+				}
+			}
+		}
+		// Also check child names (for cases like certificatePolicies where key is OID)
+		for name := range n.Children {
+			for _, target := range operands {
+				if equal(name, target) {
+					return true, nil
+				}
 			}
 		}
 		return false, nil
 	}
 
 	if str, ok := n.Value.(string); ok {
-		if substr, ok := target.(string); ok {
-			return len(str) > 0 && len(substr) > 0 && strings.Contains(str, substr), nil
+		for _, target := range operands {
+			if substr, ok := target.(string); ok {
+				if len(str) > 0 && len(substr) > 0 && strings.Contains(str, substr) {
+					return true, nil
+				}
+			}
 		}
+		return false, nil
 	}
 
 	return false, fmt.Errorf("contains requires a slice, array, node with children, or string")
+}
+
+// DEREqualsHex checks if the node's value ([]byte, raw DER encoding) matches a hex string exactly.
+// Used for Mozilla byte-for-byte DER encoding validation.
+// Operand: hex string (e.g., "300d06092a864886f70d0101010500")
+type DEREqualsHex struct{}
+
+func (DEREqualsHex) Name() string { return "derEqualsHex" }
+
+func (DEREqualsHex) Evaluate(n *node.Node, _ *EvaluationContext, operands []any) (bool, error) {
+	if n == nil {
+		return false, nil
+	}
+	if len(operands) == 0 {
+		return false, fmt.Errorf("derEqualsHex requires at least 1 operand")
+	}
+
+	// Get raw bytes from node value
+	rawDER, ok := n.Value.([]byte)
+	if !ok {
+		return false, nil
+	}
+
+	// Compare against each hex operand
+	for _, op := range operands {
+		hexStr, ok := op.(string)
+		if !ok {
+			continue
+		}
+		expected, err := hex.DecodeString(hexStr)
+		if err != nil {
+			continue
+		}
+		if bytesEqual(rawDER, expected) {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+// bytesEqual compares two byte slices
+func bytesEqual(a, b []byte) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func equal(a, b any) bool {

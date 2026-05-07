@@ -1,9 +1,10 @@
+// Package rule provides rule types and verdict constants.
 package rule
 
 type Condition struct {
 	Target   string `yaml:"target"`
 	Operator string `yaml:"operator"`
-	Operands []any  `yaml:"operands"`
+	Operands any    `yaml:"operands"` // Can be []any or map[string]any
 }
 
 type Rule struct {
@@ -11,8 +12,8 @@ type Rule struct {
 	Reference string     `yaml:"reference,omitempty"`
 	Target    string     `yaml:"target"`
 	Operator  string     `yaml:"operator"`
-	Operands  []any      `yaml:"operands"`
+	Operands  any        `yaml:"operands"` // Can be []any or map[string]any
 	Severity  string     `yaml:"severity"`
-	AppliesTo []string   `yaml:"appliesTo,omitempty"`
+	CertType  []string   `yaml:"certType,omitempty"`
 	When      *Condition `yaml:"when,omitempty"`
 }

@@ -9,8 +9,9 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/cavoq/PCL/internal/cert"
-	"github.com/cavoq/PCL/internal/cert/zcrypto"
+	certzcrypto "github.com/cavoq/PCL/internal/cert/zcrypto"
 	"github.com/cavoq/PCL/internal/crl"
+	crlzcrypto "github.com/cavoq/PCL/internal/crl/zcrypto"
 	"github.com/cavoq/PCL/internal/ocsp"
 	"github.com/cavoq/PCL/internal/operator"
 	"github.com/cavoq/PCL/internal/policy"
@@ -109,13 +110,18 @@ func runCase(t *testing.T, caseDir string, tc testCase) {
 	reg := operator.DefaultRegistry()
 	results := make([]policy.Result, 0, len(chain))
 	ctxOpts := make([]operator.ContextOption, 0)
+
+	// Load CRLs once
+	var crlInfos []*crl.Info
 	if crlPath != "" {
-		crls, err := crl.GetCRLs(crlPath)
+		crlInfos, err = crl.GetCRLs(crlPath)
 		if err != nil {
 			t.Fatalf("unexpected CRL load error: %v", err)
 		}
-		ctxOpts = append(ctxOpts, operator.WithCRLs(crls))
+		ctxOpts = append(ctxOpts, operator.WithCRLs(crlInfos))
 	}
+
+	// Load OCSP once
 	if ocspPath != "" {
 		ocsps, err := ocsp.GetOCSPs(ocspPath)
 		if err != nil {
@@ -125,7 +131,21 @@ func runCase(t *testing.T, caseDir string, tc testCase) {
 	}
 
 	for _, c := range chain {
-		tree := zcrypto.BuildTree(c.Cert)
+		tree := certzcrypto.BuildTree(c.Cert)
+
+		// Add CRL node to tree if CRLs are present (matching runner.go behavior)
+		if len(crlInfos) > 0 {
+			for _, crlInfo := range crlInfos {
+				if crlInfo.CRL != nil {
+					crlNode := crlzcrypto.BuildTree(crlInfo.CRL)
+					if crlNode != nil {
+						tree.Children["crl"] = crlNode
+					}
+					break
+				}
+			}
+		}
+
 		ctx := operator.NewEvaluationContext(tree, c, chain, ctxOpts...)
 		if !evalTime.IsZero() {
 			ctx.Now = evalTime

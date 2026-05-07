@@ -1,3 +1,4 @@
+// Package loader provides certificate and policy loading.
 package loader
 
 import (

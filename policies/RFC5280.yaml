@@ -91,14 +91,14 @@ rules:
     reference: RFC5280 4.1.2.6
     target: certificate.subject
     operator: notEmpty
-    appliesTo: [root, intermediate]
+    certType: [root, intermediate]
     severity: error
 
   - id: issuer-matches-subject-for-root
     reference: RFC5280 6
     target: certificate
     operator: issuedBy
-    appliesTo: [root]
+    certType: [root]
     severity: error
 
 
@@ -155,15 +155,15 @@ rules:
     reference: RFC5280 4.2.1.1
     target: certificate.authorityKeyIdentifier
     operator: present
-    appliesTo: [leaf, intermediate]
+    certType: [leaf, intermediate]
     severity: warning
 
   - id: aki-not-critical
     reference: RFC5280 4.2.1.1
     when:
-      target: certificate.extensions.2.5.29.35
+      target: certificate.authorityKeyIdentifier
       operator: present
-    target: certificate.extensions.2.5.29.35.critical
+    target: certificate.extensions.authorityKeyIdentifier.critical
     operator: eq
     operands: [false]
     severity: error
@@ -183,15 +183,15 @@ rules:
     reference: RFC5280 4.2.1.2
     target: certificate.subjectKeyIdentifier
     operator: present
-    appliesTo: [root, intermediate]
+    certType: [root, intermediate]
     severity: warning
 
   - id: ski-not-critical
     reference: RFC5280 4.2.1.2
     when:
-      target: certificate.extensions.2.5.29.14
+      target: certificate.extensions.subjectKeyIdentifier
       operator: present
-    target: certificate.extensions.2.5.29.14.critical
+    target: certificate.extensions.subjectKeyIdentifier.critical
     operator: eq
     operands: [false]
     severity: error
@@ -213,7 +213,7 @@ rules:
       target: certificate.basicConstraints.cA
       operator: eq
       operands: [true]
-    target: certificate.extensions.2.5.29.15.critical
+    target: certificate.extensions.keyUsage.critical
     operator: eq
     operands: [true]
     severity: warning
@@ -223,14 +223,14 @@ rules:
     target: certificate.keyUsage.keyCertSign
     operator: eq
     operands: [true]
-    appliesTo: [root, intermediate]
+    certType: [root, intermediate]
     severity: error
 
   - id: leaf-key-usage-valid
     reference: RFC5280 4.2.1.3
     target: certificate
     operator: keyUsageLeaf
-    appliesTo: [leaf]
+    certType: [leaf]
     severity: error
 
 
@@ -257,7 +257,7 @@ rules:
     reference: RFC5280 4.2.1.6
     target: certificate
     operator: sanRequiredIfEmptySubject
-    appliesTo: [leaf]
+    certType: [leaf]
     severity: error
 
   - id: san-critical-if-subject-empty
@@ -265,7 +265,7 @@ rules:
     when:
       target: certificate.subject
       operator: isEmpty
-    target: certificate.extensions.2.5.29.17.critical
+    target: certificate.extensions.subjectAltName.critical
     operator: eq
     operands: [true]
     severity: error
@@ -309,7 +309,7 @@ rules:
     reference: RFC5280 4.2.1.9
     target: certificate.basicConstraints
     operator: present
-    appliesTo: [root, intermediate]
+    certType: [root, intermediate]
     severity: error
 
   - id: basic-constraints-critical-for-ca
@@ -318,7 +318,7 @@ rules:
       target: certificate.basicConstraints.cA
       operator: eq
       operands: [true]
-    target: certificate.extensions.2.5.29.19.critical
+    target: certificate.extensions.basicConstraints.critical
     operator: eq
     operands: [true]
     severity: error
@@ -328,7 +328,7 @@ rules:
     target: certificate.basicConstraints.cA
     operator: eq
     operands: [true]
-    appliesTo: [root, intermediate]
+    certType: [root, intermediate]
     severity: error
 
   - id: leaf-not-ca
@@ -336,14 +336,14 @@ rules:
     target: certificate.basicConstraints.cA
     operator: neq
     operands: [true]
-    appliesTo: [leaf]
+    certType: [leaf]
     severity: error
 
   - id: ca-path-len-valid
     reference: RFC5280 4.2.1.9
     target: certificate
     operator: pathLenValid
-    appliesTo: [root, intermediate]
+    certType: [root, intermediate]
     severity: error
 
 
@@ -354,9 +354,9 @@ rules:
   - id: name-constraints-critical
     reference: RFC5280 4.2.1.10
     when:
-      target: certificate.extensions.2.5.29.30
+      target: certificate.nameConstraints
       operator: present
-    target: certificate.extensions.2.5.29.30.critical
+    target: certificate.extensions.nameConstraints.critical
     operator: eq
     operands: [true]
     severity: error
@@ -439,6 +439,20 @@ rules:
     operands: [false]
     severity: error
 
+  # CA Issuers MUST be DER or BER encoded (PEM is not RFC compliant)
+  # RFC 5280 4.2.2.1: "If the information is available via HTTP or FTP, then the
+  # URI MUST point to either a single DER-encoded certificate or a
+  # DER-encoded PKCS#7 certificate bundle."
+  - id: ca-issuers-der-format
+    reference: RFC5280 4.2.2.1
+    when:
+      target: certificate.downloadFormat
+      operator: present
+    target: certificate.downloadFormat
+    operator: neq
+    operands: ["PEM"]
+    severity: warning
+
 
   # -------------------------------------------------
   # Subject Information Access (Section 4.2.2.2)
@@ -498,9 +512,9 @@ rules:
   - id: crl-aki-not-critical
     reference: RFC5280 5.2
     when:
-      target: crl.extensions.2.5.29.35
+      target: crl.authorityKeyIdentifier
       operator: present
-    target: crl.extensions.2.5.29.35.critical
+    target: crl.authorityKeyIdentifier.critical
     operator: eq
     operands: [false]
     severity: error
@@ -535,6 +549,52 @@ rules:
     operands: [true]
     severity: error
 
+  # No unknown critical CRL extensions (RFC 5280 5.2)
+  - id: crl-no-unknown-critical-extensions
+    reference: RFC5280 5.2
+    when:
+      target: crl.extensions
+      operator: present
+    target: crl
+    operator: noUnknownCriticalExtensions
+    severity: error
+
+  # -------------------------------------------------
+  # CRL Entry Extensions (Section 5.3)
+  # -------------------------------------------------
+
+  # Per RFC 5280 5.3.1, reasonCode extension (OID 2.5.29.21) is OPTIONAL
+  # but recommended for better revocation information management.
+  # This rule checks that all revoked entries have reason codes.
+  - id: crl-entries-have-reason
+    reference: RFC5280 5.3.1
+    when:
+      target: crl
+      operator: present
+    target: crl.revokedCertificates
+    operator: every
+    operands:
+      - path: extensions.2.5.29.21
+        check: present
+    severity: warning
+
+  # Validate that reason codes are within valid range (1-10, except 7)
+  # Valid: 1(keyCompromise), 2(cACompromise), 3(affiliationChanged), 4(superseded),
+  #        5(cessationOfOperation), 6(certHold), 8(removeFromCRL), 9(privilegeWithdrawn), 10(aACompromise)
+  - id: crl-entry-reason-valid
+    reference: RFC5280 5.3.1
+    when:
+      target: crl
+      operator: present
+    target: crl.revokedCertificates
+    operator: every
+    operands:
+      - path: extensions.2.5.29.21.value
+        check: in
+        values: [1, 2, 3, 4, 5, 6, 8, 9, 10]
+        skipMissing: true
+    severity: error
+
 
   # -------------------------------------------------
   # OCSP (RFC 6960)
@@ -557,3 +617,484 @@ rules:
     target: certificate
     operator: notRevokedOCSP
     severity: error
+
+  # -------------------------------------------------
+  # Subject DN Field Length Limits (RFC 5280 Appendix A)
+  # -------------------------------------------------
+
+  # commonName max 64 characters (RFC 5280)
+  - id: subject-cn-max-length
+    reference: RFC5280 Appendix A.1
+    when:
+      target: certificate.subject.commonName
+      operator: present
+    target: certificate.subject.commonName
+    operator: maxLength
+    operands: [64]
+    severity: error
+    message: "commonName must not exceed 64 characters"
+    certType: [leaf, intermediate]
+
+  # organizationName max 64 characters (RFC 5280)
+  - id: subject-org-max-length
+    reference: RFC5280 Appendix A.1
+    when:
+      target: certificate.subject.organizationName
+      operator: present
+    target: certificate.subject.organizationName
+    operator: maxLength
+    operands: [64]
+    severity: error
+    message: "organizationName must not exceed 64 characters"
+    certType: [leaf, intermediate]
+
+  # organizationalUnitName max 64 characters (RFC 5280)
+  - id: subject-ou-max-length
+    reference: RFC5280 Appendix A.1
+    when:
+      target: certificate.subject.organizationalUnitName
+      operator: present
+    target: certificate.subject.organizationalUnitName
+    operator: maxLength
+    operands: [64]
+    severity: error
+    message: "organizationalUnitName must not exceed 64 characters"
+    certType: [leaf, intermediate]
+
+  # localityName max 128 characters (RFC 5280)
+  - id: subject-locality-max-length
+    reference: RFC5280 Appendix A.1
+    when:
+      target: certificate.subject.localityName
+      operator: present
+    target: certificate.subject.localityName
+    operator: maxLength
+    operands: [128]
+    severity: error
+    message: "localityName must not exceed 128 characters"
+    certType: [leaf, intermediate]
+
+  # stateOrProvinceName max 128 characters (RFC 5280)
+  - id: subject-state-max-length
+    reference: RFC5280 Appendix A.1
+    when:
+      target: certificate.subject.stateOrProvinceName
+      operator: present
+    target: certificate.subject.stateOrProvinceName
+    operator: maxLength
+    operands: [128]
+    severity: error
+    message: "stateOrProvinceName must not exceed 128 characters"
+    certType: [leaf, intermediate]
+
+  # countryName exactly 2 characters (ISO 3166-1)
+  - id: subject-country-length
+    reference: RFC5280 Appendix A.1 + ISO 3166-1
+    when:
+      target: certificate.subject.countryName
+      operator: present
+    target: certificate.subject.countryName
+    operator: maxLength
+    operands: [2]
+    severity: error
+    message: "countryName must be exactly 2 characters (ISO 3166-1)"
+    certType: [leaf, intermediate]
+
+  - id: subject-country-min-length
+    reference: RFC5280 Appendix A.1 + ISO 3166-1
+    when:
+      target: certificate.subject.countryName
+      operator: present
+    target: certificate.subject.countryName
+    operator: minLength
+    operands: [2]
+    severity: error
+    message: "countryName must be exactly 2 characters (ISO 3166-1)"
+    certType: [leaf, intermediate]
+
+  # serialNumber (subject) max 64 characters (CABF BR)
+  - id: subject-serial-number-max-length
+    reference: RFC5280 Appendix A.1
+    when:
+      target: certificate.subject.serialNumber
+      operator: present
+    target: certificate.subject.serialNumber
+    operator: maxLength
+    operands: [64]
+    severity: error
+    message: "subject serialNumber must not exceed 64 characters"
+    certType: [leaf, intermediate]
+
+  # givenName max 64 characters (RFC 5280)
+  - id: subject-givenname-max-length
+    reference: RFC5280 Appendix A.1
+    when:
+      target: certificate.subject.givenName
+      operator: present
+    target: certificate.subject.givenName
+    operator: maxLength
+    operands: [64]
+    severity: error
+    message: "givenName must not exceed 64 characters"
+    certType: [leaf, intermediate]
+
+  # surname max 64 characters (RFC 5280)
+  - id: subject-surname-max-length
+    reference: RFC5280 Appendix A.1
+    when:
+      target: certificate.subject.surname
+      operator: present
+    target: certificate.subject.surname
+    operator: maxLength
+    operands: [64]
+    severity: error
+    message: "surname must not exceed 64 characters"
+    certType: [leaf, intermediate]
+
+  # businessCategory max 128 characters (RFC 5280)
+  - id: subject-business-category-max-length
+    reference: RFC5280 Appendix A.1
+    when:
+      target: certificate.subject.businessCategory
+      operator: present
+    target: certificate.subject.businessCategory
+    operator: maxLength
+    operands: [128]
+    severity: error
+    message: "businessCategory must not exceed 128 characters"
+    certType: [leaf, intermediate]
+
+  # emailAddress in subject max 255 characters (RFC 5280)
+  - id: subject-email-max-length
+    reference: RFC5280 Appendix A.1
+    when:
+      target: certificate.subject.emailAddress
+      operator: present
+    target: certificate.subject.emailAddress
+    operator: maxLength
+    operands: [255]
+    severity: error
+    message: "subject emailAddress must not exceed 255 characters"
+    certType: [leaf, intermediate]
+
+  # emailAddress format validation (RFC 822)
+  - id: subject-email-format
+    reference: RFC5280 + RFC 822
+    when:
+      target: certificate.subject.emailAddress
+      operator: present
+    target: certificate.subject.emailAddress
+    operator: regex
+    operands: ["^[^@]+@[^@]+$"]
+    severity: warning
+    message: "subject emailAddress should be valid RFC 822 format"
+    certType: [leaf, intermediate]
+
+  # SAN rfc822Name format validation (RFC 822)
+  - id: san-rfc822-name-format
+    reference: RFC5280 4.2.1.6 + RFC 822
+    when:
+      target: certificate.subjectAltName.rfc822Name
+      operator: present
+    target: certificate.subjectAltName.rfc822Name
+    operator: regex
+    operands: ["^[^@]+@[^@]+$"]
+    severity: error
+    message: "SAN rfc822Name must be valid RFC 822 email format"
+    certType: [leaf]
+
+  # IAN rfc822Name format validation (RFC 822)
+  - id: ian-rfc822-name-format
+    reference: RFC5280 4.2.1.8 + RFC 822
+    when:
+      target: certificate.issuerAltName.rfc822Name
+      operator: present
+    target: certificate.issuerAltName.rfc822Name
+    operator: regex
+    operands: ["^[^@]+@[^@]+$"]
+    severity: warning
+    message: "IAN rfc822Name should be valid RFC 822 email format"
+    certType: [leaf, intermediate]
+
+  # IAN dNSName must not contain wildcards (RFC 5280 4.2.1.6)
+  - id: ian-no-wildcard-dns
+    reference: RFC5280 4.2.1.8
+    when:
+      target: certificate.issuerAltName.dNSName
+      operator: present
+    target: certificate.issuerAltName.dNSName
+    operator: notRegex
+    operands: ["^\\*"]
+    severity: warning
+    message: "IAN dNSName should not contain wildcard"
+    certType: [leaf, intermediate]
+
+  # IAN dNSName must be valid DNS label format (RFC 5280 + RFC 9549)
+  - id: ian-dns-valid-label
+    reference: RFC5280 4.2.1.8 + RFC 9549
+    when:
+      target: certificate.issuerAltName.dNSName
+      operator: present
+    target: certificate.issuerAltName.dNSName
+    operator: componentRegex
+    operands: ["^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?$"]
+    severity: warning
+    message: "IAN dNSName components must be valid DNS labels"
+    certType: [leaf, intermediate]
+
+  # IAN URI must use HTTP or HTTPS scheme (best practice)
+  - id: ian-uri-http-scheme
+    reference: RFC5280 4.2.1.8
+    when:
+      target: certificate.issuerAltName.uniformResourceIdentifier
+      operator: present
+    target: certificate.issuerAltName.uniformResourceIdentifier
+    operator: regex
+    operands: ["^https?://"]
+    severity: warning
+    message: "IAN URI should use HTTP or HTTPS scheme"
+    certType: [leaf, intermediate]
+
+  # IAN must not contain internal names (RFC 5280 best practice)
+  - id: ian-no-internal-names
+    reference: RFC5280 4.2.1.8
+    when:
+      target: certificate.issuerAltName.dNSName
+      operator: present
+    target: certificate.issuerAltName.dNSName
+    operator: componentTLDRegistered
+    severity: warning
+    message: "IAN dNSName should not contain internal names with unregistered TLDs"
+    certType: [leaf, intermediate]
+
+  # ==================================================
+  # URI Validation (RFC 5280 4.2.1.6)
+  # ==================================================
+
+  # SAN uniformResourceIdentifier must be valid HTTP/HTTPS URL
+  - id: san-uri-http-scheme
+    reference: RFC5280 4.2.1.6 + CABF BR
+    when:
+      target: certificate.subjectAltName.uniformResourceIdentifier
+      operator: present
+    target: certificate.subjectAltName.uniformResourceIdentifier
+    operator: regex
+    operands: ["^https?://"]
+    severity: warning
+    message: "SAN URI should use HTTP or HTTPS scheme"
+    certType: [leaf]
+
+  # SAN URI must not contain fragment identifier
+  - id: san-uri-no-fragment
+    reference: RFC5280 4.2.1.6
+    when:
+      target: certificate.subjectAltName.uniformResourceIdentifier
+      operator: present
+    target: certificate.subjectAltName.uniformResourceIdentifier
+    operator: notRegex
+    operands: ["#"]
+    severity: warning
+    message: "SAN URI should not contain fragment identifier"
+    certType: [leaf]
+
+  # SAN URI max length (reasonable limit)
+  - id: san-uri-max-length
+    reference: RFC5280 4.2.1.6
+    when:
+      target: certificate.subjectAltName.uniformResourceIdentifier
+      operator: present
+    target: certificate.subjectAltName.uniformResourceIdentifier
+    operator: maxLength
+    operands: [1024]
+    severity: warning
+    message: "SAN URI should not exceed 1024 characters"
+    certType: [leaf]
+
+  # domainComponent max 63 characters per label (DNS label limit)
+  - id: subject-dc-label-max-length
+    reference: RFC5280 + RFC 5890
+    when:
+      target: certificate.subject.domainComponent
+      operator: present
+    target: certificate.subject.domainComponent
+    operator: componentMaxLength
+    operands: [63, "."]
+    severity: error
+    message: "Each domainComponent label must not exceed 63 characters"
+    certType: [leaf, intermediate]
+
+  # -------------------------------------------------
+  # Time Format Validation (RFC 5280 4.1.2.5)
+  # -------------------------------------------------
+
+  # UTCTime format: YYMMDDHHMMSSZ per RFC 5280 4.1.2.5.1
+  # UTCTime MUST have seconds present (even if 00)
+  - id: validity-utctime-has-seconds
+    reference: RFC5280 4.1.2.5.1
+    when:
+      target: certificate.validity.notBefore.isUTC
+      operator: eq
+      operands: [true]
+    target: certificate.validity.notBefore
+    operator: utctimeHasSeconds
+    severity: error
+    message: "UTCTime MUST include seconds per RFC 5280 4.1.2.5.1"
+    certType: [leaf, intermediate, root]
+
+  - id: validity-utctime-has-seconds-notafter
+    reference: RFC5280 4.1.2.5.1
+    when:
+      target: certificate.validity.notAfter.isUTC
+      operator: eq
+      operands: [true]
+    target: certificate.validity.notAfter
+    operator: utctimeHasSeconds
+    severity: error
+    message: "UTCTime MUST include seconds per RFC 5280 4.1.2.5.1"
+    certType: [leaf, intermediate, root]
+
+  # UTCTime MUST end with 'Z' (Zulu time indicator)
+  - id: validity-utctime-has-zulu-notbefore
+    reference: RFC5280 4.1.2.5.1
+    when:
+      target: certificate.validity.notBefore.isUTC
+      operator: eq
+      operands: [true]
+    target: certificate.validity.notBefore
+    operator: utctimeHasZulu
+    severity: error
+    message: "UTCTime MUST end with 'Z' (Zulu indicator) per RFC 5280 4.1.2.5.1"
+    certType: [leaf, intermediate, root]
+
+  - id: validity-utctime-has-zulu-notafter
+    reference: RFC5280 4.1.2.5.1
+    when:
+      target: certificate.validity.notAfter.isUTC
+      operator: eq
+      operands: [true]
+    target: certificate.validity.notAfter
+    operator: utctimeHasZulu
+    severity: error
+    message: "UTCTime MUST end with 'Z' (Zulu indicator) per RFC 5280 4.1.2.5.1"
+    certType: [leaf, intermediate, root]
+
+  # GeneralizedTime MUST end with 'Z'
+  - id: validity-generalizedtime-has-zulu-notbefore
+    reference: RFC5280 4.1.2.5.2
+    when:
+      target: certificate.validity.notBefore.isUTC
+      operator: eq
+      operands: [false]
+    target: certificate.validity.notBefore
+    operator: generalizedTimeHasZulu
+    severity: error
+    message: "GeneralizedTime MUST end with 'Z' per RFC 5280 4.1.2.5.2"
+    certType: [leaf, intermediate, root]
+
+  - id: validity-generalizedtime-has-zulu-notafter
+    reference: RFC5280 4.1.2.5.2
+    when:
+      target: certificate.validity.notAfter.isUTC
+      operator: eq
+      operands: [false]
+    target: certificate.validity.notAfter
+    operator: generalizedTimeHasZulu
+    severity: error
+    message: "GeneralizedTime MUST end with 'Z' per RFC 5280 4.1.2.5.2"
+    certType: [leaf, intermediate, root]
+
+  # GeneralizedTime should not have fractional seconds (recommended)
+  - id: validity-generalizedtime-no-fraction
+    reference: RFC5280 4.1.2.5.2
+    when:
+      target: certificate.validity.notBefore.isUTC
+      operator: eq
+      operands: [false]
+    target: certificate.validity.notBefore
+    operator: generalizedTimeNoFraction
+    severity: warning
+    message: "GeneralizedTime SHOULD NOT include fractional seconds per RFC 5280"
+    certType: [leaf, intermediate, root]
+
+  - id: validity-generalizedtime-no-fraction-notafter
+    reference: RFC5280 4.1.2.5.2
+    when:
+      target: certificate.validity.notAfter.isUTC
+      operator: eq
+      operands: [false]
+    target: certificate.validity.notAfter
+    operator: generalizedTimeNoFraction
+    severity: warning
+    message: "GeneralizedTime SHOULD NOT include fractional seconds per RFC 5280"
+    certType: [leaf, intermediate, root]
+
+  # -------------------------------------------------
+  # Encoding Validation (ASN.1 String Types)
+  # -------------------------------------------------
+
+  # Country name MUST use PrintableString encoding (per RFC 5280 Appendix A.1)
+  # PrintableString allows: A-Z, 0-9, space, and specific special chars
+  - id: subject-country-printable-string
+    reference: RFC5280 Appendix A.1
+    when:
+      target: certificate.subject.countryName
+      operator: present
+    target: certificate.subject.countryName
+    operator: validPrintableString
+    severity: warning
+    message: "countryName should use PrintableString compatible characters"
+    certType: [leaf, intermediate]
+
+  # Common name should use PrintableString or UTF8String for legacy compatibility
+  - id: subject-cn-valid-encoding
+    reference: RFC5280 Appendix A.1
+    when:
+      target: certificate.subject.commonName
+      operator: present
+    target: certificate.subject.commonName
+    operator: validIA5String
+    severity: warning
+    message: "commonName should use IA5String compatible characters (ASCII)"
+    certType: [leaf]
+
+  # Organization name should use PrintableString or UTF8String
+  # Note: BR 7.1.4.2 permits both UTF8String and PrintableString encoding for
+# organizationName, stateOrProvinceName, localityName. No content check needed.
+# UTF8String can contain any Unicode characters; PrintableString content check
+# only applies if the encoding tag is PrintableString (requires parser enhancement).
+
+  # DNS names in SAN must be IA5String (ASCII)
+  - id: san-dnsname-valid-ia5string
+    reference: RFC5280 4.2.1.6
+    when:
+      target: certificate.subjectAltName.dNSName
+      operator: present
+    target: certificate.subjectAltName.dNSName
+    operator: validIA5String
+    severity: error
+    message: "DNS names in SAN must use IA5String encoding (ASCII only)"
+    certType: [leaf]
+
+  # URIs in SAN must be IA5String (ASCII)
+  - id: san-uri-valid-ia5string
+    reference: RFC5280 4.2.1.6
+    when:
+      target: certificate.subjectAltName.uniformResourceIdentifier
+      operator: present
+    target: certificate.subjectAltName.uniformResourceIdentifier
+    operator: validIA5String
+    severity: error
+    message: "URIs in SAN must use IA5String encoding (ASCII only)"
+    certType: [leaf]
+
+  # Email addresses must be IA5String (ASCII)
+  - id: san-email-valid-ia5string
+    reference: RFC5280 4.2.1.6
+    when:
+      target: certificate.subjectAltName.rfc822Name
+      operator: present
+    target: certificate.subjectAltName.rfc822Name
+    operator: validIA5String
+    severity: error
+    message: "Email addresses in SAN must use IA5String encoding (ASCII only)"
+    certType: [leaf]

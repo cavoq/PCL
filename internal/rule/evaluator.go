@@ -22,18 +22,34 @@ type Result struct {
 	Message   string `json:"message,omitempty" yaml:"message,omitempty"`
 }
 
+// normalizeOperands converts Operands (any type) to []any for operator evaluation.
+// Handles: []any (direct use), map[string]any (wrap as single element), nil (empty).
+func normalizeOperands(operands any) []any {
+	if operands == nil {
+		return nil
+	}
+	switch v := operands.(type) {
+	case []any:
+		return v
+	case map[string]any:
+		return []any{v}
+	default:
+		return []any{v}
+	}
+}
+
 func Evaluate(
 	root *node.Node,
 	r Rule,
 	reg *operator.Registry,
 	ctx *operator.EvaluationContext,
 ) Result {
-	if !appliesTo(r, ctx) {
+	if !certTypeMatches(r, ctx) {
 		return Result{
-			RuleID:    r.ID,
+			RuleID:   r.ID,
 			Reference: r.Reference,
-			Verdict:   VerdictSkip,
-			Severity:  r.Severity,
+			Verdict:  VerdictSkip,
+			Severity: r.Severity,
 		}
 	}
 
@@ -58,7 +74,58 @@ func Evaluate(
 		}
 	}
 
-	n, _ := root.Resolve(r.Target)
+	n, found := root.Resolve(r.Target)
+
+	// For presence/absence/null operators, continue evaluation even if target not found
+	if !found && r.Operator != "present" && r.Operator != "absent" && r.Operator != "isNull" {
+		// Special handling for eq/neq on keyUsage boolean fields
+		if (r.Operator == "eq" || r.Operator == "neq") && isKeyUsageBooleanField(r.Target) {
+			var targetNode *node.Node
+			op, err := reg.Get(r.Operator)
+			if err != nil {
+				return Result{
+					RuleID:    r.ID,
+					Reference: r.Reference,
+					Verdict:   VerdictFail,
+					Message:   fmt.Sprintf("operator not found: %s", r.Operator),
+					Severity:  r.Severity,
+				}
+			}
+			ok, err := op.Evaluate(targetNode, ctx, normalizeOperands(r.Operands))
+			if err != nil {
+				return Result{
+					RuleID:    r.ID,
+					Reference: r.Reference,
+					Verdict:   VerdictFail,
+					Message:   fmt.Sprintf("operator %s on %s: %v", r.Operator, r.Target, err),
+					Severity:  r.Severity,
+				}
+			}
+			verdict := VerdictPass
+			if !ok {
+				verdict = VerdictFail
+			}
+			return Result{
+				RuleID:    r.ID,
+				Reference: r.Reference,
+				Verdict:   verdict,
+				Severity:  r.Severity,
+			}
+		}
+		return Result{
+			RuleID:    r.ID,
+			Reference: r.Reference,
+			Verdict:   VerdictSkip,
+			Severity:  r.Severity,
+			Message:   "target not found: " + r.Target,
+		}
+	}
+
+	// Pass nil node if target not found (for present/absent operators)
+	var targetNode *node.Node
+	if found {
+		targetNode = n
+	}
 
 	op, err := reg.Get(r.Operator)
 	if err != nil {
@@ -71,7 +138,7 @@ func Evaluate(
 		}
 	}
 
-	ok, err := op.Evaluate(n, ctx, r.Operands)
+	ok, err := op.Evaluate(targetNode, ctx, normalizeOperands(r.Operands))
 	if err != nil {
 		return Result{
 			RuleID:    r.ID,
@@ -108,15 +175,35 @@ func evaluateCondition(
 		return false, fmt.Errorf("operator not found: %s", cond.Operator)
 	}
 
-	return op.Evaluate(n, ctx, cond.Operands)
+	return op.Evaluate(n, ctx, normalizeOperands(cond.Operands))
 }
 
-func appliesTo(r Rule, ctx *operator.EvaluationContext) bool {
-	if len(r.AppliesTo) == 0 {
+func certTypeMatches(r Rule, ctx *operator.EvaluationContext) bool {
+	if len(r.CertType) == 0 {
 		return true
 	}
 	if ctx == nil || ctx.Cert == nil {
 		return true
 	}
-	return slices.Contains(r.AppliesTo, ctx.Cert.Type)
+	return slices.Contains(r.CertType, ctx.Cert.Type)
 }
+
+// isKeyUsageBooleanField checks if the target is a keyUsage boolean field.
+// These fields represent key usage bits that are implicitly false when not present.
+func isKeyUsageBooleanField(target string) bool {
+	keyUsageFields := []string{
+		"certificate.keyUsage.digitalSignature",
+		"certificate.keyUsage.nonRepudiation",
+		"certificate.keyUsage.contentCommitment",
+		"certificate.keyUsage.keyEncipherment",
+		"certificate.keyUsage.dataEncipherment",
+		"certificate.keyUsage.keyAgreement",
+		"certificate.keyUsage.keyCertSign",
+		"certificate.keyUsage.cRLSign",
+		"certificate.keyUsage.encipherOnly",
+		"certificate.keyUsage.decipherOnly",
+	}
+	return slices.Contains(keyUsageFields, target)
+}
+
+

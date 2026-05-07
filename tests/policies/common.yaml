@@ -11,5 +11,5 @@ rules:
   - id: leaf-subject-present
     target: certificate.subject.commonName
     operator: notEmpty
-    appliesTo: [leaf]
+    certType: [leaf]
     severity: error

@@ -89,6 +89,8 @@ func (Positive) Evaluate(n *node.Node, _ *EvaluationContext, _ []any) (bool, err
 		return v > 0, nil
 	case int64:
 		return v > 0, nil
+	case uint64:
+		return v > 0, nil
 	case float64:
 		return v > 0, nil
 	case *big.Int:
@@ -117,6 +119,8 @@ func (Odd) Evaluate(n *node.Node, _ *EvaluationContext, _ []any) (bool, error) {
 	case int:
 		return v%2 != 0, nil
 	case int64:
+		return v%2 != 0, nil
+	case uint64:
 		return v%2 != 0, nil
 	case float64:
 		return int64(v)%2 != 0, nil

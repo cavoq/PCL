@@ -163,7 +163,9 @@ rules:
     operator: eq
     operands: [3]
 `)
-	os.WriteFile(path, data, 0644)
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		t.Fatal(err)
+	}
 
 	p, err := ParseFile(path)
 	if err != nil {
@@ -341,9 +343,15 @@ rules:
     operands: [3]
 `)
 
-	os.WriteFile(filepath.Join(dir, "p1.yaml"), p1, 0644)
-	os.WriteFile(filepath.Join(dir, "p2.yml"), p2, 0644)
-	os.WriteFile(filepath.Join(dir, "ignored.txt"), []byte("not yaml"), 0644)
+	if err := os.WriteFile(filepath.Join(dir, "p1.yaml"), p1, 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "p2.yml"), p2, 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "ignored.txt"), []byte("not yaml"), 0644); err != nil {
+		t.Fatal(err)
+	}
 
 	policies, err := ParseDir(dir)
 	if err != nil {
@@ -371,8 +379,12 @@ rules:
     operator: eq
     operands: [3]
 `)
-	os.WriteFile(filepath.Join(dir, "p.yaml"), p, 0644)
-	os.Mkdir(filepath.Join(dir, "subdir"), 0755)
+	if err := os.WriteFile(filepath.Join(dir, "p.yaml"), p, 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(filepath.Join(dir, "subdir"), 0755); err != nil {
+		t.Fatal(err)
+	}
 
 	policies, err := ParseDir(dir)
 	if err != nil {
@@ -414,11 +426,15 @@ rules:
 	}
 
 	operands := p.Rules[0].Operands
-	if len(operands) != 2 {
-		t.Fatalf("expected 2 operands, got %d: %v", len(operands), operands)
+	operandsSlice, ok := operands.([]any)
+	if !ok {
+		t.Fatalf("expected operands to be []any, got %T", operands)
+	}
+	if len(operandsSlice) != 2 {
+		t.Fatalf("expected 2 operands, got %d: %v", len(operandsSlice), operandsSlice)
 	}
 
-	if operands[0] != "SHA256-RSA" {
-		t.Errorf("expected operand[0] to be 'SHA256-RSA', got %v (type %T)", operands[0], operands[0])
+	if operandsSlice[0] != "SHA256-RSA" {
+		t.Errorf("expected operand[0] to be 'SHA256-RSA', got %v (type %T)", operandsSlice[0], operandsSlice[0])
 	}
 }

@@ -1,13 +1,20 @@
+// Package crl provides CRL data types and properties.
 package crl
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/pem"
 	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"time"
 
+	"github.com/cavoq/PCL/internal/cert"
+	fileio "github.com/cavoq/PCL/internal/io"
+	"github.com/cavoq/PCL/internal/source"
 	"github.com/zmap/zcrypto/x509"
-
-	"github.com/cavoq/PCL/internal/io"
-	"github.com/cavoq/PCL/internal/loader"
 )
 
 var extensions = []string{".crl", ".pem"}
@@ -16,43 +23,145 @@ type Info struct {
 	CRL      *x509.RevocationList
 	FilePath string
 	Hash     string
+	Source   source.Info
+	Format   source.Format
 }
 
 func ParseCRL(data []byte) (*x509.RevocationList, error) {
+	crl, _, err := parseCRL(data)
+	return crl, err
+}
+
+func parseCRL(data []byte) (*x509.RevocationList, source.Format, error) {
+	crl, err := x509.ParseRevocationList(data)
+	if err == nil {
+		return crl, source.FormatDER, nil
+	}
+	derErr := err
+
 	block, _ := pem.Decode(data)
 	if block != nil && block.Type == "X509 CRL" {
-		return x509.ParseRevocationList(block.Bytes)
+		crl, err = x509.ParseRevocationList(block.Bytes)
+		if err != nil {
+			return nil, "", fmt.Errorf("failed to parse PEM CRL: %w", err)
+		}
+		return crl, source.FormatPEM, nil
 	}
 
-	crl, err := x509.ParseRevocationList(data)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse PEM or DER CRL: %w", err)
-	}
-	return crl, nil
+	return nil, "", fmt.Errorf("failed to parse PEM or DER CRL: %w", derErr)
 }
 
 func GetCRLFiles(path string) ([]string, error) {
-	return io.GetFilesWithExtensions(path, extensions...)
+	return fileio.GetFilesWithExtensions(path, extensions...)
 }
 
 func GetCRLs(path string) ([]*Info, error) {
-	results, err := loader.LoadAll(
-		path,
-		extensions,
-		ParseCRL,
-		func(crl *x509.RevocationList) []byte { return crl.Raw },
-	)
+	files, err := GetCRLFiles(path)
 	if err != nil {
 		return nil, err
 	}
 
-	infos := make([]*Info, len(results))
-	for i, r := range results {
-		infos[i] = &Info{
-			CRL:      r.Data,
-			FilePath: r.FilePath,
-			Hash:     r.Hash,
+	infos := make([]*Info, 0, len(files))
+	for _, file := range files {
+		data, err := os.ReadFile(file)
+		if err != nil {
+			continue
+		}
+
+		crl, format, err := parseCRL(data)
+		if err != nil {
+			continue
+		}
+
+		hash := sha256.Sum256(crl.Raw)
+		infos = append(infos, &Info{
+			CRL:      crl,
+			FilePath: file,
+			Hash:     hex.EncodeToString(hash[:]),
+			Source:   source.Info{Type: source.Local, Format: format},
+			Format:   format,
+		})
+	}
+
+	if len(infos) == 0 && len(files) > 0 {
+		return nil, fmt.Errorf("no valid items found in %s", path)
+	}
+
+	return infos, nil
+}
+
+func FetchCRL(url string, timeout time.Duration) (*Info, error) {
+	if url == "" {
+		return nil, fmt.Errorf("CRL URL is required")
+	}
+
+	client := &http.Client{Timeout: timeout}
+	resp, err := client.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch CRL from %s: %w", url, err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("CRL server returned status %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read CRL response: %w", err)
+	}
+
+	crl, format, err := parseCRL(body)
+	if err != nil {
+		return nil, err
+	}
+
+	hash := sha256.Sum256(crl.Raw)
+	return &Info{
+		CRL:      crl,
+		FilePath: url,
+		Hash:     hex.EncodeToString(hash[:]),
+		Source:   source.Info{Type: source.Downloaded, URL: url, Format: format},
+		Format:   format,
+	}, nil
+}
+
+func FetchCRLs(urls []string, timeout time.Duration) ([]*Info, []error) {
+	var results []*Info
+	var errs []error
+
+	for _, url := range urls {
+		result, err := FetchCRL(url, timeout)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		results = append(results, result)
+	}
+
+	return results, errs
+}
+
+func FetchForChain(chain []*cert.Info, timeout time.Duration, w io.Writer) []*Info {
+	var results []*Info
+
+	for _, c := range chain {
+		if c.Cert == nil || len(c.Cert.CRLDistributionPoints) == 0 {
+			continue
+		}
+
+		for _, url := range c.Cert.CRLDistributionPoints {
+			fetchResult, err := FetchCRL(url, timeout)
+			if err != nil {
+				if w != nil {
+					_, _ = fmt.Fprintf(w, "Warning: failed to fetch CRL from %s: %v\n", url, err)
+				}
+				continue
+			}
+
+			results = append(results, fetchResult)
 		}
 	}
-	return infos, nil
+
+	return results
 }

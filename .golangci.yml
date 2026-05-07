@@ -1,3 +1,5 @@
+version: "2"
+
 run:
   timeout: 5m
   modules-download-mode: readonly
@@ -5,55 +7,50 @@ run:
 linters:
   enable:
     - errcheck
-    - gosimple
     - govet
     - ineffassign
     - staticcheck
     - unused
-    - gofmt
-    - goimports
     - misspell
     - unconvert
     - gosec
     - prealloc
 
-linters-settings:
-  errcheck:
-    check-type-assertions: true
-    check-blank: false
+  settings:
+    errcheck:
+      check-type-assertions: true
+      check-blank: false
 
-  govet:
-    disable:
-      - fieldalignment
+    govet:
+      disable:
+        - fieldalignment
 
-  gofmt:
-    simplify: true
+    misspell:
+      locale: US
 
-  goimports:
-    local-prefixes: github.com/cavoq/PCL
+    gosec:
+      excludes:
+        - G104  # Errors unhandled (deferred close)
+        - G107  # URL from variable — intentional in fetchers
+        - G115  # Integer overflow in byte conversions — ASN.1 encoding
+        - G301  # Dir permissions 0750+ — acceptable for public data dirs
+        - G304  # File path via variable — intentional throughout
+        - G306  # File permissions — 0644 is intentional for cert/policy files
 
-  misspell:
-    locale: US
+    staticcheck:
+      checks:
+        - all
+        - -SA1019
 
-  gosec:
-    excludes:
-      - G104
-      - G304
-      - G306
-
-  staticcheck:
-    checks:
-      - all
-      - -SA1019
+  exclusions:
+    rules:
+      - path: _test\.go
+        linters:
+          - gosec
+          - unparam
+          - errcheck
+          - prealloc
 
 issues:
-  exclude-use-default: false
   max-issues-per-linter: 0
   max-same-issues: 0
-
-  exclude-rules:
-    - path: _test\.go
-      linters:
-        - gosec
-        - unparam
-        - errcheck

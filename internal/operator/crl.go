@@ -2,6 +2,7 @@ package operator
 
 import (
 	"github.com/cavoq/PCL/internal/node"
+	"github.com/zmap/zcrypto/x509"
 )
 
 type CRLValid struct{}
@@ -58,7 +59,11 @@ type CRLSignedBy struct{}
 func (CRLSignedBy) Name() string { return "crlSignedBy" }
 
 func (CRLSignedBy) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (bool, error) {
-	if !ctx.HasCRLs() || !ctx.HasChain() {
+	if !ctx.HasCRLs() {
+		return false, nil
+	}
+
+	if !ctx.HasChain() {
 		return false, nil
 	}
 
@@ -68,24 +73,26 @@ func (CRLSignedBy) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (bool
 		}
 		crl := crlInfo.CRL
 
-		verified := false
-		for _, certInfo := range ctx.Chain {
-			if certInfo.Cert == nil {
+		// Find matching issuer from chain
+		crlIssuer := crl.Issuer.String()
+		var matchingIssuer *x509.Certificate
+		for _, issuerInfo := range ctx.Chain {
+			if issuerInfo.Cert == nil {
 				continue
 			}
-
-			if crl.Issuer.String() != certInfo.Cert.Subject.String() {
-				continue
-			}
-
-			err := crl.CheckSignatureFrom(certInfo.Cert)
-			if err == nil {
-				verified = true
+			if issuerInfo.Cert.Subject.String() == crlIssuer {
+				matchingIssuer = issuerInfo.Cert
 				break
 			}
 		}
 
-		if !verified {
+		// If issuer not in chain, skip this CRL (not applicable to our chain)
+		if matchingIssuer == nil {
+			continue
+		}
+
+		// Verify signature only for applicable CRLs (issuer in chain)
+		if err := crl.CheckSignatureFrom(matchingIssuer); err != nil {
 			return false, nil
 		}
 	}
@@ -98,17 +105,17 @@ type NotRevoked struct{}
 func (NotRevoked) Name() string { return "notRevoked" }
 
 func (NotRevoked) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (bool, error) {
-	if !ctx.HasCert() {
+	if ctx == nil || ctx.Cert == nil || ctx.Cert.Cert == nil {
 		return false, nil
-	}
-
-	if len(ctx.CRLs) == 0 {
-		return true, nil
 	}
 
 	cert := ctx.Cert.Cert
 	certSerial := cert.SerialNumber.String()
 	certIssuer := cert.Issuer.String()
+
+	if !ctx.HasCRLs() {
+		return true, nil // No CRLs = not revoked
+	}
 
 	for _, crlInfo := range ctx.CRLs {
 		if crlInfo.CRL == nil {

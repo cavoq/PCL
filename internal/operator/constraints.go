@@ -236,14 +236,63 @@ type NoUnknownCriticalExtensions struct{}
 
 func (NoUnknownCriticalExtensions) Name() string { return "noUnknownCriticalExtensions" }
 
-func (NoUnknownCriticalExtensions) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (bool, error) {
-	if ctx == nil || ctx.Cert == nil || ctx.Cert.Cert == nil {
+func (NoUnknownCriticalExtensions) Evaluate(n *node.Node, ctx *EvaluationContext, _ []any) (bool, error) {
+	// For certificates: use zcrypto's UnhandledCriticalExtensions (more accurate)
+	if ctx != nil && ctx.Cert != nil && ctx.Cert.Cert != nil {
+		cert := ctx.Cert.Cert
+		return len(cert.UnhandledCriticalExtensions) == 0, nil
+	}
+
+	// For CRLs or other node types: check extensions from node tree
+	if n == nil {
 		return false, nil
 	}
 
-	cert := ctx.Cert.Cert
+	// Determine if this is a CRL node
+	if n.Name != "crl" {
+		return false, nil // Not applicable
+	}
 
-	// Check UnhandledCriticalExtensions which Go's x509 parser populates
-	// with OIDs of critical extensions it doesn't understand
-	return len(cert.UnhandledCriticalExtensions) == 0, nil
+	extsNode, _ := n.Resolve("extensions")
+	if extsNode == nil {
+		return true, nil // No extensions = no unknown critical
+	}
+
+	// Check each extension for unknown critical ones
+	for oid, extNode := range extsNode.Children {
+		criticalNode, _ := extNode.Resolve("critical")
+		if criticalNode == nil {
+			continue
+		}
+
+		critical, ok := criticalNode.Value.(bool)
+		if !ok || !critical {
+			continue // Non-critical extensions are OK
+		}
+
+		// Check if this OID is known for CRLs
+		if !isKnownCRLExtensionOID(oid) {
+			return false, nil // Unknown critical extension found
+		}
+	}
+
+	return true, nil
+}
+
+// Known CRL extension OIDs per RFC 5280 Section 5.2
+func isKnownCRLExtensionOID(oid string) bool {
+	knownOIDs := []string{
+		"2.5.29.20",           // cRLNumber
+		"2.5.29.27",           // deltaCRLIndicator
+		"2.5.29.28",           // issuingDistributionPoint
+		"2.5.29.35",           // authorityKeyIdentifier
+		"2.5.29.46",           // freshestCRL
+		"1.3.6.1.5.5.7.1.1",   // authorityInformationAccess
+	}
+	for _, known := range knownOIDs {
+		if oid == known {
+			return true
+		}
+	}
+	return false
 }

@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/cavoq/PCL/internal/source"
 )
 
 func DownloadCertificates(urls []string, timeout time.Duration, saveDir string) (string, func(), error) {
@@ -74,6 +76,24 @@ func DownloadCertificates(urls []string, timeout time.Duration, saveDir string) 
 	}
 
 	return dir, cleanup, nil
+}
+
+func DownloadAndLoadCertificates(urls []string, timeout time.Duration, saveDir string) ([]*Info, func(), error) {
+	dir, cleanup, err := DownloadCertificates(urls, timeout, saveDir)
+	if err != nil {
+		return nil, cleanup, err
+	}
+
+	sourceInfo := source.Info{Type: source.Downloaded}
+	if len(urls) == 1 {
+		sourceInfo.URL = urls[0]
+	}
+
+	certs, err := LoadCertificatesWithSource(dir, sourceInfo)
+	if err != nil {
+		return nil, cleanup, err
+	}
+	return certs, cleanup, nil
 }
 
 var tlsChainFetcher = fetchTLSChain

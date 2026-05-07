@@ -1,0 +1,472 @@
+id: rfc4055
+version: 1.0
+
+rules:
+  # -------------------------------------------------
+  # RSA Signature Algorithm Parameters (Section 5)
+  # RFC 4055: The encoded algorithm identifier MUST have NULL parameters
+  # -------------------------------------------------
+
+  # Certificate: TBSCertificate.signature parameters must be NULL for RSA algorithms
+  - id: cert-tbs-signature-rsa-params-null
+    reference: RFC4055 Section 5
+    when:
+      target: certificate.tbsSignatureAlgorithm.oid
+      operator: in
+      operands:
+        - "1.2.840.113549.1.1.1"
+        - "1.2.840.113549.1.1.2"
+        - "1.2.840.113549.1.1.3"
+        - "1.2.840.113549.1.1.4"
+        - "1.2.840.113549.1.1.5"
+        - "1.2.840.113549.1.1.11"
+        - "1.2.840.113549.1.1.12"
+        - "1.2.840.113549.1.1.13"
+        - "1.2.840.113549.1.1.14"
+        - "1.2.840.113549.1.1.15"
+        - "1.2.840.113549.1.1.16"
+    target: certificate.tbsSignatureAlgorithm.parameters
+    operator: isNull
+    severity: error
+
+  # Certificate: signatureAlgorithm parameters must be NULL for RSA algorithms
+  - id: cert-signature-algorithm-rsa-params-null
+    reference: RFC4055 Section 5
+    when:
+      target: certificate.signatureAlgorithm.oid
+      operator: in
+      operands:
+        - "1.2.840.113549.1.1.1"
+        - "1.2.840.113549.1.1.2"
+        - "1.2.840.113549.1.1.3"
+        - "1.2.840.113549.1.1.4"
+        - "1.2.840.113549.1.1.5"
+        - "1.2.840.113549.1.1.11"
+        - "1.2.840.113549.1.1.12"
+        - "1.2.840.113549.1.1.13"
+        - "1.2.840.113549.1.1.14"
+        - "1.2.840.113549.1.1.15"
+        - "1.2.840.113549.1.1.16"
+    target: certificate.signatureAlgorithm.parameters
+    operator: isNull
+    severity: error
+
+  # -------------------------------------------------
+  # RSA SubjectPublicKeyInfo Parameters (Section 1.2)
+  # RFC 4055: rsaEncryption OID MUST have NULL parameters
+  # -------------------------------------------------
+
+  - id: cert-spki-rsa-params-null
+    reference: RFC4055 Section 1.2
+    when:
+      target: certificate.subjectPublicKeyInfo.algorithm.oid
+      operator: eq
+      operands: ["1.2.840.113549.1.1.1"]
+    target: certificate.subjectPublicKeyInfo.algorithm.parameters
+    operator: isNull
+    severity: error
+
+  # -------------------------------------------------
+  # CRL: Signature Algorithm Parameters (Section 5)
+  # -------------------------------------------------
+
+  # CRL: TBSCertList.signature parameters must be NULL for RSA algorithms
+  - id: crl-tbs-signature-rsa-params-null
+    reference: RFC4055 Section 5
+    when:
+      target: crl.tbsSignatureAlgorithm.oid
+      operator: in
+      operands:
+        - "1.2.840.113549.1.1.1"
+        - "1.2.840.113549.1.1.2"
+        - "1.2.840.113549.1.1.3"
+        - "1.2.840.113549.1.1.4"
+        - "1.2.840.113549.1.1.5"
+        - "1.2.840.113549.1.1.11"
+        - "1.2.840.113549.1.1.12"
+        - "1.2.840.113549.1.1.13"
+        - "1.2.840.113549.1.1.14"
+        - "1.2.840.113549.1.1.15"
+        - "1.2.840.113549.1.1.16"
+    target: crl.tbsSignatureAlgorithm.parameters
+    operator: isNull
+    severity: error
+
+  # CRL: signatureAlgorithm parameters must be NULL for RSA algorithms
+  - id: crl-signature-algorithm-rsa-params-null
+    reference: RFC4055 Section 5
+    when:
+      target: crl.signatureAlgorithm.oid
+      operator: in
+      operands:
+        - "1.2.840.113549.1.1.1"
+        - "1.2.840.113549.1.1.2"
+        - "1.2.840.113549.1.1.3"
+        - "1.2.840.113549.1.1.4"
+        - "1.2.840.113549.1.1.5"
+        - "1.2.840.113549.1.1.11"
+        - "1.2.840.113549.1.1.12"
+        - "1.2.840.113549.1.1.13"
+        - "1.2.840.113549.1.1.14"
+        - "1.2.840.113549.1.1.15"
+        - "1.2.840.113549.1.1.16"
+    target: crl.signatureAlgorithm.parameters
+    operator: isNull
+    severity: error
+
+  # -------------------------------------------------
+  # RSASSA-PSS Parameters (Section 3)
+  # OID: 1.2.840.113549.1.1.10
+  # -------------------------------------------------
+
+  # PSS: hashAlgorithm must be valid
+  - id: cert-tbs-pss-hash-algorithm-valid
+    reference: RFC4055 Section 3.1
+    when:
+      target: certificate.tbsSignatureAlgorithm.oid
+      operator: eq
+      operands: ["1.2.840.113549.1.1.10"]
+    target: certificate.tbsSignatureAlgorithm.parameters.pss.hashAlgorithm.oid
+    operator: in
+    operands:
+      - "1.3.14.3.2.26"
+      - "2.16.840.1.101.3.4.2.1"
+      - "2.16.840.1.101.3.4.2.2"
+      - "2.16.840.1.101.3.4.2.3"
+      - "2.16.840.1.101.3.4.2.4"
+      - "2.16.840.1.101.3.4.2.5"
+      - "2.16.840.1.101.3.4.2.6"
+    severity: error
+
+  - id: cert-pss-hash-algorithm-valid
+    reference: RFC4055 Section 3.1
+    when:
+      target: certificate.signatureAlgorithm.oid
+      operator: eq
+      operands: ["1.2.840.113549.1.1.10"]
+    target: certificate.signatureAlgorithm.parameters.pss.hashAlgorithm.oid
+    operator: in
+    operands:
+      - "1.3.14.3.2.26"
+      - "2.16.840.1.101.3.4.2.1"
+      - "2.16.840.1.101.3.4.2.2"
+      - "2.16.840.1.101.3.4.2.3"
+      - "2.16.840.1.101.3.4.2.4"
+      - "2.16.840.1.101.3.4.2.5"
+      - "2.16.840.1.101.3.4.2.6"
+    severity: error
+
+  # PSS: maskGenAlgorithm must be id-mgf1 (OID 1.2.840.113549.1.1.8)
+  - id: cert-tbs-pss-mgf-algorithm-valid
+    reference: RFC4055 Section 3.2
+    when:
+      target: certificate.tbsSignatureAlgorithm.oid
+      operator: eq
+      operands: ["1.2.840.113549.1.1.10"]
+    target: certificate.tbsSignatureAlgorithm.parameters.pss.maskGenAlgorithm.oid
+    operator: eq
+    operands: ["1.2.840.113549.1.1.8"]
+    severity: error
+
+  - id: cert-pss-mgf-algorithm-valid
+    reference: RFC4055 Section 3.2
+    when:
+      target: certificate.signatureAlgorithm.oid
+      operator: eq
+      operands: ["1.2.840.113549.1.1.10"]
+    target: certificate.signatureAlgorithm.parameters.pss.maskGenAlgorithm.oid
+    operator: eq
+    operands: ["1.2.840.113549.1.1.8"]
+    severity: error
+
+  # PSS: MGF1 hashAlgorithm must be valid
+  - id: cert-tbs-pss-mgf-hash-valid
+    reference: RFC4055 Section 3.2
+    when:
+      target: certificate.tbsSignatureAlgorithm.oid
+      operator: eq
+      operands: ["1.2.840.113549.1.1.10"]
+    target: certificate.tbsSignatureAlgorithm.parameters.pss.maskGenAlgorithm.parameters.oid
+    operator: in
+    operands:
+      - "1.3.14.3.2.26"
+      - "2.16.840.1.101.3.4.2.1"
+      - "2.16.840.1.101.3.4.2.2"
+      - "2.16.840.1.101.3.4.2.3"
+      - "2.16.840.1.101.3.4.2.4"
+      - "2.16.840.1.101.3.4.2.5"
+      - "2.16.840.1.101.3.4.2.6"
+    severity: error
+
+  - id: cert-pss-mgf-hash-valid
+    reference: RFC4055 Section 3.2
+    when:
+      target: certificate.signatureAlgorithm.oid
+      operator: eq
+      operands: ["1.2.840.113549.1.1.10"]
+    target: certificate.signatureAlgorithm.parameters.pss.maskGenAlgorithm.parameters.oid
+    operator: in
+    operands:
+      - "1.3.14.3.2.26"
+      - "2.16.840.1.101.3.4.2.1"
+      - "2.16.840.1.101.3.4.2.2"
+      - "2.16.840.1.101.3.4.2.3"
+      - "2.16.840.1.101.3.4.2.4"
+      - "2.16.840.1.101.3.4.2.5"
+      - "2.16.840.1.101.3.4.2.6"
+    severity: error
+
+  # PSS: saltLength must be >= 0
+  - id: cert-tbs-pss-salt-length-valid
+    reference: RFC4055 Section 3.3
+    when:
+      target: certificate.tbsSignatureAlgorithm.oid
+      operator: eq
+      operands: ["1.2.840.113549.1.1.10"]
+    target: certificate.tbsSignatureAlgorithm.parameters.pss.saltLength
+    operator: gte
+    operands: [0]
+    severity: error
+
+  - id: cert-pss-salt-length-valid
+    reference: RFC4055 Section 3.3
+    when:
+      target: certificate.signatureAlgorithm.oid
+      operator: eq
+      operands: ["1.2.840.113549.1.1.10"]
+    target: certificate.signatureAlgorithm.parameters.pss.saltLength
+    operator: gte
+    operands: [0]
+    severity: error
+
+  # PSS: trailerField must be 1
+  - id: cert-tbs-pss-trailer-field-valid
+    reference: RFC4055 Section 3.4
+    when:
+      target: certificate.tbsSignatureAlgorithm.oid
+      operator: eq
+      operands: ["1.2.840.113549.1.1.10"]
+    target: certificate.tbsSignatureAlgorithm.parameters.pss.trailerField
+    operator: eq
+    operands: [1]
+    severity: error
+
+  - id: cert-pss-trailer-field-valid
+    reference: RFC4055 Section 3.4
+    when:
+      target: certificate.signatureAlgorithm.oid
+      operator: eq
+      operands: ["1.2.840.113549.1.1.10"]
+    target: certificate.signatureAlgorithm.parameters.pss.trailerField
+    operator: eq
+    operands: [1]
+    severity: error
+
+  # -------------------------------------------------
+  # RSAES-OAEP Parameters (Section 4)
+  # OID: 1.2.840.113549.1.1.7
+  # -------------------------------------------------
+
+  # OAEP: hashAlgorithm must be valid (for SubjectPublicKeyInfo)
+  - id: cert-spki-oaep-hash-algorithm-valid
+    reference: RFC4055 Section 4.1
+    when:
+      target: certificate.subjectPublicKeyInfo.algorithm.oid
+      operator: eq
+      operands: ["1.2.840.113549.1.1.7"]
+    target: certificate.subjectPublicKeyInfo.algorithm.parameters.oaep.hashAlgorithm.oid
+    operator: in
+    operands:
+      - "1.3.14.3.2.26"
+      - "2.16.840.1.101.3.4.2.1"
+      - "2.16.840.1.101.3.4.2.2"
+      - "2.16.840.1.101.3.4.2.3"
+      - "2.16.840.1.101.3.4.2.4"
+      - "2.16.840.1.101.3.4.2.5"
+      - "2.16.840.1.101.3.4.2.6"
+    severity: error
+
+  # OAEP: maskGenAlgorithm must be id-mgf1
+  - id: cert-spki-oaep-mgf-algorithm-valid
+    reference: RFC4055 Section 4.2
+    when:
+      target: certificate.subjectPublicKeyInfo.algorithm.oid
+      operator: eq
+      operands: ["1.2.840.113549.1.1.7"]
+    target: certificate.subjectPublicKeyInfo.algorithm.parameters.oaep.maskGenAlgorithm.oid
+    operator: eq
+    operands: ["1.2.840.113549.1.1.8"]
+    severity: error
+
+  # OAEP: MGF1 hashAlgorithm must be valid
+  - id: cert-spki-oaep-mgf-hash-valid
+    reference: RFC4055 Section 4.2
+    when:
+      target: certificate.subjectPublicKeyInfo.algorithm.oid
+      operator: eq
+      operands: ["1.2.840.113549.1.1.7"]
+    target: certificate.subjectPublicKeyInfo.algorithm.parameters.oaep.maskGenAlgorithm.parameters.oid
+    operator: in
+    operands:
+      - "1.3.14.3.2.26"
+      - "2.16.840.1.101.3.4.2.1"
+      - "2.16.840.1.101.3.4.2.2"
+      - "2.16.840.1.101.3.4.2.3"
+      - "2.16.840.1.101.3.4.2.4"
+      - "2.16.840.1.101.3.4.2.5"
+      - "2.16.840.1.101.3.4.2.6"
+    severity: error
+
+  # OAEP: pSourceAlgorithm must be id-pSpecified (OID 1.2.840.113549.1.1.9)
+  - id: cert-spki-oaep-psource-valid
+    reference: RFC4055 Section 4.3
+    when:
+      target: certificate.subjectPublicKeyInfo.algorithm.oid
+      operator: eq
+      operands: ["1.2.840.113549.1.1.7"]
+    target: certificate.subjectPublicKeyInfo.algorithm.parameters.oaep.pSourceAlgorithm.oid
+    operator: eq
+    operands: ["1.2.840.113549.1.1.9"]
+    severity: error
+
+  # -------------------------------------------------
+  # CRL: RSASSA-PSS Parameters
+  # -------------------------------------------------
+
+  - id: crl-tbs-pss-hash-algorithm-valid
+    reference: RFC4055 Section 3.1
+    when:
+      target: crl.tbsSignatureAlgorithm.oid
+      operator: eq
+      operands: ["1.2.840.113549.1.1.10"]
+    target: crl.tbsSignatureAlgorithm.parameters.pss.hashAlgorithm.oid
+    operator: in
+    operands:
+      - "1.3.14.3.2.26"
+      - "2.16.840.1.101.3.4.2.1"
+      - "2.16.840.1.101.3.4.2.2"
+      - "2.16.840.1.101.3.4.2.3"
+      - "2.16.840.1.101.3.4.2.4"
+      - "2.16.840.1.101.3.4.2.5"
+      - "2.16.840.1.101.3.4.2.6"
+    severity: error
+
+  - id: crl-pss-hash-algorithm-valid
+    reference: RFC4055 Section 3.1
+    when:
+      target: crl.signatureAlgorithm.oid
+      operator: eq
+      operands: ["1.2.840.113549.1.1.10"]
+    target: crl.signatureAlgorithm.parameters.pss.hashAlgorithm.oid
+    operator: in
+    operands:
+      - "1.3.14.3.2.26"
+      - "2.16.840.1.101.3.4.2.1"
+      - "2.16.840.1.101.3.4.2.2"
+      - "2.16.840.1.101.3.4.2.3"
+      - "2.16.840.1.101.3.4.2.4"
+      - "2.16.840.1.101.3.4.2.5"
+      - "2.16.840.1.101.3.4.2.6"
+    severity: error
+
+  - id: crl-tbs-pss-mgf-algorithm-valid
+    reference: RFC4055 Section 3.2
+    when:
+      target: crl.tbsSignatureAlgorithm.oid
+      operator: eq
+      operands: ["1.2.840.113549.1.1.10"]
+    target: crl.tbsSignatureAlgorithm.parameters.pss.maskGenAlgorithm.oid
+    operator: eq
+    operands: ["1.2.840.113549.1.1.8"]
+    severity: error
+
+  - id: crl-pss-mgf-algorithm-valid
+    reference: RFC4055 Section 3.2
+    when:
+      target: crl.signatureAlgorithm.oid
+      operator: eq
+      operands: ["1.2.840.113549.1.1.10"]
+    target: crl.signatureAlgorithm.parameters.pss.maskGenAlgorithm.oid
+    operator: eq
+    operands: ["1.2.840.113549.1.1.8"]
+    severity: error
+
+  - id: crl-tbs-pss-mgf-hash-valid
+    reference: RFC4055 Section 3.2
+    when:
+      target: crl.tbsSignatureAlgorithm.oid
+      operator: eq
+      operands: ["1.2.840.113549.1.1.10"]
+    target: crl.tbsSignatureAlgorithm.parameters.pss.maskGenAlgorithm.parameters.oid
+    operator: in
+    operands:
+      - "1.3.14.3.2.26"
+      - "2.16.840.1.101.3.4.2.1"
+      - "2.16.840.1.101.3.4.2.2"
+      - "2.16.840.1.101.3.4.2.3"
+      - "2.16.840.1.101.3.4.2.4"
+      - "2.16.840.1.101.3.4.2.5"
+      - "2.16.840.1.101.3.4.2.6"
+    severity: error
+
+  - id: crl-pss-mgf-hash-valid
+    reference: RFC4055 Section 3.2
+    when:
+      target: crl.signatureAlgorithm.oid
+      operator: eq
+      operands: ["1.2.840.113549.1.1.10"]
+    target: crl.signatureAlgorithm.parameters.pss.maskGenAlgorithm.parameters.oid
+    operator: in
+    operands:
+      - "1.3.14.3.2.26"
+      - "2.16.840.1.101.3.4.2.1"
+      - "2.16.840.1.101.3.4.2.2"
+      - "2.16.840.1.101.3.4.2.3"
+      - "2.16.840.1.101.3.4.2.4"
+      - "2.16.840.1.101.3.4.2.5"
+      - "2.16.840.1.101.3.4.2.6"
+    severity: error
+
+  - id: crl-tbs-pss-salt-length-valid
+    reference: RFC4055 Section 3.3
+    when:
+      target: crl.tbsSignatureAlgorithm.oid
+      operator: eq
+      operands: ["1.2.840.113549.1.1.10"]
+    target: crl.tbsSignatureAlgorithm.parameters.pss.saltLength
+    operator: gte
+    operands: [0]
+    severity: error
+
+  - id: crl-pss-salt-length-valid
+    reference: RFC4055 Section 3.3
+    when:
+      target: crl.signatureAlgorithm.oid
+      operator: eq
+      operands: ["1.2.840.113549.1.1.10"]
+    target: crl.signatureAlgorithm.parameters.pss.saltLength
+    operator: gte
+    operands: [0]
+    severity: error
+
+  - id: crl-tbs-pss-trailer-field-valid
+    reference: RFC4055 Section 3.4
+    when:
+      target: crl.tbsSignatureAlgorithm.oid
+      operator: eq
+      operands: ["1.2.840.113549.1.1.10"]
+    target: crl.tbsSignatureAlgorithm.parameters.pss.trailerField
+    operator: eq
+    operands: [1]
+    severity: error
+
+  - id: crl-pss-trailer-field-valid
+    reference: RFC4055 Section 3.4
+    when:
+      target: crl.signatureAlgorithm.oid
+      operator: eq
+      operands: ["1.2.840.113549.1.1.10"]
+    target: crl.signatureAlgorithm.parameters.pss.trailerField
+    operator: eq
+    operands: [1]
+    severity: error

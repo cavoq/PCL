@@ -55,13 +55,19 @@ func (f *TextFormatter) Format(w io.Writer, out LintOutput) error {
 		if certPath == "" {
 			certPath = "-"
 		}
+		// Display source info if available and not local file
+		sourceInfo := ""
+		if pr.Source != "" && pr.Source != "local" {
+			sourceInfo = fmt.Sprintf(" (%s)", pr.Source)
+		}
 		passCount, failCount, skipCount, warnCount := countsFromResult(pr)
 		if _, err := fmt.Fprintf(
 			w,
-			"[File] Policy: %s | Cert: %s | File: %s | Verdict: %s | %s: %d, %s: %d, %s: %d, %s: %d\n",
+			"[File] Policy: %s | Cert: %s | File: %s%s | Verdict: %s | %s: %d, %s: %d, %s: %d, %s: %d\n",
 			pr.PolicyID,
 			pr.CertType,
 			certPath,
+			sourceInfo,
 			verdictLabelColored(pr.Verdict),
 			verdictLabelColored(rule.VerdictPass),
 			passCount,
@@ -114,6 +120,28 @@ func verdictLabelColoredPadded(verdict string, width int) string {
 	}
 }
 
+func verdictLabelColoredPaddedWithSeverity(verdict string, severity string, width int) string {
+	label := verdictLabel(verdict)
+	padded := fmt.Sprintf("%-*s", width, label)
+	switch verdict {
+	case rule.VerdictPass:
+		return colorize(padded, ansiGreen)
+	case rule.VerdictFail:
+		// INFO level failures use white (informational), more visible than blue
+		if severity == "info" {
+			return colorize(padded, ansiWhite)
+		}
+		if severity == "warning" {
+			return colorize(padded, ansiYellow)
+		}
+		return colorize(padded, ansiRed)
+	case rule.VerdictSkip:
+		return colorize(padded, ansiCyan)
+	default:
+		return padded
+	}
+}
+
 func colorize(s string, color string) string {
 	return color + s + ansiReset
 }
@@ -123,7 +151,9 @@ const (
 	ansiRed    = "\033[31m"
 	ansiGreen  = "\033[32m"
 	ansiYellow = "\033[33m"
+	ansiBlue   = "\033[34m"
 	ansiCyan   = "\033[36m"
+	ansiWhite  = "\033[37m"
 )
 
 func writeRulesTable(w io.Writer, results []rule.Result, passCount, failCount, skipCount int) error {
@@ -144,7 +174,8 @@ func writeRulesTable(w io.Writer, results []rule.Result, passCount, failCount, s
 		if rr.Reference != "" {
 			showReference = true
 		}
-		if rr.Severity == "warning" {
+		// Show severity column if any rule has a severity defined (not empty)
+		if rr.Severity != "" {
 			showSeverity = true
 		}
 	}
@@ -195,7 +226,7 @@ func writeRulesTable(w io.Writer, results []rule.Result, passCount, failCount, s
 	}
 
 	for _, rr := range results {
-		verdict := verdictLabelColoredPadded(rr.Verdict, 7)
+		verdict := verdictLabelColoredPaddedWithSeverity(rr.Verdict, rr.Severity, 7)
 		level := severityLabel(rr.Severity)
 		if showReference && showSeverity {
 			if _, err := fmt.Fprintf(w, "  %s  %-*s  %-*s  %-*s\n", verdict, levelWidth, level, ruleWidth, rr.RuleID, refWidth, rr.Reference); err != nil {
@@ -276,6 +307,9 @@ func severityLabelColored(severity string) string {
 	label := severityLabel(severity)
 	if severity == "warning" {
 		return colorize(label, ansiYellow)
+	}
+	if severity == "info" {
+		return colorize(label, ansiBlue)
 	}
 	return label
 }

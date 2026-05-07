@@ -5,5 +5,5 @@ rules:
   - id: aki-present
     target: certificate.authorityKeyIdentifier
     operator: present
-    appliesTo: [leaf, intermediate]
+    certType: [leaf, intermediate]
     severity: error

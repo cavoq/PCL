@@ -150,8 +150,78 @@ func TestContainsWrongOperands(t *testing.T) {
 		t.Error("should error with no operands")
 	}
 
-	_, err = op.Evaluate(n, nil, []any{"a", "b"})
+	// Multiple operands now allowed (any match semantics)
+	result, err := op.Evaluate(n, nil, []any{"a", "b"})
+	if err != nil {
+		t.Error("multiple operands should now be allowed")
+	}
+	if !result {
+		t.Error("should match 'a' in slice")
+	}
+
+	// Test multiple operands with no match
+	result, err = op.Evaluate(n, nil, []any{"x", "y"})
+	if err != nil {
+		t.Error("multiple operands should be allowed")
+	}
+	if result {
+		t.Error("should not match 'x' or 'y' in slice")
+	}
+}
+
+func TestDEREqualsHex(t *testing.T) {
+	// RSA AlgorithmIdentifier: SEQUENCE { OID 1.2.840.113549.1.1.1, NULL }
+	// DER encoding: 30 0d 06 09 2a 86 48 86 f7 0d 01 01 01 05 00
+	rsaDER := []byte{0x30, 0x0d, 0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x01, 0x05, 0x00}
+
+	// ECDSA with secp256r1: SEQUENCE { OID 1.2.840.10045.2.1, OID 1.2.840.10045.3.1.7 }
+	// DER encoding: 30 13 06 07 2a 86 48 ce 3d 02 01 06 08 2a 86 48 ce 3d 03 01 07
+	ecdsaDER := []byte{0x30, 0x13, 0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02, 0x01, 0x06, 0x08, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x03, 0x01, 0x07}
+
+	tests := []struct {
+		name     string
+		value    any
+		operands []any
+		expected bool
+	}{
+		{"exact match RSA", rsaDER, []any{"300d06092a864886f70d0101010500"}, true},
+		{"exact match ECDSA", ecdsaDER, []any{"301306072a8648ce3d020106082a8648ce3d030107"}, true},
+		{"no match", rsaDER, []any{"301306072a8648ce3d0201"}, false},
+		{"multiple operands - one matches", rsaDER, []any{"301306072a8648ce3d0201", "300d06092a864886f70d0101010500"}, true},
+		{"multiple operands - none match", rsaDER, []any{"301306072a8648ce3d0201", "deadbeef"}, false},
+		{"invalid hex operand skipped", rsaDER, []any{"not-valid-hex", "300d06092a864886f70d0101010500"}, true},
+		{"non-string operand skipped", rsaDER, []any{123, "300d06092a864886f70d0101010500"}, true},
+		{"wrong type value", "not bytes", []any{"300d06092a864886f70d0101010500"}, false},
+	}
+
+	op := DEREqualsHex{}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			n := node.New("test", tt.value)
+			got, err := op.Evaluate(n, nil, tt.operands)
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+			if got != tt.expected {
+				t.Errorf("got %v, want %v", got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestDEREqualsHexNilNode(t *testing.T) {
+	op := DEREqualsHex{}
+	got, _ := op.Evaluate(nil, nil, []any{"300d06092a864886f70d0101010500"})
+	if got != false {
+		t.Error("nil node should return false")
+	}
+}
+
+func TestDEREqualsHexNoOperands(t *testing.T) {
+	op := DEREqualsHex{}
+	n := node.New("test", []byte{0x30, 0x0d})
+	_, err := op.Evaluate(n, nil, []any{})
 	if err == nil {
-		t.Error("should error with too many operands")
+		t.Error("should error with no operands")
 	}
 }

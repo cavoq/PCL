@@ -1,11 +1,16 @@
 package crl
 
 import (
+	"encoding/pem"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/cavoq/PCL/internal/loader"
+	"github.com/cavoq/PCL/internal/source"
 )
 
 func TestParseCRL_PEM(t *testing.T) {
@@ -82,6 +87,12 @@ func TestGetCRLs_SingleFile(t *testing.T) {
 	if crls[0].FilePath == "" {
 		t.Error("expected non-empty file path")
 	}
+	if crls[0].Source.Type != source.Local {
+		t.Fatalf("expected local source, got %q", crls[0].Source.Type)
+	}
+	if crls[0].Format != source.FormatPEM {
+		t.Fatalf("expected PEM format, got %q", crls[0].Format)
+	}
 }
 
 func TestGetCRLs_Directory(t *testing.T) {
@@ -117,5 +128,70 @@ func TestGetCRLs_NoValidCRLs(t *testing.T) {
 	_, err := GetCRLs(tmpDir)
 	if err == nil {
 		t.Fatal("expected error when no valid CRLs found")
+	}
+}
+
+func TestFetchCRL_DER(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("testdata", "test.crl"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	block, _ := pem.Decode(data)
+	if block == nil || block.Type != "X509 CRL" {
+		t.Fatal("expected X509 CRL PEM fixture")
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write(block.Bytes)
+	}))
+	defer server.Close()
+
+	result, err := FetchCRL(server.URL, time.Second)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.CRL == nil {
+		t.Fatal("expected CRL, got nil")
+	}
+	if result.Format != source.FormatDER {
+		t.Fatalf("expected DER format, got %q", result.Format)
+	}
+	if result.Source.Type != source.Downloaded {
+		t.Fatalf("expected downloaded source, got %q", result.Source.Type)
+	}
+	if result.Source.URL != server.URL {
+		t.Fatalf("expected URL %q, got %q", server.URL, result.Source.URL)
+	}
+	if result.FilePath != server.URL {
+		t.Fatalf("expected file path %q, got %q", server.URL, result.FilePath)
+	}
+	if result.Hash == "" {
+		t.Fatal("expected non-empty hash")
+	}
+}
+
+func TestFetchCRL_PEM(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("testdata", "test.pem"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write(data)
+	}))
+	defer server.Close()
+
+	result, err := FetchCRL(server.URL, time.Second)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.CRL == nil {
+		t.Fatal("expected CRL, got nil")
+	}
+	if result.Format != source.FormatPEM {
+		t.Fatalf("expected PEM format, got %q", result.Format)
+	}
+	if result.Source.Type != source.Downloaded {
+		t.Fatalf("expected downloaded source, got %q", result.Source.Type)
 	}
 }
