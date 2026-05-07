@@ -52,26 +52,23 @@ func IsSelfSigned(cert *x509.Certificate) bool {
 	return cert.Subject.String() == cert.Issuer.String()
 }
 
-func GetCertType(cert *x509.Certificate, position, chainLen int) string {
-	// At position 0, check BasicConstraints to determine if it's actually a CA
-	if position == 0 {
-		if cert.BasicConstraintsValid && cert.IsCA {
-			if IsSelfSigned(cert) {
-				return "root"
-			}
-			return "intermediate"
-		}
-		// Check for ocspSigning EKU before returning "leaf"
-		for _, eku := range cert.ExtKeyUsage {
-			if eku == x509.ExtKeyUsageOcspSigning {
-				return "ocspSigning"
-			}
-		}
-		return "leaf"
+func GetCertType(cert *x509.Certificate, _, _ int) string {
+	if cert == nil {
+		return ""
 	}
-	// At other positions, check if it's root or intermediate
-	if position == chainLen-1 && IsSelfSigned(cert) {
-		return "root"
+
+	if cert.BasicConstraintsValid && cert.IsCA {
+		if IsSelfSigned(cert) {
+			return "root"
+		}
+		return "intermediate"
 	}
-	return "intermediate"
+
+	for _, eku := range cert.ExtKeyUsage {
+		if eku == x509.ExtKeyUsageOcspSigning {
+			return "ocspSigning"
+		}
+	}
+
+	return "leaf"
 }
