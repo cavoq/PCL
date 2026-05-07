@@ -4,6 +4,7 @@ import (
 	"encoding/pem"
 	"fmt"
 
+	"github.com/cavoq/PCL/internal/source"
 	"github.com/zmap/zcrypto/x509"
 
 	"github.com/cavoq/PCL/internal/io"
@@ -11,28 +12,44 @@ import (
 
 var extensions = []string{".pem", ".der", ".crt", ".cer"}
 
+type Format string
+
+const (
+	FormatDER   Format = "DER"
+	FormatPEM   Format = "PEM"
+	FormatPKCS7 Format = "PKCS7"
+)
+
 type Info struct {
-	Cert         *x509.Certificate
-	FilePath     string
-	Hash         string
-	Position     int
-	Type         string
-	Source       string // Source description: "local", "downloaded", "extracted from PKCS#7", etc.
-	DownloadURL  string // URL if certificate was downloaded via CA Issuers
-	DownloadFormat string // Format of download: "DER", "PKCS7", "PEM" (PEM is not RFC compliant)
+	Cert     *x509.Certificate
+	FilePath string
+	Hash     string
+	Position int
+	Type     string
+	Source   source.Info
+	Format   Format
 }
 
 func ParseCertificate(data []byte) (*x509.Certificate, error) {
+	cert, _, err := parseCertificate(data)
+	return cert, err
+}
+
+func parseCertificate(data []byte) (*x509.Certificate, Format, error) {
 	block, _ := pem.Decode(data)
 	if block != nil && block.Type == "CERTIFICATE" {
-		return x509.ParseCertificate(block.Bytes)
+		cert, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			return nil, "", err
+		}
+		return cert, FormatPEM, nil
 	}
 
 	cert, err := x509.ParseCertificate(data)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse PEM or DER certificate: %w", err)
+		return nil, "", fmt.Errorf("failed to parse PEM or DER certificate: %w", err)
 	}
-	return cert, nil
+	return cert, FormatDER, nil
 }
 
 func GetCertFiles(path string) ([]string, error) {

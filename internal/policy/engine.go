@@ -9,15 +9,15 @@ import (
 )
 
 type Policy struct {
-	ID         string      `yaml:"id"`
-	Version    string      `yaml:"version"`
-	Includes   []string    `yaml:"includes,omitempty"`
-	AppliesTo  []string    `yaml:"appliesTo,omitempty"`
-	CertType   []string    `yaml:"certType,omitempty"`
-	CRLType    []string    `yaml:"crlType,omitempty"`
-	TSTType    []string    `yaml:"tstType,omitempty"`
-	SCTType    []string    `yaml:"sctType,omitempty"`
-	Rules      []rule.Rule `yaml:"rules"`
+	ID        string      `yaml:"id"`
+	Version   string      `yaml:"version"`
+	Includes  []string    `yaml:"includes,omitempty"`
+	AppliesTo []string    `yaml:"appliesTo,omitempty"`
+	CertType  []string    `yaml:"certType,omitempty"`
+	CRLType   []string    `yaml:"crlType,omitempty"`
+	TSTType   []string    `yaml:"tstType,omitempty"`
+	SCTType   []string    `yaml:"sctType,omitempty"`
+	Rules     []rule.Rule `yaml:"rules"`
 }
 
 type Result struct {
@@ -62,7 +62,7 @@ func Evaluate(
 	if ctx != nil && ctx.Cert != nil {
 		certType = ctx.Cert.Type
 		certPath = ctx.Cert.FilePath
-		source = ctx.Cert.Source
+		source = ctx.Cert.Source.String()
 	}
 
 	return Result{

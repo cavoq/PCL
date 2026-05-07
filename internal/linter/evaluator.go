@@ -10,6 +10,7 @@ import (
 	ocspzcrypto "github.com/cavoq/PCL/internal/ocsp/zcrypto"
 	"github.com/cavoq/PCL/internal/operator"
 	"github.com/cavoq/PCL/internal/policy"
+	"github.com/cavoq/PCL/internal/source"
 	"github.com/cavoq/PCL/internal/zcrypto"
 	"github.com/zmap/zcrypto/x509"
 )
@@ -31,9 +32,9 @@ func evaluateChain(ctx EvaluationContext) []policy.Result {
 		tree := certzcrypto.BuildTree(c.Cert)
 
 		// Add download format to tree for PEM format detection rule
-		if c.DownloadFormat != "" {
-			tree.Children["downloadFormat"] = node.New("downloadFormat", c.DownloadFormat)
-			tree.Children["downloadURL"] = node.New("downloadURL", c.DownloadURL)
+		if c.Source.Format != "" && c.Source.Type != source.Local {
+			tree.Children["downloadFormat"] = node.New("downloadFormat", c.Source.Format)
+			tree.Children["downloadURL"] = node.New("downloadURL", c.Source.URL)
 		}
 
 		// Add CRL node to tree if CRLs are present
@@ -84,7 +85,7 @@ func evaluateOCSP(ctx EvaluationContext) []policy.Result {
 		ocspCertInfo := &cert.Info{
 			FilePath: ocspInfo.FilePath,
 			Type:     "ocsp",
-			Source:   ocspInfo.Source,
+			Source:   source.Info{Description: ocspInfo.Source},
 		}
 
 		tree := ocspNode
@@ -119,7 +120,7 @@ func evaluateOCSPSigningCert(policies []policy.Policy, registry *operator.Regist
 		Cert:     zcryptoSignerCert,
 		FilePath: ocspInfo.FilePath + " (signing cert)",
 		Type:     "ocspSigning",
-		Source:   "extracted from OCSP response",
+		Source:   source.Info{Type: source.Extracted, Description: "extracted from OCSP response"},
 	}
 
 	evalOpts := []operator.ContextOption{operator.WithOCSPs(ocsps)}
@@ -156,7 +157,7 @@ func evaluateCRL(ctx EvaluationContext) []policy.Result {
 		crlCertInfo := &cert.Info{
 			FilePath: crlInfo.FilePath,
 			Type:     "crl",
-			Source:   crlInfo.Source.String(),
+			Source:   crlInfo.Source,
 		}
 
 		tree := crlNode
@@ -197,7 +198,7 @@ func evaluateCRLOnly(policies []policy.Policy, registry *operator.Registry, crls
 		crlCertInfo := &cert.Info{
 			FilePath: crlInfo.FilePath,
 			Type:     "crl",
-			Source:   crlInfo.Source.String(),
+			Source:   crlInfo.Source,
 		}
 
 		tree := crlNode
@@ -235,7 +236,7 @@ func evaluateOCSPOnly(policies []policy.Policy, registry *operator.Registry, ocs
 		ocspCertInfo := &cert.Info{
 			FilePath: ocspInfo.FilePath,
 			Type:     "ocsp",
-			Source:   ocspInfo.Source,
+			Source:   source.Info{Description: ocspInfo.Source},
 		}
 
 		tree := ocspNode

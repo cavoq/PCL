@@ -1,34 +1,47 @@
 package cert
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"os"
 	"slices"
 
-	"github.com/zmap/zcrypto/x509"
-
-	"github.com/cavoq/PCL/internal/loader"
+	"github.com/cavoq/PCL/internal/source"
 )
 
 func LoadCertificates(path string) ([]*Info, error) {
-	results, err := loader.LoadAll(
-		path,
-		extensions,
-		ParseCertificate,
-		func(cert *x509.Certificate) []byte { return cert.Raw },
-	)
+	files, err := GetCertFiles(path)
 	if err != nil {
 		return nil, err
 	}
 
-	infos := make([]*Info, len(results))
-	for i, r := range results {
-		infos[i] = &Info{
-			Cert:     r.Data,
-			FilePath: r.FilePath,
-			Hash:     r.Hash,
-			Source:   "local",
+	infos := make([]*Info, 0, len(files))
+	for _, file := range files {
+		data, err := os.ReadFile(file)
+		if err != nil {
+			continue
 		}
+
+		cert, format, err := parseCertificate(data)
+		if err != nil {
+			continue
+		}
+
+		hash := sha256.Sum256(cert.Raw)
+		infos = append(infos, &Info{
+			Cert:     cert,
+			FilePath: file,
+			Hash:     hex.EncodeToString(hash[:]),
+			Source:   source.Info{Type: source.Local, Format: string(format)},
+			Format:   format,
+		})
 	}
+
+	if len(infos) == 0 && len(files) > 0 {
+		return nil, fmt.Errorf("no valid items found in %s", path)
+	}
+
 	return infos, nil
 }
 

@@ -10,6 +10,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/cavoq/PCL/internal/source"
 	"github.com/zmap/zcrypto/x509"
 
 	fileio "github.com/cavoq/PCL/internal/io"
@@ -24,27 +25,11 @@ const (
 	FormatPEM Format = "PEM" // Fallback format
 )
 
-type SourceType string
-
-const (
-	SourceLocal      SourceType = "local"
-	SourceDownloaded SourceType = "downloaded"
-)
-
-type SourceInfo struct {
-	Type SourceType
-	URL  string
-}
-
-func (s SourceInfo) String() string {
-	return string(s.Type)
-}
-
 type Info struct {
 	CRL      *x509.RevocationList
 	FilePath string
 	Hash     string
-	Source   SourceInfo
+	Source   source.Info
 	Format   Format
 }
 
@@ -99,7 +84,7 @@ func GetCRLs(path string) ([]*Info, error) {
 			CRL:      crl,
 			FilePath: file,
 			Hash:     hex.EncodeToString(hash[:]),
-			Source:   SourceInfo{Type: SourceLocal},
+			Source:   source.Info{Type: source.Local, Format: string(format)},
 			Format:   format,
 		})
 	}
@@ -142,7 +127,7 @@ func FetchCRL(url string, timeout time.Duration) (*Info, error) {
 		CRL:      crl,
 		FilePath: url,
 		Hash:     hex.EncodeToString(hash[:]),
-		Source:   SourceInfo{Type: SourceDownloaded, URL: url},
+		Source:   source.Info{Type: source.Downloaded, URL: url, Format: string(format)},
 		Format:   format,
 	}, nil
 }

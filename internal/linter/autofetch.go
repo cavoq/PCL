@@ -10,6 +10,7 @@ import (
 	"github.com/cavoq/PCL/internal/cert"
 	"github.com/cavoq/PCL/internal/crl"
 	"github.com/cavoq/PCL/internal/ocsp"
+	"github.com/cavoq/PCL/internal/source"
 	"github.com/cavoq/PCL/internal/zcrypto"
 	"github.com/zmap/zcrypto/x509"
 )
@@ -107,26 +108,27 @@ func climbChain(chain []*cert.Info, timeout time.Duration, maxDepth int, w io.Wr
 		}
 
 		// Add issuer to chain
-		var source string
+		sourceInfo := source.Info{
+			Type:   source.Downloaded,
+			URL:    url,
+			Format: string(pkcs7Result.Format),
+		}
 		switch pkcs7Result.Format {
 		case aia.FormatPKCS7:
-			source = "extracted from PKCS#7"
+			sourceInfo.Type = source.Extracted
+			sourceInfo.Description = "extracted from PKCS#7"
 		case aia.FormatDER:
-			source = "downloaded"
 		case aia.FormatPEM:
-			source = "downloaded PEM"
+			sourceInfo.Description = "downloaded PEM"
 			_, _ = fmt.Fprintf(w, "Warning: CA Issuers URL %s returned PEM format (RFC 5280 requires DER/BER)\n", url)
-		default:
-			source = "downloaded"
 		}
 		issuerInfo := &cert.Info{
-			Cert:           issuerCert,
-			FilePath:       url,
-			Type:           cert.GetCertType(issuerCert, len(result), len(result)+1),
-			Position:       len(result),
-			Source:         source,
-			DownloadURL:    url,
-			DownloadFormat: string(pkcs7Result.Format),
+			Cert:     issuerCert,
+			FilePath: url,
+			Type:     cert.GetCertType(issuerCert, len(result), len(result)+1),
+			Position: len(result),
+			Source:   sourceInfo,
+			Format:   cert.Format(pkcs7Result.Format),
 		}
 		result = append(result, issuerInfo)
 

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/cavoq/PCL/internal/loader"
+	"github.com/cavoq/PCL/internal/source"
 )
 
 func TestParseCRL_PEM(t *testing.T) {
@@ -86,7 +87,7 @@ func TestGetCRLs_SingleFile(t *testing.T) {
 	if crls[0].FilePath == "" {
 		t.Error("expected non-empty file path")
 	}
-	if crls[0].Source.Type != SourceLocal {
+	if crls[0].Source.Type != source.Local {
 		t.Fatalf("expected local source, got %q", crls[0].Source.Type)
 	}
 	if crls[0].Format != FormatPEM {
@@ -155,7 +156,7 @@ func TestFetchCRL_DER(t *testing.T) {
 	if result.Format != FormatDER {
 		t.Fatalf("expected DER format, got %q", result.Format)
 	}
-	if result.Source.Type != SourceDownloaded {
+	if result.Source.Type != source.Downloaded {
 		t.Fatalf("expected downloaded source, got %q", result.Source.Type)
 	}
 	if result.Source.URL != server.URL {
@@ -190,7 +191,7 @@ func TestFetchCRL_PEM(t *testing.T) {
 	if result.Format != FormatPEM {
 		t.Fatalf("expected PEM format, got %q", result.Format)
 	}
-	if result.Source.Type != SourceDownloaded {
+	if result.Source.Type != source.Downloaded {
 		t.Fatalf("expected downloaded source, got %q", result.Source.Type)
 	}
 }
