@@ -3,7 +3,8 @@ package asn1
 import "testing"
 
 func TestParseUTCTime(t *testing.T) {
-	der := []byte{0x17, 0x0d}
+	der := make([]byte, 0, 15)
+	der = append(der, 0x17, 0x0d)
 	der = append(der, []byte("250101000000Z")...)
 
 	info, err := ParseUTCTime(der)
@@ -25,7 +26,8 @@ func TestParseUTCTime(t *testing.T) {
 }
 
 func TestParseGeneralizedTime(t *testing.T) {
-	der := []byte{0x18, 0x11}
+	der := make([]byte, 0, 19)
+	der = append(der, 0x18, 0x11)
 	der = append(der, []byte("20250101000000.5Z")...)
 
 	info, err := ParseGeneralizedTime(der)

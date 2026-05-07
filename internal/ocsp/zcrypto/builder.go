@@ -1,3 +1,4 @@
+// Package zcrypto provides zcrypto-based OCSP response parsing.
 package zcrypto
 
 import (

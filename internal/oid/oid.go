@@ -1,3 +1,4 @@
+// Package oid provides X.509 OID constants and lookups.
 package oid
 
 import "github.com/zmap/zcrypto/x509"

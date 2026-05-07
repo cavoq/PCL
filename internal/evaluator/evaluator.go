@@ -1,3 +1,4 @@
+// Package evaluator provides certificate evaluation against policies.
 package evaluator
 
 import (

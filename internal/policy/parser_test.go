@@ -163,7 +163,9 @@ rules:
     operator: eq
     operands: [3]
 `)
-	os.WriteFile(path, data, 0644)
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		t.Fatal(err)
+	}
 
 	p, err := ParseFile(path)
 	if err != nil {
@@ -341,9 +343,15 @@ rules:
     operands: [3]
 `)
 
-	os.WriteFile(filepath.Join(dir, "p1.yaml"), p1, 0644)
-	os.WriteFile(filepath.Join(dir, "p2.yml"), p2, 0644)
-	os.WriteFile(filepath.Join(dir, "ignored.txt"), []byte("not yaml"), 0644)
+	if err := os.WriteFile(filepath.Join(dir, "p1.yaml"), p1, 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "p2.yml"), p2, 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "ignored.txt"), []byte("not yaml"), 0644); err != nil {
+		t.Fatal(err)
+	}
 
 	policies, err := ParseDir(dir)
 	if err != nil {
@@ -371,8 +379,12 @@ rules:
     operator: eq
     operands: [3]
 `)
-	os.WriteFile(filepath.Join(dir, "p.yaml"), p, 0644)
-	os.Mkdir(filepath.Join(dir, "subdir"), 0755)
+	if err := os.WriteFile(filepath.Join(dir, "p.yaml"), p, 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(filepath.Join(dir, "subdir"), 0755); err != nil {
+		t.Fatal(err)
+	}
 
 	policies, err := ParseDir(dir)
 	if err != nil {

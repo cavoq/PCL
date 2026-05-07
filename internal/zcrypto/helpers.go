@@ -1,3 +1,4 @@
+// Package zcrypto provides zcrypto conversion helpers.
 package zcrypto
 
 import (

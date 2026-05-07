@@ -16,28 +16,31 @@ linters:
     - gosec
     - prealloc
 
-linters-settings:
-  errcheck:
-    check-type-assertions: true
-    check-blank: false
+  settings:
+    errcheck:
+      check-type-assertions: true
+      check-blank: false
 
-  govet:
-    disable:
-      - fieldalignment
+    govet:
+      disable:
+        - fieldalignment
 
-  misspell:
-    locale: US
+    misspell:
+      locale: US
 
-  gosec:
-    excludes:
-      - G104
-      - G304
-      - G306
+    gosec:
+      excludes:
+        - G104  # Errors unhandled (deferred close)
+        - G107  # URL from variable — intentional in fetchers
+        - G115  # Integer overflow in byte conversions — ASN.1 encoding
+        - G301  # Dir permissions 0750+ — acceptable for public data dirs
+        - G304  # File path via variable — intentional throughout
+        - G306  # File permissions — 0644 is intentional for cert/policy files
 
-  staticcheck:
-    checks:
-      - all
-      - -SA1019
+    staticcheck:
+      checks:
+        - all
+        - -SA1019
 
 issues:
   exclude-use-default: false
@@ -50,3 +53,4 @@ issues:
         - gosec
         - unparam
         - errcheck
+        - prealloc

@@ -1,3 +1,4 @@
+// Package output provides lint result formatting and output.
 package output
 
 import (
@@ -25,8 +26,9 @@ func FromPolicyResults(policyResults []policy.Result) LintOutput {
 	var passed, failed, skipped, totalRules int
 
 	for i := range policyResults {
+		pr := &policyResults[i]
 		counts := policy.Counts{}
-		for _, rr := range policyResults[i].Results {
+		for _, rr := range pr.Results {
 			totalRules++
 			switch rr.Verdict {
 			case rule.VerdictPass:
@@ -43,7 +45,7 @@ func FromPolicyResults(policyResults []policy.Result) LintOutput {
 				counts.Skipped++
 			}
 		}
-		policyResults[i].Counts = counts
+		pr.Counts = counts
 	}
 
 	checkedAt := time.Now()

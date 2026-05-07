@@ -150,7 +150,8 @@ func TestParseCertPolicies(t *testing.T) {
 				if !ok {
 					return false
 				}
-				return encoding.Value.(string) == "ia5String"
+				s, ok := encoding.Value.(string)
+				return ok && s == "ia5String"
 			},
 			expected: true,
 		},
@@ -186,7 +187,8 @@ func TestParseCertPolicies(t *testing.T) {
 				if !ok {
 					return false
 				}
-				return encoding.Value.(string) == "utf8String"
+				s, ok := encoding.Value.(string)
+				return ok && s == "utf8String"
 			},
 			expected: true,
 		},

@@ -271,7 +271,7 @@ func TestBuilder_ExtensionDetails(t *testing.T) {
 }
 
 func TestBuilder_AIAStructure(t *testing.T) {
-	data, err := os.ReadFile("../../../tests/certs/letsencrypt.pem")
+	data, err := os.ReadFile("../../../tests/certs/leaf.pem")
 	if err != nil {
 		t.Fatalf("failed to read cert: %v", err)
 	}
@@ -343,7 +343,8 @@ func TestBuilder_AIAStructure(t *testing.T) {
 	if !ok {
 		t.Fatal("accessLocation tag not found")
 	}
-	if locTag.Value.(int) != 6 {
+	locTagInt, ok2 := locTag.Value.(int)
+	if !ok2 || locTagInt != 6 {
 		t.Errorf("expected URI tag 6, got %v", locTag.Value)
 	}
 
@@ -359,7 +360,7 @@ func TestBuilder_AIAStructure(t *testing.T) {
 }
 
 func TestBuilder_CRLDPStructure(t *testing.T) {
-	data, err := os.ReadFile("../../../tests/certs/letsencrypt.pem")
+	data, err := os.ReadFile("../../../tests/certs/leaf.pem")
 	if err != nil {
 		t.Fatalf("failed to read cert: %v", err)
 	}
@@ -409,15 +410,15 @@ func TestBuilder_CRLDPStructure(t *testing.T) {
 	hasReasons, ok := dp0.Children["hasReasons"]
 	if ok {
 		t.Logf("hasReasons: %v", hasReasons.Value)
-		if hasReasons.Value.(bool) {
-			t.Error("should not have reasons field for Let's Encrypt cert")
+		if hasReasonsVal, ok2 := hasReasons.Value.(bool); ok2 && hasReasonsVal {
+			t.Error("should not have reasons field for test cert")
 		}
 	}
 	hasCRLIssuer, ok := dp0.Children["hasCRLIssuer"]
 	if ok {
 		t.Logf("hasCRLIssuer: %v", hasCRLIssuer.Value)
-		if hasCRLIssuer.Value.(bool) {
-			t.Error("should not have cRLIssuer field for Let's Encrypt cert")
+		if hasCRLIssuerVal, ok2 := hasCRLIssuer.Value.(bool); ok2 && hasCRLIssuerVal {
+			t.Error("should not have cRLIssuer field for test cert")
 		}
 	}
 
@@ -439,7 +440,8 @@ func TestBuilder_CRLDPStructure(t *testing.T) {
 		t.Fatal("generalName type not found")
 	}
 	t.Logf("GeneralName type: %v", gnType.Value)
-	if gnType.Value.(string) != "uniformResourceIdentifier" {
+	gnTypeStr, ok2 := gnType.Value.(string)
+	if !ok2 || gnTypeStr != "uniformResourceIdentifier" {
 		t.Errorf("expected URI type, got %v", gnType.Value)
 	}
 	scheme, ok := gn0.Children["scheme"]

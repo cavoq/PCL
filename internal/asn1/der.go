@@ -1,3 +1,4 @@
+// Package asn1 provides DER encoding/decoding helpers for X.509 ASN.1 structures.
 package asn1
 
 import (
@@ -47,15 +48,17 @@ func ReadDERLength(data []byte, pos int) (int, int, error) {
 	}
 
 	length := 0
-	for i := 0; i < lenBytes; i++ {
+	for i := range lenBytes {
 		length = (length << 8) | int(data[pos+1+i])
 	}
 	return length, pos + 1 + lenBytes, nil
 }
 
 func encodeTagged(tag byte, content []byte) []byte {
-	result := []byte{tag}
-	result = append(result, encodeDERLength(len(content))...)
+	lenBytes := encodeDERLength(len(content))
+	result := make([]byte, 0, 1+len(lenBytes)+len(content))
+	result = append(result, tag)
+	result = append(result, lenBytes...)
 	result = append(result, content...)
 	return result
 }

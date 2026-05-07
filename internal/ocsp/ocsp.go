@@ -1,3 +1,4 @@
+// Package ocsp provides OCSP request building and response parsing.
 package ocsp
 
 import (

@@ -1,3 +1,4 @@
+// Package linter provides PCL lint runner orchestration.
 package linter
 
 import "time"

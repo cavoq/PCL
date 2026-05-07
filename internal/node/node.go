@@ -1,3 +1,4 @@
+// Package node provides a tree node type for representing certificate field values.
 package node
 
 type Node struct {

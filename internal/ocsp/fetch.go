@@ -58,7 +58,7 @@ func postOCSPRequest(url string, req []byte, timeout time.Duration) (*ocsp.Respo
 	if err != nil {
 		return nil, fmt.Errorf("failed to send OCSP request: %w", err)
 	}
-	defer httpResp.Body.Close()
+	defer func() { _ = httpResp.Body.Close() }()
 
 	if httpResp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("OCSP server returned status %d", httpResp.StatusCode)

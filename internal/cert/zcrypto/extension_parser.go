@@ -9,12 +9,6 @@ import (
 	cryptobyte_asn1 "golang.org/x/crypto/cryptobyte/asn1"
 )
 
-// AIA OID: 1.3.6.1.5.5.7.1.1
-const aiaOID = "1.3.6.1.5.5.7.1.1"
-
-// CRL Distribution Points OID: 2.5.29.31
-const crlDPOID = "2.5.29.31"
-
 // ParseAIA parses the Authority Information Access extension (OID 1.3.6.1.5.5.7.1.1)
 // and returns a node tree with accessDescriptions.
 //
@@ -89,25 +83,21 @@ func ParseAIA(extValue []byte) *node.Node {
 		locationNode.Children["type"] = node.New("type", generalNameType(contextTag))
 		locationNode.Children["tag"] = node.New("tag", contextTag)
 
-		// For URI (tag 6), extract the URI string
-		if contextTag == 6 {
+		switch contextTag {
+		case 6:
 			uri := string(location)
 			locationNode.Children["value"] = node.New("value", uri)
-			// Extract scheme for convenience
 			if strings.Contains(uri, ":") {
 				scheme := strings.Split(uri, ":")[0]
 				locationNode.Children["scheme"] = node.New("scheme", scheme)
 			}
-		} else if contextTag == 2 {
-			// DNS name
+		case 2:
 			locationNode.Children["value"] = node.New("value", string(location))
-		} else if contextTag == 7 {
-			// IP address - 4 bytes for IPv4, 16 bytes for IPv6
+		case 7:
 			if len(location) == 4 || len(location) == 16 {
 				locationNode.Children["value"] = node.New("value", location)
 			}
-		} else {
-			// Other types - store raw bytes
+		default:
 			locationNode.Children["value"] = node.New("value", location)
 		}
 
@@ -338,9 +328,6 @@ func decodeReasonFlags(n *node.Node, bytes []byte, unusedBits int) {
 		}
 	}
 }
-
-// Certificate Policies OID: 2.5.29.32
-const certPoliciesOID = "2.5.29.32"
 
 // Policy Qualifier Type OIDs
 const (

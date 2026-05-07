@@ -323,7 +323,8 @@ func TimeToUTCTime(t time.Time) []byte {
 // encodeASN1String creates a DER-encoded ASN.1 string.
 func encodeASN1String(tag int, value string) []byte {
 	length := len(value)
-	result := []byte{byte(tag), byte(length)}
+	result := make([]byte, 0, 2+len(value))
+	result = append(result, byte(tag), byte(length))
 	result = append(result, []byte(value)...)
 	return result
 }
@@ -367,14 +368,13 @@ func ParseRawCertificateTimes(rawCert []byte) (notBefore, notAfter time.Time, no
 	}
 	notBeforeTag = int(nbTag)
 
-	// Parse the time value
-	if notBeforeTag == 23 {
+	switch notBeforeTag {
+	case 23:
 		var utcTime string
 		if _, err := stdasn1.Unmarshal([]byte(nb), &utcTime); err == nil {
-			// Parse YYMMDDHHMMSSZ
 			notBefore, _ = time.Parse("060102150405Z", utcTime)
 		}
-	} else if notBeforeTag == 24 {
+	case 24:
 		var genTime string
 		if _, err := stdasn1.Unmarshal([]byte(nb), &genTime); err == nil {
 			notBefore, _ = time.Parse("20060102150405Z", genTime)
@@ -389,12 +389,13 @@ func ParseRawCertificateTimes(rawCert []byte) (notBefore, notAfter time.Time, no
 	}
 	notAfterTag = int(naTag)
 
-	if notAfterTag == 23 {
+	switch notAfterTag {
+	case 23:
 		var utcTime string
 		if _, err := stdasn1.Unmarshal([]byte(na), &utcTime); err == nil {
 			notAfter, _ = time.Parse("060102150405Z", utcTime)
 		}
-	} else if notAfterTag == 24 {
+	case 24:
 		var genTime string
 		if _, err := stdasn1.Unmarshal([]byte(na), &genTime); err == nil {
 			notAfter, _ = time.Parse("20060102150405Z", genTime)

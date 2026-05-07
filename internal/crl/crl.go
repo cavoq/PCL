@@ -1,3 +1,4 @@
+// Package crl provides CRL data types and properties.
 package crl
 
 import (

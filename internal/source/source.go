@@ -1,3 +1,4 @@
+// Package source provides certificate source metadata.
 package source
 
 type Type string

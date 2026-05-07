@@ -1,3 +1,4 @@
+// Package operator provides rule operators for evaluating certificate field values.
 package operator
 
 import "github.com/cavoq/PCL/internal/node"

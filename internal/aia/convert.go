@@ -1,3 +1,4 @@
+// Package aia provides AIA certificate extension parsing and issuer fetching.
 package aia
 
 import (

@@ -125,7 +125,7 @@ func parsePSLFile(filePath string) (*PSL, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	psl := &PSL{
 		ICANNDomains:      make(map[string]bool),
@@ -270,7 +270,7 @@ func DownloadPSL(url string, destPath string) error {
 	if err != nil {
 		return fmt.Errorf("failed to download PSL: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("failed to download PSL: HTTP %d", resp.StatusCode)
@@ -287,7 +287,7 @@ func DownloadPSL(url string, destPath string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create file: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	_, err = io.Copy(file, resp.Body)
 	if err != nil {

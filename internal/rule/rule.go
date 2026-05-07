@@ -1,3 +1,4 @@
+// Package rule provides rule types and verdict constants.
 package rule
 
 type Condition struct {

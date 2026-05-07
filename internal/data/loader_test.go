@@ -77,7 +77,9 @@ net
 github.io
 // ===END PRIVATE DOMAINS===
 `
-	os.WriteFile(testFile, []byte(content), 0644)
+	if err := os.WriteFile(testFile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
 
 	loader := &Loader{dataDir: tmpDir}
 	if err := loader.LoadPSL(testFile); err != nil {
@@ -115,7 +117,9 @@ uk
 co.uk
 // ===END ICANN DOMAINS===
 `
-	os.WriteFile(testFile, []byte(content), 0644)
+	if err := os.WriteFile(testFile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
 
 	loader := &Loader{dataDir: tmpDir}
 	if err := loader.LoadPSL(testFile); err != nil {
@@ -186,7 +190,9 @@ func TestParsePSLWithCommentsAndWhitespace(t *testing.T) {
   github.io
 // ===END PRIVATE DOMAINS===
 `
-	os.WriteFile(testFile, []byte(content), 0644)
+	if err := os.WriteFile(testFile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
 
 	psl, err := parsePSLFile(testFile)
 	if err != nil {
@@ -215,7 +221,9 @@ func TestPSLWildcardDomains(t *testing.T) {
 *.jp
 // ===END ICANN DOMAINS===
 `
-	os.WriteFile(testFile, []byte(content), 0644)
+	if err := os.WriteFile(testFile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
 
 	psl, err := parsePSLFile(testFile)
 	if err != nil {

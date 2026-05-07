@@ -1,3 +1,4 @@
+// Package zcrypto provides zcrypto-based CRL parsing.
 package zcrypto
 
 import (

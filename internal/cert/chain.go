@@ -79,10 +79,7 @@ func BuildChain(certs []*Info) ([]*Info, error) {
 		chain := []*Info{leaf}
 		current := leaf
 
-		for {
-			if IsSelfSigned(current.Cert) {
-				break
-			}
+		for !IsSelfSigned(current.Cert) {
 
 			issuer := subjectMap[current.Cert.Issuer.String()]
 			if issuer == nil {

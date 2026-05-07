@@ -11,7 +11,8 @@ func TestUTF8NoBOM(t *testing.T) {
 	op := UTF8NoBOM{}
 
 	// UTF-8 BOM byte sequence: EF BB BF
-	utf8BOM := []byte{0xEF, 0xBB, 0xBF}
+	utf8BOM := make([]byte, 0, 17)
+	utf8BOM = append(utf8BOM, 0xEF, 0xBB, 0xBF)
 
 	tests := []struct {
 		name     string

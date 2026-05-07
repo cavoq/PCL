@@ -73,7 +73,7 @@ func TestParseAIA(t *testing.T) {
 			checkFunc: func(n *node.Node) bool {
 				// Check count
 				if countNode, ok := n.Children["count"]; ok {
-					if countNode.Value.(int) != 2 {
+					if v, ok2 := countNode.Value.(int); !ok2 || v != 2 {
 						return false
 					}
 				}
@@ -84,7 +84,8 @@ func TestParseAIA(t *testing.T) {
 				}
 				// Check accessMethod
 				method, ok := ad0.Children["accessMethod"]
-				if !ok || method.Value.(string) != "1.3.6.1.5.5.7.48.1" {
+				methodStr, methodOk := method.Value.(string)
+				if !ok || !methodOk || methodStr != "1.3.6.1.5.5.7.48.1" {
 					return false
 				}
 				// Check accessLocation type is URI
@@ -93,15 +94,18 @@ func TestParseAIA(t *testing.T) {
 					return false
 				}
 				locType, ok := loc.Children["type"]
-				if !ok || locType.Value.(string) != "uniformResourceIdentifier" {
+				locTypeStr, locTypeOk := locType.Value.(string)
+				if !ok || !locTypeOk || locTypeStr != "uniformResourceIdentifier" {
 					return false
 				}
 				locTag, ok := loc.Children["tag"]
-				if !ok || locTag.Value.(int) != 6 {
+				locTagInt, locTagOk := locTag.Value.(int)
+				if !ok || !locTagOk || locTagInt != 6 {
 					return false
 				}
 				scheme, ok := loc.Children["scheme"]
-				if !ok || scheme.Value.(string) != "http" {
+				schemeStr, schemeOk := scheme.Value.(string)
+				if !ok || !schemeOk || schemeStr != "http" {
 					return false
 				}
 				return true
@@ -125,7 +129,8 @@ func TestParseAIA(t *testing.T) {
 					return false
 				}
 				// Should be dNSName, not uniformResourceIdentifier
-				return locType.Value.(string) == "dNSName"
+				s, ok := locType.Value.(string)
+				return ok && s == "dNSName"
 			},
 			expected: true,
 		},
@@ -137,7 +142,8 @@ func TestParseAIA(t *testing.T) {
 				if !ok {
 					return false
 				}
-				return empty.Value.(bool) == true
+				v, ok := empty.Value.(bool)
+				return ok && v
 			},
 			expected: true,
 		},
@@ -149,7 +155,8 @@ func TestParseAIA(t *testing.T) {
 				if !ok {
 					return false
 				}
-				return hasOCSP.Value.(bool) == true
+				v, ok := hasOCSP.Value.(bool)
+				return ok && v
 			},
 			expected: true,
 		},
@@ -161,7 +168,8 @@ func TestParseAIA(t *testing.T) {
 				if !ok {
 					return false
 				}
-				return hasCaIssuers.Value.(bool) == true
+				v, ok := hasCaIssuers.Value.(bool)
+				return ok && v
 			},
 			expected: true,
 		},
@@ -265,7 +273,8 @@ func TestParseCRLDP(t *testing.T) {
 			checkFunc: func(n *node.Node) bool {
 				// Check not empty
 				empty, ok := n.Children["empty"]
-				if ok && empty.Value.(bool) {
+				emptyVal, ok2 := empty.Value.(bool)
+				if ok && ok2 && emptyVal {
 					return false
 				}
 				// Check first distributionPoint
@@ -275,17 +284,20 @@ func TestParseCRLDP(t *testing.T) {
 				}
 				// Check hasFullName
 				hasFullName, ok := dp0.Children["hasFullName"]
-				if !ok || !hasFullName.Value.(bool) {
+				hasFullNameVal, ok2 := hasFullName.Value.(bool)
+				if !ok || !ok2 || !hasFullNameVal {
 					return false
 				}
 				// Check no reasons
 				hasReasons, ok := dp0.Children["hasReasons"]
-				if ok && hasReasons.Value.(bool) {
+				hasReasonsVal, ok2 := hasReasons.Value.(bool)
+				if ok && ok2 && hasReasonsVal {
 					return false
 				}
 				// Check no cRLIssuer
 				hasCRLIssuer, ok := dp0.Children["hasCRLIssuer"]
-				if ok && hasCRLIssuer.Value.(bool) {
+				hasCRLIssuerVal, ok2 := hasCRLIssuer.Value.(bool)
+				if ok && ok2 && hasCRLIssuerVal {
 					return false
 				}
 				// Check URI type
@@ -302,11 +314,13 @@ func TestParseCRLDP(t *testing.T) {
 					return false
 				}
 				gnType, ok := gn0.Children["type"]
-				if !ok || gnType.Value.(string) != "uniformResourceIdentifier" {
+				gnTypeStr, ok2 := gnType.Value.(string)
+				if !ok || !ok2 || gnTypeStr != "uniformResourceIdentifier" {
 					return false
 				}
 				scheme, ok := gn0.Children["scheme"]
-				if !ok || scheme.Value.(string) != "http" {
+				schemeStr, ok2 := scheme.Value.(string)
+				if !ok || !ok2 || schemeStr != "http" {
 					return false
 				}
 				return true
@@ -325,7 +339,8 @@ func TestParseCRLDP(t *testing.T) {
 				if !ok {
 					return false
 				}
-				return hasReasons.Value.(bool) == true
+				v, ok := hasReasons.Value.(bool)
+				return ok && v
 			},
 			expected: true,
 		},
@@ -341,7 +356,8 @@ func TestParseCRLDP(t *testing.T) {
 				if !ok {
 					return false
 				}
-				return hasCRLIssuer.Value.(bool) == true
+				v, ok := hasCRLIssuer.Value.(bool)
+				return ok && v
 			},
 			expected: true,
 		},
@@ -357,7 +373,8 @@ func TestParseCRLDP(t *testing.T) {
 				if !ok {
 					return false
 				}
-				return empty.Value.(bool) == true
+				v, ok := empty.Value.(bool)
+				return ok && v
 			},
 			expected: true,
 		},

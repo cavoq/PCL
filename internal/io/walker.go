@@ -1,3 +1,4 @@
+// Package io provides filesystem walker utilities.
 package io
 
 import (

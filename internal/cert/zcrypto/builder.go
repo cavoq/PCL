@@ -1,3 +1,4 @@
+// Package zcrypto provides zcrypto-based X.509 certificate parsing and node tree building.
 package zcrypto
 
 import (
