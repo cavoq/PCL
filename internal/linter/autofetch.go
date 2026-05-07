@@ -59,7 +59,7 @@ func climbChain(chain []*cert.Info, timeout time.Duration, maxDepth int, w io.Wr
 
 		// Fetch issuer(s) from first CA Issuers URL (may be PKCS#7 bundle)
 		url := top.Cert.IssuingCertificateURL[0]
-		pkcs7Result, err := aia.FetchCAIssuerPKCS7(url, timeout)
+		issuerResult, err := aia.FetchCAIssuer(url, timeout)
 		if err != nil {
 			_, _ = fmt.Fprintf(w, "Warning: failed to climb chain from %s: %v\n", url, err)
 			break
@@ -68,7 +68,7 @@ func climbChain(chain []*cert.Info, timeout time.Duration, maxDepth int, w io.Wr
 		// Find the correct issuer certificate from the bundle
 		// Match by Issuer DN (subject of issuer should match issuer of cert)
 		var issuerCert *x509.Certificate
-		for _, cert := range pkcs7Result.Certs {
+		for _, cert := range issuerResult.Certs {
 			// Check if this cert's subject matches the current cert's issuer
 			if cert.Subject.String() == top.Cert.Issuer.String() {
 				issuerCert = cert
@@ -78,7 +78,7 @@ func climbChain(chain []*cert.Info, timeout time.Duration, maxDepth int, w io.Wr
 
 		// If no exact DN match, try AKI-SKI matching
 		if issuerCert == nil && len(top.Cert.AuthorityKeyId) > 0 {
-			for _, cert := range pkcs7Result.Certs {
+			for _, cert := range issuerResult.Certs {
 				if len(cert.SubjectKeyId) > 0 && string(cert.SubjectKeyId) == string(top.Cert.AuthorityKeyId) {
 					issuerCert = cert
 					break
@@ -88,12 +88,12 @@ func climbChain(chain []*cert.Info, timeout time.Duration, maxDepth int, w io.Wr
 
 		// Fallback: use first certificate if only one, or continue with best guess
 		if issuerCert == nil {
-			if len(pkcs7Result.Certs) == 1 {
-				issuerCert = pkcs7Result.Certs[0]
+			if len(issuerResult.Certs) == 1 {
+				issuerCert = issuerResult.Certs[0]
 			} else {
 				// Multiple certs with no match - use first as best guess
-				issuerCert = pkcs7Result.Certs[0]
-				_, _ = fmt.Fprintf(w, "Warning: PKCS#7 bundle contains %d certs, no exact issuer match found, using first cert\n", len(pkcs7Result.Certs))
+				issuerCert = issuerResult.Certs[0]
+				_, _ = fmt.Fprintf(w, "Warning: PKCS#7 bundle contains %d certs, no exact issuer match found, using first cert\n", len(issuerResult.Certs))
 			}
 		}
 
@@ -108,12 +108,8 @@ func climbChain(chain []*cert.Info, timeout time.Duration, maxDepth int, w io.Wr
 		}
 
 		// Add issuer to chain
-		sourceInfo := source.Info{
-			Type:   source.Downloaded,
-			URL:    url,
-			Format: pkcs7Result.Format,
-		}
-		switch pkcs7Result.Format {
+		sourceInfo := issuerResult.Source
+		switch issuerResult.Source.Format {
 		case source.FormatPKCS7:
 			sourceInfo.Type = source.Extracted
 			sourceInfo.Description = "extracted from PKCS#7"
@@ -128,7 +124,7 @@ func climbChain(chain []*cert.Info, timeout time.Duration, maxDepth int, w io.Wr
 			Type:     cert.GetCertType(issuerCert, len(result), len(result)+1),
 			Position: len(result),
 			Source:   sourceInfo,
-			Format:   pkcs7Result.Format,
+			Format:   issuerResult.Source.Format,
 		}
 		result = append(result, issuerInfo)
 
