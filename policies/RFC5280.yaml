@@ -91,14 +91,14 @@ rules:
     reference: RFC5280 4.1.2.6
     target: certificate.subject
     operator: notEmpty
-    appliesTo: [root, intermediate]
+    certType: [root, intermediate]
     severity: error
 
   - id: issuer-matches-subject-for-root
     reference: RFC5280 6
     target: certificate
     operator: issuedBy
-    appliesTo: [root]
+    certType: [root]
     severity: error
 
 
@@ -155,7 +155,7 @@ rules:
     reference: RFC5280 4.2.1.1
     target: certificate.authorityKeyIdentifier
     operator: present
-    appliesTo: [leaf, intermediate]
+    certType: [leaf, intermediate]
     severity: warning
 
   - id: aki-not-critical
@@ -183,7 +183,7 @@ rules:
     reference: RFC5280 4.2.1.2
     target: certificate.subjectKeyIdentifier
     operator: present
-    appliesTo: [root, intermediate]
+    certType: [root, intermediate]
     severity: warning
 
   - id: ski-not-critical
@@ -223,14 +223,14 @@ rules:
     target: certificate.keyUsage.keyCertSign
     operator: eq
     operands: [true]
-    appliesTo: [root, intermediate]
+    certType: [root, intermediate]
     severity: error
 
   - id: leaf-key-usage-valid
     reference: RFC5280 4.2.1.3
     target: certificate
     operator: keyUsageLeaf
-    appliesTo: [leaf]
+    certType: [leaf]
     severity: error
 
 
@@ -257,7 +257,7 @@ rules:
     reference: RFC5280 4.2.1.6
     target: certificate
     operator: sanRequiredIfEmptySubject
-    appliesTo: [leaf]
+    certType: [leaf]
     severity: error
 
   - id: san-critical-if-subject-empty
@@ -309,7 +309,7 @@ rules:
     reference: RFC5280 4.2.1.9
     target: certificate.basicConstraints
     operator: present
-    appliesTo: [root, intermediate]
+    certType: [root, intermediate]
     severity: error
 
   - id: basic-constraints-critical-for-ca
@@ -328,7 +328,7 @@ rules:
     target: certificate.basicConstraints.cA
     operator: eq
     operands: [true]
-    appliesTo: [root, intermediate]
+    certType: [root, intermediate]
     severity: error
 
   - id: leaf-not-ca
@@ -336,14 +336,14 @@ rules:
     target: certificate.basicConstraints.cA
     operator: neq
     operands: [true]
-    appliesTo: [leaf]
+    certType: [leaf]
     severity: error
 
   - id: ca-path-len-valid
     reference: RFC5280 4.2.1.9
     target: certificate
     operator: pathLenValid
-    appliesTo: [root, intermediate]
+    certType: [root, intermediate]
     severity: error
 
 
@@ -633,7 +633,7 @@ rules:
     operands: [64]
     severity: error
     message: "commonName must not exceed 64 characters"
-    appliesTo: [leaf, intermediate]
+    certType: [leaf, intermediate]
 
   # organizationName max 64 characters (RFC 5280)
   - id: subject-org-max-length
@@ -646,7 +646,7 @@ rules:
     operands: [64]
     severity: error
     message: "organizationName must not exceed 64 characters"
-    appliesTo: [leaf, intermediate]
+    certType: [leaf, intermediate]
 
   # organizationalUnitName max 64 characters (RFC 5280)
   - id: subject-ou-max-length
@@ -659,7 +659,7 @@ rules:
     operands: [64]
     severity: error
     message: "organizationalUnitName must not exceed 64 characters"
-    appliesTo: [leaf, intermediate]
+    certType: [leaf, intermediate]
 
   # localityName max 128 characters (RFC 5280)
   - id: subject-locality-max-length
@@ -672,7 +672,7 @@ rules:
     operands: [128]
     severity: error
     message: "localityName must not exceed 128 characters"
-    appliesTo: [leaf, intermediate]
+    certType: [leaf, intermediate]
 
   # stateOrProvinceName max 128 characters (RFC 5280)
   - id: subject-state-max-length
@@ -685,7 +685,7 @@ rules:
     operands: [128]
     severity: error
     message: "stateOrProvinceName must not exceed 128 characters"
-    appliesTo: [leaf, intermediate]
+    certType: [leaf, intermediate]
 
   # countryName exactly 2 characters (ISO 3166-1)
   - id: subject-country-length
@@ -698,7 +698,7 @@ rules:
     operands: [2]
     severity: error
     message: "countryName must be exactly 2 characters (ISO 3166-1)"
-    appliesTo: [leaf, intermediate]
+    certType: [leaf, intermediate]
 
   - id: subject-country-min-length
     reference: RFC5280 Appendix A.1 + ISO 3166-1
@@ -710,7 +710,7 @@ rules:
     operands: [2]
     severity: error
     message: "countryName must be exactly 2 characters (ISO 3166-1)"
-    appliesTo: [leaf, intermediate]
+    certType: [leaf, intermediate]
 
   # serialNumber (subject) max 64 characters (CABF BR)
   - id: subject-serial-number-max-length
@@ -723,7 +723,7 @@ rules:
     operands: [64]
     severity: error
     message: "subject serialNumber must not exceed 64 characters"
-    appliesTo: [leaf, intermediate]
+    certType: [leaf, intermediate]
 
   # givenName max 64 characters (RFC 5280)
   - id: subject-givenname-max-length
@@ -736,7 +736,7 @@ rules:
     operands: [64]
     severity: error
     message: "givenName must not exceed 64 characters"
-    appliesTo: [leaf, intermediate]
+    certType: [leaf, intermediate]
 
   # surname max 64 characters (RFC 5280)
   - id: subject-surname-max-length
@@ -749,7 +749,7 @@ rules:
     operands: [64]
     severity: error
     message: "surname must not exceed 64 characters"
-    appliesTo: [leaf, intermediate]
+    certType: [leaf, intermediate]
 
   # businessCategory max 128 characters (RFC 5280)
   - id: subject-business-category-max-length
@@ -762,7 +762,7 @@ rules:
     operands: [128]
     severity: error
     message: "businessCategory must not exceed 128 characters"
-    appliesTo: [leaf, intermediate]
+    certType: [leaf, intermediate]
 
   # emailAddress in subject max 255 characters (RFC 5280)
   - id: subject-email-max-length
@@ -775,7 +775,7 @@ rules:
     operands: [255]
     severity: error
     message: "subject emailAddress must not exceed 255 characters"
-    appliesTo: [leaf, intermediate]
+    certType: [leaf, intermediate]
 
   # emailAddress format validation (RFC 822)
   - id: subject-email-format
@@ -788,7 +788,7 @@ rules:
     operands: ["^[^@]+@[^@]+$"]
     severity: warning
     message: "subject emailAddress should be valid RFC 822 format"
-    appliesTo: [leaf, intermediate]
+    certType: [leaf, intermediate]
 
   # SAN rfc822Name format validation (RFC 822)
   - id: san-rfc822-name-format
@@ -801,7 +801,7 @@ rules:
     operands: ["^[^@]+@[^@]+$"]
     severity: error
     message: "SAN rfc822Name must be valid RFC 822 email format"
-    appliesTo: [leaf]
+    certType: [leaf]
 
   # IAN rfc822Name format validation (RFC 822)
   - id: ian-rfc822-name-format
@@ -814,7 +814,7 @@ rules:
     operands: ["^[^@]+@[^@]+$"]
     severity: warning
     message: "IAN rfc822Name should be valid RFC 822 email format"
-    appliesTo: [leaf, intermediate]
+    certType: [leaf, intermediate]
 
   # IAN dNSName must not contain wildcards (RFC 5280 4.2.1.6)
   - id: ian-no-wildcard-dns
@@ -827,7 +827,7 @@ rules:
     operands: ["^\\*"]
     severity: warning
     message: "IAN dNSName should not contain wildcard"
-    appliesTo: [leaf, intermediate]
+    certType: [leaf, intermediate]
 
   # IAN dNSName must be valid DNS label format (RFC 5280 + RFC 9549)
   - id: ian-dns-valid-label
@@ -840,7 +840,7 @@ rules:
     operands: ["^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?$"]
     severity: warning
     message: "IAN dNSName components must be valid DNS labels"
-    appliesTo: [leaf, intermediate]
+    certType: [leaf, intermediate]
 
   # IAN URI must use HTTP or HTTPS scheme (best practice)
   - id: ian-uri-http-scheme
@@ -853,7 +853,7 @@ rules:
     operands: ["^https?://"]
     severity: warning
     message: "IAN URI should use HTTP or HTTPS scheme"
-    appliesTo: [leaf, intermediate]
+    certType: [leaf, intermediate]
 
   # IAN must not contain internal names (RFC 5280 best practice)
   - id: ian-no-internal-names
@@ -865,7 +865,7 @@ rules:
     operator: componentTLDRegistered
     severity: warning
     message: "IAN dNSName should not contain internal names with unregistered TLDs"
-    appliesTo: [leaf, intermediate]
+    certType: [leaf, intermediate]
 
   # ==================================================
   # URI Validation (RFC 5280 4.2.1.6)
@@ -882,7 +882,7 @@ rules:
     operands: ["^https?://"]
     severity: warning
     message: "SAN URI should use HTTP or HTTPS scheme"
-    appliesTo: [leaf]
+    certType: [leaf]
 
   # SAN URI must not contain fragment identifier
   - id: san-uri-no-fragment
@@ -895,7 +895,7 @@ rules:
     operands: ["#"]
     severity: warning
     message: "SAN URI should not contain fragment identifier"
-    appliesTo: [leaf]
+    certType: [leaf]
 
   # SAN URI max length (reasonable limit)
   - id: san-uri-max-length
@@ -908,7 +908,7 @@ rules:
     operands: [1024]
     severity: warning
     message: "SAN URI should not exceed 1024 characters"
-    appliesTo: [leaf]
+    certType: [leaf]
 
   # domainComponent max 63 characters per label (DNS label limit)
   - id: subject-dc-label-max-length
@@ -921,7 +921,7 @@ rules:
     operands: [63, "."]
     severity: error
     message: "Each domainComponent label must not exceed 63 characters"
-    appliesTo: [leaf, intermediate]
+    certType: [leaf, intermediate]
 
   # -------------------------------------------------
   # Time Format Validation (RFC 5280 4.1.2.5)
@@ -939,7 +939,7 @@ rules:
     operator: utctimeHasSeconds
     severity: error
     message: "UTCTime MUST include seconds per RFC 5280 4.1.2.5.1"
-    appliesTo: [leaf, intermediate, root]
+    certType: [leaf, intermediate, root]
 
   - id: validity-utctime-has-seconds-notafter
     reference: RFC5280 4.1.2.5.1
@@ -951,7 +951,7 @@ rules:
     operator: utctimeHasSeconds
     severity: error
     message: "UTCTime MUST include seconds per RFC 5280 4.1.2.5.1"
-    appliesTo: [leaf, intermediate, root]
+    certType: [leaf, intermediate, root]
 
   # UTCTime MUST end with 'Z' (Zulu time indicator)
   - id: validity-utctime-has-zulu-notbefore
@@ -964,7 +964,7 @@ rules:
     operator: utctimeHasZulu
     severity: error
     message: "UTCTime MUST end with 'Z' (Zulu indicator) per RFC 5280 4.1.2.5.1"
-    appliesTo: [leaf, intermediate, root]
+    certType: [leaf, intermediate, root]
 
   - id: validity-utctime-has-zulu-notafter
     reference: RFC5280 4.1.2.5.1
@@ -976,7 +976,7 @@ rules:
     operator: utctimeHasZulu
     severity: error
     message: "UTCTime MUST end with 'Z' (Zulu indicator) per RFC 5280 4.1.2.5.1"
-    appliesTo: [leaf, intermediate, root]
+    certType: [leaf, intermediate, root]
 
   # GeneralizedTime MUST end with 'Z'
   - id: validity-generalizedtime-has-zulu-notbefore
@@ -989,7 +989,7 @@ rules:
     operator: generalizedTimeHasZulu
     severity: error
     message: "GeneralizedTime MUST end with 'Z' per RFC 5280 4.1.2.5.2"
-    appliesTo: [leaf, intermediate, root]
+    certType: [leaf, intermediate, root]
 
   - id: validity-generalizedtime-has-zulu-notafter
     reference: RFC5280 4.1.2.5.2
@@ -1001,7 +1001,7 @@ rules:
     operator: generalizedTimeHasZulu
     severity: error
     message: "GeneralizedTime MUST end with 'Z' per RFC 5280 4.1.2.5.2"
-    appliesTo: [leaf, intermediate, root]
+    certType: [leaf, intermediate, root]
 
   # GeneralizedTime should not have fractional seconds (recommended)
   - id: validity-generalizedtime-no-fraction
@@ -1014,7 +1014,7 @@ rules:
     operator: generalizedTimeNoFraction
     severity: warning
     message: "GeneralizedTime SHOULD NOT include fractional seconds per RFC 5280"
-    appliesTo: [leaf, intermediate, root]
+    certType: [leaf, intermediate, root]
 
   - id: validity-generalizedtime-no-fraction-notafter
     reference: RFC5280 4.1.2.5.2
@@ -1026,7 +1026,7 @@ rules:
     operator: generalizedTimeNoFraction
     severity: warning
     message: "GeneralizedTime SHOULD NOT include fractional seconds per RFC 5280"
-    appliesTo: [leaf, intermediate, root]
+    certType: [leaf, intermediate, root]
 
   # -------------------------------------------------
   # Encoding Validation (ASN.1 String Types)
@@ -1043,7 +1043,7 @@ rules:
     operator: validPrintableString
     severity: warning
     message: "countryName should use PrintableString compatible characters"
-    appliesTo: [leaf, intermediate]
+    certType: [leaf, intermediate]
 
   # Common name should use PrintableString or UTF8String for legacy compatibility
   - id: subject-cn-valid-encoding
@@ -1055,7 +1055,7 @@ rules:
     operator: validIA5String
     severity: warning
     message: "commonName should use IA5String compatible characters (ASCII)"
-    appliesTo: [leaf]
+    certType: [leaf]
 
   # Organization name should use PrintableString or UTF8String
   # Note: BR 7.1.4.2 permits both UTF8String and PrintableString encoding for
@@ -1073,7 +1073,7 @@ rules:
     operator: validIA5String
     severity: error
     message: "DNS names in SAN must use IA5String encoding (ASCII only)"
-    appliesTo: [leaf]
+    certType: [leaf]
 
   # URIs in SAN must be IA5String (ASCII)
   - id: san-uri-valid-ia5string
@@ -1085,7 +1085,7 @@ rules:
     operator: validIA5String
     severity: error
     message: "URIs in SAN must use IA5String encoding (ASCII only)"
-    appliesTo: [leaf]
+    certType: [leaf]
 
   # Email addresses must be IA5String (ASCII)
   - id: san-email-valid-ia5string
@@ -1097,4 +1097,4 @@ rules:
     operator: validIA5String
     severity: error
     message: "Email addresses in SAN must use IA5String encoding (ASCII only)"
-    appliesTo: [leaf]
+    certType: [leaf]
