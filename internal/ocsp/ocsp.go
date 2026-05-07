@@ -19,10 +19,10 @@ type Info struct {
 	Source   string // Source description: "local", "downloaded", etc.
 
 	// Request debug info (populated when auto-fetching)
-	RequestNonce       []byte // Nonce sent in request
-	RequestNonceHex    string // Hex representation of nonce
-	RequestNonceLen    int    // Length of nonce in request
-	RequestRawLen      int    // Length of raw OCSP request bytes
+	RequestNonce         []byte // Nonce sent in request
+	RequestNonceHex      string // Hex representation of nonce
+	RequestNonceLen      int    // Length of nonce in request
+	RequestRawLen        int    // Length of raw OCSP request bytes
 	RequestHashAlgorithm string // Hash algorithm used for CertID (e.g., "SHA256")
 }
 

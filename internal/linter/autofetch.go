@@ -158,11 +158,7 @@ func fetchAutoCRL(chain []*cert.Info, timeout time.Duration, w io.Writer) []*crl
 				continue
 			}
 
-			results = append(results, &crl.Info{
-				CRL:      fetchResult.CRL,
-				FilePath: url,
-				Source:   "downloaded",
-			})
+			results = append(results, fetchResult)
 		}
 	}
 

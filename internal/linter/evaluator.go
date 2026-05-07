@@ -156,7 +156,7 @@ func evaluateCRL(ctx EvaluationContext) []policy.Result {
 		crlCertInfo := &cert.Info{
 			FilePath: crlInfo.FilePath,
 			Type:     "crl",
-			Source:   crlInfo.Source,
+			Source:   crlInfo.Source.String(),
 		}
 
 		tree := crlNode
@@ -197,7 +197,7 @@ func evaluateCRLOnly(policies []policy.Policy, registry *operator.Registry, crls
 		crlCertInfo := &cert.Info{
 			FilePath: crlInfo.FilePath,
 			Type:     "crl",
-			Source:   crlInfo.Source,
+			Source:   crlInfo.Source.String(),
 		}
 
 		tree := crlNode
