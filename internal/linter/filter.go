@@ -6,14 +6,9 @@ import (
 
 	"github.com/zmap/zcrypto/x509"
 
+	"github.com/cavoq/PCL/internal/oid"
 	"github.com/cavoq/PCL/internal/policy"
 	"github.com/cavoq/PCL/internal/rule"
-)
-
-// OID constants for CRL extensions
-const (
-	oidDeltaCRLIndicator        = "2.5.29.27"
-	oidIssuingDistributionPoint = "2.5.29.29"
 )
 
 // AppliesTo types - fixed enumeration for PKI input types
@@ -25,52 +20,6 @@ const (
 	AppliesToSCT      = "sct"
 	AppliesToAttrCert = "attrCert"
 )
-
-// OID name mappings for human-readable certType/crlType values
-var oidNameMap = map[string]string{
-	// Extended Key Usage OIDs
-	"serverAuth":        "1.3.6.1.5.5.7.3.1",
-	"clientAuth":        "1.3.6.1.5.5.7.3.2",
-	"codeSigning":       "1.3.6.1.5.5.7.3.3",
-	"emailProtection":   "1.3.6.1.5.5.7.3.4",
-	"timeStamping":      "1.3.6.1.5.5.7.3.8",
-	"ocspSigning":       "1.3.6.1.5.5.7.3.9",
-	"1.3.6.1.5.5.7.3.1": "serverAuth",
-	"1.3.6.1.5.5.7.3.2": "clientAuth",
-	"1.3.6.1.5.5.7.3.3": "codeSigning",
-	"1.3.6.1.5.5.7.3.4": "emailProtection",
-	"1.3.6.1.5.5.7.3.8": "timeStamping",
-	"1.3.6.1.5.5.7.3.9": "ocspSigning",
-
-	// CRL extension OIDs
-	"deltaCRLIndicator":        "2.5.29.27",
-	"issuingDistributionPoint": "2.5.29.29",
-	"2.5.29.27":                "deltaCRLIndicator",
-	"2.5.29.29":                "issuingDistributionPoint",
-
-	// Built-in cert types
-	"ca":           "ca",
-	"root":         "root",
-	"intermediate": "intermediate",
-	"leaf":         "leaf",
-}
-
-// normalizeOID converts human-readable name to OID or returns the OID if already an OID
-func normalizeOID(nameOrOID string) string {
-	if oid, ok := oidNameMap[nameOrOID]; ok {
-		// If input is a name, return the OID
-		// Built-in types (ca, root, intermediate, leaf) are not OIDs
-		if oid == "ca" || oid == "root" || oid == "intermediate" || oid == "leaf" {
-			return oid
-		}
-		// Other names are OID mappings
-		if len(oid) > 10 {
-			return oid
-		}
-	}
-	// Input might already be an OID or a built-in type
-	return nameOrOID
-}
 
 // policyAppliesToInput checks if a policy applies to the given input type
 func policyAppliesToInput(p policy.Policy, inputType string) bool {
@@ -142,7 +91,7 @@ func policyAppliesToCert(p policy.Policy, cert *x509.Certificate) bool {
 
 	// Check each certType constraint
 	for _, ct := range p.CertType {
-		ct = normalizeOID(ct)
+		ct = oid.NormalizeOID(ct)
 
 		// Built-in types
 		if ct == "ca" {
@@ -174,7 +123,7 @@ func policyAppliesToCert(p policy.Policy, cert *x509.Certificate) bool {
 
 		// EKU OID check
 		for _, eku := range cert.ExtKeyUsage {
-			ekuOID := extKeyUsageToOID(eku)
+			ekuOID := oid.ExtKeyUsageToOID(eku)
 			if ekuOID == ct {
 				return true
 			}
@@ -198,9 +147,9 @@ func policyAppliesToCRL(p policy.Policy, hasDeltaIndicator bool, isIndirectCRL b
 
 	// Check each crlType constraint
 	for _, ct := range p.CRLType {
-		ct = normalizeOID(ct)
+		ct = oid.NormalizeOID(ct)
 
-		if ct == "deltaCRLIndicator" || ct == "2.5.29.27" {
+		if ct == oid.DeltaCRLIndicator {
 			if hasDeltaIndicator {
 				return true
 			}
@@ -245,33 +194,13 @@ func policyAppliesToCRLInput(p policy.Policy) bool {
 	return false
 }
 
-// extKeyUsageToOID converts x509.ExtKeyUsage to OID string
-func extKeyUsageToOID(eku x509.ExtKeyUsage) string {
-	switch eku {
-	case x509.ExtKeyUsageServerAuth:
-		return "1.3.6.1.5.5.7.3.1"
-	case x509.ExtKeyUsageClientAuth:
-		return "1.3.6.1.5.5.7.3.2"
-	case x509.ExtKeyUsageCodeSigning:
-		return "1.3.6.1.5.5.7.3.3"
-	case x509.ExtKeyUsageEmailProtection:
-		return "1.3.6.1.5.5.7.3.4"
-	case x509.ExtKeyUsageTimeStamping:
-		return "1.3.6.1.5.5.7.3.8"
-	case x509.ExtKeyUsageOcspSigning:
-		return "1.3.6.1.5.5.7.3.9"
-	default:
-		return ""
-	}
-}
-
 // hasDeltaCRLIndicator checks if CRL has the delta CRL indicator extension
 func hasDeltaCRLIndicator(crl *x509.RevocationList) bool {
 	if crl == nil {
 		return false
 	}
 	for _, ext := range crl.Extensions {
-		if ext.Id.String() == oidDeltaCRLIndicator {
+		if ext.Id.String() == oid.DeltaCRLIndicator {
 			return true
 		}
 	}
@@ -286,7 +215,7 @@ func isIndirectCRL(crl *x509.RevocationList) bool {
 		return false
 	}
 	for _, ext := range crl.Extensions {
-		if ext.Id.String() == oidIssuingDistributionPoint {
+		if ext.Id.String() == oid.IssuingDistributionPoint {
 			// The indirectCRL field is a boolean in the IssuingDistributionPoint extension
 			// If the extension is present, we check the raw value for indirectCRL indicator
 			// The ASN.1 structure includes an optional indirectCRL BOOLEAN DEFAULT FALSE
