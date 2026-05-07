@@ -49,10 +49,10 @@ var oidNameMap = map[string]string{
 	"2.5.29.29":                "issuingDistributionPoint",
 
 	// Built-in cert types
-	"ca":         "ca",
-	"root":       "root",
+	"ca":           "ca",
+	"root":         "root",
 	"intermediate": "intermediate",
-	"leaf":       "leaf",
+	"leaf":         "leaf",
 }
 
 // normalizeOID converts human-readable name to OID or returns the OID if already an OID

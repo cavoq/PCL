@@ -2,11 +2,14 @@ package cert
 
 import (
 	"crypto/tls"
+	"encoding/pem"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/cavoq/PCL/internal/source"
 )
 
 func TestDownloadCertificatesWritesFiles(t *testing.T) {
@@ -74,5 +77,41 @@ func TestDownloadCertificatesRejectsHTTP(t *testing.T) {
 	_, _, err := DownloadCertificates([]string{"http://example.test"}, 5*time.Second, "")
 	if err == nil {
 		t.Fatalf("expected error for http scheme")
+	}
+}
+
+func TestDownloadAndLoadCertificatesPreservesSource(t *testing.T) {
+	pemData, err := os.ReadFile("../../tests/certs/leaf.pem")
+	if err != nil {
+		t.Fatal(err)
+	}
+	block, _ := pem.Decode(pemData)
+	if block == nil {
+		t.Fatal("expected certificate PEM fixture")
+	}
+
+	origFetcher := tlsChainFetcher
+	tlsChainFetcher = func(_ string, _ string, _ time.Duration) ([]*tls.Certificate, error) {
+		return []*tls.Certificate{{Certificate: [][]byte{block.Bytes}}}, nil
+	}
+	defer func() { tlsChainFetcher = origFetcher }()
+
+	certs, cleanup, err := DownloadAndLoadCertificates([]string{"https://example.test"}, 5*time.Second, "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cleanup == nil {
+		t.Fatal("expected cleanup")
+	}
+	defer cleanup()
+
+	if len(certs) != 1 {
+		t.Fatalf("expected one certificate, got %d", len(certs))
+	}
+	if certs[0].Source.Type != source.Downloaded {
+		t.Fatalf("expected downloaded source, got %+v", certs[0].Source)
+	}
+	if certs[0].Source.URL != "https://example.test" {
+		t.Fatalf("expected source URL, got %q", certs[0].Source.URL)
 	}
 }

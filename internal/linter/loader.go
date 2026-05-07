@@ -20,16 +20,12 @@ func loadCertificates(cfg Config) ([]*cert.Info, func(), error) {
 	}
 
 	if len(cfg.CertURLs) > 0 {
-		dir, tempCleanup, err := cert.DownloadCertificates(cfg.CertURLs, cfg.CertTimeout, cfg.CertSaveDir)
+		loaded, tempCleanup, err := cert.DownloadAndLoadCertificates(cfg.CertURLs, cfg.CertTimeout, cfg.CertSaveDir)
 		if err != nil {
 			return nil, cleanup, fmt.Errorf("failed to download certificates: %w", err)
 		}
 		if tempCleanup != nil {
 			cleanup = tempCleanup
-		}
-		loaded, err := cert.LoadCertificates(dir)
-		if err != nil {
-			return nil, cleanup, fmt.Errorf("failed to load downloaded certificates: %w", err)
 		}
 		certs = append(certs, loaded...)
 	}
@@ -55,16 +51,12 @@ func loadIssuers(cfg Config, existingCleanup func()) ([]*cert.Info, func(), erro
 	}
 
 	if len(cfg.IssuerURLs) > 0 {
-		dir, tempCleanup, err := cert.DownloadCertificates(cfg.IssuerURLs, cfg.CertTimeout, cfg.CertSaveDir)
+		loaded, tempCleanup, err := cert.DownloadAndLoadCertificates(cfg.IssuerURLs, cfg.CertTimeout, cfg.CertSaveDir)
 		if err != nil {
 			return nil, cleanup, fmt.Errorf("failed to download issuer certificates: %w", err)
 		}
 		if tempCleanup != nil {
 			cleanup = tempCleanup
-		}
-		loaded, err := cert.LoadCertificates(dir)
-		if err != nil {
-			return nil, cleanup, fmt.Errorf("failed to load downloaded issuer certificates: %w", err)
 		}
 		issuers = append(issuers, loaded...)
 	}

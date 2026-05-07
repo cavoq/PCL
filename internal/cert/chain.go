@@ -11,6 +11,10 @@ import (
 )
 
 func LoadCertificates(path string) ([]*Info, error) {
+	return LoadCertificatesWithSource(path, source.Info{Type: source.Local})
+}
+
+func LoadCertificatesWithSource(path string, sourceInfo source.Info) ([]*Info, error) {
 	files, err := GetCertFiles(path)
 	if err != nil {
 		return nil, err
@@ -29,11 +33,16 @@ func LoadCertificates(path string) ([]*Info, error) {
 		}
 
 		hash := sha256.Sum256(cert.Raw)
+		infoSource := sourceInfo
+		if infoSource.Type == "" {
+			infoSource.Type = source.Local
+		}
+		infoSource.Format = format
 		infos = append(infos, &Info{
 			Cert:     cert,
 			FilePath: file,
 			Hash:     hex.EncodeToString(hash[:]),
-			Source:   source.Info{Type: source.Local, Format: format},
+			Source:   infoSource,
 			Format:   format,
 		})
 	}

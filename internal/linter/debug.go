@@ -19,24 +19,25 @@ func printOCSPResponseDebug(w io.Writer, ocspInfo *ocsp.Info, nonceOpts *ocsp.No
 	_, _ = fmt.Fprintf(w, "  URL: %s\n", ocspInfo.FilePath)
 
 	// Print request info
+	requestInfo := ocspInfo.RequestInfo
 	_, _ = fmt.Fprintf(w, "  Request:\n")
-	if ocspInfo.RequestRawLen > 0 {
-		_, _ = fmt.Fprintf(w, "    Length: %d bytes\n", ocspInfo.RequestRawLen)
+	if requestInfo != nil && requestInfo.RequestLen > 0 {
+		_, _ = fmt.Fprintf(w, "    Length: %d bytes\n", requestInfo.RequestLen)
 	} else {
 		_, _ = fmt.Fprintf(w, "    Length: (unknown)\n")
 	}
 
 	// Print hash algorithm used for CertID
-	if ocspInfo.RequestHashAlgorithm != "" {
-		_, _ = fmt.Fprintf(w, "    CertID Hash Algorithm: %s\n", ocspInfo.RequestHashAlgorithm)
+	if requestInfo != nil && requestInfo.HashAlgorithm != "" {
+		_, _ = fmt.Fprintf(w, "    CertID Hash Algorithm: %s\n", requestInfo.HashAlgorithm)
 	} else {
 		_, _ = fmt.Fprintf(w, "    CertID Hash Algorithm: SHA256 (default)\n")
 	}
 
 	// Print nonce request info
-	if ocspInfo.RequestNonceLen > 0 {
-		_, _ = fmt.Fprintf(w, "    Nonce Length: %d bytes\n", ocspInfo.RequestNonceLen)
-		_, _ = fmt.Fprintf(w, "    Nonce (hex): %s\n", ocspInfo.RequestNonceHex)
+	if requestInfo != nil && requestInfo.NonceLen > 0 {
+		_, _ = fmt.Fprintf(w, "    Nonce Length: %d bytes\n", requestInfo.NonceLen)
+		_, _ = fmt.Fprintf(w, "    Nonce (hex): %s\n", requestInfo.NonceHex)
 	} else if nonceOpts != nil && nonceOpts.Disabled {
 		_, _ = fmt.Fprintf(w, "    Nonce: disabled\n")
 	} else {
@@ -79,14 +80,14 @@ func printOCSPResponseDebug(w io.Writer, ocspInfo *ocsp.Info, nonceOpts *ocsp.No
 		_, _ = fmt.Fprintf(w, "      Length: %d bytes\n", nonceState.Length)
 		_, _ = fmt.Fprintf(w, "      Value (hex): %s\n", nonceState.HexValue)
 		// Check if nonce matches request
-		if ocspInfo.RequestNonceLen > 0 && nonceState.Length == ocspInfo.RequestNonceLen {
-			if nonceState.HexValue == ocspInfo.RequestNonceHex {
+		if requestInfo != nil && requestInfo.NonceLen > 0 && nonceState.Length == requestInfo.NonceLen {
+			if nonceState.HexValue == requestInfo.NonceHex {
 				_, _ = fmt.Fprintf(w, "      Match: YES (echoed correctly)\n")
 			} else {
 				_, _ = fmt.Fprintf(w, "      Match: NO (different value)\n")
 			}
-		} else if ocspInfo.RequestNonceLen > 0 && nonceState.Length != ocspInfo.RequestNonceLen {
-			_, _ = fmt.Fprintf(w, "      Match: NO (different length: requested %d, got %d)\n", ocspInfo.RequestNonceLen, nonceState.Length)
+		} else if requestInfo != nil && requestInfo.NonceLen > 0 && nonceState.Length != requestInfo.NonceLen {
+			_, _ = fmt.Fprintf(w, "      Match: NO (different length: requested %d, got %d)\n", requestInfo.NonceLen, nonceState.Length)
 		}
 	} else {
 		_, _ = fmt.Fprintf(w, "      Present: false\n")

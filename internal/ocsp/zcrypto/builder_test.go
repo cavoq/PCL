@@ -42,12 +42,12 @@ func TestBuildTree_OCSP_RSA_SHA256(t *testing.T) {
 
 	// Create responder certificate
 	responderTemplate := &x509.Certificate{
-		SerialNumber:          big.NewInt(2),
-		Subject:               pkix.Name{CommonName: "Test OCSP Responder"},
-		NotBefore:             time.Now().Add(-1 * time.Hour),
-		NotAfter:              time.Now().Add(24 * time.Hour),
-		KeyUsage:              x509.KeyUsageDigitalSignature,
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageOCSPSigning},
+		SerialNumber: big.NewInt(2),
+		Subject:      pkix.Name{CommonName: "Test OCSP Responder"},
+		NotBefore:    time.Now().Add(-1 * time.Hour),
+		NotAfter:     time.Now().Add(24 * time.Hour),
+		KeyUsage:     x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageOCSPSigning},
 	}
 	issuerCertParsed, err := x509.ParseCertificate(issuerCert)
 	if err != nil {
@@ -147,7 +147,7 @@ func TestBuildTree_OCSP_RSA_SHA256(t *testing.T) {
 	if !ok {
 		t.Error("ocsp.signatureAlgorithm.parameters.null not found")
 	} else {
-	isNull, ok := nullNode.Value.(bool)
+		isNull, ok := nullNode.Value.(bool)
 		if !ok {
 			t.Error("Null parameter value is not a bool")
 		} else if !isNull {
@@ -202,12 +202,12 @@ func TestBuildTree_OCSP_Revoked(t *testing.T) {
 
 	// Create responder certificate
 	responderTemplate := &x509.Certificate{
-		SerialNumber:          big.NewInt(2),
-		Subject:               pkix.Name{CommonName: "Test OCSP Responder"},
-		NotBefore:             time.Now().Add(-1 * time.Hour),
-		NotAfter:              time.Now().Add(24 * time.Hour),
-		KeyUsage:              x509.KeyUsageDigitalSignature,
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageOCSPSigning},
+		SerialNumber: big.NewInt(2),
+		Subject:      pkix.Name{CommonName: "Test OCSP Responder"},
+		NotBefore:    time.Now().Add(-1 * time.Hour),
+		NotAfter:     time.Now().Add(24 * time.Hour),
+		KeyUsage:     x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageOCSPSigning},
 	}
 	responderCert, err := x509.CreateCertificate(rand.Reader, responderTemplate, issuerCertParsed, &responderKey.PublicKey, issuerKey)
 	if err != nil {

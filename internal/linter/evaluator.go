@@ -85,7 +85,7 @@ func evaluateOCSP(ctx EvaluationContext) []policy.Result {
 		ocspCertInfo := &cert.Info{
 			FilePath: ocspInfo.FilePath,
 			Type:     "ocsp",
-			Source:   source.Info{Description: ocspInfo.Source},
+			Source:   ocspInfo.Source,
 		}
 
 		tree := ocspNode
@@ -236,7 +236,7 @@ func evaluateOCSPOnly(policies []policy.Policy, registry *operator.Registry, ocs
 		ocspCertInfo := &cert.Info{
 			FilePath: ocspInfo.FilePath,
 			Type:     "ocsp",
-			Source:   source.Info{Description: ocspInfo.Source},
+			Source:   ocspInfo.Source,
 		}
 
 		tree := ocspNode

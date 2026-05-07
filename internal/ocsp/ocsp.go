@@ -1,13 +1,16 @@
 package ocsp
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/pem"
 	"fmt"
+	"os"
 
 	"golang.org/x/crypto/ocsp"
 
 	"github.com/cavoq/PCL/internal/io"
-	"github.com/cavoq/PCL/internal/loader"
+	"github.com/cavoq/PCL/internal/source"
 )
 
 var extensions = []string{".ocsp", ".der", ".pem"}
@@ -16,27 +19,33 @@ type Info struct {
 	Response *ocsp.Response
 	FilePath string
 	Hash     string
-	Source   string // Source description: "local", "downloaded", etc.
+	Source   source.Info
+	Format   source.Format
 
 	// Request debug info (populated when auto-fetching)
-	RequestNonce         []byte // Nonce sent in request
-	RequestNonceHex      string // Hex representation of nonce
-	RequestNonceLen      int    // Length of nonce in request
-	RequestRawLen        int    // Length of raw OCSP request bytes
-	RequestHashAlgorithm string // Hash algorithm used for CertID (e.g., "SHA256")
+	RequestInfo *RequestInfo
 }
 
 func ParseOCSP(data []byte) (*ocsp.Response, error) {
+	resp, _, err := parseOCSP(data)
+	return resp, err
+}
+
+func parseOCSP(data []byte) (*ocsp.Response, source.Format, error) {
 	block, _ := pem.Decode(data)
 	if block != nil && block.Type == "OCSP RESPONSE" {
-		return ocsp.ParseResponse(block.Bytes, nil)
+		resp, err := ocsp.ParseResponse(block.Bytes, nil)
+		if err != nil {
+			return nil, "", err
+		}
+		return resp, source.FormatPEM, nil
 	}
 
 	resp, err := ocsp.ParseResponse(data, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse PEM or DER OCSP response: %w", err)
+		return nil, "", fmt.Errorf("failed to parse PEM or DER OCSP response: %w", err)
 	}
-	return resp, nil
+	return resp, source.FormatDER, nil
 }
 
 func GetOCSPFiles(path string) ([]string, error) {
@@ -44,23 +53,57 @@ func GetOCSPFiles(path string) ([]string, error) {
 }
 
 func GetOCSPs(path string) ([]*Info, error) {
-	results, err := loader.LoadAll(
-		path,
-		extensions,
-		ParseOCSP,
-		func(resp *ocsp.Response) []byte { return resp.Raw },
-	)
+	files, err := GetOCSPFiles(path)
 	if err != nil {
 		return nil, err
 	}
 
-	infos := make([]*Info, len(results))
-	for i, r := range results {
-		infos[i] = &Info{
-			Response: r.Data,
-			FilePath: r.FilePath,
-			Hash:     r.Hash,
+	infos := make([]*Info, 0, len(files))
+	for _, file := range files {
+		data, err := os.ReadFile(file)
+		if err != nil {
+			continue
 		}
+
+		resp, format, err := parseOCSP(data)
+		if err != nil {
+			continue
+		}
+
+		hash := sha256.Sum256(resp.Raw)
+		infos = append(infos, &Info{
+			Response: resp,
+			FilePath: file,
+			Hash:     hex.EncodeToString(hash[:]),
+			Source:   source.Info{Type: source.Local, Format: format},
+			Format:   format,
+		})
+	}
+
+	if len(infos) == 0 && len(files) > 0 {
+		return nil, fmt.Errorf("no valid items found in %s", path)
 	}
 	return infos, nil
+}
+
+func infoFromDownloadedResponse(resp *ocsp.Response, requestInfo *RequestInfo, url string) *Info {
+	if resp == nil {
+		return nil
+	}
+
+	info := &Info{
+		Response: resp,
+		FilePath: url,
+		Source:   source.Info{Type: source.Downloaded, URL: url, Format: source.FormatDER},
+		Format:   source.FormatDER,
+	}
+
+	if len(resp.Raw) > 0 {
+		hash := sha256.Sum256(resp.Raw)
+		info.Hash = hex.EncodeToString(hash[:])
+	}
+
+	info.RequestInfo = requestInfo
+
+	return info
 }

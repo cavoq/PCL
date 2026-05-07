@@ -189,31 +189,18 @@ func fetchAutoOCSP(chain []*cert.Info, timeout time.Duration, nonceOpts *ocsp.No
 		return nil, fmt.Errorf("failed to convert certificates to standard format")
 	}
 
-	// Fetch OCSP for leaf certificate
-	fetchResult, url, err := ocsp.FetchOCSPFromChainWithInfo(stdChain, timeout, nonceOpts)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch OCSP from %s: %w", url, err)
+	url := ""
+	if len(stdChain[0].OCSPServer) > 0 {
+		url = stdChain[0].OCSPServer[0]
 	}
-	if fetchResult == nil {
-		// No OCSP URL in certificate, not an error
+	if url == "" {
 		return nil, nil
 	}
 
-	info := &ocsp.Info{
-		Response: fetchResult.Response,
-		FilePath: url, // Use URL as "file path" for auto-fetched responses
-		Source:   "downloaded",
+	info, err := ocsp.FetchOCSP(stdChain[0], stdChain[1], url, timeout, nonceOpts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch OCSP from %s: %w", url, err)
 	}
-
-	// Populate request debug info
-	if fetchResult.RequestInfo != nil {
-		info.RequestNonce = fetchResult.RequestInfo.Nonce
-		info.RequestNonceHex = fetchResult.RequestInfo.NonceHex
-		info.RequestNonceLen = fetchResult.RequestInfo.NonceLen
-		info.RequestRawLen = fetchResult.RequestInfo.RequestLen
-		info.RequestHashAlgorithm = fetchResult.RequestInfo.HashAlgorithm
-	}
-
 	results = append(results, info)
 
 	return results, nil

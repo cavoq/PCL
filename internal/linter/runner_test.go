@@ -16,7 +16,7 @@ func TestApplyDefaults(t *testing.T) {
 		expected Config
 	}{
 		{
-			name: "empty config gets defaults",
+			name:  "empty config gets defaults",
 			input: Config{},
 			expected: Config{
 				CertTimeout: 10 * time.Second,

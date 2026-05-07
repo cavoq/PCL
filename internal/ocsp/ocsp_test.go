@@ -4,6 +4,10 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	xocsp "golang.org/x/crypto/ocsp"
+
+	"github.com/cavoq/PCL/internal/source"
 )
 
 func TestParseOCSP_Invalid(t *testing.T) {
@@ -137,5 +141,42 @@ func TestGetOCSPs_SkipsInvalidFiles(t *testing.T) {
 	_, err := GetOCSPs(tmpDir)
 	if err == nil {
 		t.Fatal("expected error when all OCSP files are invalid")
+	}
+}
+
+func TestInfoFromDownloadedResponse(t *testing.T) {
+	response := &xocsp.Response{Raw: []byte{1, 2, 3}}
+	requestInfo := &RequestInfo{
+		Nonce:         []byte{0xaa},
+		NonceHex:      "aa",
+		NonceLen:      1,
+		RequestLen:    42,
+		HashAlgorithm: "SHA256",
+	}
+
+	info := infoFromDownloadedResponse(response, requestInfo, "http://ocsp.example.test")
+	if info == nil {
+		t.Fatal("expected info")
+	}
+	if info.Response != response {
+		t.Fatal("expected response to be copied")
+	}
+	if info.FilePath != "http://ocsp.example.test" {
+		t.Fatalf("expected URL as file path, got %q", info.FilePath)
+	}
+	if info.Source.Type != source.Downloaded || info.Source.URL != "http://ocsp.example.test" {
+		t.Fatalf("unexpected source: %+v", info.Source)
+	}
+	if info.Format != source.FormatDER || info.Source.Format != source.FormatDER {
+		t.Fatalf("unexpected format: info=%q source=%q", info.Format, info.Source.Format)
+	}
+	if info.Hash == "" {
+		t.Fatal("expected hash")
+	}
+	if info.RequestInfo == nil {
+		t.Fatal("expected request info")
+	}
+	if info.RequestInfo.NonceHex != "aa" || info.RequestInfo.NonceLen != 1 || info.RequestInfo.RequestLen != 42 || info.RequestInfo.HashAlgorithm != "SHA256" {
+		t.Fatalf("request metadata not copied: %+v", info)
 	}
 }
