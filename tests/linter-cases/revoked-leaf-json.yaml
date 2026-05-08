@@ -1,0 +1,26 @@
+name: revoked-leaf-json
+policy: policies/not-revoked.yaml
+certs: certs
+crl: crls/revoked-leaf.crl
+output: json
+verbosity: 2
+show_meta: true
+expected:
+  total_certs: 3
+  total_rules: 3
+  pass: 2
+  fail: 1
+  skip: 0
+  results:
+    - cert_type: leaf
+      policy: integration-not-revoked
+      verdict: fail
+      rules: 1
+    - cert_type: intermediate
+      policy: integration-not-revoked
+      verdict: pass
+      rules: 1
+    - cert_type: root
+      policy: integration-not-revoked
+      verdict: pass
+      rules: 1

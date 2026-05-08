@@ -27,6 +27,13 @@ func ParseIssuerResponse(data []byte) ([]*x509.Certificate, source.Format, error
 		}
 		return []*x509.Certificate{cert}, source.FormatPEM, nil
 	}
+	if block != nil && (block.Type == "PKCS7" || block.Type == "CMS") {
+		pkcs7Certs, err = parsePKCS7CertsOnly(block.Bytes)
+		if err == nil && len(pkcs7Certs) > 0 {
+			return pkcs7Certs, source.FormatPKCS7, nil
+		}
+		return nil, "", fmt.Errorf("failed to parse PEM PKCS#7 certificate bundle from CA Issuers: %w", err)
+	}
 
 	return nil, "", fmt.Errorf("failed to parse CA Issuers: expected DER certificate, PKCS#7 bundle, or PEM format")
 }
