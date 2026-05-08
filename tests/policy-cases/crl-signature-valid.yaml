@@ -1,0 +1,20 @@
+name: crl-signature-valid
+policy: policies/crl-signed-by.yaml
+certs: certs/crl-signature-leaf.pem
+issuers:
+  - certs/crl-signature-intermediate.pem
+  - certs/crl-signature-root.pem
+crl: crls/crl-signature-intermediate.crl
+expected:
+  leaf:
+    pass: 1
+    fail: 0
+    skip: 0
+  intermediate:
+    pass: 1
+    fail: 0
+    skip: 0
+  root:
+    pass: 1
+    fail: 0
+    skip: 0

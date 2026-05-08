@@ -1,0 +1,29 @@
+name: crl-signature-valid-json
+policy: policies/crl-signed-by.yaml
+certs: certs/crl-signature-leaf.pem
+issuers:
+  - certs/crl-signature-intermediate.pem
+  - certs/crl-signature-root.pem
+crl: crls/crl-signature-intermediate.crl
+output: json
+verbosity: 2
+show_meta: true
+expected:
+  total_certs: 3
+  total_rules: 3
+  pass: 3
+  fail: 0
+  skip: 0
+  results:
+    - cert_type: leaf
+      policy: integration-crl-signed-by
+      verdict: pass
+      rules: 1
+    - cert_type: intermediate
+      policy: integration-crl-signed-by
+      verdict: pass
+      rules: 1
+    - cert_type: root
+      policy: integration-crl-signed-by
+      verdict: pass
+      rules: 1

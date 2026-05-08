@@ -38,6 +38,7 @@ type linterCase struct {
 	Name          string         `yaml:"name"`
 	Policy        string         `yaml:"policy"`
 	Certs         string         `yaml:"certs,omitempty"`
+	Issuers       []string       `yaml:"issuers,omitempty"`
 	CRL           string         `yaml:"crl,omitempty"`
 	OCSP          string         `yaml:"ocsp,omitempty"`
 	Output        string         `yaml:"output,omitempty"`
@@ -92,6 +93,9 @@ func runLinterCase(t *testing.T, caseDir string, tc linterCase) {
 	}
 	if tc.Certs != "" {
 		cfg.CertPath = filepath.Join(testsDir, tc.Certs)
+	}
+	for _, issuer := range tc.Issuers {
+		cfg.IssuerPaths = append(cfg.IssuerPaths, filepath.Join(testsDir, issuer))
 	}
 	if tc.CRL != "" {
 		cfg.CRLPath = filepath.Join(testsDir, tc.CRL)

@@ -1,0 +1,9 @@
+id: integration-crl-signed-by
+version: 1.0
+appliesTo: [cert]
+
+rules:
+  - id: crl-signed-by-chain-issuer
+    target: crl
+    operator: crlSignedBy
+    severity: error

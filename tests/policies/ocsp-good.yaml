@@ -1,0 +1,21 @@
+id: integration-ocsp-good
+version: 1.0
+
+rules:
+  - id: ocsp-response-valid
+    target: certificate
+    operator: ocspValid
+    certType: [leaf]
+    severity: error
+
+  - id: ocsp-status-good
+    target: certificate
+    operator: ocspGood
+    certType: [leaf]
+    severity: error
+
+  - id: ocsp-not-revoked
+    target: certificate
+    operator: notRevokedOCSP
+    certType: [leaf]
+    severity: error

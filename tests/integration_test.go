@@ -42,6 +42,7 @@ type testCase struct {
 	Name     string            `yaml:"name"`
 	Policy   string            `yaml:"policy"`
 	Certs    string            `yaml:"certs"`
+	Issuers  []string          `yaml:"issuers,omitempty"`
 	CRL      string            `yaml:"crl,omitempty"`
 	OCSP     string            `yaml:"ocsp,omitempty"`
 	EvalTime string            `yaml:"eval_time,omitempty"`
@@ -100,6 +101,13 @@ func runCase(t *testing.T, caseDir string, tc testCase) {
 	certs, err := cert.LoadCertificates(certsPath)
 	if err != nil {
 		t.Fatalf("unexpected cert load error: %v", err)
+	}
+	for _, issuer := range tc.Issuers {
+		issuerCerts, err := cert.LoadCertificates(filepath.Join(testsDir, issuer))
+		if err != nil {
+			t.Fatalf("unexpected issuer cert load error: %v", err)
+		}
+		certs = append(certs, issuerCerts...)
 	}
 
 	chain, err := cert.BuildChain(certs)
