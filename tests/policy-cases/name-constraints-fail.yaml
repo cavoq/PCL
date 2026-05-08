@@ -1,0 +1,19 @@
+name: name-constraints-fail
+policy: policies/name-constraints.yaml
+certs: certs/nc-bad-leaf.pem
+issuers:
+  - certs/nc-intermediate.pem
+  - certs/nc-root.pem
+expected:
+  leaf:
+    pass: 0
+    fail: 1
+    skip: 0
+  intermediate:
+    pass: 0
+    fail: 0
+    skip: 1
+  root:
+    pass: 0
+    fail: 0
+    skip: 1

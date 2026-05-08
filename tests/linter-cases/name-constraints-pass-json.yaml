@@ -1,0 +1,28 @@
+name: name-constraints-pass-json
+policy: policies/name-constraints.yaml
+certs: certs/nc-good-leaf.pem
+issuers:
+  - certs/nc-intermediate.pem
+  - certs/nc-root.pem
+output: json
+verbosity: 2
+show_meta: true
+expected:
+  total_certs: 3
+  total_rules: 3
+  pass: 1
+  fail: 0
+  skip: 2
+  results:
+    - cert_type: leaf
+      policy: integration-name-constraints
+      verdict: pass
+      rules: 1
+    - cert_type: intermediate
+      policy: integration-name-constraints
+      verdict: pass
+      rules: 1
+    - cert_type: root
+      policy: integration-name-constraints
+      verdict: pass
+      rules: 1

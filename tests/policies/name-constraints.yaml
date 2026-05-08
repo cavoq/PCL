@@ -1,0 +1,11 @@
+id: integration-name-constraints
+version: 1.0
+
+rules:
+  - id: name-constraints-valid
+    reference: integration-test
+    target: certificate
+    operator: nameConstraintsValid
+    certType: [leaf]
+    severity: error
+    message: "Leaf certificate SANs must satisfy issuer nameConstraints"
