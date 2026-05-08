@@ -1,0 +1,19 @@
+name: rfc4055-chain
+policy: ../policies/RFC4055.yaml
+certs: certs/leaf.pem
+issuers:
+  - certs/intermediate.pem
+  - certs/root.pem
+expected:
+  leaf:
+    pass: 3
+    fail: 0
+    skip: 26
+  intermediate:
+    pass: 3
+    fail: 0
+    skip: 26
+  root:
+    pass: 3
+    fail: 0
+    skip: 26
