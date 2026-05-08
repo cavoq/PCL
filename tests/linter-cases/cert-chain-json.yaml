@@ -1,0 +1,25 @@
+name: certificate-chain-json
+policy: policies/basic.yaml
+certs: certs
+output: json
+verbosity: 2
+show_meta: true
+expected:
+  total_certs: 3
+  total_rules: 12
+  pass: 7
+  fail: 0
+  skip: 5
+  results:
+    - cert_type: leaf
+      policy: integration-basic
+      verdict: pass
+      rules: 4
+    - cert_type: intermediate
+      policy: integration-basic
+      verdict: pass
+      rules: 4
+    - cert_type: root
+      policy: integration-basic
+      verdict: pass
+      rules: 4

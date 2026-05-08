@@ -1,0 +1,6 @@
+name: missing-policy
+policy: policies/missing.yaml
+certs: certs
+output: json
+want_error: true
+error_contains: "checking policy path"

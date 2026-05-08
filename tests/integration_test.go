@@ -19,7 +19,7 @@ import (
 )
 
 func TestIntegrationPolicies(t *testing.T) {
-	caseFiles, err := filepath.Glob(filepath.Join("cases", "*.yaml"))
+	caseFiles, err := filepath.Glob(filepath.Join("policy-cases", "*.yaml"))
 	if err != nil {
 		t.Fatalf("unexpected glob error: %v", err)
 	}

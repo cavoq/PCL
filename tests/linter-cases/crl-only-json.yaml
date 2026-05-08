@@ -1,0 +1,17 @@
+name: crl-only-json
+policy: policies/crl-validity.yaml
+crl: ../internal/crl/testdata/test.crl
+output: json
+verbosity: 2
+show_meta: true
+expected:
+  total_certs: 1
+  total_rules: 2
+  pass: 0
+  fail: 2
+  skip: 0
+  results:
+    - cert_type: crl
+      policy: integration-crl-validity
+      verdict: fail
+      rules: 2

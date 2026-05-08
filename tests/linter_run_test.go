@@ -3,111 +3,174 @@ package tests
 import (
 	"bytes"
 	"encoding/json"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 
 	"github.com/cavoq/PCL/internal/linter"
 	"github.com/cavoq/PCL/internal/output"
 )
 
-func TestLinterRunIntegration(t *testing.T) {
-	t.Run("certificate chain json output", func(t *testing.T) {
-		var buf bytes.Buffer
-		err := linter.Run(linter.Config{
-			PolicyPaths: []string{filepath.Join("policies", "basic.yaml")},
-			CertPath:    "certs",
-			OutputFmt:   "json",
-			Verbosity:   2,
-			ShowMeta:    true,
-		}, &buf)
+func TestLinterRunCases(t *testing.T) {
+	caseFiles, err := filepath.Glob(filepath.Join("linter-cases", "*.yaml"))
+	if err != nil {
+		t.Fatalf("unexpected glob error: %v", err)
+	}
+	if len(caseFiles) == 0 {
+		t.Fatalf("no linter cases found")
+	}
+
+	for _, caseFile := range caseFiles {
+		tc, err := loadLinterCase(caseFile)
 		if err != nil {
-			t.Fatalf("Run returned error: %v", err)
+			t.Fatalf("failed to load case %s: %v", caseFile, err)
 		}
+		t.Run(tc.Name, func(t *testing.T) {
+			runLinterCase(t, filepath.Dir(caseFile), tc)
+		})
+	}
+}
 
-		var got output.LintOutput
-		if err := json.Unmarshal(buf.Bytes(), &got); err != nil {
-			t.Fatalf("failed to decode JSON output: %v\n%s", err, buf.String())
-		}
+type linterCase struct {
+	Name          string         `yaml:"name"`
+	Policy        string         `yaml:"policy"`
+	Certs         string         `yaml:"certs,omitempty"`
+	CRL           string         `yaml:"crl,omitempty"`
+	OCSP          string         `yaml:"ocsp,omitempty"`
+	Output        string         `yaml:"output,omitempty"`
+	Verbosity     int            `yaml:"verbosity,omitempty"`
+	ShowMeta      bool           `yaml:"show_meta,omitempty"`
+	WantError     bool           `yaml:"want_error,omitempty"`
+	ErrorContains string         `yaml:"error_contains,omitempty"`
+	Contains      []string       `yaml:"contains,omitempty"`
+	Expected      linterExpected `yaml:"expected,omitempty"`
+}
 
-		if got.Meta.TotalCerts != 3 {
-			t.Fatalf("TotalCerts = %d, want 3", got.Meta.TotalCerts)
-		}
-		if got.Meta.TotalRules != 12 {
-			t.Fatalf("TotalRules = %d, want 12", got.Meta.TotalRules)
-		}
-		if got.Meta.PassedRules != 7 {
-			t.Fatalf("PassedRules = %d, want 7", got.Meta.PassedRules)
-		}
-		if got.Meta.FailedRules != 0 {
-			t.Fatalf("FailedRules = %d, want 0", got.Meta.FailedRules)
-		}
-		if got.Meta.SkippedRules != 5 {
-			t.Fatalf("SkippedRules = %d, want 5", got.Meta.SkippedRules)
-		}
-		if len(got.Results) != 3 {
-			t.Fatalf("got %d results, want 3", len(got.Results))
-		}
+type linterExpected struct {
+	TotalCerts int                    `yaml:"total_certs"`
+	TotalRules int                    `yaml:"total_rules"`
+	Pass       int                    `yaml:"pass"`
+	Fail       int                    `yaml:"fail"`
+	Skip       int                    `yaml:"skip"`
+	Results    []linterExpectedResult `yaml:"results"`
+}
 
-		seen := map[string]bool{}
-		for _, result := range got.Results {
-			seen[result.CertType] = true
-			if result.PolicyID != "integration-basic" {
-				t.Fatalf("PolicyID = %q, want integration-basic", result.PolicyID)
-			}
-			if result.Verdict != "pass" {
-				t.Fatalf("cert %s verdict = %q, want pass", result.CertType, result.Verdict)
-			}
-			if len(result.Results) != 4 {
-				t.Fatalf("cert %s has %d rules, want 4", result.CertType, len(result.Results))
-			}
-		}
+type linterExpectedResult struct {
+	CertType string `yaml:"cert_type"`
+	Policy   string `yaml:"policy"`
+	Verdict  string `yaml:"verdict"`
+	Rules    int    `yaml:"rules"`
+}
 
-		for _, certType := range []string{"leaf", "intermediate", "root"} {
-			if !seen[certType] {
-				t.Fatalf("missing result for cert type %q", certType)
-			}
-		}
-	})
+func loadLinterCase(path string) (linterCase, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return linterCase{}, err
+	}
+	var tc linterCase
+	if err := yaml.Unmarshal(data, &tc); err != nil {
+		return linterCase{}, err
+	}
+	if tc.Name == "" {
+		tc.Name = filepath.Base(path)
+	}
+	return tc, nil
+}
 
-	t.Run("certificate chain text output", func(t *testing.T) {
-		var buf bytes.Buffer
-		err := linter.Run(linter.Config{
-			PolicyPaths: []string{filepath.Join("policies", "leaf-keycertsign-fails.yaml")},
-			CertPath:    "certs",
-			OutputFmt:   "text",
-			ShowMeta:    true,
-		}, &buf)
-		if err != nil {
-			t.Fatalf("Run returned error: %v", err)
-		}
+func runLinterCase(t *testing.T, caseDir string, tc linterCase) {
+	t.Helper()
 
-		out := buf.String()
-		for _, want := range []string{
-			"[Summary]",
-			"Policy: integration-leaf-keycertsign-fails",
-			"Cert: leaf",
-			"Verdict:",
-			"leaf-keycertsign-must-be-true",
-		} {
-			if !strings.Contains(out, want) {
-				t.Fatalf("text output missing %q\n%s", want, out)
-			}
-		}
-	})
+	testsDir := filepath.Dir(caseDir)
+	cfg := linter.Config{
+		PolicyPaths: []string{filepath.Join(testsDir, tc.Policy)},
+		OutputFmt:   tc.Output,
+		Verbosity:   tc.Verbosity,
+		ShowMeta:    tc.ShowMeta,
+	}
+	if tc.Certs != "" {
+		cfg.CertPath = filepath.Join(testsDir, tc.Certs)
+	}
+	if tc.CRL != "" {
+		cfg.CRLPath = filepath.Join(testsDir, tc.CRL)
+	}
+	if tc.OCSP != "" {
+		cfg.OCSPPath = filepath.Join(testsDir, tc.OCSP)
+	}
 
-	t.Run("missing policy returns error", func(t *testing.T) {
-		var buf bytes.Buffer
-		err := linter.Run(linter.Config{
-			PolicyPaths: []string{filepath.Join("policies", "missing.yaml")},
-			CertPath:    "certs",
-			OutputFmt:   "json",
-		}, &buf)
+	var buf bytes.Buffer
+	err := linter.Run(cfg, &buf)
+	if tc.WantError {
 		if err == nil {
-			t.Fatal("expected missing policy to return error")
+			t.Fatal("expected error, got nil")
 		}
-		if !strings.Contains(err.Error(), "checking policy path") {
-			t.Fatalf("error = %q, want policy path context", err.Error())
+		if tc.ErrorContains != "" && !strings.Contains(err.Error(), tc.ErrorContains) {
+			t.Fatalf("error = %q, want substring %q", err.Error(), tc.ErrorContains)
 		}
-	})
+		return
+	}
+	if err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+
+	for _, want := range tc.Contains {
+		if !strings.Contains(buf.String(), want) {
+			t.Fatalf("output missing %q\n%s", want, buf.String())
+		}
+	}
+
+	if tc.Output == "json" {
+		assertLinterJSONOutput(t, buf.Bytes(), tc.Expected)
+	}
+}
+
+func assertLinterJSONOutput(t *testing.T, data []byte, want linterExpected) {
+	t.Helper()
+
+	var got output.LintOutput
+	if err := json.Unmarshal(data, &got); err != nil {
+		t.Fatalf("failed to decode JSON output: %v\n%s", err, string(data))
+	}
+
+	if got.Meta.TotalCerts != want.TotalCerts {
+		t.Fatalf("TotalCerts = %d, want %d", got.Meta.TotalCerts, want.TotalCerts)
+	}
+	if got.Meta.TotalRules != want.TotalRules {
+		t.Fatalf("TotalRules = %d, want %d", got.Meta.TotalRules, want.TotalRules)
+	}
+	if got.Meta.PassedRules != want.Pass {
+		t.Fatalf("PassedRules = %d, want %d", got.Meta.PassedRules, want.Pass)
+	}
+	if got.Meta.FailedRules != want.Fail {
+		t.Fatalf("FailedRules = %d, want %d", got.Meta.FailedRules, want.Fail)
+	}
+	if got.Meta.SkippedRules != want.Skip {
+		t.Fatalf("SkippedRules = %d, want %d", got.Meta.SkippedRules, want.Skip)
+	}
+	if len(got.Results) != len(want.Results) {
+		t.Fatalf("got %d results, want %d", len(got.Results), len(want.Results))
+	}
+
+	expectedByType := make(map[string]linterExpectedResult, len(want.Results))
+	for _, expected := range want.Results {
+		expectedByType[expected.CertType] = expected
+	}
+
+	for _, result := range got.Results {
+		expected, ok := expectedByType[result.CertType]
+		if !ok {
+			t.Fatalf("unexpected result for cert type %q", result.CertType)
+		}
+		if result.PolicyID != expected.Policy {
+			t.Fatalf("cert %s PolicyID = %q, want %q", result.CertType, result.PolicyID, expected.Policy)
+		}
+		if result.Verdict != expected.Verdict {
+			t.Fatalf("cert %s Verdict = %q, want %q", result.CertType, result.Verdict, expected.Verdict)
+		}
+		if len(result.Results) != expected.Rules {
+			t.Fatalf("cert %s has %d rules, want %d", result.CertType, len(result.Results), expected.Rules)
+		}
+	}
 }

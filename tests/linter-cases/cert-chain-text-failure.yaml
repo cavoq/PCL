@@ -1,0 +1,11 @@
+name: certificate-chain-text-failure
+policy: policies/leaf-keycertsign-fails.yaml
+certs: certs
+output: text
+show_meta: true
+contains:
+  - "[Summary]"
+  - "Policy: integration-leaf-keycertsign-fails"
+  - "Cert: leaf"
+  - "Verdict:"
+  - "leaf-keycertsign-must-be-true"
