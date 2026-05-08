@@ -9,42 +9,44 @@ import (
 	"github.com/cavoq/PCL/internal/node"
 )
 
-func getTestPSLPath() string {
-	// Try multiple locations
-	candidates := []string{
-		"data/public_suffix_list.dat",                          // From project root
-		filepath.Join("..", "..", "data", "public_suffix_list.dat"), // From internal/operator
+func loadTestPSL(t *testing.T) {
+	t.Helper()
+
+	tmpDir := t.TempDir()
+	pslPath := filepath.Join(tmpDir, "public_suffix_list.dat")
+	content := `// Public Suffix List test data
+// ===BEGIN ICANN DOMAINS===
+com
+net
+org
+// ===END ICANN DOMAINS===
+// ===BEGIN PRIVATE DOMAINS===
+github.io
+// ===END PRIVATE DOMAINS===
+`
+
+	if err := os.WriteFile(pslPath, []byte(content), 0o644); err != nil {
+		t.Fatalf("failed to write test PSL: %v", err)
 	}
 
-	// Also check if we're in test mode with cwd
-	if cwd, _ := os.Getwd(); cwd != "" {
-		candidates = append(candidates,
-			filepath.Join(cwd, "data", "public_suffix_list.dat"),
-			filepath.Join(cwd, "..", "..", "data", "public_suffix_list.dat"),
-		)
-	}
+	oldLoader := data.DefaultLoader
+	data.DefaultLoader = &data.Loader{}
+	t.Cleanup(func() {
+		data.DefaultLoader = oldLoader
+	})
 
-	for _, p := range candidates {
-		if _, err := os.Stat(p); err == nil {
-			return p
-		}
+	if err := data.DefaultLoader.LoadPSL(pslPath); err != nil {
+		t.Fatalf("failed to load test PSL: %v", err)
 	}
-	return ""
 }
 
 func TestTLDRegistered(t *testing.T) {
-	pslPath := getTestPSLPath()
-	if pslPath == "" {
-		t.Skip("PSL file not found, skipping test")
-	}
-	if err := data.DefaultLoader.LoadPSL(pslPath); err != nil {
-		t.Skipf("PSL not available: %v", err)
-	}
+	loadTestPSL(t)
 
 	tests := []struct {
-		name     string
-		node     *node.Node
-		want     bool
+		name string
+		node *node.Node
+		want bool
 	}{
 		{
 			name: "valid TLD .com",
@@ -88,18 +90,12 @@ func TestTLDRegistered(t *testing.T) {
 }
 
 func TestComponentTLDRegistered(t *testing.T) {
-	pslPath := getTestPSLPath()
-	if pslPath == "" {
-		t.Skip("PSL file not found, skipping test")
-	}
-	if err := data.DefaultLoader.LoadPSL(pslPath); err != nil {
-		t.Skipf("PSL not available: %v", err)
-	}
+	loadTestPSL(t)
 
 	tests := []struct {
-		name     string
-		node     *node.Node
-		want     bool
+		name string
+		node *node.Node
+		want bool
 	}{
 		{
 			name: "all domains have valid TLDs",
@@ -148,18 +144,12 @@ func TestComponentTLDRegistered(t *testing.T) {
 }
 
 func TestComponentIsPublicSuffix(t *testing.T) {
-	pslPath := getTestPSLPath()
-	if pslPath == "" {
-		t.Skip("PSL file not found, skipping test")
-	}
-	if err := data.DefaultLoader.LoadPSL(pslPath); err != nil {
-		t.Skipf("PSL not available: %v", err)
-	}
+	loadTestPSL(t)
 
 	tests := []struct {
-		name     string
-		node     *node.Node
-		want     bool
+		name string
+		node *node.Node
+		want bool
 	}{
 		{
 			name: "wildcard *.com - FQDN portion is public suffix",
