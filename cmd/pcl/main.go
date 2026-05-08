@@ -11,10 +11,13 @@ import (
 	"github.com/cavoq/PCL/internal/linter"
 )
 
+var version = "dev"
+
 func newRootCmd(opts *linter.Config) *cobra.Command {
 	root := &cobra.Command{
-		Use:   "pcl",
-		Short: "Policy-based X.509 certificate linter",
+		Use:     "pcl",
+		Short:   "Policy-based X.509 certificate linter",
+		Version: version,
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			// Load PSL if specified or if file exists in default location
 			if opts.PSLFile != "" || opts.UsePSL {
