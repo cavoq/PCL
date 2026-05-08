@@ -1,0 +1,20 @@
+name: ocsp-stale-leaf
+policy: policies/ocsp-good.yaml
+certs: certs/ocsp-leaf.pem
+issuers:
+  - certs/ocsp-intermediate.pem
+  - certs/ocsp-root.pem
+ocsp: ocsps/stale-leaf.ocsp
+expected:
+  leaf:
+    pass: 2
+    fail: 1
+    skip: 0
+  intermediate:
+    pass: 0
+    fail: 0
+    skip: 3
+  root:
+    pass: 0
+    fail: 0
+    skip: 3
