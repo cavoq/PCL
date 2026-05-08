@@ -16,11 +16,24 @@ func (OCSPValid) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (bool, 
 		return false, nil
 	}
 
+	var certSerial string
+	if ctx.HasCert() {
+		certSerial = ctx.Cert.Cert.SerialNumber.String()
+	}
+	matched := certSerial == ""
+
 	for _, ocspInfo := range ctx.OCSPs {
 		if ocspInfo.Response == nil {
 			continue
 		}
 		resp := ocspInfo.Response
+
+		if certSerial != "" {
+			if resp.SerialNumber == nil || resp.SerialNumber.String() != certSerial {
+				continue
+			}
+			matched = true
+		}
 
 		if ctx.Now.Before(resp.ThisUpdate) {
 			return false, nil
@@ -48,7 +61,7 @@ func (OCSPValid) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (bool, 
 		}
 	}
 
-	return true, nil
+	return matched, nil
 }
 
 type NotRevokedOCSP struct{}
