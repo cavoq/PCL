@@ -1,0 +1,19 @@
+name: eku-leaf
+policy: policies/eku.yaml
+certs: certs/leaf.pem
+issuers:
+  - certs/intermediate.pem
+  - certs/root.pem
+expected:
+  leaf:
+    pass: 3
+    fail: 0
+    skip: 0
+  intermediate:
+    pass: 0
+    fail: 0
+    skip: 3
+  root:
+    pass: 0
+    fail: 0
+    skip: 3

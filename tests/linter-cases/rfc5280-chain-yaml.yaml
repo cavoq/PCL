@@ -1,0 +1,16 @@
+name: rfc5280-chain-yaml
+policy: ../policies/RFC5280.yaml
+certs: certs/leaf.pem
+issuers:
+  - certs/intermediate.pem
+  - certs/root.pem
+output: yaml
+show_meta: true
+contains:
+  - "meta:"
+  - "total_certs: 3"
+  - "policy_id: rfc5280"
+  - "cert_type: leaf"
+  - "cert_type: intermediate"
+  - "cert_type: root"
+  - "verdict: pass"
