@@ -1,0 +1,20 @@
+name: rfc5280-chain
+policy: ../policies/RFC5280.yaml
+certs: certs/leaf.pem
+issuers:
+  - certs/intermediate.pem
+  - certs/root.pem
+eval_time: "2027-01-01T00:00:00Z"
+expected:
+  leaf:
+    pass: 37
+    fail: 0
+    skip: 56
+  intermediate:
+    pass: 40
+    fail: 0
+    skip: 53
+  root:
+    pass: 31
+    fail: 0
+    skip: 62

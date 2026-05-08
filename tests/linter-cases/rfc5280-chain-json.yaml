@@ -1,0 +1,28 @@
+name: rfc5280-chain-json
+policy: ../policies/RFC5280.yaml
+certs: certs/leaf.pem
+issuers:
+  - certs/intermediate.pem
+  - certs/root.pem
+output: json
+verbosity: 2
+show_meta: true
+expected:
+  total_certs: 3
+  total_rules: 279
+  pass: 108
+  fail: 0
+  skip: 171
+  results:
+    - cert_type: leaf
+      policy: rfc5280
+      verdict: pass
+      rules: 93
+    - cert_type: intermediate
+      policy: rfc5280
+      verdict: pass
+      rules: 93
+    - cert_type: root
+      policy: rfc5280
+      verdict: pass
+      rules: 93
