@@ -1,0 +1,33 @@
+name: rfc5280-chain-crl-json
+policy: ../policies/RFC5280.yaml
+certs: certs/leaf.pem
+issuers:
+  - certs/intermediate.pem
+  - certs/root.pem
+crl: crls/revoked-leaf.crl
+output: json
+verbosity: 2
+show_meta: true
+expected:
+  total_certs: 4
+  total_rules: 372
+  pass: 130
+  fail: 11
+  skip: 231
+  results:
+    - cert_type: leaf
+      policy: rfc5280
+      verdict: fail
+      rules: 93
+    - cert_type: intermediate
+      policy: rfc5280
+      verdict: fail
+      rules: 93
+    - cert_type: root
+      policy: rfc5280
+      verdict: fail
+      rules: 93
+    - cert_type: crl
+      policy: rfc5280
+      verdict: fail
+      rules: 93

@@ -1,0 +1,21 @@
+name: rfc5280-chain-crl
+policy: ../policies/RFC5280.yaml
+certs: certs/leaf.pem
+issuers:
+  - certs/intermediate.pem
+  - certs/root.pem
+crl: crls/revoked-leaf.crl
+eval_time: "2026-06-01T00:00:00Z"
+expected:
+  leaf:
+    pass: 42
+    fail: 3
+    skip: 48
+  intermediate:
+    pass: 46
+    fail: 2
+    skip: 45
+  root:
+    pass: 37
+    fail: 2
+    skip: 54
