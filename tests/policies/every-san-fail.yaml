@@ -1,0 +1,17 @@
+id: integration-every-san-fail
+version: 1.0
+
+rules:
+  - id: san-dns-must-match-com
+    reference: integration-test
+    when:
+      target: certificate.subjectAltName.dNSName
+      operator: present
+    target: certificate.subjectAltName.dNSName
+    operator: every
+    operands:
+      - operator: regex
+        operands: [".*\\.example\\.com$"]
+    certType: [leaf]
+    severity: error
+    message: "Every SAN DNS name must end in .example.com (intentional mismatch)"
