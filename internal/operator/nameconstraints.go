@@ -19,31 +19,53 @@ func (NameConstraintsValid) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []a
 		return false, nil
 	}
 
-	var permitted, excluded nameConstraints
 	pos := ctx.Cert.Position
+	cert := ctx.Cert.Cert
+
+	// RFC 5280 §6.1.4(g): permitted subtrees are intersected across the chain
+	// (each CA can only narrow, never expand); excluded subtrees are unioned.
+	var excluded nameConstraints
+	var permittedSets []nameConstraints
 
 	for i := len(ctx.Chain) - 1; i > pos; i-- {
 		ca := ctx.Chain[i]
 		if ca.Cert == nil {
 			continue
 		}
-		permitted = permitted.merge(extractPermitted(ca.Cert))
+		if perm := extractPermitted(ca.Cert); !perm.empty() {
+			permittedSets = append(permittedSets, perm)
+		}
 		excluded = excluded.merge(extractExcluded(ca.Cert))
 	}
 
-	cert := ctx.Cert.Cert
+	// Exclusions: union — if any CA excludes a name, it is excluded.
+	if !checkDNSNames(cert.DNSNames, nil, excluded.dns) {
+		return false, nil
+	}
+	if !checkEmails(cert.EmailAddresses, nil, excluded.emails) {
+		return false, nil
+	}
+	if !checkURIs(cert.URIs, nil, excluded.uris) {
+		return false, nil
+	}
+	if !checkIPs(cert.IPAddresses, nil, excluded.ips) {
+		return false, nil
+	}
 
-	if !checkDNSNames(cert.DNSNames, permitted.dns, excluded.dns) {
-		return false, nil
-	}
-	if !checkEmails(cert.EmailAddresses, permitted.emails, excluded.emails) {
-		return false, nil
-	}
-	if !checkURIs(cert.URIs, permitted.uris, excluded.uris) {
-		return false, nil
-	}
-	if !checkIPs(cert.IPAddresses, permitted.ips, excluded.ips) {
-		return false, nil
+	// Permitted: intersection — every CA's permitted set must independently be satisfied.
+	for _, permitted := range permittedSets {
+		if !checkDNSNames(cert.DNSNames, permitted.dns, nil) {
+			return false, nil
+		}
+		if !checkEmails(cert.EmailAddresses, permitted.emails, nil) {
+			return false, nil
+		}
+		if !checkURIs(cert.URIs, permitted.uris, nil) {
+			return false, nil
+		}
+		if !checkIPs(cert.IPAddresses, permitted.ips, nil) {
+			return false, nil
+		}
 	}
 
 	return true, nil
@@ -54,6 +76,10 @@ type nameConstraints struct {
 	emails []string
 	uris   []string
 	ips    []net.IPNet
+}
+
+func (nc nameConstraints) empty() bool {
+	return len(nc.dns) == 0 && len(nc.emails) == 0 && len(nc.uris) == 0 && len(nc.ips) == 0
 }
 
 func (nc nameConstraints) merge(other nameConstraints) nameConstraints {

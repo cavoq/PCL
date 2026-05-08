@@ -344,6 +344,77 @@ func TestNameConstraintsValidMultipleCAConstraints(t *testing.T) {
 	}
 }
 
+// TestNameConstraintsIntersection verifies that a leaf satisfying an
+// intermediate's permitted set but NOT the root's is rejected.
+// Under the old union semantics this would incorrectly pass.
+func TestNameConstraintsIntersectionFail(t *testing.T) {
+	op := NameConstraintsValid{}
+	leafCert := &x509.Certificate{
+		DNSNames: []string{"foo.other.com"},
+	}
+	intermediateCert := &x509.Certificate{
+		PermittedDNSNames: []x509.GeneralSubtreeString{
+			{Data: ".other.com"},
+		},
+	}
+	rootCert := &x509.Certificate{
+		PermittedDNSNames: []x509.GeneralSubtreeString{
+			{Data: ".example.com"},
+		},
+	}
+
+	ctx := &EvaluationContext{
+		Cert: &cert.Info{Cert: leafCert, Position: 0},
+		Chain: []*cert.Info{
+			{Cert: leafCert, Position: 0},
+			{Cert: intermediateCert, Position: 1},
+			{Cert: rootCert, Position: 2},
+		},
+	}
+	got, err := op.Evaluate(nil, ctx, nil)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if got {
+		t.Error("name outside root's permitted set must fail (intersection semantics)")
+	}
+}
+
+// TestNameConstraintsIntersectionPass verifies that a leaf satisfying both
+// root's and intermediate's permitted sets (intermediate narrows root) passes.
+func TestNameConstraintsIntersectionPass(t *testing.T) {
+	op := NameConstraintsValid{}
+	leafCert := &x509.Certificate{
+		DNSNames: []string{"foo.sub.example.com"},
+	}
+	intermediateCert := &x509.Certificate{
+		PermittedDNSNames: []x509.GeneralSubtreeString{
+			{Data: ".sub.example.com"},
+		},
+	}
+	rootCert := &x509.Certificate{
+		PermittedDNSNames: []x509.GeneralSubtreeString{
+			{Data: ".example.com"},
+		},
+	}
+
+	ctx := &EvaluationContext{
+		Cert: &cert.Info{Cert: leafCert, Position: 0},
+		Chain: []*cert.Info{
+			{Cert: leafCert, Position: 0},
+			{Cert: intermediateCert, Position: 1},
+			{Cert: rootCert, Position: 2},
+		},
+	}
+	got, err := op.Evaluate(nil, ctx, nil)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if !got {
+		t.Error("name within both permitted sets should pass (intersection semantics)")
+	}
+}
+
 func TestMatchesDNS(t *testing.T) {
 	tests := []struct {
 		name       string
