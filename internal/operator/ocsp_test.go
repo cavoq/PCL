@@ -123,8 +123,8 @@ func TestOCSPValidNilResponseInInfo(t *testing.T) {
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
-	if !got {
-		t.Error("should skip nil responses")
+	if got {
+		t.Error("nil responses should not make OCSP valid")
 	}
 }
 

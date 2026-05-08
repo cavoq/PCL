@@ -1,0 +1,29 @@
+name: ocsp-mixed-good-revoked-leaf-json
+policy: policies/ocsp-good.yaml
+certs: certs/ocsp-leaf.pem
+issuers:
+  - certs/ocsp-intermediate.pem
+  - certs/ocsp-root.pem
+ocsp: ocsps/mixed-good-revoked
+output: json
+verbosity: 2
+show_meta: true
+expected:
+  total_certs: 3
+  total_rules: 9
+  pass: 2
+  fail: 1
+  skip: 6
+  results:
+    - cert_type: leaf
+      policy: integration-ocsp-good
+      verdict: fail
+      rules: 3
+    - cert_type: intermediate
+      policy: integration-ocsp-good
+      verdict: pass
+      rules: 3
+    - cert_type: root
+      policy: integration-ocsp-good
+      verdict: pass
+      rules: 3
