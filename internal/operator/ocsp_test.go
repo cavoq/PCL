@@ -227,6 +227,31 @@ func TestNotRevokedOCSPCertRevoked(t *testing.T) {
 	}
 }
 
+func TestNotRevokedOCSPCertUnknown(t *testing.T) {
+	op := NotRevokedOCSP{}
+	serial := big.NewInt(123)
+	ctx := &EvaluationContext{
+		Cert: &cert.Info{
+			Cert: &x509.Certificate{
+				SerialNumber: serial,
+			},
+		},
+		OCSPs: []*ocsp.Info{{
+			Response: &stdocsp.Response{
+				SerialNumber: serial,
+				Status:       stdocsp.Unknown,
+			},
+		}},
+	}
+	got, err := op.Evaluate(nil, ctx, nil)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if got {
+		t.Error("unknown status should return false")
+	}
+}
+
 func TestNotRevokedOCSPDifferentSerial(t *testing.T) {
 	op := NotRevokedOCSP{}
 	ctx := &EvaluationContext{

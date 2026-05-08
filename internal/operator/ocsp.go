@@ -89,9 +89,7 @@ func (NotRevokedOCSP) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (b
 			continue
 		}
 
-		if resp.Status == ocsp.Revoked {
-			return false, nil
-		}
+		return resp.Status == ocsp.Good, nil
 	}
 
 	return true, nil
