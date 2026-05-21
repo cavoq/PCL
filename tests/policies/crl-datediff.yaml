@@ -1,0 +1,34 @@
+id: crl-datediff
+version: 1.0
+
+rules:
+  # Test dateDiff operator - CRL has 30-day validity, exceeding 10-day limit
+  - id: crl-nextupdate-within-10-days
+    target: crl
+    operator: dateDiff
+    operands:
+      - start: thisUpdate
+        end: nextUpdate
+        maxDays: 10
+    severity: error
+
+  # Test dateDiff operator - CRL has 30-day validity, within 12-month limit
+  - id: crl-nextupdate-within-12-months
+    target: crl
+    operator: dateDiff
+    operands:
+      - start: thisUpdate
+        end: nextUpdate
+        maxMonths: 12
+    severity: error
+
+  # Test every operator with skipMissing (empty CRL should pass)
+  - id: crl-reason-codes-valid
+    target: crl.revokedCertificates
+    operator: every
+    operands:
+      - path: extensions.2.5.29.21.value
+        check: in
+        values: [1, 2, 3, 4, 5, 6, 9]
+        skipMissing: true
+    severity: error

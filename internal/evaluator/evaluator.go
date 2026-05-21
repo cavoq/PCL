@@ -2,10 +2,12 @@
 package evaluator
 
 import (
+	"io"
+	"time"
+
 	"github.com/cavoq/PCL/internal/cert"
 	certzcrypto "github.com/cavoq/PCL/internal/cert/zcrypto"
 	"github.com/cavoq/PCL/internal/crl"
-	crlzcrypto "github.com/cavoq/PCL/internal/crl/zcrypto"
 	"github.com/cavoq/PCL/internal/node"
 	"github.com/cavoq/PCL/internal/ocsp"
 	ocspzcrypto "github.com/cavoq/PCL/internal/ocsp/zcrypto"
@@ -23,6 +25,12 @@ type Context struct {
 	CRLs     []*crl.Info
 	OCSPs    []*ocsp.Info
 	Chain    []*cert.Info
+
+	// CRL issuer discovery for isCACRL (optional). When set, PCL may fetch CA
+	// Issuers URLs from the chain to locate the CRL signing certificate.
+	CRLResolveTimeout  time.Duration
+	CRLResolveMaxDepth int
+	CRLResolveWarn     io.Writer
 }
 
 func Chain(ctx Context) []policy.Result {
@@ -39,7 +47,7 @@ func Chain(ctx Context) []policy.Result {
 		if len(ctx.CRLs) > 0 {
 			for _, crlInfo := range ctx.CRLs {
 				if crlInfo.CRL != nil {
-					crlNode := crlzcrypto.BuildTree(crlInfo.CRL)
+					crlNode := crl.BuildTree(crlInfo.CRL)
 					if crlNode != nil {
 						tree.Children["crl"] = crlNode
 					}
@@ -109,9 +117,9 @@ func CRL(ctx Context) []policy.Result {
 			continue
 		}
 
-		issuerCerts := ExtractCertsFromInfo(ctx.Chain)
+		issuerCerts := issuerCertsForCRL(ctx, crlInfo.CRL)
 
-		crlNode := crlzcrypto.BuildTreeWithChain(crlInfo.CRL, issuerCerts)
+		crlNode := crl.BuildTreeWithChain(crlInfo.CRL, issuerCerts)
 		if crlNode == nil {
 			continue
 		}
@@ -180,13 +188,20 @@ func ocspSigningCert(policies []policy.Policy, registry *operator.Registry, ocsp
 	return results
 }
 
+func issuerCertsForCRL(ctx Context, revocationList *x509.RevocationList) []*x509.Certificate {
+	if ctx.CRLResolveTimeout > 0 && ctx.CRLResolveMaxDepth > 0 {
+		return crl.ResolveIssuerCerts(
+			ctx.Chain,
+			revocationList,
+			ctx.CRLResolveTimeout,
+			ctx.CRLResolveMaxDepth,
+			ctx.CRLResolveWarn,
+		)
+	}
+	return cert.CertsFromInfos(ctx.Chain)
+}
+
 // ExtractCertsFromInfo extracts x509 certificates from cert.Info values.
 func ExtractCertsFromInfo(infos []*cert.Info) []*x509.Certificate {
-	var certs []*x509.Certificate
-	for _, info := range infos {
-		if info.Cert != nil {
-			certs = append(certs, info.Cert)
-		}
-	}
-	return certs
+	return cert.CertsFromInfos(infos)
 }

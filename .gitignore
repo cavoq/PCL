@@ -7,6 +7,9 @@
 *.dylib
 CLAUDE.md
 .codex
+.claude
+data/
+tests/certs/generated
 
 # Test binary, built with `go test -c`
 *.test

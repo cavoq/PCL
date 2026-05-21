@@ -25,29 +25,6 @@ func BuildTree(crl *x509.RevocationList) *node.Node {
 	return NewCRLBuilder().Build(crl)
 }
 
-// BuildTreeWithChain builds CRL node tree with CA status determined from issuer chain.
-// isCACRL is set to true if the CRL issuer is a CA certificate (Root or Intermediate).
-func BuildTreeWithChain(crl *x509.RevocationList, issuerCerts []*x509.Certificate) *node.Node {
-	n := buildCRL(crl)
-	if n == nil {
-		return nil
-	}
-
-	// Determine if CRL issuer is a CA
-	isCACRL := false
-	crlIssuer := crl.Issuer.String()
-
-	for _, cert := range issuerCerts {
-		if cert != nil && cert.Subject.String() == crlIssuer {
-			isCACRL = cert.IsCA
-			break
-		}
-	}
-
-	n.Children["isCACRL"] = node.New("isCACRL", isCACRL)
-	return n
-}
-
 func buildCRL(crl *x509.RevocationList) *node.Node {
 	root := node.New("crl", nil)
 

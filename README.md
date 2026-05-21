@@ -158,7 +158,7 @@ rules:
     operator: eq
     operands: [true]
     severity: error
-    appliesTo: [root, intermediate]
+    certType: [root, intermediate]
 
   # -------------------------------------------------
   # Key Usage (Section 4.2.1.3)
@@ -169,7 +169,7 @@ rules:
     target: certificate.keyUsage
     operator: keyUsageCA
     severity: error
-    appliesTo: [root, intermediate]
+    certType: [root, intermediate]
 
   # -------------------------------------------------
   # AIA Extension - Best Practice (INFO severity)
@@ -180,7 +180,7 @@ rules:
     target: certificate.caIssuersURL
     operator: present
     severity: info
-    appliesTo: [leaf]
+    certType: [leaf]
 
   # -------------------------------------------------
   # Subject Alternative Name (Section 4.2.1.6)
@@ -417,7 +417,7 @@ Rules can include a `when` clause to apply only when certain conditions are met:
   target: certificate.signedCertificateTimestamps
   operator: present
   severity: warning
-  appliesTo: [leaf]
+  certType: [leaf]
 ```
 
 When the `when` condition is not met, the rule status is **SKIP** (not displayed by default, use `-vv` to see).
@@ -444,17 +444,16 @@ PCL automatically builds and validates certificate chains, applying rules based 
 
 **Enhanced Detection:** At position 0, PCL checks BasicConstraints to correctly identify CA certificates even when linted directly (without a subscriber certificate chain). This allows linting intermediate CA certificates standalone.
 
-Use `appliesTo` in rules to target specific certificate types.
+Use `certType` on individual rules to target certificate roles (`leaf`, `intermediate`, `root`, `ocspSigning`). Rules without `certType` run on every role (others are **SKIP** when the role does not match).
 
-## 📥 Input Type Filtering
+## 📥 Policy and input filtering
 
-Policies are automatically filtered by input type based on rule targets:
+**Policy-level** (top of the YAML file, next to `id` / `version`):
 
-- Rules with `certificate.*` targets → applied to X.509 certificates
-- Rules with `crl.*` targets → applied to CRLs
-- Rules with `ocsp.*` targets → applied to OCSP responses
+- `appliesTo`: which **input object** the policy is for — `cert`, `crl`, or `ocsp` (e.g. `appliesTo: [ocsp]` for OCSP-only policies).
+- `certType`: optional filter so the **whole policy** runs only on matching certificate roles (used with certificate linting).
 
-This allows mixed policies to validate different PKI components independently. Use `appliesTo` to explicitly specify input types: `cert`, `crl`, `ocsp`.
+If `appliesTo` is omitted, the input type is inferred from the first rule’s `target` prefix (`certificate.*` → cert, `crl.*` → crl, `ocsp.*` → ocsp). That inference does **not** propagate `root` / `leaf` to other rules — role filtering is per-rule `certType` only.
 
 ## 🌳 Node Tree Structure
 
@@ -542,7 +541,7 @@ crl
     └── ...
 ```
 
-**CRL Type Detection:** The `isCACRL` field enables differentiation between Subscriber CRLs and CA CRLs (BR 7.2). This requires providing issuer certificates via `--issuer`.
+**CRL type detection (`isCACRL`):** Set from the CRL signing certificate when its Subject or Authority Key Identifier matches a certificate in the validation chain. With `--auto-validate`, PCL also walks CA Issuers URLs from the chain (same timeout/depth as chain climbing) to fetch the signer when it is not already in the chain—so you usually do not need `--issuer` for CDP-fetched CRLs. Use `--issuer` only when the signer is not reachable via AIA from the built chain.
 
 ### OCSP Node Tree
 

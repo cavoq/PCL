@@ -1,6 +1,7 @@
 package operator
 
 import (
+	crlpkg "github.com/cavoq/PCL/internal/crl"
 	"github.com/cavoq/PCL/internal/node"
 	"github.com/zmap/zcrypto/x509"
 )
@@ -73,25 +74,21 @@ func (CRLSignedBy) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (bool
 		}
 		crl := crlInfo.CRL
 
-		// Find matching issuer from chain
-		crlIssuer := crl.Issuer.String()
 		var matchingIssuer *x509.Certificate
 		for _, issuerInfo := range ctx.Chain {
 			if issuerInfo.Cert == nil {
 				continue
 			}
-			if issuerInfo.Cert.Subject.String() == crlIssuer {
+			if crlpkg.CertSignsCRL(issuerInfo.Cert, crl) {
 				matchingIssuer = issuerInfo.Cert
 				break
 			}
 		}
 
-		// If issuer not in chain, skip this CRL (not applicable to our chain)
 		if matchingIssuer == nil {
 			continue
 		}
 
-		// Verify signature only for applicable CRLs (issuer in chain)
 		if err := crl.CheckSignatureFrom(matchingIssuer); err != nil {
 			return false, nil
 		}

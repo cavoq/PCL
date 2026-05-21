@@ -45,17 +45,15 @@ func (ctx *EvaluationContext) IsCACRL(crlInfo *crl.Info) bool {
 		return false
 	}
 
-	crlIssuer := crlInfo.CRL.Issuer.String()
-
 	for _, certInfo := range ctx.Chain {
 		if certInfo.Cert == nil {
 			continue
 		}
-		if certInfo.Cert.Subject.String() == crlIssuer {
-			// Check if this issuer is a CA
-			if certInfo.Cert.IsCA {
-				return true
-			}
+		if !crl.CertSignsCRL(certInfo.Cert, crlInfo.CRL) {
+			continue
+		}
+		if certInfo.Cert.IsCA {
+			return true
 		}
 	}
 

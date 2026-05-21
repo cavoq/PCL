@@ -196,11 +196,14 @@ func processCertificates(cfg Config, policies []policy.Policy, reg *operator.Reg
 	}
 
 	evalCtx := evaluator.Context{
-		Policies: policies,
-		Registry: reg,
-		CRLs:     crls,
-		OCSPs:    ocsps,
-		Chain:    chain,
+		Policies:           policies,
+		Registry:           reg,
+		CRLs:               crls,
+		OCSPs:              ocsps,
+		Chain:              chain,
+		CRLResolveTimeout:  crlResolveTimeout(cfg),
+		CRLResolveMaxDepth: crlResolveMaxDepth(cfg),
+		CRLResolveWarn:     w,
 	}
 	results := evaluator.Chain(evalCtx)
 
@@ -228,6 +231,20 @@ func outputResults(cfg Config, results []policy.Result, w io.Writer) error {
 
 	formatter := output.GetFormatter(cfg.OutputFmt, outputOpts)
 	return formatter.Format(w, lintOutput)
+}
+
+func crlResolveTimeout(cfg Config) time.Duration {
+	if cfg.CertTimeout > 0 {
+		return cfg.CertTimeout
+	}
+	return cfg.OCSPTimeout
+}
+
+func crlResolveMaxDepth(cfg Config) int {
+	if cfg.MaxChainDepth > 0 {
+		return cfg.MaxChainDepth
+	}
+	return 10
 }
 
 func applyDefaults(cfg *Config) {
