@@ -47,8 +47,10 @@ func pkcs7AppendAll(parts ...[]byte) []byte {
 }
 
 func pkcs7EncodeASN1(tag byte, content []byte) []byte {
-	out := []byte{tag}
-	out = append(out, pkcs7EncodeASN1Length(len(content))...)
+	lengthBytes := pkcs7EncodeASN1Length(len(content))
+	out := make([]byte, 0, 1+len(lengthBytes)+len(content))
+	out = append(out, tag)
+	out = append(out, lengthBytes...)
 	out = append(out, content...)
 	return out
 }

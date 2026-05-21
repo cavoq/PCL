@@ -159,7 +159,7 @@ func readLEFixtureCertDER(t *testing.T, name string) []byte {
 // leISRGRootX2ImpostorDER is a self-signed cert with the same subject and SKI as
 // E9's issuer hint but a different key — it must not be chosen when the real root
 // is present in the PKCS#7 bundle.
-func leISRGRootX2ImpostorDER(t *testing.T, authorityKeyId []byte) []byte {
+func leISRGRootX2ImpostorDER(t *testing.T, authorityKeyID []byte) []byte {
 	t.Helper()
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
@@ -177,7 +177,7 @@ func leISRGRootX2ImpostorDER(t *testing.T, authorityKeyId []byte) []byte {
 		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
 		BasicConstraintsValid: true,
 		IsCA:                  true,
-		SubjectKeyId:          append([]byte(nil), authorityKeyId...),
+		SubjectKeyId:          append([]byte(nil), authorityKeyID...),
 	}
 	der, err := x509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
 	if err != nil {
