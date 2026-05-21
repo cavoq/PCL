@@ -23,8 +23,13 @@ func BuildTreeWithChain(revocationList *x509.RevocationList, issuerCerts []*x509
 		return nil
 	}
 
-	n.Children["isCACRL"] = node.New("isCACRL", isCACRL(revocationList, issuerCerts))
+	n.Children["isCACRL"] = node.New("isCACRL", IsCACRL(revocationList, issuerCerts))
 	return n
+}
+
+// IsCACRL reports whether the CRL follows the CA / other-CRL profile used by BR policies.
+func IsCACRL(revocationList *x509.RevocationList, issuerCerts []*x509.Certificate) bool {
+	return isCACRL(revocationList, issuerCerts)
 }
 
 func isCACRL(revocationList *x509.RevocationList, issuerCerts []*x509.Certificate) bool {

@@ -36,14 +36,26 @@ func CertSignsCRL(cert *x509.Certificate, revocationList *x509.RevocationList) b
 	return revocationList.CheckSignatureFrom(cert) == nil
 }
 
-// SigningCertFromPool returns the first certificate in pool that signed the CRL.
+// SigningCertFromPool returns the CRL signing certificate from pool.
+// Signature verification is preferred; DN/AKI match alone is used only when
+// no pool member verifies (e.g. unit tests without a real signature).
 func SigningCertFromPool(revocationList *x509.RevocationList, pool []*x509.Certificate) *x509.Certificate {
+	if revocationList == nil {
+		return nil
+	}
+	var hint *x509.Certificate
 	for _, c := range pool {
-		if CertSignsCRL(c, revocationList) {
+		if c == nil {
+			continue
+		}
+		if revocationList.CheckSignatureFrom(c) == nil {
 			return c
 		}
+		if hint == nil && CertMatchesCRLIssuer(c, revocationList) {
+			hint = c
+		}
 	}
-	return nil
+	return hint
 }
 
 // ResolveIssuerCerts returns chain certificates plus any CRL signing certificates

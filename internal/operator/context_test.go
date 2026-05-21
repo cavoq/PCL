@@ -324,3 +324,33 @@ func TestIsCACRL_skipsNilChainCert(t *testing.T) {
 		t.Fatal("expected IsCACRL true when signer appears after nil chain entry")
 	}
 }
+
+// TestIsCACRL_matchesPolicyNodeForValidityInference ensures EvaluationContext
+// agrees with the crl.isCACRL node when only validity implies other CRL profile.
+func TestIsCACRL_matchesPolicyNodeForValidityInference(t *testing.T) {
+	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	ee := &x509.Certificate{
+		Subject:      pkix.Name{CommonName: "Subscriber"},
+		SubjectKeyId: []byte{0xbb},
+		IsCA:         false,
+		SerialNumber: big.NewInt(1),
+	}
+	revocationList := &x509.RevocationList{
+		Issuer:         pkix.Name{CommonName: "Subscriber"},
+		AuthorityKeyId: []byte{0xbb},
+		ThisUpdate:     now,
+		NextUpdate:     now.Add(100 * 24 * time.Hour),
+	}
+	crlInfo := &crl.Info{CRL: revocationList}
+
+	tree := crl.BuildTreeWithChain(revocationList, []*x509.Certificate{ee})
+	nodeVal := tree.Children["isCACRL"].Value
+	if nodeVal != true {
+		t.Fatalf("policy node isCACRL = %v, want true (validity inference)", nodeVal)
+	}
+
+	ctx := &EvaluationContext{Chain: []*cert.Info{{Cert: ee}}}
+	if ctx.IsCACRL(crlInfo) != nodeVal {
+		t.Fatalf("EvaluationContext.IsCACRL() = %v, policy node = %v", ctx.IsCACRL(crlInfo), nodeVal)
+	}
+}

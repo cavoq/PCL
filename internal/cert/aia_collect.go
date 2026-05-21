@@ -71,9 +71,17 @@ func FetchParentViaCAIssuers(child *x509.Certificate, timeout time.Duration, w i
 	warnPKCS7Bundle(w, child, issuerResult.Certs)
 	warnPEMDownload(w, url, issuerResult.Source.Format)
 
-	issuerCert, _ := aia.SelectIssuer(child, issuerResult.Certs)
+	issuerCert, matched := aia.SelectIssuer(child, issuerResult.Certs)
 	if issuerCert == nil {
+		if len(issuerResult.Certs) > 0 {
+			warnf(w, "Warning: CA Issuers URL %s returned %d certs but none match %s\n",
+				url, len(issuerResult.Certs), child.Subject.CommonName)
+		}
 		return nil, source.Info{}, url, nil
+	}
+	if !matched && len(issuerResult.Certs) > 1 {
+		warnf(w, "Warning: CA Issuers URL %s returned %d certs; selected via identity hint only\n",
+			url, len(issuerResult.Certs))
 	}
 
 	return issuerCert, normalizeIssuerSourceInfo(issuerResult.Source), url, nil
@@ -165,9 +173,9 @@ func serialSeenSet(certs []*x509.Certificate) map[string]bool {
 }
 
 func warnPKCS7Bundle(w io.Writer, child *x509.Certificate, candidates []*x509.Certificate) {
-	_, matched := aia.SelectIssuer(child, candidates)
-	if !matched && len(candidates) > 1 {
-		warnf(w, "Warning: PKCS#7 bundle contains %d certs, no exact issuer match found, using first cert\n", len(candidates))
+	if _, matched := aia.SelectIssuer(child, candidates); !matched && len(candidates) > 0 {
+		warnf(w, "Warning: PKCS#7 bundle contains %d certs, no issuer match for %s\n",
+			len(candidates), child.Subject.CommonName)
 	}
 }
 

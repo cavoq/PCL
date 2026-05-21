@@ -102,7 +102,7 @@ func OCSP(ctx Context) []policy.Result {
 		}
 
 		if ocspInfo.Response.Certificate != nil {
-			results = append(results, ocspSigningCert(ctx.Policies, ctx.Registry, ctx.OCSPs, ocspInfo, ctx.Chain)...)
+			results = append(results, ocspSigningCert(ctx, ocspInfo)...)
 		}
 	}
 
@@ -161,7 +161,7 @@ func OCSPOnly(policies []policy.Policy, registry *operator.Registry, ocsps []*oc
 	})
 }
 
-func ocspSigningCert(policies []policy.Policy, registry *operator.Registry, ocsps []*ocsp.Info, ocspInfo *ocsp.Info, chain []*cert.Info) []policy.Result {
+func ocspSigningCert(ctx Context, ocspInfo *ocsp.Info) []policy.Result {
 	zcryptoSignerCert, err := zcrypto.FromStdCert(ocspInfo.Response.Certificate)
 	if err != nil || zcryptoSignerCert == nil {
 		return nil
@@ -175,13 +175,22 @@ func ocspSigningCert(policies []policy.Policy, registry *operator.Registry, ocsp
 		Source:   source.Info{Type: source.Extracted, Description: "extracted from OCSP response"},
 	}
 
-	evalOpts := []operator.ContextOption{operator.WithOCSPs(ocsps)}
-	evalCtx := operator.NewEvaluationContext(ocspSignerTree, ocspSignerInfo, chain, evalOpts...)
+	signerChain := ocsp.BuildSignerEvalChain(
+		zcryptoSignerCert,
+		ocspSignerInfo,
+		ctx.Chain,
+		ctx.CRLResolveTimeout,
+		ctx.CRLResolveMaxDepth,
+		ctx.CRLResolveWarn,
+	)
+
+	evalOpts := []operator.ContextOption{operator.WithOCSPs(ctx.OCSPs)}
+	evalCtx := operator.NewEvaluationContext(ocspSignerTree, ocspSignerInfo, signerChain, evalOpts...)
 
 	var results []policy.Result
-	signerPolicies := policy.ByCertificate(policies, zcryptoSignerCert)
+	signerPolicies := policy.ByCertificate(ctx.Policies, zcryptoSignerCert)
 	for _, p := range signerPolicies {
-		res := policy.Evaluate(p, ocspSignerTree, registry, evalCtx)
+		res := policy.Evaluate(p, ocspSignerTree, ctx.Registry, evalCtx)
 		results = append(results, res)
 	}
 

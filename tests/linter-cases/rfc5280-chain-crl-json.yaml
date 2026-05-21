@@ -12,8 +12,8 @@ expected:
   total_certs: 4
   total_rules: 372
   pass: 130
-  fail: 11
-  skip: 231
+  fail: 9
+  skip: 233
   results:
     - cert_type: leaf
       policy: rfc5280

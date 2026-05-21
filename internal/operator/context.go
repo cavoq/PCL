@@ -34,30 +34,12 @@ func (ctx *EvaluationContext) HasOCSPs() bool {
 	return ctx != nil && len(ctx.OCSPs) > 0
 }
 
-// IsCACRL checks if the CRL issuer is a CA certificate in the chain.
-// Returns true if the CRL was issued by a Root or Intermediate CA.
+// IsCACRL mirrors the crl.isCACRL policy node (signer in chain pool + validity inference).
 func (ctx *EvaluationContext) IsCACRL(crlInfo *crl.Info) bool {
 	if ctx == nil || crlInfo == nil || crlInfo.CRL == nil {
 		return false
 	}
-
-	if !ctx.HasChain() {
-		return false
-	}
-
-	for _, certInfo := range ctx.Chain {
-		if certInfo.Cert == nil {
-			continue
-		}
-		if !crl.CertSignsCRL(certInfo.Cert, crlInfo.CRL) {
-			continue
-		}
-		if certInfo.Cert.IsCA {
-			return true
-		}
-	}
-
-	return false
+	return crl.IsCACRL(crlInfo.CRL, cert.CertsFromInfos(ctx.Chain))
 }
 
 type ContextOption func(*EvaluationContext)

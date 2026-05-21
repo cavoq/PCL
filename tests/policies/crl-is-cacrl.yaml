@@ -1,0 +1,31 @@
+id: crl-is-cacrl
+version: 1.0
+
+rules:
+  # test.crl has ~30-day validity → isCACRL true → subscriber 10-day rule must skip
+  - id: subscriber-crl-within-10-days
+    when:
+      target: crl.isCACRL
+      operator: eq
+      operands: [false]
+    target: crl
+    operator: dateDiff
+    operands:
+      - start: thisUpdate
+        end: nextUpdate
+        maxDays: 10
+    severity: error
+
+  # other CRL profile: long window allowed when isCACRL is true
+  - id: other-crl-within-100-days
+    when:
+      target: crl.isCACRL
+      operator: eq
+      operands: [true]
+    target: crl
+    operator: dateDiff
+    operands:
+      - start: thisUpdate
+        end: nextUpdate
+        maxDays: 100
+    severity: error

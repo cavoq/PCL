@@ -11,7 +11,6 @@ import (
 	"github.com/cavoq/PCL/internal/cert"
 	certzcrypto "github.com/cavoq/PCL/internal/cert/zcrypto"
 	"github.com/cavoq/PCL/internal/crl"
-	crlzcrypto "github.com/cavoq/PCL/internal/crl/zcrypto"
 	"github.com/cavoq/PCL/internal/ocsp"
 	"github.com/cavoq/PCL/internal/operator"
 	"github.com/cavoq/PCL/internal/policy"
@@ -141,11 +140,12 @@ func runCase(t *testing.T, caseDir string, tc testCase) {
 	for _, c := range chain {
 		tree := certzcrypto.BuildTree(c.Cert)
 
-		// Add CRL node to tree if CRLs are present (matching runner.go behavior)
+		// Add CRL node with isCACRL (same path as evaluator.CRL / auto-validate).
 		if len(crlInfos) > 0 {
 			for _, crlInfo := range crlInfos {
 				if crlInfo.CRL != nil {
-					crlNode := crlzcrypto.BuildTree(crlInfo.CRL)
+					issuerPool := crl.ResolveIssuerCerts(chain, crlInfo.CRL, 0, 0, nil)
+					crlNode := crl.BuildTreeWithChain(crlInfo.CRL, issuerPool)
 					if crlNode != nil {
 						tree.Children["crl"] = crlNode
 					}

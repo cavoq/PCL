@@ -5,7 +5,6 @@ import (
 	"crypto/rsa"
 	stdx509 "crypto/x509"
 	"crypto/x509/pkix"
-	"encoding/asn1"
 	"encoding/pem"
 	"math/big"
 	"net/http"
@@ -59,7 +58,11 @@ func TestParseIssuerResponsePKCS7(t *testing.T) {
 	firstDER := testCertificateDER(t, "PKCS7 CA 1")
 	secondDER := testCertificateDER(t, "PKCS7 CA 2")
 
-	certs, format, err := ParseIssuerResponse(testPKCS7CertsOnly(t, firstDER, secondDER))
+	pkcs7DER, err := BuildCertsOnlyPKCS7(firstDER, secondDER)
+	if err != nil {
+		t.Fatalf("BuildCertsOnlyPKCS7: %v", err)
+	}
+	certs, format, err := ParseIssuerResponse(pkcs7DER)
 	if err != nil {
 		t.Fatalf("ParseIssuerResponse returned error: %v", err)
 	}
@@ -213,12 +216,11 @@ func TestSelectIssuer(t *testing.T) {
 			matched:    true,
 		},
 		{
-			name: "fallback to first candidate",
+			name: "no match returns nil",
 			child: &zx509.Certificate{
 				Issuer: zpkix.Name{CommonName: "Unknown CA"},
 			},
 			candidates: []*zx509.Certificate{fallback, subjectMatch},
-			want:       fallback,
 		},
 	}
 
@@ -289,54 +291,3 @@ func testCertificateDER(t *testing.T, commonName string) []byte {
 	return der
 }
 
-func testPKCS7CertsOnly(t *testing.T, certDERs ...[]byte) []byte {
-	t.Helper()
-
-	certificateSet := make([]byte, 0)
-	for _, certDER := range certDERs {
-		certificateSet = append(certificateSet, certDER...)
-	}
-
-	dataOID, err := asn1.Marshal(asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 7, 1})
-	if err != nil {
-		t.Fatalf("failed to marshal data OID: %v", err)
-	}
-	signedDataOID, err := asn1.Marshal(oidSignedData)
-	if err != nil {
-		t.Fatalf("failed to marshal signedData OID: %v", err)
-	}
-
-	version := []byte{0x02, 0x01, 0x01}
-	emptySet := []byte{0x31, 0x00}
-	encapContentInfo := encodeASN1(0x30, dataOID)
-	certificates := encodeASN1(0xa0, certificateSet)
-	signedData := encodeASN1(0x30, appendAll(version, emptySet, encapContentInfo, certificates, emptySet))
-
-	return encodeASN1(0x30, appendAll(signedDataOID, encodeASN1(0xa0, signedData)))
-}
-
-func appendAll(parts ...[]byte) []byte {
-	var out []byte
-	for _, part := range parts {
-		out = append(out, part...)
-	}
-	return out
-}
-
-func encodeASN1(tag byte, content []byte) []byte {
-	out := []byte{tag}
-	out = append(out, encodeASN1Length(len(content))...)
-	out = append(out, content...)
-	return out
-}
-
-func encodeASN1Length(length int) []byte {
-	if length < 0x80 {
-		return []byte{byte(length)}
-	}
-	var bytes []byte
-	for n := length; n > 0; n >>= 8 {
-		bytes = append([]byte{byte(n)}, bytes...)
-	}
-	return append([]byte{0x80 | byte(len(bytes))}, bytes...)
-}

@@ -207,6 +207,29 @@ func TestFetchParentViaCAIssuers_emptyResults(t *testing.T) {
 	}
 }
 
+func TestFetchParentViaCAIssuers_returnsNilWhenBundleUnrelated(t *testing.T) {
+	leaf := testSignedLeafZX509(t)
+	unrelatedDER := testParentDEROnly(t, "Unrelated CA", []byte{0xff, 0xfe})
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write(unrelatedDER)
+	}))
+	defer server.Close()
+
+	leaf.IssuingCertificateURL = []string{server.URL}
+	var buf bytes.Buffer
+	got, _, _, err := FetchParentViaCAIssuers(leaf, time.Second, &buf)
+	if err != nil {
+		t.Fatalf("FetchParentViaCAIssuers() error: %v", err)
+	}
+	if got != nil {
+		t.Fatalf("issuer = %v, want nil when bundle does not match leaf", got)
+	}
+	if buf.Len() == 0 {
+		t.Fatal("expected warning when CA Issuers response has no matching issuer")
+	}
+}
+
 func TestFetchParentViaCAIssuers_fetchError(t *testing.T) {
 	child := &zx509.Certificate{
 		IssuingCertificateURL: []string{"http://127.0.0.1:1/"},
@@ -307,6 +330,56 @@ func TestWarnPEMDownload(t *testing.T) {
 	if buf.Len() == 0 {
 		t.Fatal("expected PEM warning")
 	}
+}
+
+func testSignedLeafZX509(t *testing.T) *zx509.Certificate {
+	t.Helper()
+
+	parentDER, _, key := testParentChildPair(t, "Issuing CA", "leaf.example")
+	parentStd, err := x509.ParseCertificate(parentDER)
+	if err != nil {
+		t.Fatalf("parse parent std: %v", err)
+	}
+	leafTemplate := &x509.Certificate{
+		SerialNumber: big.NewInt(2),
+		Subject:      pkix.Name{CommonName: "leaf.example"},
+		Issuer:       pkix.Name{CommonName: "Issuing CA"},
+		NotBefore:    parentStd.NotBefore,
+		NotAfter:     parentStd.NotAfter,
+	}
+	leafDER, err := x509.CreateCertificate(rand.Reader, leafTemplate, parentStd, &key.PublicKey, key)
+	if err != nil {
+		t.Fatalf("create leaf: %v", err)
+	}
+	leaf, err := zx509.ParseCertificate(leafDER)
+	if err != nil {
+		t.Fatalf("parse leaf: %v", err)
+	}
+	return leaf
+}
+
+func testParentDEROnly(t *testing.T, cn string, ski []byte) []byte {
+	t.Helper()
+
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("generate key: %v", err)
+	}
+	template := &x509.Certificate{
+		SerialNumber:          big.NewInt(99),
+		Subject:               pkix.Name{CommonName: cn},
+		NotBefore:             time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		NotAfter:              time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC),
+		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+		SubjectKeyId:          ski,
+	}
+	der, err := x509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
+	if err != nil {
+		t.Fatalf("create unrelated parent: %v", err)
+	}
+	return der
 }
 
 func testParentChildPair(t *testing.T, parentCN, childCN string) ([]byte, *zx509.Certificate, *rsa.PrivateKey) {

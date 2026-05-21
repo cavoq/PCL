@@ -9,6 +9,61 @@ import (
 	"github.com/zmap/zcrypto/x509"
 )
 
+// BuildCertsOnlyPKCS7 wraps DER-encoded certificates in a PKCS#7 SignedData
+// certs-only structure (RFC 5652), as served by some CA Issuers endpoints.
+func BuildCertsOnlyPKCS7(certDERs ...[]byte) ([]byte, error) {
+	certificateSet := make([]byte, 0)
+	for _, certDER := range certDERs {
+		if len(certDER) == 0 {
+			return nil, fmt.Errorf("empty certificate DER")
+		}
+		certificateSet = append(certificateSet, certDER...)
+	}
+
+	dataOID, err := asn1.Marshal(asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 7, 1})
+	if err != nil {
+		return nil, fmt.Errorf("marshal data OID: %w", err)
+	}
+	signedDataOID, err := asn1.Marshal(oidSignedData)
+	if err != nil {
+		return nil, fmt.Errorf("marshal signedData OID: %w", err)
+	}
+
+	version := []byte{0x02, 0x01, 0x01}
+	emptySet := []byte{0x31, 0x00}
+	encapContentInfo := pkcs7EncodeASN1(0x30, dataOID)
+	certificates := pkcs7EncodeASN1(0xa0, certificateSet)
+	signedData := pkcs7EncodeASN1(0x30, pkcs7AppendAll(version, emptySet, encapContentInfo, certificates, emptySet))
+
+	return pkcs7EncodeASN1(0x30, pkcs7AppendAll(signedDataOID, pkcs7EncodeASN1(0xa0, signedData))), nil
+}
+
+func pkcs7AppendAll(parts ...[]byte) []byte {
+	var out []byte
+	for _, part := range parts {
+		out = append(out, part...)
+	}
+	return out
+}
+
+func pkcs7EncodeASN1(tag byte, content []byte) []byte {
+	out := []byte{tag}
+	out = append(out, pkcs7EncodeASN1Length(len(content))...)
+	out = append(out, content...)
+	return out
+}
+
+func pkcs7EncodeASN1Length(length int) []byte {
+	if length < 0x80 {
+		return []byte{byte(length)}
+	}
+	var bytes []byte
+	for n := length; n > 0; n >>= 8 {
+		bytes = append([]byte{byte(n)}, bytes...)
+	}
+	return append([]byte{0x80 | byte(len(bytes))}, bytes...)
+}
+
 var oidSignedData = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 7, 2} // id-signedData (1.2.840.113549.1.7.2)
 
 // parsePKCS7CertsOnly parses a PKCS#7 SignedData structure and extracts certificates.

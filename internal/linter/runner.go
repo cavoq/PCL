@@ -153,16 +153,34 @@ func processCertificates(cfg Config, policies []policy.Policy, reg *operator.Reg
 		return nil, cleanup
 	}
 
-	// Auto-validate: climb chain via CA Issuers URLs
+	// Auto-validate: climb chain via CA Issuers URLs (pool fallback when no CaIssuers)
 	if cfg.AutoValidate && !cfg.NoAutoChain {
+		pool := append([]*cert.Info{}, allCerts...)
 		var climbedCerts []*cert.Info
 		for _, c := range certs {
 			if c.Cert == nil {
 				continue
 			}
 			miniChain := []*cert.Info{c}
-			miniChain = cert.ClimbChain(miniChain, cfg.CertTimeout, cfg.MaxChainDepth, w)
+			miniChain = cert.ClimbChainWithPool(miniChain, pool, cfg.CertTimeout, cfg.MaxChainDepth, w)
 			climbedCerts = append(climbedCerts, miniChain...)
+			for _, info := range miniChain {
+				if info == nil || info.Cert == nil || info.Cert.SerialNumber == nil {
+					continue
+				}
+				serial := info.Cert.SerialNumber.String()
+				already := false
+				for _, existing := range pool {
+					if existing != nil && existing.Cert != nil && existing.Cert.SerialNumber != nil &&
+						existing.Cert.SerialNumber.String() == serial {
+						already = true
+						break
+					}
+				}
+				if !already {
+					pool = append(pool, info)
+				}
+			}
 		}
 		allCerts = append(climbedCerts, issuers...)
 	}

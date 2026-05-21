@@ -74,22 +74,20 @@ func (CRLSignedBy) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (bool
 		}
 		crl := crlInfo.CRL
 
-		var matchingIssuer *x509.Certificate
+		chainCerts := make([]*x509.Certificate, 0, len(ctx.Chain))
 		for _, issuerInfo := range ctx.Chain {
-			if issuerInfo.Cert == nil {
-				continue
-			}
-			if crlpkg.CertSignsCRL(issuerInfo.Cert, crl) {
-				matchingIssuer = issuerInfo.Cert
-				break
+			if issuerInfo.Cert != nil {
+				chainCerts = append(chainCerts, issuerInfo.Cert)
 			}
 		}
 
-		if matchingIssuer == nil {
+		// Same selection as isCACRL: prefer signature-verified signer over the
+		// first DN/AKI match in chain order (see SigningCertFromPool).
+		signer := crlpkg.SigningCertFromPool(crl, chainCerts)
+		if signer == nil {
 			continue
 		}
-
-		if err := crl.CheckSignatureFrom(matchingIssuer); err != nil {
+		if err := crl.CheckSignatureFrom(signer); err != nil {
 			return false, nil
 		}
 	}

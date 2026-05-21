@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/cavoq/PCL/internal/source"
+	"github.com/zmap/zcrypto/x509"
 )
 
 func LoadCertificates(path string) ([]*Info, error) {
@@ -112,23 +113,39 @@ func BuildChain(certs []*Info) ([]*Info, error) {
 
 // ClimbChain recursively fetches issuer certificates via CA Issuers URLs.
 func ClimbChain(chain []*Info, timeout time.Duration, maxDepth int, w io.Writer) []*Info {
+	return ClimbChainWithPool(chain, nil, timeout, maxDepth, w)
+}
+
+// ClimbChainWithPool is like ClimbChain but when the top certificate has no
+// IssuingCertificateURL, it looks in pool for a parent that verifies the
+// signature (e.g. --issuer). DN-only matches are never used.
+func ClimbChainWithPool(chain, pool []*Info, timeout time.Duration, maxDepth int, w io.Writer) []*Info {
 	if len(chain) == 0 || maxDepth <= 0 {
 		return chain
 	}
 
 	seen := serialSeenSet(CertsFromInfos(chain))
+	result := append([]*Info(nil), chain...)
 
-	result := chain
-	depth := 0
-
-	for depth < maxDepth {
+	for depth := 0; depth < maxDepth; depth++ {
 		top := result[len(result)-1]
 		if top.Cert == nil || IsSelfSigned(top.Cert) {
 			break
 		}
 
 		if len(top.Cert.IssuingCertificateURL) == 0 {
-			break
+			parent := findSigningParentInPool(top.Cert, pool, seen)
+			if parent == nil {
+				break
+			}
+			if markSerialSeen(seen, parent.Cert) {
+				warnf(w, "Warning: circular certificate detected at %s\n", parent.FilePath)
+				break
+			}
+			parent.Position = len(result)
+			parent.Type = GetCertType(parent.Cert, parent.Position, len(result)+1)
+			result = append(result, parent)
+			continue
 		}
 
 		issuerCert, sourceInfo, url, err := FetchParentViaCAIssuers(top.Cert, timeout, w)
@@ -153,12 +170,34 @@ func ClimbChain(chain []*Info, timeout time.Duration, maxDepth int, w io.Writer)
 			Source:   sourceInfo,
 			Format:   sourceInfo.Format,
 		})
-
-		depth++
 	}
 
 	RebuildChainMetadata(result)
 	return result
+}
+
+func findSigningParentInPool(child *x509.Certificate, pool []*Info, seen map[string]bool) *Info {
+	if child == nil || len(child.Raw) == 0 {
+		return nil
+	}
+	for _, info := range pool {
+		if info == nil || info.Cert == nil {
+			continue
+		}
+		if child.CheckSignatureFrom(info.Cert) != nil {
+			continue
+		}
+		if info.Cert.SerialNumber != nil && seen[info.Cert.SerialNumber.String()] {
+			continue
+		}
+		return &Info{
+			Cert:     info.Cert,
+			FilePath: info.FilePath,
+			Source:   info.Source,
+			Format:   info.Format,
+		}
+	}
+	return nil
 }
 
 func RebuildChainMetadata(chain []*Info) {
