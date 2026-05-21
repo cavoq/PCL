@@ -2,6 +2,8 @@ package operator
 
 import (
 	"math/big"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -251,6 +253,37 @@ func TestCRLSignedByNoChain(t *testing.T) {
 	}
 	if got {
 		t.Error("no chain should return false")
+	}
+}
+
+func TestCRLSignedBy_rejectsInvalidSignature(t *testing.T) {
+	crlDER, err := os.ReadFile(filepath.Join("..", "..", "internal", "crl", "testdata", "test.crl"))
+	if err != nil {
+		t.Fatalf("read CRL: %v", err)
+	}
+	revocationList, err := crl.ParseCRL(crlDER)
+	if err != nil {
+		t.Fatalf("parse CRL: %v", err)
+	}
+
+	signer := &x509.Certificate{
+		Subject:      revocationList.Issuer,
+		SubjectKeyId: revocationList.AuthorityKeyId,
+		IsCA:         true,
+		SerialNumber: big.NewInt(1),
+	}
+	ctx := &EvaluationContext{
+		CRLs:  []*crl.Info{{CRL: revocationList}},
+		Chain: []*cert.Info{{Cert: signer}},
+	}
+
+	op := CRLSignedBy{}
+	got, err := op.Evaluate(nil, ctx, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got {
+		t.Error("expected false when CRL signature cannot be verified")
 	}
 }
 

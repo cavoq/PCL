@@ -16,7 +16,7 @@ func (CRLValid) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (bool, e
 	}
 
 	for _, crlInfo := range ctx.CRLs {
-		if crlInfo.CRL == nil {
+		if crlInfo == nil || crlInfo.CRL == nil {
 			continue
 		}
 		crl := crlInfo.CRL
@@ -42,7 +42,7 @@ func (CRLNotExpired) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (bo
 	}
 
 	for _, crlInfo := range ctx.CRLs {
-		if crlInfo.CRL == nil {
+		if crlInfo == nil || crlInfo.CRL == nil {
 			continue
 		}
 		crl := crlInfo.CRL
@@ -69,7 +69,7 @@ func (CRLSignedBy) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (bool
 	}
 
 	for _, crlInfo := range ctx.CRLs {
-		if crlInfo.CRL == nil {
+		if crlInfo == nil || crlInfo.CRL == nil {
 			continue
 		}
 		crl := crlInfo.CRL
@@ -115,7 +115,7 @@ func (NotRevoked) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (bool,
 	}
 
 	for _, crlInfo := range ctx.CRLs {
-		if crlInfo.CRL == nil {
+		if crlInfo == nil || crlInfo.CRL == nil {
 			continue
 		}
 		crl := crlInfo.CRL

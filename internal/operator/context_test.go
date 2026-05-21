@@ -296,3 +296,31 @@ func TestIsCACRL_falseForNonCASigner(t *testing.T) {
 		t.Fatal("expected false when signer is not a CA")
 	}
 }
+
+func TestIsCACRL_nilCRLInfo(t *testing.T) {
+	ctx := &EvaluationContext{Chain: []*cert.Info{{Cert: &x509.Certificate{}}}}
+	if ctx.IsCACRL(nil) {
+		t.Fatal("expected false for nil CRL info")
+	}
+}
+
+func TestIsCACRL_skipsNilChainCert(t *testing.T) {
+	signer := &x509.Certificate{
+		Subject:      pkix.Name{CommonName: "CA"},
+		SubjectKeyId: []byte{0x03},
+		IsCA:         true,
+		SerialNumber: big.NewInt(1),
+	}
+	crlInfo := &crl.Info{
+		CRL: &x509.RevocationList{
+			Issuer:         pkix.Name{CommonName: "CA"},
+			AuthorityKeyId: []byte{0x03},
+		},
+	}
+	ctx := &EvaluationContext{
+		Chain: []*cert.Info{{Cert: nil}, {Cert: signer}},
+	}
+	if !ctx.IsCACRL(crlInfo) {
+		t.Fatal("expected IsCACRL true when signer appears after nil chain entry")
+	}
+}

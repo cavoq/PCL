@@ -1,12 +1,15 @@
 package linter
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/cavoq/PCL/internal/ocsp"
+	"github.com/cavoq/PCL/internal/operator"
+	"github.com/cavoq/PCL/internal/policy"
 )
 
 func TestApplyDefaults(t *testing.T) {
@@ -347,5 +350,44 @@ func TestCrlResolveMaxDepth_default(t *testing.T) {
 	cfg := Config{}
 	if got := crlResolveMaxDepth(cfg); got != 10 {
 		t.Fatalf("crlResolveMaxDepth() = %d, want 10", got)
+	}
+}
+
+func TestProcessCertificates_withCRLAndResolve(t *testing.T) {
+	crlPath := filepath.Join("..", "..", "internal", "crl", "testdata", "test.crl")
+	crls, err := loadCRLs(crlPath)
+	if err != nil {
+		t.Fatalf("loadCRLs: %v", err)
+	}
+
+	certDir := filepath.Join("..", "..", "tests", "certs")
+	cfg := Config{
+		CertPath:    filepath.Join(certDir, "leaf.pem"),
+		IssuerPaths: []string{
+			filepath.Join(certDir, "intermediate.pem"),
+			filepath.Join(certDir, "root.pem"),
+		},
+		CertTimeout:   5 * time.Second,
+		OCSPTimeout:   5 * time.Second,
+		MaxChainDepth: 10,
+	}
+	issuers, issuerCleanup, err := loadIssuersIfProvided(cfg, true)
+	if err != nil {
+		t.Fatalf("loadIssuersIfProvided: %v", err)
+	}
+
+	pol, err := policy.ParseFile(filepath.Join("..", "..", "tests", "policies", "crl-validity.yaml"))
+	if err != nil {
+		t.Fatalf("load policy: %v", err)
+	}
+
+	reg := operator.DefaultRegistry()
+	var buf bytes.Buffer
+	results, cleanup := processCertificates(cfg, []policy.Policy{pol}, reg, crls, nil, issuers, issuerCleanup, &buf)
+	if cleanup != nil {
+		defer cleanup()
+	}
+	if results == nil {
+		t.Fatal("expected results slice from processCertificates")
 	}
 }

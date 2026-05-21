@@ -8,6 +8,8 @@ import (
 	"math/big"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -99,6 +101,41 @@ func TestSigningCertFromPool(t *testing.T) {
 	got := SigningCertFromPool(revocationList, []*x509.Certificate{other, signer})
 	if got != signer {
 		t.Fatalf("SigningCertFromPool() = %v, want signer", got)
+	}
+}
+
+func TestResolveIssuerCerts_nilCRL(t *testing.T) {
+	signer := &x509.Certificate{
+		Subject:      pkix.Name{CommonName: "CA"},
+		SerialNumber: big.NewInt(1),
+	}
+	pool := ResolveIssuerCerts([]*cert.Info{{Cert: signer}}, nil, time.Second, 1, nil)
+	if len(pool) != 1 || pool[0] != signer {
+		t.Fatalf("ResolveIssuerCerts(nil CRL) = %v", pool)
+	}
+}
+
+func TestCertSignsCRL_matchesViaSignature(t *testing.T) {
+	revocationList, err := ParseCRL(mustReadCRLFixture(t))
+	if err != nil {
+		t.Fatalf("parse CRL: %v", err)
+	}
+	signer := &x509.Certificate{
+		Subject:      revocationList.Issuer,
+		SubjectKeyId: revocationList.AuthorityKeyId,
+		IsCA:         true,
+		SerialNumber: big.NewInt(1),
+	}
+	if !CertSignsCRL(signer, revocationList) {
+		t.Fatal("expected CertSignsCRL true for issuer DN match")
+	}
+}
+
+func TestSigningCertFromPool_nilWhenNoMatch(t *testing.T) {
+	if got := SigningCertFromPool(&x509.RevocationList{
+		Issuer: pkix.Name{CommonName: "Nobody"},
+	}, []*x509.Certificate{{Subject: pkix.Name{CommonName: "Other"}}}); got != nil {
+		t.Fatalf("SigningCertFromPool() = %v, want nil", got)
 	}
 }
 
@@ -267,6 +304,45 @@ func TestBuildTreeWithChain_isCACRLFalseForShortValidity(t *testing.T) {
 	if isCA.Value != false {
 		t.Fatalf("isCACRL = %v, want false", isCA.Value)
 	}
+}
+
+func TestBuildTree_setsNodes(t *testing.T) {
+	revocationList, err := ParseCRL(mustReadCRLFixture(t))
+	if err != nil {
+		t.Fatalf("parse CRL: %v", err)
+	}
+	tree := BuildTree(revocationList)
+	if tree == nil || tree.Children["issuer"] == nil {
+		t.Fatal("expected CRL tree with issuer node")
+	}
+}
+
+func TestBuildTreeWithChain_zeroNextUpdate(t *testing.T) {
+	now := time.Now().UTC().Truncate(time.Second)
+	revocationList := &x509.RevocationList{
+		Issuer:     pkix.Name{CommonName: "Unknown"},
+		ThisUpdate: now,
+	}
+	tree := BuildTreeWithChain(revocationList, nil)
+	if tree.Children["isCACRL"].Value != false {
+		t.Fatalf("isCACRL = %v, want false when nextUpdate is zero", tree.Children["isCACRL"].Value)
+	}
+}
+
+func TestInferCACRLFromValidity_zeroNextUpdate(t *testing.T) {
+	now := time.Now().UTC().Truncate(time.Second)
+	if inferCACRLFromValidity(&x509.RevocationList{ThisUpdate: now}) {
+		t.Fatal("expected false when nextUpdate is zero")
+	}
+}
+
+func mustReadCRLFixture(t *testing.T) []byte {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join("testdata", "test.crl"))
+	if err != nil {
+		t.Fatalf("read test CRL: %v", err)
+	}
+	return data
 }
 
 func testCRLIssuerCA(t *testing.T, cn string) ([]byte, *x509.Certificate) {

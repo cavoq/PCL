@@ -18,6 +18,45 @@ import (
 	zpkix "github.com/zmap/zcrypto/x509/pkix"
 )
 
+func TestCollectViaCAIssuers_skipsNilFrontierCert(t *testing.T) {
+	got := CollectViaCAIssuers([]*zx509.Certificate{nil}, AIACollectConfig{
+		Timeout:  time.Second,
+		MaxDepth: 1,
+	})
+	if len(got) != 1 || got[0] != nil {
+		t.Fatalf("got %v, want nil seed preserved", got)
+	}
+}
+
+func TestCollectViaCAIssuers_twoHopBFS(t *testing.T) {
+	rootDER, root, rootKey := testParentChildPair(t, "Root CA", "unused-leaf")
+	rootServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write(rootDER)
+	}))
+	defer rootServer.Close()
+
+	interDER, inter := testSignedChildCA(t, root, rootKey, "Intermediate CA", []byte{0x03, 0x04}, []string{rootServer.URL})
+	interServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write(interDER)
+	}))
+	defer interServer.Close()
+
+	leaf := &zx509.Certificate{
+		Subject:               zpkix.Name{CommonName: "subscriber"},
+		Issuer:                inter.Subject,
+		SerialNumber:          big.NewInt(3),
+		IssuingCertificateURL: []string{interServer.URL},
+	}
+
+	got := CollectViaCAIssuers([]*zx509.Certificate{leaf}, AIACollectConfig{
+		Timeout:  time.Second,
+		MaxDepth: 3,
+	})
+	if len(got) != 3 {
+		t.Fatalf("got %d certs, want leaf + intermediate + root", len(got))
+	}
+}
+
 func TestCollectViaCAIssuers_noFetchWhenDisabled(t *testing.T) {
 	seed := []*zx509.Certificate{{
 		Subject:      zpkix.Name{CommonName: "Leaf"},
@@ -30,7 +69,7 @@ func TestCollectViaCAIssuers_noFetchWhenDisabled(t *testing.T) {
 }
 
 func TestCollectViaCAIssuers_fetchesAndStops(t *testing.T) {
-	parentDER, parent := testParentChildPair(t, "Parent CA", "leaf.example")
+	parentDER, parent, _ := testParentChildPair(t, "Parent CA", "leaf.example")
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write(parentDER)
 	}))
@@ -93,7 +132,7 @@ func TestFetchParentViaCAIssuers_noAIA(t *testing.T) {
 }
 
 func TestFetchParentViaCAIssuers_successDER(t *testing.T) {
-	parentDER, parent := testParentChildPair(t, "Issuer CA", "subscriber.example")
+	parentDER, parent, _ := testParentChildPair(t, "Issuer CA", "subscriber.example")
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write(parentDER)
 	}))
@@ -122,7 +161,7 @@ func TestFetchParentViaCAIssuers_successDER(t *testing.T) {
 }
 
 func TestFetchParentViaCAIssuers_successPEM(t *testing.T) {
-	parentDER, parent := testParentChildPair(t, "PEM CA", "leaf.pem.test")
+	parentDER, parent, _ := testParentChildPair(t, "PEM CA", "leaf.pem.test")
 	pemBody := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: parentDER})
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write(pemBody)
@@ -152,6 +191,19 @@ func TestFetchParentViaCAIssuers_successPEM(t *testing.T) {
 	}
 	if buf.Len() == 0 {
 		t.Fatal("expected PEM format warning")
+	}
+}
+
+func TestFetchParentViaCAIssuers_emptyResults(t *testing.T) {
+	child := &zx509.Certificate{
+		IssuingCertificateURL: []string{"http://127.0.0.1:1/"},
+	}
+	_, _, url, err := FetchParentViaCAIssuers(child, 50*time.Millisecond, nil)
+	if err == nil {
+		t.Fatal("expected fetch error when all URLs fail")
+	}
+	if url != "http://127.0.0.1:1/" {
+		t.Fatalf("url = %q", url)
 	}
 }
 
@@ -232,6 +284,23 @@ func TestMarkSerialSeen(t *testing.T) {
 	}
 }
 
+func TestMarkSerialSeen_nilCert(t *testing.T) {
+	if markSerialSeen(map[string]bool{}, nil) {
+		t.Fatal("nil cert should not count as duplicate")
+	}
+}
+
+func TestAppendUniqueCandidates_skipsInvalidCandidates(t *testing.T) {
+	seen := map[string]bool{}
+	added, stop := appendUniqueCandidates(seen, nil, []*zx509.Certificate{
+		nil,
+		{Subject: zpkix.Name{CommonName: "no-serial"}},
+	}, nil)
+	if stop || len(added) != 0 {
+		t.Fatalf("appendUniqueCandidates() = (%v, %v), want ([], false)", added, stop)
+	}
+}
+
 func TestWarnPEMDownload(t *testing.T) {
 	var buf bytes.Buffer
 	warnPEMDownload(&buf, "https://example.com/ca.cer", source.FormatPEM)
@@ -240,7 +309,7 @@ func TestWarnPEMDownload(t *testing.T) {
 	}
 }
 
-func testParentChildPair(t *testing.T, parentCN, childCN string) ([]byte, *zx509.Certificate) {
+func testParentChildPair(t *testing.T, parentCN, childCN string) ([]byte, *zx509.Certificate, *rsa.PrivateKey) {
 	t.Helper()
 
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
@@ -279,11 +348,42 @@ func testParentChildPair(t *testing.T, parentCN, childCN string) ([]byte, *zx509
 		t.Fatalf("create child: %v", err)
 	}
 
-	return parentDER, parent
+	return parentDER, parent, key
+}
+
+func testSignedChildCA(t *testing.T, parent *zx509.Certificate, parentKey *rsa.PrivateKey, cn string, ski []byte, aiaURLs []string) ([]byte, *zx509.Certificate) {
+	t.Helper()
+
+	parentStd, err := x509.ParseCertificate(parent.Raw)
+	if err != nil {
+		t.Fatalf("parse parent raw: %v", err)
+	}
+
+	template := &x509.Certificate{
+		SerialNumber:          big.NewInt(10),
+		Subject:               pkix.Name{CommonName: cn},
+		Issuer:                parentStd.Subject,
+		NotBefore:             parentStd.NotBefore,
+		NotAfter:              parentStd.NotAfter,
+		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+		SubjectKeyId:          ski,
+		IssuingCertificateURL: aiaURLs,
+	}
+	der, err := x509.CreateCertificate(rand.Reader, template, parentStd, &parentKey.PublicKey, parentKey)
+	if err != nil {
+		t.Fatalf("create intermediate: %v", err)
+	}
+	parsed, err := zx509.ParseCertificate(der)
+	if err != nil {
+		t.Fatalf("parse intermediate: %v", err)
+	}
+	return der, parsed
 }
 
 func TestClimbChain_fetchesParent(t *testing.T) {
-	parentDER, parent := testParentChildPair(t, "Climb Parent", "climb-leaf.example")
+	parentDER, parent, _ := testParentChildPair(t, "Climb Parent", "climb-leaf.example")
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write(parentDER)
 	}))
@@ -310,7 +410,7 @@ func TestClimbChain_fetchesParent(t *testing.T) {
 }
 
 func TestClimbChain_detectsCircularReference(t *testing.T) {
-	parentDER, parent := testParentChildPair(t, "Circle CA", "circle-leaf")
+	parentDER, parent, _ := testParentChildPair(t, "Circle CA", "circle-leaf")
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write(parentDER)
 	}))

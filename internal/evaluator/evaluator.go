@@ -113,7 +113,7 @@ func CRL(ctx Context) []policy.Result {
 	var results []policy.Result
 
 	for _, crlInfo := range ctx.CRLs {
-		if crlInfo.CRL == nil {
+		if crlInfo == nil || crlInfo.CRL == nil {
 			continue
 		}
 

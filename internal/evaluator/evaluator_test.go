@@ -1,13 +1,22 @@
 package evaluator
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
+	cryptox509 "crypto/x509"
+	cryptopkix "crypto/x509/pkix"
 	"math/big"
+	"net/http"
+	"net/http/httptest"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/cavoq/PCL/internal/cert"
 	"github.com/cavoq/PCL/internal/crl"
 	"github.com/cavoq/PCL/internal/operator"
+	"github.com/cavoq/PCL/internal/policy"
+	"github.com/cavoq/PCL/internal/source"
 	"github.com/zmap/zcrypto/x509"
 	"github.com/zmap/zcrypto/x509/pkix"
 )
@@ -151,4 +160,108 @@ func TestCRL_setsIsCACRLNode(t *testing.T) {
 	if tree.Children["isCACRL"].Value != true {
 		t.Fatalf("isCACRL = %v, want true", tree.Children["isCACRL"].Value)
 	}
+}
+
+func TestIssuerCertsForCRL_withoutResolveFlags(t *testing.T) {
+	chain := []*cert.Info{{Cert: &x509.Certificate{SerialNumber: big.NewInt(1)}}}
+	ctx := Context{Chain: chain, CRLResolveTimeout: 0}
+	pool := issuerCertsForCRL(ctx, &x509.RevocationList{})
+	if len(pool) != 1 {
+		t.Fatalf("issuerCertsForCRL() = %v, want chain only", pool)
+	}
+}
+
+func TestCRL_skipsNilEntries(t *testing.T) {
+	now := time.Now().UTC().Truncate(time.Second)
+	valid := &x509.RevocationList{
+		Issuer:         pkix.Name{CommonName: "CRL CA"},
+		AuthorityKeyId: []byte{0x0d},
+		ThisUpdate:     now,
+		NextUpdate:     now.Add(time.Hour),
+	}
+	signer := &x509.Certificate{
+		Subject:      pkix.Name{CommonName: "CRL CA"},
+		SubjectKeyId: []byte{0x0d},
+		IsCA:         true,
+		SerialNumber: big.NewInt(1),
+	}
+
+	pol, err := policy.ParseFile(filepath.Join("..", "..", "tests", "policies", "crl-validity.yaml"))
+	if err != nil {
+		t.Fatalf("load policy: %v", err)
+	}
+
+	ctx := Context{
+		Policies:           []policy.Policy{pol},
+		Registry:           operator.DefaultRegistry(),
+		CRLs:               []*crl.Info{nil, {CRL: nil}, {CRL: valid, FilePath: "test.crl"}},
+		Chain:              []*cert.Info{{Cert: signer}},
+		CRLResolveTimeout:  time.Second,
+		CRLResolveMaxDepth: 1,
+	}
+	results := CRL(ctx)
+	if len(results) == 0 {
+		t.Fatal("expected CRL policy results for valid CRL entry")
+	}
+}
+
+func TestCRL_resolvesIssuerViaAIA(t *testing.T) {
+	parentDER, parent := testEvaluatorCRLCA(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write(parentDER)
+	}))
+	defer server.Close()
+
+	leaf := &x509.Certificate{
+		Subject:               pkix.Name{CommonName: "subscriber"},
+		Issuer:                parent.Subject,
+		SerialNumber:          big.NewInt(2),
+		IssuingCertificateURL: []string{server.URL},
+	}
+	revocationList := &x509.RevocationList{
+		Issuer:         pkix.Name{CommonName: "Different DN"},
+		AuthorityKeyId: []byte{0x01, 0x02},
+		ThisUpdate:     time.Now().UTC().Add(-time.Hour),
+		NextUpdate:     time.Now().UTC().Add(time.Hour),
+	}
+
+	ctx := Context{
+		Registry:           operator.DefaultRegistry(),
+		CRLs:               []*crl.Info{{CRL: revocationList, FilePath: "fetched.crl", Source: source.Info{Type: source.Local}}},
+		Chain:              []*cert.Info{{Cert: leaf}},
+		CRLResolveTimeout:  time.Second,
+		CRLResolveMaxDepth: 2,
+	}
+	pool := issuerCertsForCRL(ctx, revocationList)
+	if len(pool) < 2 {
+		t.Fatalf("issuerCertsForCRL() len = %d, want fetched signer", len(pool))
+	}
+}
+
+func testEvaluatorCRLCA(t *testing.T) ([]byte, *x509.Certificate) {
+	t.Helper()
+
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("generate key: %v", err)
+	}
+	template := &cryptox509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               cryptopkix.Name{CommonName: "CRL CA"},
+		NotBefore:             time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		NotAfter:              time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC),
+		KeyUsage:              cryptox509.KeyUsageCertSign | cryptox509.KeyUsageCRLSign,
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+		SubjectKeyId:          []byte{0x01, 0x02},
+	}
+	der, err := cryptox509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
+	if err != nil {
+		t.Fatalf("create certificate: %v", err)
+	}
+	parsed, err := x509.ParseCertificate(der)
+	if err != nil {
+		t.Fatalf("parse certificate: %v", err)
+	}
+	return der, parsed
 }
