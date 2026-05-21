@@ -1,7 +1,13 @@
 package crl
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
+	cryptox509 "crypto/x509"
+	cryptopkix "crypto/x509/pkix"
 	"math/big"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -184,4 +190,110 @@ func TestIsCACRL_usesValidityWhenSignerNotCA(t *testing.T) {
 	if !isCACRL(crl, []*x509.Certificate{nonCA}) {
 		t.Fatal("expected isCACRL true via validity when matched signer is not a CA")
 	}
+}
+
+func TestResolveIssuerCerts_fetchesViaAIA(t *testing.T) {
+	parentDER, parent := testCRLIssuerCA(t, "CRL CA")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write(parentDER)
+	}))
+	defer server.Close()
+
+	leaf := &x509.Certificate{
+		Subject:               pkix.Name{CommonName: "subscriber"},
+		Issuer:                parent.Subject,
+		SerialNumber:          big.NewInt(2),
+		IssuingCertificateURL: []string{server.URL},
+	}
+	revocationList := &x509.RevocationList{
+		Issuer:         pkix.Name{CommonName: "Different Issuer DN"},
+		AuthorityKeyId: []byte{0x01, 0x02},
+	}
+
+	pool := ResolveIssuerCerts([]*cert.Info{{Cert: leaf}}, revocationList, time.Second, 2, nil)
+	if len(pool) != 2 {
+		t.Fatalf("pool len = %d, want leaf + fetched parent", len(pool))
+	}
+	signer := SigningCertFromPool(revocationList, pool)
+	if signer == nil || signer.Subject.CommonName != "CRL CA" {
+		t.Fatalf("SigningCertFromPool() = %v, want CRL CA signer", signer)
+	}
+}
+
+func TestBuildTreeWithChain_nilCRL(t *testing.T) {
+	if got := BuildTreeWithChain(nil, nil); got != nil {
+		t.Fatalf("BuildTreeWithChain(nil) = %v, want nil", got)
+	}
+}
+
+func TestBuildTreeWithChain_isCACRLFromCASigner(t *testing.T) {
+	now := time.Now().UTC().Truncate(time.Second)
+	signer := &x509.Certificate{
+		Subject:      pkix.Name{CommonName: "CA Signer"},
+		SubjectKeyId: []byte{0x0b},
+		IsCA:         true,
+		SerialNumber: big.NewInt(1),
+	}
+	revocationList := &x509.RevocationList{
+		Issuer:         pkix.Name{CommonName: "CA Signer"},
+		AuthorityKeyId: []byte{0x0b},
+		ThisUpdate:     now,
+		NextUpdate:     now.Add(7 * 24 * time.Hour),
+	}
+
+	tree := BuildTreeWithChain(revocationList, []*x509.Certificate{signer})
+	if tree == nil {
+		t.Fatal("expected CRL tree")
+	}
+	isCA, ok := tree.Children["isCACRL"]
+	if !ok {
+		t.Fatal("isCACRL node missing")
+	}
+	if isCA.Value != true {
+		t.Fatalf("isCACRL = %v, want true", isCA.Value)
+	}
+}
+
+func TestBuildTreeWithChain_isCACRLFalseForShortValidity(t *testing.T) {
+	now := time.Now().UTC().Truncate(time.Second)
+	revocationList := &x509.RevocationList{
+		Issuer:     pkix.Name{CommonName: "Unknown"},
+		ThisUpdate: now,
+		NextUpdate: now.Add(5 * 24 * time.Hour),
+	}
+
+	tree := BuildTreeWithChain(revocationList, nil)
+	isCA := tree.Children["isCACRL"]
+	if isCA.Value != false {
+		t.Fatalf("isCACRL = %v, want false", isCA.Value)
+	}
+}
+
+func testCRLIssuerCA(t *testing.T, cn string) ([]byte, *x509.Certificate) {
+	t.Helper()
+
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("generate key: %v", err)
+	}
+
+	template := &cryptox509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               cryptopkix.Name{CommonName: cn},
+		NotBefore:             time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		NotAfter:              time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC),
+		KeyUsage:              cryptox509.KeyUsageCertSign | cryptox509.KeyUsageCRLSign,
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+		SubjectKeyId:          []byte{0x01, 0x02},
+	}
+	der, err := cryptox509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
+	if err != nil {
+		t.Fatalf("create certificate: %v", err)
+	}
+	parsed, err := x509.ParseCertificate(der)
+	if err != nil {
+		t.Fatalf("parse certificate: %v", err)
+	}
+	return der, parsed
 }

@@ -1,10 +1,15 @@
 package evaluator
 
 import (
+	"math/big"
 	"testing"
+	"time"
 
 	"github.com/cavoq/PCL/internal/cert"
+	"github.com/cavoq/PCL/internal/crl"
 	"github.com/cavoq/PCL/internal/operator"
+	"github.com/zmap/zcrypto/x509"
+	"github.com/zmap/zcrypto/x509/pkix"
 )
 
 func TestChainWithEmptyChain(t *testing.T) {
@@ -73,5 +78,77 @@ func TestContextDefaults(t *testing.T) {
 	}
 	if evalCtx.OCSPs != nil {
 		t.Errorf("expected nil OCSPs in default context")
+	}
+}
+
+func TestIssuerCertsForCRL_withResolveEnabled(t *testing.T) {
+	signer := &x509.Certificate{
+		Subject:      pkix.Name{CommonName: "CA"},
+		SubjectKeyId: []byte{0x01},
+		IsCA:         true,
+		SerialNumber: big.NewInt(1),
+	}
+	revocationList := &x509.RevocationList{
+		Issuer:         pkix.Name{CommonName: "CA"},
+		AuthorityKeyId: []byte{0x01},
+	}
+	chain := []*cert.Info{{Cert: signer}}
+
+	ctx := Context{
+		Chain:              chain,
+		CRLResolveTimeout:  time.Second,
+		CRLResolveMaxDepth: 1,
+	}
+	pool := issuerCertsForCRL(ctx, revocationList)
+	if len(pool) != 1 || pool[0] != signer {
+		t.Fatalf("issuerCertsForCRL() = %v, want chain signer", pool)
+	}
+}
+
+func TestIssuerCertsForCRL_withoutResolve(t *testing.T) {
+	signer := &x509.Certificate{SerialNumber: big.NewInt(1)}
+	chain := []*cert.Info{{Cert: signer}}
+	ctx := Context{Chain: chain}
+
+	pool := issuerCertsForCRL(ctx, &x509.RevocationList{})
+	if len(pool) != 1 || pool[0] != signer {
+		t.Fatalf("issuerCertsForCRL() = %v", pool)
+	}
+}
+
+func TestCRL_setsIsCACRLNode(t *testing.T) {
+	now := time.Now().UTC().Truncate(time.Second)
+	signer := &x509.Certificate{
+		Subject:      pkix.Name{CommonName: "CRL CA"},
+		SubjectKeyId: []byte{0x0c},
+		IsCA:         true,
+		SerialNumber: big.NewInt(1),
+	}
+	revocationList := &x509.RevocationList{
+		Issuer:         pkix.Name{CommonName: "CRL CA"},
+		AuthorityKeyId: []byte{0x0c},
+		ThisUpdate:     now,
+		NextUpdate:     now.Add(7 * 24 * time.Hour),
+	}
+
+	ctx := Context{
+		Policies: nil,
+		Registry: operator.DefaultRegistry(),
+		CRLs: []*crl.Info{{
+			CRL:      revocationList,
+			FilePath: "test.crl",
+		}},
+		Chain: []*cert.Info{{Cert: signer}},
+	}
+
+	results := CRL(ctx)
+	if len(results) != 0 {
+		t.Fatalf("expected 0 policy results with nil policies, got %d", len(results))
+	}
+
+	pool := issuerCertsForCRL(ctx, revocationList)
+	tree := crl.BuildTreeWithChain(revocationList, pool)
+	if tree.Children["isCACRL"].Value != true {
+		t.Fatalf("isCACRL = %v, want true", tree.Children["isCACRL"].Value)
 	}
 }

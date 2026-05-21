@@ -318,3 +318,34 @@ func TestLoadIssuersIfProvided(t *testing.T) {
 		t.Errorf("expected nil cleanup")
 	}
 }
+
+func TestCrlResolveTimeout_prefersCertTimeout(t *testing.T) {
+	cfg := Config{
+		CertTimeout: 30 * time.Second,
+		OCSPTimeout: 5 * time.Second,
+	}
+	if got := crlResolveTimeout(cfg); got != 30*time.Second {
+		t.Fatalf("crlResolveTimeout() = %v, want 30s", got)
+	}
+}
+
+func TestCrlResolveTimeout_fallsBackToOCSPTimeout(t *testing.T) {
+	cfg := Config{OCSPTimeout: 7 * time.Second}
+	if got := crlResolveTimeout(cfg); got != 7*time.Second {
+		t.Fatalf("crlResolveTimeout() = %v, want 7s", got)
+	}
+}
+
+func TestCrlResolveMaxDepth_usesConfig(t *testing.T) {
+	cfg := Config{MaxChainDepth: 3}
+	if got := crlResolveMaxDepth(cfg); got != 3 {
+		t.Fatalf("crlResolveMaxDepth() = %d, want 3", got)
+	}
+}
+
+func TestCrlResolveMaxDepth_default(t *testing.T) {
+	cfg := Config{}
+	if got := crlResolveMaxDepth(cfg); got != 10 {
+		t.Fatalf("crlResolveMaxDepth() = %d, want 10", got)
+	}
+}
