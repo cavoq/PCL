@@ -113,6 +113,43 @@ func TestRuleAppliesToInput_unqualifiedTarget(t *testing.T) {
 	}
 }
 
+func TestRuleAppliesToInput_ocspInput(t *testing.T) {
+	ocspRule := rule.Rule{ID: "ocsp-status", Target: "ocsp.status", Operator: "eq"}
+	certRule := rule.Rule{ID: "cert-version", Target: "certificate.version", Operator: "eq"}
+	ocspCtx := operator.NewEvaluationContext(nil, &cert.Info{Type: "ocsp"}, nil)
+
+	if !RuleAppliesToInput(ocspRule, InputOCSP, ocspCtx) {
+		t.Fatal("ocsp.* must run on OCSP input")
+	}
+	if RuleAppliesToInput(certRule, InputOCSP, ocspCtx) {
+		t.Fatal("certificate.* must not run on OCSP-only pass")
+	}
+}
+
+func TestRuleAppliesToInput_certTypeNilCtx(t *testing.T) {
+	r := rule.Rule{Target: "certificate.version", Operator: "eq", CertType: []string{"leaf"}}
+	if RuleAppliesToInput(r, InputCert, nil) {
+		t.Fatal("certType rule must not run when ctx is nil")
+	}
+}
+
+func TestRuleAppliesToInput_unknownInputTypeAllowsUnqualified(t *testing.T) {
+	r := rule.Rule{Target: "customNode", Operator: "present"}
+	ctx := operator.NewEvaluationContext(nil, &cert.Info{Type: "ocsp"}, nil)
+	if !RuleAppliesToInput(r, "other", ctx) {
+		t.Fatal("unqualified rules should run for non-crl/non-ocsp input labels")
+	}
+}
+
+func TestInputTypeFromContext_ocspAndNil(t *testing.T) {
+	if inputTypeFromContext(nil) != InputCert {
+		t.Fatal("nil ctx defaults to cert input")
+	}
+	if inputTypeFromContext(operator.NewEvaluationContext(nil, &cert.Info{Type: "ocsp"}, nil)) != InputOCSP {
+		t.Fatal("ocsp cert type")
+	}
+}
+
 func TestRuleAppliesToInput_certTypeOnLeaf(t *testing.T) {
 	r := rule.Rule{Target: "certificate.version", Operator: "eq", CertType: []string{"leaf"}}
 	leafCtx := operator.NewEvaluationContext(nil, &cert.Info{Type: "leaf"}, nil)

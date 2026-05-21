@@ -83,6 +83,17 @@ func TestSelectIssuer_signatureBeforeBundleOrder(t *testing.T) {
 	}
 }
 
+func TestSelectIssuer_subjectDNWhenNoRawSignature(t *testing.T) {
+	leaf, parent, _ := testSignedLeafPair(t)
+	leafNoRaw := &zx509.Certificate{
+		Issuer: leaf.Issuer,
+	}
+	got, matched := SelectIssuer(leafNoRaw, []*zx509.Certificate{parent})
+	if !matched || got != parent {
+		t.Fatalf("SelectIssuer() = (%v, %v), want (%v, true) via DN hint", got, matched, parent)
+	}
+}
+
 func TestSelectIssuer_noFallbackWhenOnlyUnrelated(t *testing.T) {
 	leaf, _, _ := testSignedLeafPair(t)
 	unrelated := &zx509.Certificate{

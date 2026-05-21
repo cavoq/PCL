@@ -2,6 +2,12 @@ package linter
 
 import (
 	"bytes"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
+	"math/big"
 	"os"
 	"path/filepath"
 	"testing"
@@ -390,4 +396,104 @@ func TestProcessCertificates_withCRLAndResolve(t *testing.T) {
 	if results == nil {
 		t.Fatal("expected results slice from processCertificates")
 	}
+}
+
+func TestProcessCertificates_autoValidateExtendsChainFromIssuerPool(t *testing.T) {
+	dir := t.TempDir()
+	parentKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("generate parent key: %v", err)
+	}
+	interKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("generate intermediate key: %v", err)
+	}
+	notBefore := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	notAfter := time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	parentStd := &x509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               pkix.Name{CommonName: "Trusted Root"},
+		NotBefore:             notBefore,
+		NotAfter:              notAfter,
+		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+		SubjectKeyId:          []byte{0x01},
+	}
+	parentDER, err := x509.CreateCertificate(rand.Reader, parentStd, parentStd, &parentKey.PublicKey, parentKey)
+	if err != nil {
+		t.Fatalf("create parent: %v", err)
+	}
+	parentPath := filepath.Join(dir, "root.pem")
+	if err := os.WriteFile(parentPath, pemEncodeCert(parentDER), 0644); err != nil {
+		t.Fatalf("write parent: %v", err)
+	}
+
+	interStd := &x509.Certificate{
+		SerialNumber:          big.NewInt(2),
+		Subject:               pkix.Name{CommonName: "No AIA Intermediate"},
+		Issuer:                parentStd.Subject,
+		NotBefore:             notBefore,
+		NotAfter:              notAfter,
+		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+		SubjectKeyId:          []byte{0x02},
+	}
+	interDER, err := x509.CreateCertificate(rand.Reader, interStd, parentStd, &interKey.PublicKey, parentKey)
+	if err != nil {
+		t.Fatalf("create intermediate: %v", err)
+	}
+	interPath := filepath.Join(dir, "inter.cer")
+	if err := os.WriteFile(interPath, interDER, 0644); err != nil {
+		t.Fatalf("write intermediate: %v", err)
+	}
+
+	leafStd := &x509.Certificate{
+		SerialNumber: big.NewInt(3),
+		Subject:      pkix.Name{CommonName: "subscriber.example"},
+		Issuer:       interStd.Subject,
+		NotBefore:    notBefore,
+		NotAfter:     notAfter,
+	}
+	leafDER, err := x509.CreateCertificate(rand.Reader, leafStd, interStd, &interKey.PublicKey, interKey)
+	if err != nil {
+		t.Fatalf("create leaf: %v", err)
+	}
+	leafPath := filepath.Join(dir, "leaf.pem")
+	if err := os.WriteFile(leafPath, pemEncodeCert(leafDER), 0644); err != nil {
+		t.Fatalf("write leaf: %v", err)
+	}
+
+	cfg := Config{
+		CertPath:      leafPath,
+		IssuerPaths:   []string{interPath, parentPath},
+		AutoValidate:  true,
+		NoAutoCRL:     true,
+		NoAutoOCSP:    true,
+		CertTimeout:   5 * time.Second,
+		MaxChainDepth: 5,
+	}
+	applyDefaults(&cfg)
+
+	pol, err := policy.ParseFile(filepath.Join("..", "..", "tests", "policies", "basic.yaml"))
+	if err != nil {
+		t.Fatalf("load policy: %v", err)
+	}
+
+	reg := operator.DefaultRegistry()
+	var buf bytes.Buffer
+	results, cleanup := processCertificates(cfg, []policy.Policy{pol}, reg, nil, nil, nil, nil, &buf)
+	if cleanup != nil {
+		defer cleanup()
+	}
+	if results == nil {
+		t.Fatal("expected results from auto-validate with issuer pool")
+	}
+}
+
+func pemEncodeCert(der []byte) []byte {
+	block := &pem.Block{Type: "CERTIFICATE", Bytes: der}
+	return pem.EncodeToMemory(block)
 }

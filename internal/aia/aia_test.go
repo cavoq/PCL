@@ -54,6 +54,12 @@ func TestParseIssuerResponsePEM(t *testing.T) {
 	}
 }
 
+func TestBuildCertsOnlyPKCS7_rejectsEmptyDER(t *testing.T) {
+	if _, err := BuildCertsOnlyPKCS7([]byte{}); err == nil {
+		t.Fatal("expected error for empty certificate DER")
+	}
+}
+
 func TestParseIssuerResponsePKCS7(t *testing.T) {
 	firstDER := testCertificateDER(t, "PKCS7 CA 1")
 	secondDER := testCertificateDER(t, "PKCS7 CA 2")

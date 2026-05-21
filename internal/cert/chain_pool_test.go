@@ -1,6 +1,7 @@
 package cert
 
 import (
+	"bytes"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -172,5 +173,59 @@ func TestClimbChainWithPool_doesNotUseDNOnlyPoolMatch(t *testing.T) {
 	got := ClimbChainWithPool([]*Info{{Cert: child, FilePath: "child.pem"}}, pool, time.Second, 1, nil)
 	if len(got) != 1 {
 		t.Fatalf("got %d certs, want 1 (no DN-only pool link)", len(got))
+	}
+}
+
+func TestClimbChainWithPool_maxDepthZero(t *testing.T) {
+	leaf := &Info{Cert: &zx509.Certificate{SerialNumber: big.NewInt(1)}}
+	got := ClimbChainWithPool([]*Info{leaf}, nil, time.Second, 0, nil)
+	if len(got) != 1 {
+		t.Fatalf("len = %d, want unchanged chain", len(got))
+	}
+}
+
+func TestClimbChainWithPool_emitsWarningOnFetchFailure(t *testing.T) {
+	parentKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("generate parent key: %v", err)
+	}
+	childKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("generate child key: %v", err)
+	}
+	notBefore := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	notAfter := time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC)
+	parentStd := &x509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               pkix.Name{CommonName: "Parent CA"},
+		NotBefore:             notBefore,
+		NotAfter:              notAfter,
+		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+	}
+	childStd := &x509.Certificate{
+		SerialNumber:          big.NewInt(2),
+		Subject:               pkix.Name{CommonName: "child"},
+		Issuer:                parentStd.Subject,
+		IssuingCertificateURL: []string{"http://127.0.0.1:1/unreachable"},
+		NotBefore:             notBefore,
+		NotAfter:              notAfter,
+	}
+	der, err := x509.CreateCertificate(rand.Reader, childStd, parentStd, &childKey.PublicKey, parentKey)
+	if err != nil {
+		t.Fatalf("create cert: %v", err)
+	}
+	childZ, err := zx509.ParseCertificate(der)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	var buf bytes.Buffer
+	got := ClimbChainWithPool([]*Info{{Cert: childZ, FilePath: "child.pem"}}, nil, 50*time.Millisecond, 2, &buf)
+	if len(got) != 1 {
+		t.Fatalf("len = %d", len(got))
+	}
+	if buf.Len() == 0 {
+		t.Fatal("expected warning when CA Issuers fetch fails")
 	}
 }

@@ -252,6 +252,21 @@ func TestBuildSignerEvalChain_nilSignerReturnsTLSChain(t *testing.T) {
 	}
 }
 
+func TestCertMatchesSignerIssuer_subjectDN(t *testing.T) {
+	signer := &zx509.Certificate{
+		Issuer: zx509pkix.Name{CommonName: "Issuing CA"},
+	}
+	parent := &zx509.Certificate{
+		Subject: zx509pkix.Name{CommonName: "Issuing CA"},
+	}
+	if !certMatchesSignerIssuer(signer, parent) {
+		t.Fatal("expected issuer/subject DN match")
+	}
+	if certMatchesSignerIssuer(nil, parent) || certMatchesSignerIssuer(signer, nil) {
+		t.Fatal("nil signer or candidate must not match")
+	}
+}
+
 func TestCertMatchesSignerIssuer_akiOnly(t *testing.T) {
 	signer := &zx509.Certificate{
 		Issuer:         zx509pkix.Name{CommonName: "X"},
@@ -266,5 +281,78 @@ func TestCertMatchesSignerIssuer_akiOnly(t *testing.T) {
 	}
 	if certMatchesSignerIssuer(signer, &zx509.Certificate{SubjectKeyId: []byte{0x00}}) {
 		t.Fatal("expected no match")
+	}
+}
+
+func TestResolveSignerIssuerPool_nilSigner(t *testing.T) {
+	chain := []*cert.Info{{Cert: &zx509.Certificate{SerialNumber: big.NewInt(1)}}}
+	pool := ResolveSignerIssuerPool(chain, nil, 0, 0, nil)
+	if len(pool) != 1 {
+		t.Fatalf("len = %d, want chain-only pool", len(pool))
+	}
+}
+
+func TestResolveSignerIssuerPool_signerAlreadyInChain(t *testing.T) {
+	caKey, _ := rsa.GenerateKey(rand.Reader, 2048)
+	ocspKey, _ := rsa.GenerateKey(rand.Reader, 2048)
+	ca := mustZX509Cert(t, caKey, caKey, &cryptox509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               cryptopkix.Name{CommonName: "CA"},
+		NotBefore:             time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		NotAfter:              time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC),
+		KeyUsage:              cryptox509.KeyUsageCertSign | cryptox509.KeyUsageCRLSign,
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+		SubjectKeyId:          []byte{0x01},
+	}, nil)
+	signer := mustZX509Cert(t, ocspKey, caKey, &cryptox509.Certificate{
+		SerialNumber:   big.NewInt(2),
+		Subject:        cryptopkix.Name{CommonName: "OCSP"},
+		Issuer:         pkixNameToStd(ca.Subject),
+		AuthorityKeyId: ca.SubjectKeyId,
+		NotBefore:      ca.NotBefore,
+		NotAfter:       ca.NotAfter,
+		ExtKeyUsage:    []cryptox509.ExtKeyUsage{cryptox509.ExtKeyUsageOCSPSigning},
+		KeyUsage:       cryptox509.KeyUsageDigitalSignature,
+	}, toStdCert(ca))
+	tlsChain := []*cert.Info{{Cert: ca, FilePath: "ca.pem"}}
+	pool := ResolveSignerIssuerPool(tlsChain, signer, 0, 0, nil)
+	if len(pool) != 1 || pool[0] != ca {
+		t.Fatalf("pool = %v, want unchanged chain pool", pool)
+	}
+}
+
+func TestBuildSignerEvalChain_noIssuerReturnsResponderOnly(t *testing.T) {
+	ocspKey, _ := rsa.GenerateKey(rand.Reader, 2048)
+	signer := mustZX509Cert(t, ocspKey, ocspKey, &cryptox509.Certificate{
+		SerialNumber: big.NewInt(99),
+		Subject:      cryptopkix.Name{CommonName: "Orphan OCSP"},
+		NotBefore:    time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		NotAfter:     time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC),
+		ExtKeyUsage:  []cryptox509.ExtKeyUsage{cryptox509.ExtKeyUsageOCSPSigning},
+		KeyUsage:     cryptox509.KeyUsageDigitalSignature,
+	}, nil)
+	signerInfo := &cert.Info{Cert: signer, FilePath: "ocsp.pem", Type: "ocspSigning"}
+	got := BuildSignerEvalChain(signer, signerInfo, nil, 0, 0, nil)
+	if len(got) != 1 || got[0].Cert != signer {
+		t.Fatalf("got %d entries, want responder only", len(got))
+	}
+}
+
+func TestIndexInInfoChain_nilSerial(t *testing.T) {
+	if _, ok := indexInInfoChain(&zx509.Certificate{SerialNumber: nil}, nil); ok {
+		t.Fatal("nil serial should not match")
+	}
+}
+
+func TestInfoFromPoolCert_reusesTLSInfo(t *testing.T) {
+	ca := &zx509.Certificate{SerialNumber: big.NewInt(7), Subject: zx509pkix.Name{CommonName: "CA"}}
+	info := &cert.Info{Cert: ca, FilePath: "trusted.pem"}
+	got := infoFromPoolCert(ca, []*cert.Info{info})
+	if got != info {
+		t.Fatalf("infoFromPoolCert() should reuse chain Info, got %p want %p", got, info)
+	}
+	if infoFromPoolCert(nil, nil) != nil {
+		t.Fatal("nil cert should return nil")
 	}
 }

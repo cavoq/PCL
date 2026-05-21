@@ -16,6 +16,22 @@ import (
 // TestCertSignsCRL_issuerMatchDoesNotVerifySignature documents that CertSignsCRL
 // is a cheap identity hint only. Operators that need cryptographic proof must
 // call CheckSignatureFrom (see CRLSignedBy).
+func TestCertSignsCRL_nilInputs(t *testing.T) {
+	if CertSignsCRL(nil, &x509.RevocationList{}) {
+		t.Fatal("nil cert must not sign CRL")
+	}
+	if CertSignsCRL(&x509.Certificate{}, nil) {
+		t.Fatal("nil CRL must not match")
+	}
+}
+
+func TestSigningCertFromPool_nilCRL(t *testing.T) {
+	ca := &x509.Certificate{SerialNumber: big.NewInt(1)}
+	if SigningCertFromPool(nil, []*x509.Certificate{ca}) != nil {
+		t.Fatal("nil CRL must return nil signer")
+	}
+}
+
 func TestCertSignsCRL_issuerMatchDoesNotVerifySignature(t *testing.T) {
 	revocationList, err := ParseCRL(mustReadCRLFixture(t))
 	if err != nil {
