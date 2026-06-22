@@ -1,15 +1,33 @@
 package aia
 
-import "github.com/zmap/zcrypto/x509"
+import (
+	"bytes"
+
+	"github.com/zmap/zcrypto/x509"
+)
 
 // SelectIssuer chooses the issuer certificate for child from a CA Issuers
-// response. It returns matched=false when the result is only a fallback.
+// response. It returns matched=false when no candidate is suitable.
 func SelectIssuer(child *x509.Certificate, candidates []*x509.Certificate) (*x509.Certificate, bool) {
 	if child == nil || len(candidates) == 0 {
 		return nil, false
 	}
 
+	if len(child.Raw) > 0 {
+		for _, candidate := range candidates {
+			if candidate == nil {
+				continue
+			}
+			if child.CheckSignatureFrom(candidate) == nil {
+				return candidate, true
+			}
+		}
+	}
+
 	for _, candidate := range candidates {
+		if candidate == nil {
+			continue
+		}
 		if candidate.Subject.String() == child.Issuer.String() {
 			return candidate, true
 		}
@@ -17,11 +35,15 @@ func SelectIssuer(child *x509.Certificate, candidates []*x509.Certificate) (*x50
 
 	if len(child.AuthorityKeyId) > 0 {
 		for _, candidate := range candidates {
-			if len(candidate.SubjectKeyId) > 0 && string(candidate.SubjectKeyId) == string(child.AuthorityKeyId) {
+			if candidate == nil {
+				continue
+			}
+			if len(candidate.SubjectKeyId) > 0 &&
+				bytes.Equal(candidate.SubjectKeyId, child.AuthorityKeyId) {
 				return candidate, true
 			}
 		}
 	}
 
-	return candidates[0], false
+	return nil, false
 }

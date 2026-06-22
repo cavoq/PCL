@@ -77,7 +77,7 @@ Each rule has the following structure:
   operator: eq                    # Required: Operator to apply
   operands: [3]                   # Required for some operators: Values to compare
   severity: error                 # Required: error, warning, or info
-  appliesTo: [leaf, intermediate] # Optional: Certificate types this rule applies to
+  certType: [leaf, intermediate] # Optional: Certificate roles this rule applies to
   when:                           # Optional: Precondition that must be met
     target: certificate.extensions
     operator: present
@@ -93,7 +93,7 @@ Each rule has the following structure:
 | `operator` | Yes | Comparison/validation operator (see Operators) |
 | `operands` | Some required | Values for operators that need them |
 | `severity` | Yes | `error`, `warning`, or `info` |
-| `appliesTo` | No | Types this rule applies to (see Certificate Type Filtering) |
+| `certType` | No | Certificate roles for this rule (see Certificate Type Filtering) |
 | `when` | No | Precondition that must be true before evaluating the rule |
 
 ---
@@ -386,7 +386,7 @@ PCL provides 107 operators organized by category. All operators are defined in `
   operator: eq
   operands: [false]
   severity: error
-  appliesTo: [leaf]
+  certType: [leaf]
 
 # Check signature algorithm matches tbsSignatureAlgorithm
 - id: sig-alg-matches-tbs
@@ -490,7 +490,7 @@ PCL provides 107 operators organized by category. All operators are defined in `
   operator: validityDays
   operands: [398]
   severity: error
-  appliesTo: [leaf]
+  certType: [leaf]
 
 # CRL nextUpdate within 10 days
 - id: crl-nextupdate-10-days
@@ -524,7 +524,7 @@ PCL provides 107 operators organized by category. All operators are defined in `
   target: certificate.extensions.2.5.29.19
   operator: isCritical
   severity: error
-  appliesTo: [root, intermediate]
+  certType: [root, intermediate]
 ```
 
 ### 7. EKU Operators
@@ -548,7 +548,7 @@ PCL provides 107 operators organized by category. All operators are defined in `
   operator: ekuContains
   operands: [serverAuth]
   severity: error
-  appliesTo: [leaf]
+  certType: [leaf]
 ```
 
 ### 8. Key Usage Operators
@@ -566,7 +566,7 @@ PCL provides 107 operators organized by category. All operators are defined in `
   target: certificate.keyUsage
   operator: keyUsageCA
   severity: error
-  appliesTo: [root, intermediate]
+  certType: [root, intermediate]
 ```
 
 ### 9. Certificate Chain Operators
@@ -809,27 +809,43 @@ The `every` operator checks that ALL elements in an array satisfy a condition.
 
 ---
 
-## Certificate Type Filtering
+## Certificate and input filtering
 
-The `appliesTo` field filters rules by certificate type or input type.
+PCL uses two different fields. Do not put policy-level `appliesTo` on individual rules (it is ignored).
 
-### Certificate Types (Roles)
+### Policy-level (top of file, next to `id`)
 
-| Type | Description |
-|------|-------------|
+| Field | Values | Purpose |
+|-------|--------|---------|
+| `appliesTo` | `cert`, `crl`, `ocsp` | Which **input object** this policy is evaluated against |
+| `certType` | `leaf`, `root`, … | Optional: run the **entire policy** only on matching certificate roles |
+| `crlType` | `completeCRL`, … | Optional: CRL subtype filter (see CRL policies) |
+
+```yaml
+id: RFC6960
+version: "1.0"
+appliesTo:
+  - ocsp
+rules:
+  - id: RFC6960_STATUS_VALID
+    target: ocsp.status
+    # ...
+```
+
+If `appliesTo` is omitted, the input type is inferred from the **first rule’s** `target` prefix (`certificate.*`, `crl.*`, `ocsp.*`). That only selects cert vs CRL vs OCSP processing — not `root` vs `leaf`.
+
+### Rule-level (`certType` on each rule)
+
+| Value | Description |
+|-------|-------------|
 | `leaf` | End-entity (subscriber) certificate |
 | `intermediate` | Subordinate CA certificate |
 | `root` | Self-signed root CA certificate |
 | `ocspSigning` | OCSP responder certificate |
+| `crl` | When linting a CRL (matches evaluation context type) |
+| `ocsp` | When linting an OCSP response object |
 
-### Input Types
-
-| Type | Description |
-|------|-------------|
-| `crl` | Certificate Revocation List |
-| `ocsp` | OCSP response |
-
-**Important:** Certificate types are roles (leaf, intermediate, root, ocspSigning). Do NOT use `cert` as a value - it is not valid.
+Omit `certType` on a rule to evaluate it for every role (others with `certType` are **SKIP** when the role does not match). Each rule is filtered independently.
 
 **Examples:**
 ```yaml
@@ -839,21 +855,21 @@ The `appliesTo` field filters rules by certificate type or input type.
   operator: ekuContains
   operands: [serverAuth]
   severity: error
-  appliesTo: [leaf]
+  certType: [leaf]
 
 # Apply to CA certificates
 - id: ca-key-cert-sign
   target: certificate.keyUsage.keyCertSign
   operator: present
   severity: error
-  appliesTo: [root, intermediate]
+  certType: [root, intermediate]
 
-# Apply only to CRL inputs
+# Apply only when evaluating a CRL
 - id: crl-validity-check
   target: crl
   operator: crlValid
   severity: error
-  appliesTo: [crl]
+  certType: [crl]
 ```
 
 ---
@@ -914,17 +930,17 @@ Always include specification references:
 - `warning`: SHOULD requirements
 - `info`: MAY requirements or informational
 
-### Use appliesTo Appropriately
+### Use certType appropriately
 
-Use `appliesTo` to avoid confusing SKIP messages:
+Use per-rule `certType` to avoid confusing SKIP messages:
 ```yaml
-# Without appliesTo: will SKIP on CA certs
+# Without certType: will SKIP on CA certs when the check does not apply
 - id: subscriber-not-ca
   target: certificate.basicConstraints.cA
   operator: eq
   operands: [false]
   severity: error
-  appliesTo: [leaf]  # Clear: only evaluated on leaf
+  certType: [leaf]  # Clear: only evaluated on leaf
 ```
 
 ---
@@ -952,7 +968,7 @@ rules:
     target: certificate.subjectKeyIdentifier
     operator: present
     severity: warning
-    appliesTo: [root, intermediate]
+    certType: [root, intermediate]
 
   - id: ski-not-critical
     reference: RFC5280 4.2.1.2
@@ -968,7 +984,7 @@ rules:
     operator: eq
     operands: [false]
     severity: error
-    appliesTo: [leaf]
+    certType: [leaf]
 
   # Key Usage
   - id: ca-key-cert-sign
@@ -976,7 +992,7 @@ rules:
     target: certificate.keyUsage.keyCertSign
     operator: present
     severity: error
-    appliesTo: [root, intermediate]
+    certType: [root, intermediate]
 
   # Algorithm-Specific
   - id: rsa-key-size-min
@@ -996,7 +1012,7 @@ rules:
     target: crl
     operator: crlValid
     severity: error
-    appliesTo: [crl]
+    certType: [crl]
 ```
 
 ---

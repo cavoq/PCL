@@ -1,6 +1,7 @@
 package operator
 
 import (
+	crlpkg "github.com/cavoq/PCL/internal/crl"
 	"github.com/cavoq/PCL/internal/node"
 	"github.com/zmap/zcrypto/x509"
 )
@@ -15,7 +16,7 @@ func (CRLValid) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (bool, e
 	}
 
 	for _, crlInfo := range ctx.CRLs {
-		if crlInfo.CRL == nil {
+		if crlInfo == nil || crlInfo.CRL == nil {
 			continue
 		}
 		crl := crlInfo.CRL
@@ -41,7 +42,7 @@ func (CRLNotExpired) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (bo
 	}
 
 	for _, crlInfo := range ctx.CRLs {
-		if crlInfo.CRL == nil {
+		if crlInfo == nil || crlInfo.CRL == nil {
 			continue
 		}
 		crl := crlInfo.CRL
@@ -68,31 +69,25 @@ func (CRLSignedBy) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (bool
 	}
 
 	for _, crlInfo := range ctx.CRLs {
-		if crlInfo.CRL == nil {
+		if crlInfo == nil || crlInfo.CRL == nil {
 			continue
 		}
 		crl := crlInfo.CRL
 
-		// Find matching issuer from chain
-		crlIssuer := crl.Issuer.String()
-		var matchingIssuer *x509.Certificate
+		chainCerts := make([]*x509.Certificate, 0, len(ctx.Chain))
 		for _, issuerInfo := range ctx.Chain {
-			if issuerInfo.Cert == nil {
-				continue
-			}
-			if issuerInfo.Cert.Subject.String() == crlIssuer {
-				matchingIssuer = issuerInfo.Cert
-				break
+			if issuerInfo.Cert != nil {
+				chainCerts = append(chainCerts, issuerInfo.Cert)
 			}
 		}
 
-		// If issuer not in chain, skip this CRL (not applicable to our chain)
-		if matchingIssuer == nil {
+		// Same selection as isCACRL: prefer signature-verified signer over the
+		// first DN/AKI match in chain order (see SigningCertFromPool).
+		signer := crlpkg.SigningCertFromPool(crl, chainCerts)
+		if signer == nil {
 			continue
 		}
-
-		// Verify signature only for applicable CRLs (issuer in chain)
-		if err := crl.CheckSignatureFrom(matchingIssuer); err != nil {
+		if err := crl.CheckSignatureFrom(signer); err != nil {
 			return false, nil
 		}
 	}
@@ -118,7 +113,7 @@ func (NotRevoked) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (bool,
 	}
 
 	for _, crlInfo := range ctx.CRLs {
-		if crlInfo.CRL == nil {
+		if crlInfo == nil || crlInfo.CRL == nil {
 			continue
 		}
 		crl := crlInfo.CRL

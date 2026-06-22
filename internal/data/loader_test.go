@@ -130,13 +130,13 @@ co.uk
 		domain string
 		want   bool
 	}{
-		{"example.com", true},      // TLD = com
-		{"test.net", true},         // TLD = net
-		{"example.org", true},      // TLD = org
-		{"example.uk", true},       // TLD = uk
-		{"example.test", false},    // TLD = test (not in list)
-		{"example.local", false},   // TLD = local (not in list)
-		{"localhost", false},       // No TLD
+		{"example.com", true},    // TLD = com
+		{"test.net", true},       // TLD = net
+		{"example.org", true},    // TLD = org
+		{"example.uk", true},     // TLD = uk
+		{"example.test", false},  // TLD = test (not in list)
+		{"example.local", false}, // TLD = local (not in list)
+		{"localhost", false},     // No TLD
 	}
 
 	for _, tt := range tests {
@@ -237,13 +237,13 @@ func TestPSLWildcardDomains(t *testing.T) {
 
 	// Test wildcard matching logic separately
 	tests := []struct {
-		domain    string
-		wildcard  string
-		expected  bool
+		domain   string
+		wildcard string
+		expected bool
 	}{
 		{"com.ck", "*.ck", true},
 		{"edu.ck", "*.ck", true},
-		{"ck", "*.ck", false},      // TLD itself doesn't match wildcard
+		{"ck", "*.ck", false}, // TLD itself doesn't match wildcard
 		{"example.jp", "*.jp", true},
 	}
 

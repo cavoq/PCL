@@ -5,7 +5,8 @@
 //   - IANA Root Zone Database TLD list
 //
 // Data files can be updated via:
-//   pcl --update-data
+//
+//	pcl --update-data
 package data
 
 import (
@@ -111,15 +112,16 @@ func (l *Loader) LoadPSL(filename string) error {
 // parsePSLFile parses the Public Suffix List file format.
 //
 // Format (from publicsuffix.org):
-//   // ===BEGIN ICANN DOMAINS===
-//   com
-//   net
-//   ...
-//   // ===END ICANN DOMAINS===
-//   // ===BEGIN PRIVATE DOMAINS===
-//   github.io
-//   ...
-//   // ===END PRIVATE DOMAINS===
+//
+//	// ===BEGIN ICANN DOMAINS===
+//	com
+//	net
+//	...
+//	// ===END ICANN DOMAINS===
+//	// ===BEGIN PRIVATE DOMAINS===
+//	github.io
+//	...
+//	// ===END PRIVATE DOMAINS===
 func parsePSLFile(filePath string) (*PSL, error) {
 	file, err := os.Open(filePath)
 	if err != nil {

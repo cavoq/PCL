@@ -1,0 +1,31 @@
+id: crl-letsencrypt-root
+version: 1.0
+
+rules:
+  # ISRG Root X1 CRL (~1 year nextUpdate) → isCACRL true
+  - id: other-crl-within-one-year
+    when:
+      target: crl.isCACRL
+      operator: eq
+      operands: [true]
+    target: crl
+    operator: dateDiff
+    operands:
+      - start: thisUpdate
+        end: nextUpdate
+        maxDays: 400
+    severity: error
+
+  # Must not apply subscriber 10-day limit to root CRL
+  - id: subscriber-crl-within-10-days
+    when:
+      target: crl.isCACRL
+      operator: eq
+      operands: [false]
+    target: crl
+    operator: dateDiff
+    operands:
+      - start: thisUpdate
+        end: nextUpdate
+        maxDays: 10
+    severity: error

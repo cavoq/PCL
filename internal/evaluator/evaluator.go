@@ -2,10 +2,12 @@
 package evaluator
 
 import (
+	"io"
+	"time"
+
 	"github.com/cavoq/PCL/internal/cert"
 	certzcrypto "github.com/cavoq/PCL/internal/cert/zcrypto"
 	"github.com/cavoq/PCL/internal/crl"
-	crlzcrypto "github.com/cavoq/PCL/internal/crl/zcrypto"
 	"github.com/cavoq/PCL/internal/node"
 	"github.com/cavoq/PCL/internal/ocsp"
 	ocspzcrypto "github.com/cavoq/PCL/internal/ocsp/zcrypto"
@@ -23,6 +25,12 @@ type Context struct {
 	CRLs     []*crl.Info
 	OCSPs    []*ocsp.Info
 	Chain    []*cert.Info
+
+	// CRL issuer discovery for isCACRL (optional). When set, PCL may fetch CA
+	// Issuers URLs from the chain to locate the CRL signing certificate.
+	CRLResolveTimeout  time.Duration
+	CRLResolveMaxDepth int
+	CRLResolveWarn     io.Writer
 }
 
 func Chain(ctx Context) []policy.Result {
@@ -39,7 +47,7 @@ func Chain(ctx Context) []policy.Result {
 		if len(ctx.CRLs) > 0 {
 			for _, crlInfo := range ctx.CRLs {
 				if crlInfo.CRL != nil {
-					crlNode := crlzcrypto.BuildTree(crlInfo.CRL)
+					crlNode := crl.BuildTree(crlInfo.CRL)
 					if crlNode != nil {
 						tree.Children["crl"] = crlNode
 					}
@@ -94,7 +102,7 @@ func OCSP(ctx Context) []policy.Result {
 		}
 
 		if ocspInfo.Response.Certificate != nil {
-			results = append(results, ocspSigningCert(ctx.Policies, ctx.Registry, ctx.OCSPs, ocspInfo, ctx.Chain)...)
+			results = append(results, ocspSigningCert(ctx, ocspInfo)...)
 		}
 	}
 
@@ -105,13 +113,13 @@ func CRL(ctx Context) []policy.Result {
 	var results []policy.Result
 
 	for _, crlInfo := range ctx.CRLs {
-		if crlInfo.CRL == nil {
+		if crlInfo == nil || crlInfo.CRL == nil {
 			continue
 		}
 
-		issuerCerts := ExtractCertsFromInfo(ctx.Chain)
+		issuerCerts := issuerCertsForCRL(ctx, crlInfo.CRL)
 
-		crlNode := crlzcrypto.BuildTreeWithChain(crlInfo.CRL, issuerCerts)
+		crlNode := crl.BuildTreeWithChain(crlInfo.CRL, issuerCerts)
 		if crlNode == nil {
 			continue
 		}
@@ -153,7 +161,7 @@ func OCSPOnly(policies []policy.Policy, registry *operator.Registry, ocsps []*oc
 	})
 }
 
-func ocspSigningCert(policies []policy.Policy, registry *operator.Registry, ocsps []*ocsp.Info, ocspInfo *ocsp.Info, chain []*cert.Info) []policy.Result {
+func ocspSigningCert(ctx Context, ocspInfo *ocsp.Info) []policy.Result {
 	zcryptoSignerCert, err := zcrypto.FromStdCert(ocspInfo.Response.Certificate)
 	if err != nil || zcryptoSignerCert == nil {
 		return nil
@@ -167,26 +175,42 @@ func ocspSigningCert(policies []policy.Policy, registry *operator.Registry, ocsp
 		Source:   source.Info{Type: source.Extracted, Description: "extracted from OCSP response"},
 	}
 
-	evalOpts := []operator.ContextOption{operator.WithOCSPs(ocsps)}
-	evalCtx := operator.NewEvaluationContext(ocspSignerTree, ocspSignerInfo, chain, evalOpts...)
+	signerChain := ocsp.BuildSignerEvalChain(
+		zcryptoSignerCert,
+		ocspSignerInfo,
+		ctx.Chain,
+		ctx.CRLResolveTimeout,
+		ctx.CRLResolveMaxDepth,
+		ctx.CRLResolveWarn,
+	)
+
+	evalOpts := []operator.ContextOption{operator.WithOCSPs(ctx.OCSPs)}
+	evalCtx := operator.NewEvaluationContext(ocspSignerTree, ocspSignerInfo, signerChain, evalOpts...)
 
 	var results []policy.Result
-	signerPolicies := policy.ByCertificate(policies, zcryptoSignerCert)
+	signerPolicies := policy.ByCertificate(ctx.Policies, zcryptoSignerCert)
 	for _, p := range signerPolicies {
-		res := policy.Evaluate(p, ocspSignerTree, registry, evalCtx)
+		res := policy.Evaluate(p, ocspSignerTree, ctx.Registry, evalCtx)
 		results = append(results, res)
 	}
 
 	return results
 }
 
+func issuerCertsForCRL(ctx Context, revocationList *x509.RevocationList) []*x509.Certificate {
+	if ctx.CRLResolveTimeout > 0 && ctx.CRLResolveMaxDepth > 0 {
+		return crl.ResolveIssuerCerts(
+			ctx.Chain,
+			revocationList,
+			ctx.CRLResolveTimeout,
+			ctx.CRLResolveMaxDepth,
+			ctx.CRLResolveWarn,
+		)
+	}
+	return cert.CertsFromInfos(ctx.Chain)
+}
+
 // ExtractCertsFromInfo extracts x509 certificates from cert.Info values.
 func ExtractCertsFromInfo(infos []*cert.Info) []*x509.Certificate {
-	var certs []*x509.Certificate
-	for _, info := range infos {
-		if info.Cert != nil {
-			certs = append(certs, info.Cert)
-		}
-	}
-	return certs
+	return cert.CertsFromInfos(infos)
 }

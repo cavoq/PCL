@@ -1,10 +1,12 @@
 package operator
 
 import (
+	"math/big"
 	"testing"
 	"time"
 
 	"github.com/zmap/zcrypto/x509"
+	"github.com/zmap/zcrypto/x509/pkix"
 
 	"github.com/cavoq/PCL/internal/cert"
 	"github.com/cavoq/PCL/internal/crl"
@@ -243,5 +245,112 @@ func TestHasOCSPs_Valid(t *testing.T) {
 	ctx := &EvaluationContext{OCSPs: []*ocsp.Info{{}}}
 	if !ctx.HasOCSPs() {
 		t.Error("non-empty OCSPs should return true")
+	}
+}
+
+func TestIsCACRL_trueForCASigner(t *testing.T) {
+	signer := &x509.Certificate{
+		Subject:      pkix.Name{CommonName: "CA"},
+		SubjectKeyId: []byte{0x01},
+		IsCA:         true,
+		SerialNumber: big.NewInt(1),
+	}
+	crlInfo := &crl.Info{
+		CRL: &x509.RevocationList{
+			Issuer:         pkix.Name{CommonName: "CA"},
+			AuthorityKeyId: []byte{0x01},
+		},
+	}
+	ctx := &EvaluationContext{
+		Chain: []*cert.Info{{Cert: signer}},
+	}
+
+	if !ctx.IsCACRL(crlInfo) {
+		t.Fatal("expected IsCACRL true for CA signer in chain")
+	}
+}
+
+func TestIsCACRL_falseWithoutChain(t *testing.T) {
+	ctx := &EvaluationContext{}
+	if ctx.IsCACRL(&crl.Info{CRL: &x509.RevocationList{}}) {
+		t.Fatal("expected false without chain")
+	}
+}
+
+func TestIsCACRL_falseForNonCASigner(t *testing.T) {
+	endEntity := &x509.Certificate{
+		Subject:      pkix.Name{CommonName: "EE"},
+		SubjectKeyId: []byte{0x02},
+		IsCA:         false,
+		SerialNumber: big.NewInt(2),
+	}
+	crlInfo := &crl.Info{
+		CRL: &x509.RevocationList{
+			Issuer:         pkix.Name{CommonName: "EE"},
+			AuthorityKeyId: []byte{0x02},
+		},
+	}
+	ctx := &EvaluationContext{Chain: []*cert.Info{{Cert: endEntity}}}
+
+	if ctx.IsCACRL(crlInfo) {
+		t.Fatal("expected false when signer is not a CA")
+	}
+}
+
+func TestIsCACRL_nilCRLInfo(t *testing.T) {
+	ctx := &EvaluationContext{Chain: []*cert.Info{{Cert: &x509.Certificate{}}}}
+	if ctx.IsCACRL(nil) {
+		t.Fatal("expected false for nil CRL info")
+	}
+}
+
+func TestIsCACRL_skipsNilChainCert(t *testing.T) {
+	signer := &x509.Certificate{
+		Subject:      pkix.Name{CommonName: "CA"},
+		SubjectKeyId: []byte{0x03},
+		IsCA:         true,
+		SerialNumber: big.NewInt(1),
+	}
+	crlInfo := &crl.Info{
+		CRL: &x509.RevocationList{
+			Issuer:         pkix.Name{CommonName: "CA"},
+			AuthorityKeyId: []byte{0x03},
+		},
+	}
+	ctx := &EvaluationContext{
+		Chain: []*cert.Info{{Cert: nil}, {Cert: signer}},
+	}
+	if !ctx.IsCACRL(crlInfo) {
+		t.Fatal("expected IsCACRL true when signer appears after nil chain entry")
+	}
+}
+
+// TestIsCACRL_matchesPolicyNodeForValidityInference ensures EvaluationContext
+// agrees with the crl.isCACRL node when only validity implies other CRL profile.
+func TestIsCACRL_matchesPolicyNodeForValidityInference(t *testing.T) {
+	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	ee := &x509.Certificate{
+		Subject:      pkix.Name{CommonName: "Subscriber"},
+		SubjectKeyId: []byte{0xbb},
+		IsCA:         false,
+		SerialNumber: big.NewInt(1),
+	}
+	revocationList := &x509.RevocationList{
+		Issuer:         pkix.Name{CommonName: "Subscriber"},
+		AuthorityKeyId: []byte{0xbb},
+		ThisUpdate:     now,
+		NextUpdate:     now.Add(100 * 24 * time.Hour),
+	}
+	crlInfo := &crl.Info{CRL: revocationList}
+
+	tree := crl.BuildTreeWithChain(revocationList, []*x509.Certificate{ee})
+	nodeVal := tree.Children["isCACRL"].Value
+	if nodeVal != true {
+		t.Fatalf("policy node isCACRL = %v, want true (validity inference)", nodeVal)
+	}
+
+	ctx := &EvaluationContext{Chain: []*cert.Info{{Cert: ee}}}
+	if ctx.IsCACRL(crlInfo) != nodeVal {
+		t.Fatalf("EvaluationContext.IsCACRL() = %v, policy node = %v", ctx.IsCACRL(crlInfo), nodeVal)
 	}
 }

@@ -44,10 +44,21 @@ func Evaluate(
 	reg *operator.Registry,
 	ctx *operator.EvaluationContext,
 ) Result {
+	inputType := inputTypeFromContext(ctx)
 	results := make([]rule.Result, 0, len(p.Rules))
 	verdict := "pass"
 
 	for _, r := range p.Rules {
+		if !RuleAppliesToInput(r, inputType, ctx) {
+			results = append(results, rule.Result{
+				RuleID:    r.ID,
+				Reference: r.Reference,
+				Verdict:   rule.VerdictSkip,
+				Severity:  r.Severity,
+			})
+			continue
+		}
+
 		res := rule.Evaluate(root, r, reg, ctx)
 		results = append(results, res)
 
