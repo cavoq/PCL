@@ -64,9 +64,9 @@ part of the permanent test structure.
 
 ## P1 — Lossless representation and policy integrity
 
-**Status: Next**
+**Status: Done**
 
-Completed work unit:
+Completed work units:
 
 - **P1.1 — Lossless distinguished names (Done):** certificate subjects and
   issuers, CRL issuers, and raw `directoryName` values decoded from SAN, IAN,
@@ -76,24 +76,30 @@ Completed work unit:
   every occurrence through the canonical collection contract documented in
   the policy-writing guide. Name Constraints and relative CRL names remain in
   the P2 extension-semantics work.
+- **P1.2 — Raw TBSCertificate metadata (Done):** one certificate adapter
+  preserves the encoded serial-number octets, both validity encodings, and
+  exact issuer/subject UniqueIdentifier presence and bit metadata. Time and
+  UniqueIdentifier policy checks use those facts through generic operators;
+  malformed metadata fails a dedicated policy rule.
+- **P1.3 — GeneralName and collection boundaries (Done):** SAN and IAN
+  collections are built from raw GeneralName entries with scalar values, tags,
+  and owned DER. Multi-valued policy rules compose scalar `componentRegex` and
+  `validIA5String` checks through `every`, and redundant collection/time/
+  constraint wrappers were removed. Older collection-aware operators retain
+  their documented behavior until a separately scoped migration.
+- **P1.4 — Extension identity catalog (Done):** RFC 5280 extension OIDs,
+  stable aliases, and certificate/CRL/entry locations have one catalog in
+  `internal/oid`. Format adapters still own decoded extension values; the P2
+  processed-extension registry remains separate work.
+- **P1.5 — Policy integrity (Done):** RFC 6960 and local-profile rules ship as
+  separate policies. All shipped policies are schema-checked, and a small
+  scope-purity invariant prevents RFC 6960 or `LOCAL-*` rules from returning
+  to `RFC5280.yaml`.
 
-Remaining P1 work:
-
-- Base encoding, time, and unique-identifier checks on parsed metadata rather
-  than inferred values.
-- Move remaining multi-valued requirements to collection-aware `every`/`any`
-  composition.
-- Centralize extension identity and aliases while leaving decoded values in
-  the owning format adapter.
-- Remove compatibility and one-off operators when generic composition or an
-  existing domain method expresses the same rule.
-- Split RFC 6960 and `LOCAL-*` checks from the RFC 5280 compatibility bundle.
-- Add automated policy/coverage consistency checks and wiring tests for every
-  active rule.
-
-Exit criteria: every active claim has an observable input for every relevant
-value; positive, negative, absent, and malformed cases exist; and no active
-rule depends on a dead projection or compatibility-only path.
+Exit evidence is boundary-focused: changed parsers and projections cover
+positive, absent, malformed, and representation edge cases; existing
+integration and linter suites prove the affected policy composition. P1 does
+not maintain an exhaustive one-fixture-per-rule wiring manifest.
 
 ## P2 — Certificate and extension profile semantics
 
@@ -157,8 +163,9 @@ constraints, critical extensions, and revocation integration.
 - Maintain standards vectors, deterministic offline fixtures, DER/name/
   extension fuzzing, and performance budgets.
 - Generate or validate coverage reports from executable policy evidence.
-- Preserve the node schema through documented compatibility and deprecation
-  rules.
+- Preserve the node schema by default. Breaking removals require a documented
+  migration and a major release; use a deprecation cycle when retaining the
+  old representation does not perpetuate ambiguous or lossy data.
 - Differentially test parser and cryptographic dependency upgrades.
 - Change the product claim from profile linter only after Sections 6 and 7 and
   the required revocation criteria are independently executable and tested.

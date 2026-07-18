@@ -47,9 +47,9 @@ func TestIsIA5String(t *testing.T) {
 			want: false,
 		},
 		{
-			name: "no encoding child with ASCII value returns true",
+			name: "no encoding child with ASCII value returns false",
 			node: node.New("test", "example.com"),
-			want: true,
+			want: false,
 		},
 		{
 			name: "no encoding child with non-ASCII value returns false",
@@ -108,9 +108,9 @@ func TestIsPrintableString(t *testing.T) {
 			want: false,
 		},
 		{
-			name: "no encoding child with printable value returns true",
+			name: "no encoding child with printable value returns false",
 			node: node.New("test", "Test-Org-123"),
-			want: true,
+			want: false,
 		},
 		{
 			name: "no encoding child with non-printable value returns false",
@@ -222,34 +222,14 @@ func TestValidIA5String(t *testing.T) {
 			want: false,
 		},
 		{
-			name: "children with all ASCII returns true",
+			name: "collection node returns false",
 			node: func() *node.Node {
 				n := node.New("test", nil)
 				n.Children["0"] = node.New("0", "example.com")
 				n.Children["1"] = node.New("1", "test.org")
 				return n
 			}(),
-			want: true,
-		},
-		{
-			name: "children with non-ASCII returns false",
-			node: func() *node.Node {
-				n := node.New("test", nil)
-				n.Children["0"] = node.New("0", "example.com")
-				n.Children["1"] = node.New("1", "testé.org")
-				return n
-			}(),
 			want: false,
-		},
-		{
-			name: "children with nil value skipped returns true",
-			node: func() *node.Node {
-				n := node.New("test", nil)
-				n.Children["0"] = node.New("0", "example.com")
-				n.Children["1"] = node.New("1", nil)
-				return n
-			}(),
-			want: true,
 		},
 	}
 
@@ -263,6 +243,30 @@ func TestValidIA5String(t *testing.T) {
 				t.Errorf("ValidIA5String.Evaluate() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestEveryComposesValidIA5String(t *testing.T) {
+	collection := node.New("dNSName", nil)
+	collection.Children["0"] = node.New("0", "example.com")
+	collection.Children["1"] = node.New("1", "exampleé.test")
+
+	operands := []any{map[string]any{"operator": "validIA5String"}}
+	got, err := DefaultRegistry().Evaluate("every", collection, nil, operands)
+	if err != nil {
+		t.Fatalf("every(validIA5String) error = %v", err)
+	}
+	if got {
+		t.Fatal("every(validIA5String) accepted a non-ASCII value after an ASCII value")
+	}
+
+	collection.Children["1"] = node.New("1", "example.test")
+	got, err = DefaultRegistry().Evaluate("every", collection, nil, operands)
+	if err != nil {
+		t.Fatalf("every(validIA5String) error = %v", err)
+	}
+	if !got {
+		t.Fatal("every(validIA5String) rejected ASCII values")
 	}
 }
 

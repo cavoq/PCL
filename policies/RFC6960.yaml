@@ -1,0 +1,18 @@
+id: rfc6960
+version: 1.0
+appliesTo: [cert]
+
+rules:
+  - id: ocsp-valid
+    reference: RFC6960
+    target: certificate
+    operator: ocspValid
+    certType: [leaf]
+    severity: error
+
+  - id: ocsp-not-revoked
+    reference: RFC6960
+    target: certificate
+    operator: notRevokedOCSP
+    certType: [leaf]
+    severity: error

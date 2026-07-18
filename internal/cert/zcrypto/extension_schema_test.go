@@ -78,7 +78,8 @@ func TestParseCRLDPStrictGeneralNamesNodeSchema(t *testing.T) {
 	generalNames := requireExtensionSchemaChild(t, fullName, "generalNames")
 	assertExtensionSchemaNode(t, generalNames, "generalNames", nil, "0")
 	uri := requireExtensionSchemaChild(t, generalNames, "0")
-	assertExtensionSchemaNode(t, uri, "0", nil, "scheme", "tag", "type", "value")
+	assertExtensionSchemaNode(t, uri, "0", "http://crl.example.test/root.crl",
+		"raw", "rawValue", "scheme", "tag", "type", "value")
 	assertExtensionSchemaValue(t, uri, "type", "uniformResourceIdentifier")
 	assertExtensionSchemaValue(t, uri, "tag", 6)
 	assertExtensionSchemaValue(t, uri, "value", "http://crl.example.test/root.crl")
@@ -89,7 +90,8 @@ func TestParseCRLDPStrictGeneralNamesNodeSchema(t *testing.T) {
 	assertExtensionSchemaValue(t, issuer, "count", 1)
 	assertExtensionSchemaValue(t, issuer, "present", true)
 	issuerName := requireExtensionSchemaChild(t, issuer, "0")
-	assertExtensionSchemaNode(t, issuerName, "0", nil, "tag", "type", "value")
+	assertExtensionSchemaNode(t, issuerName, "0", "issuer.example.test",
+		"raw", "rawValue", "tag", "type", "value")
 	assertExtensionSchemaValue(t, issuerName, "type", "dNSName")
 	assertExtensionSchemaValue(t, issuerName, "tag", 2)
 	assertExtensionSchemaValue(t, issuerName, "value", "issuer.example.test")
@@ -239,7 +241,8 @@ func assertExtensionSchemaAccessDescription(
 	assertExtensionSchemaNode(t, description, name, nil, "accessLocation", "accessMethod")
 	assertExtensionSchemaValue(t, description, "accessMethod", method)
 	location := requireExtensionSchemaChild(t, description, "accessLocation")
-	assertExtensionSchemaNode(t, location, "accessLocation", nil, "scheme", "tag", "type", "value")
+	assertExtensionSchemaNode(t, location, "accessLocation", uri,
+		"raw", "rawValue", "scheme", "tag", "type", "value")
 	assertExtensionSchemaValue(t, location, "type", "uniformResourceIdentifier")
 	assertExtensionSchemaValue(t, location, "tag", 6)
 	assertExtensionSchemaValue(t, location, "value", uri)

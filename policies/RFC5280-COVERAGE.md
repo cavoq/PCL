@@ -15,11 +15,16 @@ Parser behavior is credited only where a dedicated malformed-DER test exists.
 
 ## Certificate Fields (Section 4.1)
 
+Raw TBSCertificate metadata is parsed once and preserved for serial-number
+octets, validity encodings, and optional UniqueIdentifiers. A malformed
+metadata boundary is reported by `tbs-certificate-metadata-well-formed`
+instead of silently disabling dependent rules.
+
 ### 4.1.2.1 Version
 | Requirement | Level | Rule |
 |-------------|-------|------|
 | Version MUST be 3 when extensions present | MUST | `version-v3-when-extensions` |
-| Version SHOULD be ≥2 when UniqueIdentifier present | SHOULD | `version-v2-when-unique-id`, `version-v2-when-subject-unique-id` |
+| Version MUST be v2 or v3 when a UniqueIdentifier is present | MUST | `version-v2-when-unique-id`, `version-v2-when-subject-unique-id` |
 | Version SHOULD be 1 when only basic fields | SHOULD | (not enforced - all versions valid) |
 
 ### 4.1.2.2 Serial Number
@@ -27,7 +32,7 @@ Parser behavior is credited only where a dedicated malformed-DER test exists.
 |-------------|-------|------|
 | Serial number MUST be positive integer | MUST | `serial-number-positive` |
 | Serial number MUST be unique per CA | MUST | External issuance-database requirement; not enforceable from one path |
-| Serial number MUST NOT exceed 20 octets | MUST | `serial-number-length` |
+| Encoded serial-number content MUST NOT exceed 20 octets | MUST | `serial-number-length` |
 
 ### 4.1.2.3 Signature
 | Requirement | Level | Rule |
@@ -45,6 +50,9 @@ Parser behavior is credited only where a dedicated malformed-DER test exists.
 |-------------|-------|------|
 | Certificate MUST be within validity period | MUST | `not-expired`, `not-yet-valid` |
 | notBefore MUST precede notAfter | MUST | `validity-order-correct` |
+| Dates through 2049 use UTCTime; dates from 2050 use GeneralizedTime | MUST | `validity-*-utctime-through-2049`, `validity-*-generalizedtime-from-2050` |
+| UTCTime MUST include seconds and use Z | MUST | `validity-utctime-has-seconds*`, `validity-utctime-has-zulu-*` |
+| GeneralizedTime MUST include seconds, use Z, and omit fractional seconds | MUST | `validity-generalizedtime-has-seconds-*`, `validity-generalizedtime-has-zulu-*`, `validity-generalizedtime-no-fraction*` |
 
 ### 4.1.2.6 Subject
 | Requirement | Level | Rule |
@@ -55,7 +63,8 @@ Parser behavior is credited only where a dedicated malformed-DER test exists.
 ### 4.1.2.8 Unique Identifiers
 | Requirement | Level | Rule |
 |-------------|-------|------|
-| Unique identifiers MUST NOT appear in conforming certs | MUST NOT | `no-unique-identifiers` |
+| Conforming CAs MUST NOT generate issuerUniqueID | MUST NOT | `issuer-unique-id-absent` |
+| Conforming CAs MUST NOT generate subjectUniqueID | MUST NOT | `subject-unique-id-absent` |
 
 ---
 
@@ -75,7 +84,7 @@ Section 7 internationalized-name comparison.
 | Enforce Appendix A upper bounds for every commonName, organizationName, organizationalUnitName, localityName, stateOrProvinceName, serialNumber, givenName, and surname occurrence | Partial (leaf/intermediate subjects only) | `subject-cn-max-length`, `subject-org-max-length`, `subject-ou-max-length`, `subject-locality-max-length`, `subject-state-max-length`, `subject-serial-number-max-length`, `subject-givenname-max-length`, `subject-surname-max-length` |
 | Enforce a two-character countryName for every occurrence | Partial (leaf/intermediate subjects only) | `subject-country-length`, `subject-country-min-length` |
 | Enforce subject emailAddress length and basic mailbox shape for every occurrence | Partial | `subject-email-max-length`, `subject-email-format` |
-| Enforce a 128-character businessCategory bound | Supplemental (X.520/local profile) | `subject-business-category-max-length` |
+| Enforce a 128-character businessCategory bound | Supplemental (`LOCAL-PROFILE.yaml`) | `subject-business-category-max-length` |
 | Enforce the domainComponent label bound for every occurrence | Supplemental (RFC 5890) | `subject-dc-label-max-length` |
 | Check each subject countryName's actual ASN.1 tag is PrintableString (tag 19) | Partial (warning; leaf/intermediate subjects only) | `subject-country-printable-string` |
 | Check each subject commonName's actual ASN.1 tag is a DirectoryString alternative | Partial (warning; leaf subjects only) | `subject-cn-valid-encoding` |
@@ -117,12 +126,18 @@ Section 7 internationalized-name comparison.
 | GeneralNames and embedded directoryName values MUST be well-formed | MUST | `san-general-names-well-formed` |
 | SAN MUST be present if subject empty | MUST | `san-required-if-empty-subject` |
 | SAN MUST be critical if subject empty | MUST | `san-critical-if-subject-empty` |
+| Every dNSName, URI, and rfc822Name contains IA5 characters | MUST | Partial (leaf certificates only): `san-dnsname-valid-ia5string`, `san-uri-valid-ia5string`, `san-email-valid-ia5string` |
+| rfc822Name has a basic mailbox shape | Partial (leaf only; not full RFC 822 parsing) | `san-rfc822-name-format` |
+| URI omits a fragment identifier | Partial (leaf-only warning) | `san-uri-no-fragment` |
 
 ### 4.2.1.7 Issuer Alternative Name
 | Requirement | Level | Rule |
 |-------------|-------|------|
 | GeneralNames and embedded directoryName values MUST be well-formed | MUST | `ian-general-names-well-formed` |
 | IAN SHOULD NOT be critical | SHOULD NOT | `ian-not-critical` |
+| Every IAN dNSName, URI, and rfc822Name contains IA5 characters | MUST | `ian-dnsname-valid-ia5string`, `ian-uri-valid-ia5string`, `ian-email-valid-ia5string` |
+| IAN rfc822Name has a basic mailbox shape | Partial (leaf/intermediate warning; not full RFC 822 parsing) | `ian-rfc822-name-format` |
+| Every IAN dNSName has valid DNS labels | Supplemental (RFC 9549) | Partial (leaf/intermediate only): `ian-dns-valid-label` |
 
 ### 4.2.1.8 Subject Directory Attributes
 | Requirement | Level | Rule |
@@ -135,7 +150,7 @@ Section 7 internationalized-name comparison.
 | MUST be in CA certificates | MUST | `basic-constraints-present` |
 | MUST be critical in CA certs | MUST | `basic-constraints-critical-for-ca` |
 | cA MUST be TRUE for CA certs | MUST | `ca-basic-constraints` |
-| pathLenConstraint enforced | MUST | `ca-path-len-valid` |
+| pathLenConstraint enforced | MUST | Partial: `ca-path-len-valid` (complete structures/dependencies remain P2) |
 
 ### 4.2.1.10 Name Constraints
 | Requirement | Level | Rule |
@@ -172,6 +187,7 @@ Section 7 internationalized-name comparison.
 | Requirement | Level | Rule |
 |-------------|-------|------|
 | MUST NOT be critical | MUST NOT | `aia-not-critical` |
+| An HTTP/FTP caIssuers resource identifies DER certificate or PKCS#7 data | MUST | Partial (checks the observed download format is not PEM): `ca-issuers-der-format` |
 
 ### 4.2.2.2 Subject Information Access
 | Requirement | Level | Rule |
@@ -218,29 +234,38 @@ initial-policy-set, policy-inhibition, or application-purpose inputs.
 | CRL Number MUST be present | MUST | `crl-number-present` |
 | Delta CRL Indicator MUST be critical | MUST | `crl-delta-indicator-critical` |
 | IDP MUST be critical | MUST | `crl-idp-critical` |
+| Reject critical CRL extension OIDs not defined for CRLs by RFC 5280 | Partial | `crl-no-unknown-critical-extensions` (catalog identity is not processed-value support) |
+
+### CRL Entry Extensions
+| Requirement | Status | Rule |
+|-------------|--------|------|
+| Prefer informative reasonCode values on revoked entries | Supplemental warning (reasonCode is optional) | `crl-entries-have-reason` |
+| Accept defined reasonCode values 0-10 except unused value 7 | Partial syntax check | `crl-entry-reason-valid` |
 
 ---
 
 ## OCSP (RFC 6960)
 
 OCSP is a different standard and does not contribute to RFC 5280 coverage.
-The legacy RFC 5280 bundle still contains these rules for compatibility; they
-should be loaded from a separate RFC 6960 policy in the policy-splitting work.
+Its checks are shipped separately in `RFC6960.yaml`. That opt-in bundle runs
+during leaf-certificate evaluation so the response can be bound to the
+certificate and issuer chain; missing or unacceptable OCSP evidence fails
+closed.
 
 | Requirement | Rule |
 |-------------|------|
-| Response within validity window | `ocspValid` |
-| Response signature valid | `ocspValid` |
-| Certificate not revoked | `notRevokedOCSP` |
-| Certificate has Good status | `ocspGood` |
+| Response within validity window | `ocsp-valid` |
+| Response signature valid | `ocsp-valid` |
+| Certificate not revoked | `ocsp-not-revoked` |
 
 ---
 
 ## Supplemental Rules (Not RFC 5280 Coverage)
 
-Rules whose references begin with `LOCAL-`, plus RFC 6960, RFC 9549, PSL,
-CA/B Forum, and reasonable-size constraints, are supplemental profile checks.
-They must not be counted as RFC 5280 requirements.
+Rules whose references begin with `LOCAL-` are shipped in
+`LOCAL-PROFILE.yaml`; RFC 6960 rules are shipped in `RFC6960.yaml`. RFC 9549,
+PSL, CA/B Forum, and reasonable-size constraints are supplemental profile
+checks and must not be counted as RFC 5280 requirements.
 
 ---
 
@@ -248,13 +273,16 @@ They must not be counted as RFC 5280 requirements.
 
 | Extension | OID | Path |
 |-----------|-----|------|
+| Subject Directory Attributes | 2.5.29.9 | `certificate.extensions.2.5.29.9.critical` |
 | Authority Key Identifier | 2.5.29.35 | `certificate.extensions.2.5.29.35.critical` |
 | Subject Key Identifier | 2.5.29.14 | `certificate.extensions.2.5.29.14.critical` |
 | Key Usage | 2.5.29.15 | `certificate.extensions.2.5.29.15.critical` |
+| Private Key Usage Period | 2.5.29.16 | `certificate.extensions.2.5.29.16.critical` |
 | Subject Alternative Name | 2.5.29.17 | `certificate.extensions.2.5.29.17.critical` |
 | Issuer Alternative Name | 2.5.29.18 | `certificate.extensions.2.5.29.18.critical` |
 | Basic Constraints | 2.5.29.19 | `certificate.extensions.2.5.29.19.critical` |
 | Name Constraints | 2.5.29.30 | `certificate.extensions.2.5.29.30.critical` |
+| CRL Distribution Points | 2.5.29.31 | `certificate.extensions.2.5.29.31.critical` |
 | Certificate Policies | 2.5.29.32 | `certificate.extensions.2.5.29.32.critical` |
 | Policy Mappings | 2.5.29.33 | `certificate.extensions.2.5.29.33.critical` |
 | Policy Constraints | 2.5.29.36 | `certificate.extensions.2.5.29.36.critical` |
@@ -273,4 +301,4 @@ The current policy does not claim complete coverage for:
 - RFC 5280 Section 6 path-validation and CRL-validation state machines
 - RFC 5280 Section 7 internationalized name comparison
 - CA-wide issuance properties such as serial-number uniqueness
-- ASN.1, time, URI, or name validation without an explicit parser/operator test
+- ASN.1, time, URI, or name validation without explicit parser and policy evidence

@@ -83,6 +83,28 @@ func TestStringTypeName(t *testing.T) {
 	}
 }
 
+func TestDecodeDirectoryString(t *testing.T) {
+	got, err := DecodeDirectoryString(12, []byte("party"))
+	if err != nil || got != "party" {
+		t.Fatalf("DecodeDirectoryString() = %q, %v; want party, nil", got, err)
+	}
+	for _, test := range []struct {
+		name  string
+		tag   int
+		value []byte
+	}{
+		{name: "empty", tag: 12},
+		{name: "IA5 is not DirectoryString", tag: 22, value: []byte("party")},
+		{name: "invalid UTF-8", tag: 12, value: []byte{0xff}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if _, err := DecodeDirectoryString(test.tag, test.value); err == nil {
+				t.Fatal("expected invalid DirectoryString")
+			}
+		})
+	}
+}
+
 func TestValidatePrintableString_RejectsNonAlphabetCharacter(t *testing.T) {
 	info, err := ValidatePrintableString([]byte{0x13, 0x01, '&'})
 	if err != nil {

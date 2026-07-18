@@ -10,24 +10,24 @@ verbosity: 2
 show_meta: true
 expected:
   total_certs: 4
-  total_rules: 404
-  pass: 124
+  total_rules: 416
+  pass: 135
   fail: 5
-  skip: 275
+  skip: 276
   results:
     - cert_type: leaf
       policy: rfc5280
       verdict: fail
-      rules: 101
+      rules: 104
     - cert_type: intermediate
       policy: rfc5280
       verdict: fail
-      rules: 101
+      rules: 104
     - cert_type: root
       policy: rfc5280
       verdict: fail
-      rules: 101
+      rules: 104
     - cert_type: crl
       policy: rfc5280
       verdict: fail
-      rules: 101
+      rules: 104

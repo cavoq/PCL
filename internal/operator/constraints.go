@@ -85,85 +85,6 @@ func (ValidityPeriodDays) Evaluate(n *node.Node, ctx *EvaluationContext, operand
 	return days >= minDays && days <= maxDays, nil
 }
 
-type SANRequiredIfEmptySubject struct{}
-
-func (SANRequiredIfEmptySubject) Name() string { return "sanRequiredIfEmptySubject" }
-
-func (SANRequiredIfEmptySubject) Evaluate(n *node.Node, ctx *EvaluationContext, _ []any) (bool, error) {
-	if ctx == nil || ctx.Cert == nil || ctx.Cert.Cert == nil {
-		return false, nil
-	}
-
-	cert := ctx.Cert.Cert
-	if len(cert.Subject.Names) > 0 {
-		return true, nil
-	}
-
-	if n == nil {
-		return false, nil
-	}
-	san, found := n.Resolve("subjectAltName")
-	if !found || san == nil {
-		return false, nil
-	}
-	count, ok := san.Value.(int)
-	return ok && count > 0, nil
-}
-
-type KeyUsageCA struct{}
-
-func (KeyUsageCA) Name() string { return "keyUsageCA" }
-
-func (KeyUsageCA) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (bool, error) {
-	if ctx == nil || ctx.Cert == nil || ctx.Cert.Cert == nil {
-		return false, nil
-	}
-
-	cert := ctx.Cert.Cert
-
-	if !cert.IsCA {
-		return true, nil
-	}
-
-	const keyCertSign = 1 << 5
-	return cert.KeyUsage&keyCertSign != 0, nil
-}
-
-type KeyUsageLeaf struct{}
-
-func (KeyUsageLeaf) Name() string { return "keyUsageLeaf" }
-
-func (KeyUsageLeaf) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (bool, error) {
-	if ctx == nil || ctx.Cert == nil || ctx.Cert.Cert == nil {
-		return false, nil
-	}
-
-	cert := ctx.Cert.Cert
-
-	if cert.IsCA {
-		return true, nil
-	}
-
-	const keyCertSign = 1 << 5
-	return cert.KeyUsage&keyCertSign == 0, nil
-}
-
-type NoUniqueIdentifiers struct{}
-
-func (NoUniqueIdentifiers) Name() string { return "noUniqueIdentifiers" }
-
-func (NoUniqueIdentifiers) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (bool, error) {
-	if ctx == nil || ctx.Cert == nil || ctx.Cert.Cert == nil {
-		return false, nil
-	}
-
-	cert := ctx.Cert.Cert
-	hasIssuerUID := cert.IssuerUniqueId.BitLength > 0
-	hasSubjectUID := cert.SubjectUniqueId.BitLength > 0
-
-	return !hasIssuerUID && !hasSubjectUID, nil
-}
-
 type SerialNumberUnique struct{}
 
 func (SerialNumberUnique) Name() string { return "serialNumberUnique" }
@@ -221,15 +142,15 @@ func (NoUnknownCriticalExtensions) Evaluate(n *node.Node, _ *EvaluationContext, 
 
 	switch n.Name {
 	case "certificate":
-		return noUnknownCriticalExtensions(n, knownCertificateExtensionOIDs), nil
+		return noUnknownCriticalExtensions(n, oid.ExtensionInCertificate), nil
 	case "crl":
-		return noUnknownCriticalExtensions(n, knownCRLExtensionOIDs), nil
+		return noUnknownCriticalExtensions(n, oid.ExtensionInCRL), nil
 	default:
 		return false, nil
 	}
 }
 
-func noUnknownCriticalExtensions(n *node.Node, known map[string]struct{}) bool {
+func noUnknownCriticalExtensions(n *node.Node, location oid.ExtensionLocation) bool {
 	extsNode, _ := n.Resolve("extensions")
 	if extsNode == nil {
 		return true
@@ -263,49 +184,10 @@ func noUnknownCriticalExtensions(n *node.Node, known map[string]struct{}) bool {
 		if !ok {
 			return false
 		}
-		if _, ok := known[oidValue]; !ok {
+		if !oid.ExtensionKnownAt(oidValue, location) {
 			return false
 		}
 	}
 
 	return true
-}
-
-var knownCertificateExtensionOIDs = oidSet(
-	oid.SubjectDirectoryAttributes,
-	oid.SubjectKeyIdentifier,
-	oid.KeyUsage,
-	oid.PrivateKeyUsagePeriod,
-	oid.SubjectAlternativeName,
-	oid.IssuerAlternativeName,
-	oid.BasicConstraints,
-	oid.NameConstraints,
-	oid.CRLDistributionPoints,
-	oid.CertificatePolicies,
-	oid.PolicyMappings,
-	oid.AuthorityKeyIdentifier,
-	oid.PolicyConstraints,
-	oid.ExtendedKeyUsage,
-	oid.FreshestCRL,
-	oid.InhibitAnyPolicy,
-	oid.AuthorityInfoAccess,
-	oid.SubjectInfoAccess,
-)
-
-var knownCRLExtensionOIDs = oidSet(
-	oid.AuthorityKeyIdentifier,
-	oid.IssuerAlternativeName,
-	oid.CRLNumber,
-	oid.DeltaCRLIndicator,
-	oid.IssuingDistributionPoint,
-	oid.FreshestCRL,
-	oid.AuthorityInfoAccess,
-)
-
-func oidSet(values ...string) map[string]struct{} {
-	result := make(map[string]struct{}, len(values))
-	for _, value := range values {
-		result[value] = struct{}{}
-	}
-	return result
 }

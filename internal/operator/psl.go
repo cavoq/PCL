@@ -97,53 +97,35 @@ func (IsNotPublicSuffix) Evaluate(n *node.Node, ctx *EvaluationContext, operands
 	return !isPS, nil
 }
 
-// ComponentTLDRegistered checks TLD registration for each component in an array.
-// Useful for validating multiple DNS names in subjectAltName.
-type ComponentTLDRegistered struct{}
-
-func (ComponentTLDRegistered) Name() string { return "componentTLDRegistered" }
-
-func (ComponentTLDRegistered) Evaluate(n *node.Node, _ *EvaluationContext, _ []any) (bool, error) {
-	if n == nil {
-		return false, nil
-	}
-
-	// Handle parent node with children (dNSName array)
-	if n.Value == nil && len(n.Children) > 0 {
-		for _, child := range n.Children {
-			str, ok := child.Value.(string)
-			if !ok {
-				continue
-			}
-			// All domains must have registered TLDs
-			if !data.DefaultLoader.TLDRegistered(str) {
-				return false, nil
-			}
-		}
-		return true, nil
-	}
-
-	// Handle single string value
-	str, ok := n.Value.(string)
-	if !ok {
-		return false, nil
-	}
-
-	return data.DefaultLoader.TLDRegistered(str), nil
-}
-
 // ComponentTLDNotRegistered checks if ANY component has unregistered TLD.
 // Returns true if at least one domain is an Internal Name.
 type ComponentTLDNotRegistered struct{}
 
 func (ComponentTLDNotRegistered) Name() string { return "componentTLDNotRegistered" }
 
-func (ComponentTLDNotRegistered) Evaluate(n *node.Node, ctx *EvaluationContext, operands []any) (bool, error) {
-	reg, err := ComponentTLDRegistered{}.Evaluate(n, ctx, operands)
-	if err != nil {
-		return false, err
+func (ComponentTLDNotRegistered) Evaluate(n *node.Node, _ *EvaluationContext, _ []any) (bool, error) {
+	if n == nil {
+		return true, nil
 	}
-	return !reg, nil
+
+	if n.Value == nil && len(n.Children) > 0 {
+		for _, child := range n.Children {
+			str, ok := child.Value.(string)
+			if !ok {
+				continue
+			}
+			if !data.DefaultLoader.TLDRegistered(str) {
+				return true, nil
+			}
+		}
+		return false, nil
+	}
+
+	str, ok := n.Value.(string)
+	if !ok {
+		return true, nil
+	}
+	return !data.DefaultLoader.TLDRegistered(str), nil
 }
 
 // ComponentIsPublicSuffix checks if ANY component is a public suffix.

@@ -1,0 +1,11 @@
+name: rfc5280-serial-sign-octet
+policy: ../policies/RFC5280.yaml
+fixture: certificate-serial-leading-sign-octet
+rules:
+  - serial-number-positive
+  - serial-number-length
+expected:
+  root:
+    pass: 1
+    fail: 1
+    skip: 0

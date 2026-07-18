@@ -3,27 +3,37 @@ package zcrypto
 import (
 	stdasn1 "encoding/asn1"
 	"fmt"
+	"net"
+	"strconv"
 	"strings"
+
+	"github.com/zmap/zcrypto/x509"
+	"github.com/zmap/zcrypto/x509/pkix"
 
 	internalasn1 "github.com/cavoq/PCL/internal/asn1"
 	"github.com/cavoq/PCL/internal/node"
+	"github.com/cavoq/PCL/internal/oid"
 	nameprojector "github.com/cavoq/PCL/internal/zcrypto"
 	"golang.org/x/crypto/cryptobyte"
 	cryptobyte_asn1 "golang.org/x/crypto/cryptobyte/asn1"
 )
 
-// generalNamesInfo contains certificate GeneralNames facts that zcrypto does
-// not expose through typed certificate fields.
-type generalNamesInfo struct {
-	Count          int
-	X400Addresses  [][]byte
-	DirectoryNames [][]byte
+type parsedGeneralName struct {
+	Tag      int
+	RawDER   []byte
+	RawValue []byte
 }
 
-type parsedGeneralName struct {
-	Tag     int
-	Encoded []byte
-	Content []byte
+type parsedDirectoryString struct {
+	Tag      int
+	RawDER   []byte
+	RawValue []byte
+	Value    string
+}
+
+type parsedEDIPartyName struct {
+	NameAssigner *parsedDirectoryString
+	PartyName    parsedDirectoryString
 }
 
 func generalNameType(tag int) string {
@@ -57,9 +67,6 @@ func readGeneralName(input *cryptobyte.String) (parsedGeneralName, error) {
 	if !input.ReadAnyASN1Element(&encoded, &tag) {
 		return parsedGeneralName{}, fmt.Errorf("failed to read GeneralName")
 	}
-	if err := validateGeneralName(tag, encoded); err != nil {
-		return parsedGeneralName{}, err
-	}
 
 	element := cryptobyte.String(encoded)
 	var content cryptobyte.String
@@ -67,11 +74,14 @@ func readGeneralName(input *cryptobyte.String) (parsedGeneralName, error) {
 	if !element.ReadAnyASN1(&content, &parsedTag) || !element.Empty() || parsedTag != tag {
 		return parsedGeneralName{}, fmt.Errorf("failed to decode GeneralName")
 	}
+	if err := validateGeneralName(tag, encoded, content); err != nil {
+		return parsedGeneralName{}, err
+	}
 
 	return parsedGeneralName{
-		Tag:     int(tag) & 0x1f,
-		Encoded: append([]byte(nil), encoded...),
-		Content: append([]byte(nil), content...),
+		Tag:      int(tag) & 0x1f,
+		RawDER:   append([]byte(nil), encoded...),
+		RawValue: append([]byte(nil), content...),
 	}, nil
 }
 
@@ -91,27 +101,75 @@ func readGeneralNames(input *cryptobyte.String) ([]parsedGeneralName, error) {
 }
 
 func buildParsedGeneralName(name string, value parsedGeneralName) *node.Node {
-	n := node.New(name, nil)
+	var (
+		scalar        any = append([]byte(nil), value.RawValue...)
+		typeID        string
+		directoryName *node.Node
+		ediPartyName  *parsedEDIPartyName
+	)
+	switch value.Tag {
+	case 0:
+		decodedTypeID, otherValue, err := decodeOtherName(value.RawValue)
+		if err == nil {
+			typeID = decodedTypeID
+			scalar = otherValue
+		}
+	case 1, 2, 6:
+		scalar = string(value.RawValue)
+	case 4:
+		directoryName = nameprojector.BuildRawName("directoryName", value.RawValue)
+		scalar = directoryName.Value
+	case 5:
+		if decoded, err := decodeEDIPartyName(value.RawValue); err == nil {
+			ediPartyName = &decoded
+		}
+	case 7:
+		scalar = net.IP(value.RawValue).String()
+	case 8:
+		identifier, err := decodeRegisteredID(value.RawDER)
+		if err == nil {
+			scalar = identifier
+		}
+	}
+
+	n := node.New(name, cloneGeneralNameScalar(scalar))
+	n.Children["value"] = node.New("value", cloneGeneralNameScalar(scalar))
 	n.Children["type"] = node.New("type", generalNameType(value.Tag))
 	n.Children["tag"] = node.New("tag", value.Tag)
+	n.Children["raw"] = node.New("raw", append([]byte(nil), value.RawDER...))
+	n.Children["rawValue"] = node.New("rawValue", append([]byte(nil), value.RawValue...))
 
 	switch value.Tag {
-	case 1, 2, 6:
-		text := string(value.Content)
-		n.Children["value"] = node.New("value", text)
-		if value.Tag == 6 {
-			if scheme, _, ok := strings.Cut(text, ":"); ok {
-				n.Children["scheme"] = node.New("scheme", scheme)
-			}
+	case 0:
+		if typeID != "" {
+			n.Children["typeID"] = node.New("typeID", typeID)
 		}
 	case 4:
-		n.Children["value"] = node.New("value", value.Content)
-		n.Children["directoryName"] = nameprojector.BuildRawName("directoryName", value.Content)
-	default:
-		n.Children["value"] = node.New("value", value.Content)
+		n.Children["directoryName"] = directoryName
+	case 5:
+		if ediPartyName != nil {
+			if ediPartyName.NameAssigner != nil {
+				n.Children["nameAssigner"] = buildDirectoryStringNode(
+					"nameAssigner",
+					*ediPartyName.NameAssigner,
+				)
+			}
+			n.Children["partyName"] = buildDirectoryStringNode("partyName", ediPartyName.PartyName)
+		}
+	case 6:
+		if scheme, _, ok := strings.Cut(scalar.(string), ":"); ok {
+			n.Children["scheme"] = node.New("scheme", scheme)
+		}
 	}
 
 	return n
+}
+
+func cloneGeneralNameScalar(value any) any {
+	if bytes, ok := value.([]byte); ok {
+		return append([]byte(nil), bytes...)
+	}
+	return value
 }
 
 func addParsedGeneralNames(target *node.Node, names []parsedGeneralName) {
@@ -121,45 +179,102 @@ func addParsedGeneralNames(target *node.Node, names []parsedGeneralName) {
 	}
 }
 
-func parseGeneralNamesInfo(value []byte) (generalNamesInfo, error) {
+func parseGeneralNames(value []byte) ([]parsedGeneralName, error) {
 	input := cryptobyte.String(value)
 	var names cryptobyte.String
 	if !input.ReadASN1(&names, cryptobyte_asn1.SEQUENCE) || !input.Empty() {
-		return generalNamesInfo{}, fmt.Errorf("failed to read GeneralNames")
+		return nil, fmt.Errorf("failed to read GeneralNames")
 	}
 
 	parsedNames, err := readGeneralNames(&names)
 	if err != nil {
-		return generalNamesInfo{}, err
+		return nil, err
 	}
 	if len(parsedNames) == 0 {
-		return generalNamesInfo{}, fmt.Errorf("GeneralNames must not be empty")
+		return nil, fmt.Errorf("GeneralNames must not be empty")
 	}
-
-	info := generalNamesInfo{Count: len(parsedNames)}
-	for _, name := range parsedNames {
-		switch name.Tag {
-		case 3:
-			info.X400Addresses = append(info.X400Addresses, name.Encoded)
-		case 4:
-			info.DirectoryNames = append(info.DirectoryNames, name.Content)
-		}
-	}
-
-	return info, nil
+	return parsedNames, nil
 }
 
-func validateGeneralName(tag cryptobyte_asn1.Tag, encoded cryptobyte.String) error {
+func buildSubjectAltName(cert *x509.Certificate) *node.Node {
+	return buildCertificateGeneralNames("subjectAltName", cert.Extensions, oid.SubjectAlternativeName)
+}
+
+func buildIssuerAltName(cert *x509.Certificate) *node.Node {
+	return buildCertificateGeneralNames("issuerAltName", cert.Extensions, oid.IssuerAlternativeName)
+}
+
+func buildCertificateGeneralNames(
+	name string,
+	extensions []pkix.Extension,
+	targetOID string,
+) *node.Node {
+	n := node.New(name, nil)
+	extension, ok := findExtension(extensions, targetOID)
+	if !ok {
+		return n
+	}
+
+	names, err := parseGeneralNames(extension.Value)
+	if err != nil {
+		n.Children["raw"] = node.New("raw", append([]byte(nil), extension.Value...))
+		n.Children["malformed"] = node.New("malformed", true)
+		return n
+	}
+
+	n.Value = len(names)
+	entries := node.New("entries", nil)
+	n.Children["entries"] = entries
+	typeCounts := make(map[int]int)
+	for index, parsed := range names {
+		key := strconv.Itoa(index)
+		entry := buildParsedGeneralName(key, parsed)
+		entries.Children[key] = entry
+
+		// Preserve the established direct directoryName paths while the shared
+		// GeneralName projection also retains its nested directoryName object.
+		if directoryName := entry.Children["directoryName"]; directoryName != nil {
+			for childName, child := range directoryName.Children {
+				if childName != "raw" {
+					entry.Children[childName] = child
+				}
+			}
+		}
+
+		collectionName := generalNameType(parsed.Tag)
+		collection := n.Children[collectionName]
+		if collection == nil {
+			collection = node.New(collectionName, nil)
+			n.Children[collectionName] = collection
+		}
+
+		typeIndex := strconv.Itoa(typeCounts[parsed.Tag])
+		collection.Children[typeIndex] = aliasGeneralNameNode(typeIndex, entry)
+		typeCounts[parsed.Tag]++
+	}
+
+	return n
+}
+
+// aliasGeneralNameNode gives the per-type collection its compact numeric name
+// while sharing the canonical entry's immutable value metadata and decoded
+// children. This avoids parsing and copying every GeneralName twice.
+func aliasGeneralNameNode(name string, canonical *node.Node) *node.Node {
+	return &node.Node{
+		Name:     name,
+		Value:    canonical.Value,
+		Children: canonical.Children,
+	}
+}
+
+func validateGeneralName(
+	tag cryptobyte_asn1.Tag,
+	encoded cryptobyte.String,
+	content cryptobyte.String,
+) error {
 	tagValue := int(tag)
 	if tagValue&0xc0 != 0x80 || tagValue&0x1f > 8 {
 		return fmt.Errorf("invalid GeneralName tag %d", tagValue)
-	}
-
-	element := cryptobyte.String(encoded)
-	var content cryptobyte.String
-	var parsedTag cryptobyte_asn1.Tag
-	if !element.ReadAnyASN1(&content, &parsedTag) || !element.Empty() || parsedTag != tag {
-		return fmt.Errorf("failed to parse GeneralName tag %d", tagValue&0x1f)
 	}
 	if len(content) == 0 {
 		return fmt.Errorf("GeneralName tag %d is empty", tagValue&0x1f)
@@ -174,12 +289,7 @@ func validateGeneralName(tag cryptobyte_asn1.Tag, encoded cryptobyte.String) err
 
 	switch tagNumber {
 	case 0: // otherName: implicit SEQUENCE content (OID, [0] EXPLICIT value)
-		value := cryptobyte.String(content)
-		var typeID cryptobyte.String
-		var otherValue cryptobyte.String
-		if !value.ReadASN1(&typeID, cryptobyte_asn1.OBJECT_IDENTIFIER) ||
-			!value.ReadASN1(&otherValue, cryptobyte_asn1.Tag(0).Constructed().ContextSpecific()) ||
-			!value.Empty() || len(otherValue) == 0 {
+		if _, _, err := decodeOtherName(content); err != nil {
 			return fmt.Errorf("invalid otherName")
 		}
 	case 3: // x400Address: implicit ORAddress, whose first component is a SEQUENCE
@@ -194,11 +304,7 @@ func validateGeneralName(tag cryptobyte_asn1.Tag, encoded cryptobyte.String) err
 			return fmt.Errorf("invalid directoryName")
 		}
 	case 5: // ediPartyName: partyName [1] is required
-		value := cryptobyte.String(content)
-		value.SkipOptionalASN1(cryptobyte_asn1.Tag(0).Constructed().ContextSpecific())
-		var partyName cryptobyte.String
-		if !value.ReadASN1(&partyName, cryptobyte_asn1.Tag(1).Constructed().ContextSpecific()) ||
-			!value.Empty() || partyName.Empty() {
+		if _, err := decodeEDIPartyName(content); err != nil {
 			return fmt.Errorf("invalid ediPartyName")
 		}
 	case 7:
@@ -206,14 +312,123 @@ func validateGeneralName(tag cryptobyte_asn1.Tag, encoded cryptobyte.String) err
 			return fmt.Errorf("invalid iPAddress length %d", len(content))
 		}
 	case 8:
-		oidDER := append([]byte(nil), encoded...)
-		oidDER[0] = byte(cryptobyte_asn1.OBJECT_IDENTIFIER)
-		var objectID stdasn1.ObjectIdentifier
-		rest, err := stdasn1.Unmarshal(oidDER, &objectID)
-		if err != nil || len(rest) != 0 || len(objectID) == 0 {
+		if _, err := decodeRegisteredID(encoded); err != nil {
 			return fmt.Errorf("invalid registeredID")
 		}
 	}
 
 	return nil
+}
+
+func decodeOtherName(content []byte) (string, []byte, error) {
+	value := cryptobyte.String(content)
+	var typeID stdasn1.ObjectIdentifier
+	var otherValue cryptobyte.String
+	if !value.ReadASN1ObjectIdentifier(&typeID) ||
+		!value.ReadASN1(&otherValue, cryptobyte_asn1.Tag(0).Constructed().ContextSpecific()) ||
+		!value.Empty() || otherValue.Empty() {
+		return "", nil, fmt.Errorf("invalid otherName")
+	}
+	inner := cryptobyte.String(otherValue)
+	var innerDER cryptobyte.String
+	var innerTag cryptobyte_asn1.Tag
+	if !inner.ReadAnyASN1Element(&innerDER, &innerTag) || !inner.Empty() {
+		return "", nil, fmt.Errorf("otherName value must contain exactly one DER element")
+	}
+	return typeID.String(), append([]byte(nil), otherValue...), nil
+}
+
+func decodeEDIPartyName(content []byte) (parsedEDIPartyName, error) {
+	value := cryptobyte.String(content)
+	nameAssigner, present, err := readExplicitDirectoryString(
+		&value,
+		cryptobyte_asn1.Tag(0).Constructed().ContextSpecific(),
+		"nameAssigner",
+		false,
+	)
+	if err != nil {
+		return parsedEDIPartyName{}, err
+	}
+	partyName, _, err := readExplicitDirectoryString(
+		&value,
+		cryptobyte_asn1.Tag(1).Constructed().ContextSpecific(),
+		"partyName",
+		true,
+	)
+	if err != nil {
+		return parsedEDIPartyName{}, err
+	}
+	if !value.Empty() {
+		return parsedEDIPartyName{}, fmt.Errorf("unexpected ediPartyName data")
+	}
+
+	decoded := parsedEDIPartyName{PartyName: partyName}
+	if present {
+		decoded.NameAssigner = &nameAssigner
+	}
+	return decoded, nil
+}
+
+func readExplicitDirectoryString(
+	input *cryptobyte.String,
+	tag cryptobyte_asn1.Tag,
+	field string,
+	required bool,
+) (parsedDirectoryString, bool, error) {
+	if !input.PeekASN1Tag(tag) {
+		if required {
+			return parsedDirectoryString{}, false, fmt.Errorf("missing %s", field)
+		}
+		return parsedDirectoryString{}, false, nil
+	}
+
+	var explicit cryptobyte.String
+	if !input.ReadASN1(&explicit, tag) {
+		return parsedDirectoryString{}, false, fmt.Errorf("invalid %s", field)
+	}
+
+	var rawDER cryptobyte.String
+	var stringTag cryptobyte_asn1.Tag
+	if !explicit.ReadAnyASN1Element(&rawDER, &stringTag) || !explicit.Empty() {
+		return parsedDirectoryString{}, false, fmt.Errorf("invalid %s DirectoryString", field)
+	}
+	element := cryptobyte.String(rawDER)
+	var rawValue cryptobyte.String
+	var parsedTag cryptobyte_asn1.Tag
+	if !element.ReadAnyASN1(&rawValue, &parsedTag) || !element.Empty() || parsedTag != stringTag {
+		return parsedDirectoryString{}, false, fmt.Errorf("invalid %s DirectoryString", field)
+	}
+	decoded, err := internalasn1.DecodeDirectoryString(int(stringTag), rawValue)
+	if err != nil {
+		return parsedDirectoryString{}, false, fmt.Errorf("invalid %s: %w", field, err)
+	}
+	return parsedDirectoryString{
+		Tag:      int(stringTag),
+		RawDER:   append([]byte(nil), rawDER...),
+		RawValue: append([]byte(nil), rawValue...),
+		Value:    decoded,
+	}, true, nil
+}
+
+func buildDirectoryStringNode(name string, value parsedDirectoryString) *node.Node {
+	n := node.New(name, value.Value)
+	n.Children["tag"] = node.New("tag", value.Tag)
+	n.Children["encoding"] = node.New("encoding", internalasn1.StringTypeName(value.Tag))
+	n.Children["raw"] = node.New("raw", append([]byte(nil), value.RawDER...))
+	n.Children["rawValue"] = node.New("rawValue", append([]byte(nil), value.RawValue...))
+	return n
+}
+
+func decodeRegisteredID(encoded []byte) (string, error) {
+	oidDER := append([]byte(nil), encoded...)
+	if len(oidDER) == 0 {
+		return "", fmt.Errorf("invalid registeredID")
+	}
+	oidDER[0] = byte(cryptobyte_asn1.OBJECT_IDENTIFIER)
+	var objectID stdasn1.ObjectIdentifier
+	rest, err := stdasn1.Unmarshal(oidDER, &objectID)
+	if err != nil || len(rest) != 0 || len(objectID) == 0 {
+		return "", fmt.Errorf("invalid registeredID")
+	}
+	return objectID.String(), nil
 }

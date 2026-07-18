@@ -1,0 +1,93 @@
+id: local-profile
+version: 1.0
+
+rules:
+  # Supplemental X.520/local profile: businessCategory max 128 characters
+  - id: subject-business-category-max-length
+    reference: LOCAL-X520-PROFILE
+    when:
+      target: certificate.subject.businessCategory
+      operator: present
+    target: certificate.subject.businessCategory
+    operator: every
+    operands:
+      - path: value
+        operator: maxLength
+        operands: [128]
+    severity: error
+    message: "businessCategory must not exceed 128 characters"
+    certType: [leaf, intermediate]
+
+  # Wildcard semantics are application-specific in RFC 5280.
+  - id: ian-no-wildcard-dns
+    reference: LOCAL-PROFILE
+    when:
+      target: certificate.issuerAltName.dNSName
+      operator: present
+    target: certificate.issuerAltName.dNSName
+    operator: every
+    operands:
+      - operator: notRegex
+        operands: ["^\\*"]
+    severity: warning
+    message: "Local profile discourages wildcard IAN dNSName values"
+    certType: [leaf, intermediate]
+
+  # IAN URI must use HTTP or HTTPS scheme.
+  - id: ian-uri-http-scheme
+    reference: LOCAL-WEBPKI-PROFILE
+    when:
+      target: certificate.issuerAltName.uniformResourceIdentifier
+      operator: present
+    target: certificate.issuerAltName.uniformResourceIdentifier
+    operator: every
+    operands:
+      - operator: regex
+        operands: ["^https?://"]
+    severity: warning
+    message: "IAN URI should use HTTP or HTTPS scheme"
+    certType: [leaf, intermediate]
+
+  # IAN dNSName should not contain internal names.
+  - id: ian-no-internal-names
+    reference: LOCAL-WEBPKI-PROFILE
+    when:
+      target: certificate.issuerAltName.dNSName
+      operator: present
+    target: certificate.issuerAltName.dNSName
+    operator: every
+    operands:
+      - operator: tldRegistered
+    severity: warning
+    message: "IAN dNSName should not contain internal names with unregistered TLDs"
+    certType: [leaf, intermediate]
+
+  # SAN uniformResourceIdentifier must use HTTP or HTTPS.
+  - id: san-uri-http-scheme
+    reference: LOCAL-WEBPKI-PROFILE
+    when:
+      target: certificate.subjectAltName.uniformResourceIdentifier
+      operator: present
+    target: certificate.subjectAltName.uniformResourceIdentifier
+    operator: every
+    operands:
+      - operator: regex
+        operands: ["^https?://"]
+    severity: warning
+    message: "SAN URI should use HTTP or HTTPS scheme"
+    certType: [leaf]
+
+  # SAN URI max length (reasonable local limit).
+  - id: san-uri-max-length
+    reference: LOCAL-PROFILE
+    when:
+      target: certificate.subjectAltName.uniformResourceIdentifier
+      operator: present
+    target: certificate.subjectAltName.uniformResourceIdentifier
+    operator: every
+    operands:
+      - operator: maxLength
+        operands: [1024]
+    severity: warning
+    message: "SAN URI should not exceed 1024 characters"
+    certType: [leaf]

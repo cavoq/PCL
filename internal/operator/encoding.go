@@ -18,12 +18,6 @@ func (IsIA5String) Evaluate(n *node.Node, _ *EvaluationContext, _ []any) (bool, 
 	// Check encoding child from DN attribute encoding info
 	encodingNode := n.Children["encoding"]
 	if encodingNode == nil || encodingNode.Value == nil {
-		// If no encoding info, assume it's IA5String compatible if value is ASCII
-		if n.Value != nil {
-			if str, ok := n.Value.(string); ok {
-				return isASCII(str), nil
-			}
-		}
 		return false, nil
 	}
 
@@ -49,12 +43,6 @@ func (IsPrintableString) Evaluate(n *node.Node, _ *EvaluationContext, _ []any) (
 	// Check encoding child from DN attribute encoding info
 	encodingNode := n.Children["encoding"]
 	if encodingNode == nil || encodingNode.Value == nil {
-		// If no encoding info, check if value is PrintableString compatible
-		if n.Value != nil {
-			if str, ok := n.Value.(string); ok {
-				return isPrintableStringCompatible(str), nil
-			}
-		}
 		return false, nil
 	}
 
@@ -92,7 +80,7 @@ func (IsUTF8String) Evaluate(n *node.Node, _ *EvaluationContext, _ []any) (bool,
 
 // ValidIA5String checks that a string contains only valid IA5String characters.
 // IA5String = ASCII (0x00-0x7F).
-// If the node has children (array-like), checks all children.
+// Collection traversal belongs to the Every operator.
 type ValidIA5String struct{}
 
 func (ValidIA5String) Name() string { return "validIA5String" }
@@ -102,33 +90,11 @@ func (ValidIA5String) Evaluate(n *node.Node, _ *EvaluationContext, _ []any) (boo
 		return false, nil
 	}
 
-	// If node has value, check it directly
-	if n.Value != nil {
-		str, ok := n.Value.(string)
-		if !ok {
-			return false, nil
-		}
-		return isASCII(str), nil
+	str, ok := n.Value.(string)
+	if !ok {
+		return false, nil
 	}
-
-	// If node has children (array-like), check all children
-	if len(n.Children) > 0 {
-		for _, child := range n.Children {
-			if child.Value == nil {
-				continue
-			}
-			str, ok := child.Value.(string)
-			if !ok {
-				return false, nil
-			}
-			if !isASCII(str) {
-				return false, nil
-			}
-		}
-		return true, nil
-	}
-
-	return false, nil
+	return isASCII(str), nil
 }
 
 // ValidPrintableString checks that a string contains only valid PrintableString characters.

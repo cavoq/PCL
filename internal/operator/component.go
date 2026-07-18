@@ -135,12 +135,9 @@ func validateComponentMinLength(str string, minLen int, delimiter string) bool {
 	return true
 }
 
-// ComponentRegex validates that each component of a delimited string
-// matches the specified regex pattern.
-//
-// Handles both:
-// - Single string value: splits by delimiter and validates each component
-// - Parent node with children: validates each child's string value
+// ComponentRegex validates that each component of one delimited string
+// matches the specified regex pattern. Collection traversal belongs to the
+// Every operator, which can compose ComponentRegex for each string value.
 type ComponentRegex struct{}
 
 func (ComponentRegex) Name() string { return "componentRegex" }
@@ -167,21 +164,6 @@ func (ComponentRegex) Evaluate(n *node.Node, _ *EvaluationContext, operands []an
 		}
 	}
 
-	// Handle parent node with children
-	if n.Value == nil && len(n.Children) > 0 {
-		for _, child := range n.Children {
-			str, ok := child.Value.(string)
-			if !ok {
-				continue
-			}
-			if !validateComponentRegex(str, re, delimiter) {
-				return false, nil
-			}
-		}
-		return true, nil
-	}
-
-	// Handle single string value
 	str, ok := n.Value.(string)
 	if !ok {
 		return false, nil

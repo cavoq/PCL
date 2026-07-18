@@ -2,6 +2,7 @@ package zcrypto
 
 import (
 	"bytes"
+	"math/big"
 	"os"
 	"testing"
 	"time"
@@ -178,13 +179,70 @@ func TestBuilder_Validity(t *testing.T) {
 		t.Errorf("notAfter should be time.Time, got %T", notAfter.Value)
 	}
 	assertPathValue(t, root, "certificate.validity.notBefore.encoding", 23)
-	assertPathValue(t, root, "certificate.validity.notBefore.isUTC", true)
 	assertPathValue(t, root, "certificate.validity.notBefore.hasSeconds", true)
+	assertPathValue(t, root, "certificate.validity.notBefore.hasFraction", false)
 	assertPathValue(t, root, "certificate.validity.notBefore.hasZulu", true)
+	assertPathExists(t, root, "certificate.validity.notBefore.raw")
+	assertPathExists(t, root, "certificate.validity.notBefore.rawValue")
 	assertPathValue(t, root, "certificate.validity.notAfter.encoding", 23)
-	assertPathValue(t, root, "certificate.validity.notAfter.isUTC", true)
 	assertPathValue(t, root, "certificate.validity.notAfter.hasSeconds", true)
+	assertPathValue(t, root, "certificate.validity.notAfter.hasFraction", false)
 	assertPathValue(t, root, "certificate.validity.notAfter.hasZulu", true)
+}
+
+func TestBuilder_ProjectsRawUniqueIdentifierMetadata(t *testing.T) {
+	rawTBS := buildTestTBSCertificate(testTBSOptions{
+		issuerUniqueID:  []byte{0},
+		subjectUniqueID: []byte{3, 0xa0},
+	})
+	root := BuildTree(&x509.Certificate{RawTBSCertificate: rawTBS})
+
+	issuer, ok := root.Resolve("certificate.issuerUniqueID")
+	if !ok {
+		t.Fatal("present zero-bit issuerUniqueID was not projected")
+	}
+	if value, ok := issuer.Value.([]byte); !ok || len(value) != 0 {
+		t.Fatalf("issuerUniqueID value = %#v, want empty byte slice", issuer.Value)
+	}
+	assertPathValue(t, root, "certificate.issuerUniqueID.bitLength", 0)
+	assertPathValue(t, root, "certificate.issuerUniqueID.unusedBits", 0)
+	assertPathExists(t, root, "certificate.issuerUniqueID.raw")
+
+	assertPathValue(t, root, "certificate.subjectUniqueID.bitLength", 5)
+	assertPathValue(t, root, "certificate.subjectUniqueID.unusedBits", 3)
+	subjectValue, ok := root.Resolve("certificate.subjectUniqueID.value")
+	if !ok || !bytes.Equal(subjectValue.Value.([]byte), []byte{0xa0}) {
+		t.Fatalf("subjectUniqueID value = %#v, want a0", subjectValue)
+	}
+	assertPathNotExists(t, root, "certificate.tbsCertificate.malformed")
+}
+
+func TestBuilder_SerialNumberUsesEncodedIntegerContent(t *testing.T) {
+	rawTBS := buildTestTBSCertificate(testTBSOptions{serialNumber: []byte{0, 0x80}})
+	root := BuildTree(&x509.Certificate{
+		RawTBSCertificate: rawTBS,
+		SerialNumber:      big.NewInt(128),
+	})
+
+	serial, ok := root.Resolve("certificate.serialNumber")
+	if !ok || !bytes.Equal(serial.Value.([]byte), []byte{0, 0x80}) {
+		t.Fatalf("serialNumber = %#v, want encoded content 0080", serial)
+	}
+	assertPathValue(t, root, "certificate.serialNumber.length", 2)
+	assertPathExists(t, root, "certificate.serialNumber.raw")
+}
+
+func TestBuilder_SurfacesMalformedTBSCertificateMetadata(t *testing.T) {
+	rawTBS := []byte{0x30, 0x00}
+	root := BuildTree(&x509.Certificate{RawTBSCertificate: rawTBS})
+
+	assertPathValue(t, root, "certificate.tbsCertificate.malformed", true)
+	raw, ok := root.Resolve("certificate.tbsCertificate.raw")
+	if !ok || !bytes.Equal(raw.Value.([]byte), rawTBS) {
+		t.Fatalf("raw TBSCertificate = %#v, want %x", raw, rawTBS)
+	}
+	assertPathNotExists(t, root, "certificate.validity.notBefore.encoding")
+	assertPathNotExists(t, root, "certificate.issuerUniqueID")
 }
 
 func TestBuilder_SubjectPublicKeyInfo_RSA(t *testing.T) {
@@ -266,6 +324,65 @@ func TestBuilder_SubjectAltName(t *testing.T) {
 	assertPathValue(t, root, "certificate.subjectAltName.dNSName.0", "leaf.example.test")
 }
 
+func TestBuilder_SubjectAndIssuerAltNamesUseRawGeneralNameEntries(t *testing.T) {
+	nonASCIIEmail := []byte{'u', 's', 'e', 'r', 0xe9, '@', 'e', 'x', 'a', 'm', 'p', 'l', 'e'}
+	san := buildTestGeneralNames([]testGeneralName{
+		{tag: 2, value: []byte("first.example.test")},
+		{tag: 1, value: nonASCIIEmail},
+		{tag: 2, value: []byte("second.example.test")},
+		{tag: 6, value: []byte("https://example.test/path")},
+	})
+	ian := buildTestGeneralNames([]testGeneralName{
+		{tag: 2, value: []byte("issuer-one.example.test")},
+		{tag: 2, value: []byte("issuer-two.example.test")},
+	})
+	root := BuildTree(&x509.Certificate{
+		DNSNames:    []string{"typed-fallback.invalid"},
+		IANDNSNames: []string{"typed-issuer-fallback.invalid"},
+		Extensions: []pkix.Extension{
+			{Id: zasn1.ObjectIdentifier{2, 5, 29, 17}, Value: san},
+			{Id: zasn1.ObjectIdentifier{2, 5, 29, 18}, Value: ian},
+		},
+	})
+
+	assertPathValue(t, root, "certificate.subjectAltName", 4)
+	assertPathValue(t, root, "certificate.subjectAltName.dNSName.0", "first.example.test")
+	assertPathValue(t, root, "certificate.subjectAltName.dNSName.1", "second.example.test")
+	assertPathValue(t, root, "certificate.subjectAltName.dNSName.1.tag", 2)
+	assertPathValue(t, root, "certificate.subjectAltName.uniformResourceIdentifier.0", "https://example.test/path")
+	assertPathValue(t, root, "certificate.subjectAltName.entries.1.type", "rfc822Name")
+	assertPathValue(t, root, "certificate.subjectAltName.rfc822Name.0", string(nonASCIIEmail))
+
+	emailRawValue, ok := root.Resolve("certificate.subjectAltName.rfc822Name.0.rawValue")
+	if !ok || !bytes.Equal(emailRawValue.Value.([]byte), nonASCIIEmail) {
+		t.Fatalf("rfc822Name rawValue = %#v, want %x", emailRawValue, nonASCIIEmail)
+	}
+	dnsRaw, ok := root.Resolve("certificate.subjectAltName.dNSName.1.raw")
+	if !ok || !bytes.Equal(dnsRaw.Value.([]byte), append(
+		[]byte{0x82, byte(len("second.example.test"))},
+		[]byte("second.example.test")...,
+	)) {
+		t.Fatalf("dNSName raw DER = %#v", dnsRaw)
+	}
+	dnsCollection, ok := root.Resolve("certificate.subjectAltName.dNSName")
+	if !ok {
+		t.Fatal("subject dNSName collection is missing")
+	}
+	if got := len(node.CollectionElements(dnsCollection)); got != 2 {
+		t.Fatalf("subject dNSName count = %d, want 2", got)
+	}
+	canonicalDNS, _ := root.Resolve("certificate.subjectAltName.entries.2")
+	typedDNS, _ := root.Resolve("certificate.subjectAltName.dNSName.1")
+	if canonicalDNS == nil || typedDNS == nil || canonicalDNS == typedDNS ||
+		canonicalDNS.Children["raw"] != typedDNS.Children["raw"] {
+		t.Fatal("source-order and per-type GeneralName views do not share canonical metadata")
+	}
+
+	assertPathValue(t, root, "certificate.issuerAltName", 2)
+	assertPathValue(t, root, "certificate.issuerAltName.dNSName.0", "issuer-one.example.test")
+	assertPathValue(t, root, "certificate.issuerAltName.dNSName.1", "issuer-two.example.test")
+}
+
 func TestBuilder_SubjectKeyIdentifier(t *testing.T) {
 	root := loadCert(t, "leaf.pem")
 	assertPathExists(t, root, "certificate.subjectKeyIdentifier")
@@ -337,7 +454,6 @@ func TestBuilder_SubjectAltNameUsesExtensionAndAllGeneralNameForms(t *testing.T)
 			Id:    zasn1.ObjectIdentifier{2, 5, 29, 17},
 			Value: []byte{0x30, 0x03, 0x88, 0x01, 0x2a},
 		}},
-		RegisteredIDs: []zasn1.ObjectIdentifier{registeredID},
 	}
 	root := BuildTree(cert)
 	assertPathValue(t, root, "certificate.subjectAltName", 1)
@@ -412,6 +528,30 @@ func TestBuilder_ExtensionDetails(t *testing.T) {
 			t.Errorf("extension %s missing value", ext.Name)
 		}
 	}
+}
+
+func TestBuilder_DecodedExtensionsHaveCanonicalPathsOnly(t *testing.T) {
+	root := loadCert(t, "leaf.pem")
+	for _, path := range []string{
+		"certificate.extensions.authorityInfoAccess.accessDescriptions",
+		"certificate.extensions.cRLDistributionPoints.distributionPoints",
+	} {
+		assertPathExists(t, root, path)
+	}
+	for _, path := range []string{
+		"certificate.ocspURL",
+		"certificate.caIssuersURL",
+		"certificate.cRLDistributionPoints",
+	} {
+		assertPathNotExists(t, root, path)
+	}
+
+	policyTree := BuildTree(&x509.Certificate{Extensions: []pkix.Extension{{
+		Id:    zasn1.ObjectIdentifier{2, 5, 29, 32},
+		Value: buildCertPoliciesValue("2.23.140.1.2.1", "", ""),
+	}}})
+	assertPathExists(t, policyTree, "certificate.extensions.certificatePolicies.dvPolicy")
+	assertPathNotExists(t, policyTree, "certificate.certificatePolicies")
 }
 
 func TestBuilder_AIAStructure(t *testing.T) {

@@ -1,5 +1,7 @@
 package asn1
 
+import "fmt"
+
 type EncodingType int
 
 const (
@@ -119,4 +121,25 @@ func StringTypeName(tag int) string {
 		return descriptor.name
 	}
 	return "unknown"
+}
+
+// DecodeDirectoryString decodes one primitive DirectoryString value. The
+// caller owns the surrounding ASN.1 element and supplies its universal tag and
+// content octets.
+func DecodeDirectoryString(tag int, value []byte) (string, error) {
+	if len(value) == 0 {
+		return "", fmt.Errorf("DirectoryString must not be empty")
+	}
+
+	encoding := GetEncodingType(tag)
+	switch encoding {
+	case EncodingUTF8String,
+		EncodingPrintableString,
+		EncodingTeletexString,
+		EncodingUniversalString,
+		EncodingBMPString:
+		return decodeNameString(encoding, value)
+	default:
+		return "", fmt.Errorf("unsupported DirectoryString tag %d", tag)
+	}
 }

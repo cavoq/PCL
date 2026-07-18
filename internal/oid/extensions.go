@@ -24,36 +24,91 @@ const (
 	// CRL and CRL-entry extension identifiers from RFC 5280.
 	CRLNumber                = "2.5.29.20"
 	CRLReason                = "2.5.29.21"
+	HoldInstructionCode      = "2.5.29.23"
+	InvalidityDate           = "2.5.29.24"
 	DeltaCRLIndicator        = "2.5.29.27"
 	IssuingDistributionPoint = "2.5.29.28"
 	CertificateIssuer        = "2.5.29.29"
 )
 
-// extensionNames contains the stable node aliases exposed by the certificate
-// and CRL projections. It deliberately contains only extension identifiers;
-// access-method identifiers have their own catalog in access.go.
-var extensionNames = map[string]string{
-	SubjectKeyIdentifier:     "subjectKeyIdentifier",
-	KeyUsage:                 "keyUsage",
-	SubjectAlternativeName:   "subjectAltName",
-	IssuerAlternativeName:    "issuerAltName",
-	BasicConstraints:         "basicConstraints",
-	NameConstraints:          "nameConstraints",
-	CRLDistributionPoints:    "cRLDistributionPoints",
-	CertificatePolicies:      "certificatePolicies",
-	AuthorityKeyIdentifier:   "authorityKeyIdentifier",
-	ExtendedKeyUsage:         "extKeyUsage",
-	AuthorityInfoAccess:      "authorityInfoAccess",
-	SubjectInfoAccess:        "subjectInfoAccess",
-	CRLReason:                "cRLReason",
-	CRLNumber:                "cRLNumber",
-	DeltaCRLIndicator:        "deltaCRLIndicator",
-	IssuingDistributionPoint: "issuingDistributionPoint",
-	CertificateIssuer:        "certificateIssuer",
+// ExtensionLocation identifies the signed-object structure in which an
+// extension is defined. It is identity metadata, not a claim that PCL fully
+// processes the extension's value.
+type ExtensionLocation uint8
+
+const (
+	ExtensionInCertificate ExtensionLocation = 1 << iota
+	ExtensionInCRL
+	ExtensionInCRLEntry
+)
+
+type extensionDefinition struct {
+	identifier string
+	name       string
+	locations  ExtensionLocation
+}
+
+// extensionCatalog is the single source of truth for RFC 5280 extension
+// identifiers, stable tree aliases, and their signed-object locations.
+// Format adapters remain responsible for decoding extension values.
+var extensionCatalog = []extensionDefinition{
+	{SubjectDirectoryAttributes, "subjectDirectoryAttributes", ExtensionInCertificate},
+	{SubjectKeyIdentifier, "subjectKeyIdentifier", ExtensionInCertificate},
+	{KeyUsage, "keyUsage", ExtensionInCertificate},
+	{PrivateKeyUsagePeriod, "privateKeyUsagePeriod", ExtensionInCertificate},
+	{SubjectAlternativeName, "subjectAltName", ExtensionInCertificate},
+	{IssuerAlternativeName, "issuerAltName", ExtensionInCertificate | ExtensionInCRL},
+	{BasicConstraints, "basicConstraints", ExtensionInCertificate},
+	{CRLNumber, "cRLNumber", ExtensionInCRL},
+	{CRLReason, "cRLReason", ExtensionInCRLEntry},
+	{HoldInstructionCode, "holdInstructionCode", ExtensionInCRLEntry},
+	{InvalidityDate, "invalidityDate", ExtensionInCRLEntry},
+	{DeltaCRLIndicator, "deltaCRLIndicator", ExtensionInCRL},
+	{IssuingDistributionPoint, "issuingDistributionPoint", ExtensionInCRL},
+	{CertificateIssuer, "certificateIssuer", ExtensionInCRLEntry},
+	{NameConstraints, "nameConstraints", ExtensionInCertificate},
+	{CRLDistributionPoints, "cRLDistributionPoints", ExtensionInCertificate},
+	{CertificatePolicies, "certificatePolicies", ExtensionInCertificate},
+	{PolicyMappings, "policyMappings", ExtensionInCertificate},
+	{AuthorityKeyIdentifier, "authorityKeyIdentifier", ExtensionInCertificate | ExtensionInCRL},
+	{PolicyConstraints, "policyConstraints", ExtensionInCertificate},
+	{ExtendedKeyUsage, "extKeyUsage", ExtensionInCertificate},
+	{FreshestCRL, "freshestCRL", ExtensionInCertificate | ExtensionInCRL},
+	{InhibitAnyPolicy, "inhibitAnyPolicy", ExtensionInCertificate},
+	{AuthorityInfoAccess, "authorityInfoAccess", ExtensionInCertificate | ExtensionInCRL},
+	{SubjectInfoAccess, "subjectInfoAccess", ExtensionInCertificate},
+}
+
+var (
+	extensionByIdentifier, extensionByName = indexExtensions(extensionCatalog)
+)
+
+func indexExtensions(definitions []extensionDefinition) (map[string]extensionDefinition, map[string]string) {
+	byIdentifier := make(map[string]extensionDefinition, len(definitions))
+	byName := make(map[string]string, len(definitions))
+	for _, definition := range definitions {
+		byIdentifier[definition.identifier] = definition
+		byName[definition.name] = definition.identifier
+	}
+	return byIdentifier, byName
 }
 
 // ExtensionName returns the stable node alias for an extension identifier.
 func ExtensionName(identifier string) (string, bool) {
-	name, ok := extensionNames[identifier]
-	return name, ok
+	definition, ok := extensionByIdentifier[identifier]
+	return definition.name, ok
+}
+
+// ExtensionOID resolves a stable extension alias to its identifier.
+func ExtensionOID(name string) (string, bool) {
+	identifier, ok := extensionByName[name]
+	return identifier, ok
+}
+
+// ExtensionKnownAt reports whether RFC 5280 defines identifier at location.
+// This must not be used as proof that PCL has implemented the extension's
+// semantic processing.
+func ExtensionKnownAt(identifier string, location ExtensionLocation) bool {
+	definition, ok := extensionByIdentifier[identifier]
+	return ok && definition.locations&location != 0
 }

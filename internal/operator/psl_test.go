@@ -89,7 +89,7 @@ func TestTLDRegistered(t *testing.T) {
 	}
 }
 
-func TestComponentTLDRegistered(t *testing.T) {
+func TestEveryComposesTLDRegistered(t *testing.T) {
 	loadTestPSL(t)
 
 	tests := []struct {
@@ -129,17 +129,48 @@ func TestComponentTLDRegistered(t *testing.T) {
 		},
 	}
 
-	op := ComponentTLDRegistered{}
+	operands := []any{map[string]any{"operator": "tldRegistered"}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := op.Evaluate(tt.node, nil, nil)
+			got, err := DefaultRegistry().Evaluate("every", tt.node, nil, operands)
 			if err != nil {
-				t.Errorf("Evaluate() error = %v", err)
+				t.Errorf("every(tldRegistered) error = %v", err)
 			}
 			if got != tt.want {
-				t.Errorf("ComponentTLDRegistered = %v, want %v", got, tt.want)
+				t.Errorf("every(tldRegistered) = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestComponentTLDRegisteredIsNotRegistered(t *testing.T) {
+	if _, err := DefaultRegistry().Get("componentTLDRegistered"); err == nil {
+		t.Fatal("componentTLDRegistered remains registered")
+	}
+}
+
+func TestComponentTLDNotRegisteredPreservesAnySemantics(t *testing.T) {
+	loadTestPSL(t)
+
+	collection := node.New("dNSName", nil)
+	collection.Children["0"] = node.New("0", "example.com")
+	collection.Children["1"] = node.New("1", "server.local")
+
+	got, err := (ComponentTLDNotRegistered{}).Evaluate(collection, nil, nil)
+	if err != nil {
+		t.Fatalf("ComponentTLDNotRegistered.Evaluate() error = %v", err)
+	}
+	if !got {
+		t.Fatal("ComponentTLDNotRegistered did not detect an unregistered TLD")
+	}
+
+	collection.Children["1"] = node.New("1", "example.org")
+	got, err = (ComponentTLDNotRegistered{}).Evaluate(collection, nil, nil)
+	if err != nil {
+		t.Fatalf("ComponentTLDNotRegistered.Evaluate() error = %v", err)
+	}
+	if got {
+		t.Fatal("ComponentTLDNotRegistered reported an unregistered TLD in an all-registered collection")
 	}
 }
 

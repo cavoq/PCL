@@ -424,15 +424,34 @@ rules:
 }
 
 func TestParseFile_ShippedPoliciesConformToSchema(t *testing.T) {
-	for _, name := range []string{"RFC4055.yaml", "RFC5280.yaml"} {
+	paths, err := filepath.Glob(filepath.Join("..", "..", "policies", "*.yaml"))
+	if err != nil {
+		t.Fatalf("glob shipped policies: %v", err)
+	}
+	if len(paths) == 0 {
+		t.Fatal("no shipped policies found")
+	}
+	for _, path := range paths {
+		name := filepath.Base(path)
 		t.Run(name, func(t *testing.T) {
-			if _, err := ParseFileWithRegistry(
-				filepath.Join("..", "..", "policies", name),
-				operator.DefaultRegistry(),
-			); err != nil {
+			if _, err := ParseFileWithRegistry(path, operator.DefaultRegistry()); err != nil {
 				t.Fatalf("shipped policy does not conform to schema: %v", err)
 			}
 		})
+	}
+}
+
+func TestRFC5280PolicyExcludesRFC6960AndLocalRules(t *testing.T) {
+	p, err := ParseFile(filepath.Join("..", "..", "policies", "RFC5280.yaml"))
+	if err != nil {
+		t.Fatalf("parse RFC 5280 policy: %v", err)
+	}
+
+	for _, candidate := range p.Rules {
+		reference := strings.TrimSpace(candidate.Reference)
+		if strings.HasPrefix(reference, "RFC6960") || strings.HasPrefix(reference, "LOCAL-") {
+			t.Errorf("RFC 5280 policy rule %q has out-of-scope reference %q", candidate.ID, reference)
+		}
 	}
 }
 

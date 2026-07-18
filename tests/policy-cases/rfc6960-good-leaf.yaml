@@ -1,0 +1,21 @@
+name: rfc6960-good-leaf
+policy: ../policies/RFC6960.yaml
+certs: certs/ocsp-leaf.pem
+issuers:
+  - certs/ocsp-intermediate.pem
+  - certs/ocsp-root.pem
+ocsp: ocsps/good-leaf.ocsp
+eval_time: "2026-06-01T00:00:00Z"
+expected:
+  leaf:
+    pass: 2
+    fail: 0
+    skip: 0
+  intermediate:
+    pass: 0
+    fail: 0
+    skip: 2
+  root:
+    pass: 0
+    fail: 0
+    skip: 2

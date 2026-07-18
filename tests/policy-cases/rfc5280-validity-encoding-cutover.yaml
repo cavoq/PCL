@@ -1,0 +1,15 @@
+name: rfc5280-validity-encoding-cutover
+policy: ../policies/RFC5280.yaml
+fixture: certificate-validity-encoding-cutover
+rules:
+  - validity-notbefore-utctime-through-2049
+  - validity-notbefore-generalizedtime-from-2050
+  - validity-notafter-utctime-through-2049
+  - validity-notafter-generalizedtime-from-2050
+  - validity-generalizedtime-has-seconds-notbefore
+  - validity-generalizedtime-has-seconds-notafter
+expected:
+  root:
+    pass: 3
+    fail: 0
+    skip: 3

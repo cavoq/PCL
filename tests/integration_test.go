@@ -328,6 +328,78 @@ func materializeCaseFixture(t *testing.T, tc testCase) testCase {
 		})
 		tc.Certs = writePEMFixture(t, dir, "certificate.pem", "CERTIFICATE", der)
 		tc.EvalTime = boundary.Format(time.RFC3339)
+	case "certificate-validity-encoding-cutover":
+		_, _, der := makeIntegrationCertificate(t, func(template *cryptox509.Certificate) {
+			template.NotBefore = time.Date(2049, 12, 31, 23, 59, 59, 0, time.UTC)
+			template.NotAfter = time.Date(2050, 1, 1, 0, 0, 0, 0, time.UTC)
+		})
+		tc.Certs = writePEMFixture(t, dir, "certificate.pem", "CERTIFICATE", der)
+	case "certificate-serial-leading-sign-octet":
+		_, _, der := makeIntegrationCertificate(t, nil)
+		der = rewriteIntegrationTBSCertificate(t, der, func(fields [][]byte) [][]byte {
+			if len(fields) < 2 || len(fields[1]) == 0 || fields[1][0] != 0x02 {
+				t.Fatalf("TBSCertificate serialNumber field is missing")
+			}
+
+			magnitude := append([]byte{0x80}, make([]byte, 19)...)
+			serialDER, err := stdasn1.Marshal(new(big.Int).SetBytes(magnitude))
+			if err != nil {
+				t.Fatalf("marshal integration serial number: %v", err)
+			}
+			fields[1] = serialDER
+			return fields
+		})
+		tc.Certs = writePEMFixture(t, dir, "certificate.pem", "CERTIFICATE", der)
+	case "certificate-zero-bit-issuer-unique-id":
+		_, _, der := makeIntegrationCertificate(t, nil)
+		der = rewriteIntegrationTBSCertificate(t, der, func(fields [][]byte) [][]byte {
+			// issuerUniqueID is [1] IMPLICIT BIT STRING. A content octet of zero
+			// denotes a present identifier containing zero bits.
+			issuerUniqueID := []byte{0x81, 0x01, 0x00}
+			insertAt := len(fields)
+			for i, field := range fields {
+				if len(field) > 0 && field[0] == 0xa3 {
+					insertAt = i
+					break
+				}
+			}
+			fields = append(fields, nil)
+			copy(fields[insertAt+1:], fields[insertAt:])
+			fields[insertAt] = issuerUniqueID
+			return fields
+		})
+		tc.Certs = writePEMFixture(t, dir, "certificate.pem", "CERTIFICATE", der)
+	case "certificate-ian-second-invalid-dns-label":
+		issuerAlternativeName, err := oid.Parse(oid.IssuerAlternativeName)
+		if err != nil {
+			t.Fatalf("parse issuer alternative name OID: %v", err)
+		}
+		validName := encodeIntegrationElement(0x82, []byte("valid.example"))
+		invalidName := encodeIntegrationElement(0x82, []byte{'i', 'n', 'v', 'a', 'l', 'i', 'd', 0xe9, '.', 'e', 'x', 'a', 'm', 'p', 'l', 'e'})
+		_, _, der := makeIntegrationCertificate(t, func(template *cryptox509.Certificate) {
+			template.IsCA = false
+			template.KeyUsage = cryptox509.KeyUsageDigitalSignature
+			template.SubjectKeyId = nil
+			template.ExtraExtensions = []cryptopkix.Extension{{
+				Id:    issuerAlternativeName,
+				Value: derasn1.EncodeSequence(append(validName, invalidName...)),
+			}}
+		})
+		tc.Certs = writePEMFixture(t, dir, "certificate.pem", "CERTIFICATE", der)
+	case "certificate-san-second-non-ia5-name":
+		_, _, der := makeIntegrationCertificate(t, func(template *cryptox509.Certificate) {
+			template.IsCA = false
+			template.KeyUsage = cryptox509.KeyUsageDigitalSignature
+			template.SubjectKeyId = nil
+			template.DNSNames = []string{"valid.example", "nonascii.example"}
+		})
+		encodedName := []byte("nonascii.example")
+		nameAt := bytes.Index(der, encodedName)
+		if nameAt < 0 {
+			t.Fatal("generated SAN name not found in certificate DER")
+		}
+		der[nameAt] = 0xe9
+		tc.Certs = writePEMFixture(t, dir, "certificate.pem", "CERTIFICATE", der)
 	case "crl-missing-required-fields":
 		key, issuer, issuerDER := makeIntegrationCertificate(t, nil)
 		tc.Certs = writePEMFixture(t, dir, "issuer.pem", "CERTIFICATE", issuerDER)
@@ -526,16 +598,24 @@ func writePEMFixture(t *testing.T, dir, name, blockType string, der []byte) stri
 	return path
 }
 
-func replaceOuterSignatureAlgorithm(t *testing.T, der []byte) []byte {
+type integrationSignedEnvelope struct {
+	TBS       stdasn1.RawValue
+	Algorithm stdasn1.RawValue
+	Signature stdasn1.RawValue
+}
+
+func decodeIntegrationSignedEnvelope(t *testing.T, der []byte) integrationSignedEnvelope {
 	t.Helper()
-	var envelope struct {
-		TBS       stdasn1.RawValue
-		Algorithm stdasn1.RawValue
-		Signature stdasn1.RawValue
-	}
+	var envelope integrationSignedEnvelope
 	if rest, err := stdasn1.Unmarshal(der, &envelope); err != nil || len(rest) != 0 {
 		t.Fatalf("decode signed envelope: rest=%x err=%v", rest, err)
 	}
+	return envelope
+}
+
+func replaceOuterSignatureAlgorithm(t *testing.T, der []byte) []byte {
+	t.Helper()
+	envelope := decodeIntegrationSignedEnvelope(t, der)
 	var outer struct {
 		Algorithm  stdasn1.ObjectIdentifier
 		Parameters stdasn1.RawValue `asn1:"optional"`
@@ -554,16 +634,44 @@ func replaceOuterSignatureAlgorithm(t *testing.T, der []byte) []byte {
 	return derasn1.EncodeSequence(content)
 }
 
+func rewriteIntegrationTBSCertificate(
+	t *testing.T,
+	der []byte,
+	rewrite func([][]byte) [][]byte,
+) []byte {
+	t.Helper()
+	envelope := decodeIntegrationSignedEnvelope(t, der)
+
+	fields := rewrite(splitIntegrationDERElements(t, envelope.TBS.Bytes))
+	tbsContent := bytes.Join(fields, nil)
+	content := append([]byte(nil), derasn1.EncodeSequence(tbsContent)...)
+	content = append(content, envelope.Algorithm.FullBytes...)
+	content = append(content, envelope.Signature.FullBytes...)
+	return derasn1.EncodeSequence(content)
+}
+
+func splitIntegrationDERElements(t *testing.T, content []byte) [][]byte {
+	t.Helper()
+	var elements [][]byte
+	for len(content) > 0 {
+		var element stdasn1.RawValue
+		rest, err := stdasn1.Unmarshal(content, &element)
+		if err != nil {
+			t.Fatalf("decode TBSCertificate field: %v", err)
+		}
+		consumed := len(content) - len(rest)
+		if consumed == 0 {
+			t.Fatal("decode TBSCertificate field made no progress")
+		}
+		elements = append(elements, append([]byte(nil), content[:consumed]...))
+		content = rest
+	}
+	return elements
+}
+
 func removeCRLRequiredFields(t *testing.T, der []byte) []byte {
 	t.Helper()
-	var envelope struct {
-		TBS       stdasn1.RawValue
-		Algorithm stdasn1.RawValue
-		Signature stdasn1.RawValue
-	}
-	if rest, err := stdasn1.Unmarshal(der, &envelope); err != nil || len(rest) != 0 {
-		t.Fatalf("decode CRL envelope: rest=%x err=%v", rest, err)
-	}
+	envelope := decodeIntegrationSignedEnvelope(t, der)
 
 	var tbs struct {
 		Raw                 stdasn1.RawContent

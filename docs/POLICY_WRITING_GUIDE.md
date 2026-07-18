@@ -28,19 +28,15 @@ Key concepts:
 - **Operator**: The comparison or validation logic to apply
 - **Evaluation Context**: Runtime context containing certificate chain, CRLs, OCSP responses, etc.
 
-### Supported Standards
+### Shipped Policies
 
-PCL policies can validate compliance with various PKI standards:
-- [RFC 5280](https://datatracker.ietf.org/doc/html/rfc5280) - Internet X.509 PKI Certificate and CRL Profile
-- [RFC 4055](https://datatracker.ietf.org/doc/html/rfc4055) - Additional Algorithms and Identifiers for RSA Cryptography
-- [RFC 5480](https://datatracker.ietf.org/doc/html/rfc5480) - Elliptic Curve Cryptography Subject Public Key Information
-- [RFC 5758](https://datatracker.ietf.org/doc/html/rfc5758) - Additional Algorithms and Identifiers for DSA and ECDSA
-- [RFC 5759](https://datatracker.ietf.org/doc/html/rfc5759) - DSA and ECDSA Algorithm Identifiers for CRLs
-- [RFC 6960](https://datatracker.ietf.org/doc/html/rfc6960) - Online Certificate Status Protocol (OCSP)
-- CA/Browser Forum Baseline Requirements (BR)
-- CA/Browser Forum EV Guidelines
-- CA/Browser Forum SMIME BR
-- CA/Browser Forum Code Signing BR
+The repository ships `RFC5280.yaml`, `RFC4055.yaml`, `RFC6960.yaml`, and
+`LOCAL-PROFILE.yaml`. Their names describe the source of their rules, not a
+claim of complete implementation; consult the coverage matrices and roadmap
+for exact scope. `RFC6960.yaml` is a certificate-evidence policy: it runs for
+leaf certificates and fails closed unless a valid, matching, good OCSP
+response is supplied. Additional policies can be authored with the same
+schema.
 
 ---
 
@@ -111,22 +107,17 @@ Target paths use dot notation to navigate the node tree structure. The tree root
 - `crl.xxx` - CRL fields
 - `ocsp.xxx` - OCSP response fields
 
-### Most Common Target Paths
+### Representative Target Paths
 
-Based on actual policy usage, these are the most frequently used target paths:
-
-| Target Path | Usage Count | Description |
-|-------------|-------------|-------------|
-| `certificate.extKeyUsage` | 55 | Extended Key Usage extension |
-| `certificate.subjectPublicKeyInfo.algorithm.oid` | 39 | Public key algorithm OID |
-| `certificate.subjectAltName.dNSName` | 35 | SAN DNS names |
-| `certificate.signatureAlgorithm.oid` | 29 | Signature algorithm OID |
-| `certificate.subjectPublicKeyInfo.algorithm.parameters.namedCurve` | 22 | ECDSA curve OID |
-| `certificate.subjectPublicKeyInfo.algorithm.algorithm` | 21 | Algorithm name (RSA, ECDSA) |
-| `certificate.subject.commonName` | 19 | Subject CN |
-| `certificate.tbsSignatureAlgorithm.oid` | 16 | TBSCertificate signature algorithm |
-| `certificate.signedCertificateTimestamps` | 16 | SCT list |
-| `crl` | 15 | CRL root (for CRL operators) |
+| Target Path | Description |
+|-------------|-------------|
+| `certificate.extKeyUsage` | Extended Key Usage extension |
+| `certificate.subjectPublicKeyInfo.algorithm.oid` | Public key algorithm OID |
+| `certificate.subjectAltName.dNSName` | SAN DNS-name collection |
+| `certificate.signatureAlgorithm.oid` | Signature algorithm OID |
+| `certificate.subject.commonName` | Subject common-name collection |
+| `certificate.tbsSignatureAlgorithm.oid` | TBSCertificate signature algorithm |
+| `crl` | CRL root |
 
 ### Certificate Target Paths
 
@@ -135,10 +126,17 @@ Based on actual policy usage, these are the most frequently used target paths:
 certificate.version              # Certificate version (1, 2, 3)
 certificate.serialNumber        # Serial number node
 certificate.serialNumber.value  # Serial number value (string)
+certificate.serialNumber.raw    # Complete encoded INTEGER
+certificate.serialNumber.length # Encoded INTEGER content length
 certificate.issuer              # Issuer DN node
 certificate.subject             # Subject DN node
 certificate.validity.notBefore  # NotBefore time
 certificate.validity.notAfter   # NotAfter time
+certificate.validity.notBefore.encoding    # 23 (UTC) or 24 (Generalized)
+certificate.validity.notBefore.hasSeconds  # Raw encoding includes seconds
+certificate.validity.notBefore.hasZulu     # Raw encoding uses Z
+certificate.issuerUniqueID      # Present even for a zero-bit identifier
+certificate.subjectUniqueID     # Present even for a zero-bit identifier
 certificate.signatureAlgorithm  # Signature algorithm node
 certificate.signatureAlgorithm.oid    # Algorithm OID
 certificate.tbsSignatureAlgorithm      # TBSCertificate signature algorithm
@@ -194,9 +192,9 @@ These guarantees are lossless only when raw Name DER is available. Synthetic
 `pkix.Name` inputs preserve the values and grouping exposed by that parsed
 structure, but report `encodingName: unknown`, tag/encoding `0`, and empty raw
 fields. Malformed raw Names retain `raw` plus `malformed: true` and do not
-silently substitute lossy attribute collections. This contract is one P1.1
-foundation; it does not by itself complete the P1 milestone. Attribute values
-with unknown tags remain opaque raw bytes; validating a locally defined
+silently substitute lossy attribute collections. This is the P1.1 Name
+boundary; Name Constraints and relative CRL names remain P2 work. Attribute
+values with unknown tags remain opaque raw bytes; validating a locally defined
 attribute's syntax belongs to the policy or domain that defines that OID.
 
 #### Extensions (by OID or friendly name)
@@ -215,8 +213,8 @@ certificate.extensions.2.5.29.30        # nameConstraints
 
 #### Common Extension Fields
 ```
-certificate.subjectKeyIdentifier        # SKI value (hex string)
-certificate.authorityKeyIdentifier      # AKI value (hex string)
+certificate.subjectKeyIdentifier        # SKI value ([]byte)
+certificate.authorityKeyIdentifier      # AKI value ([]byte)
 certificate.basicConstraints.cA         # cA boolean
 certificate.basicConstraints.pathLenConstraint  # Path length
 certificate.keyUsage                    # KeyUsage node
@@ -234,11 +232,11 @@ certificate.extKeyUsage.ocspSigning      # EKU presence (boolean)
 
 #### Certificate Policies Fields
 ```
-certificate.certificatePolicies        # Certificate Policies node
-certificate.certificatePolicies.evPolicy     # EV policy OID (boolean)
-certificate.certificatePolicies.ovPolicy     # OV policy OID (boolean)
-certificate.certificatePolicies.dvPolicy     # DV policy OID (boolean)
-certificate.certificatePolicies.smimeMailboxLegacy  # SMIME mailbox legacy (boolean)
+certificate.extensions.certificatePolicies        # Certificate Policies node
+certificate.extensions.certificatePolicies.evPolicy     # EV PolicyInformation node
+certificate.extensions.certificatePolicies.ovPolicy     # OV PolicyInformation node
+certificate.extensions.certificatePolicies.dvPolicy     # DV PolicyInformation node
+certificate.extensions.certificatePolicies.smimeMailboxLegacy  # S/MIME PolicyInformation node
 ```
 
 #### SubjectPublicKeyInfo
@@ -260,8 +258,8 @@ certificate.extensions.authorityInfoAccess.accessDescriptions.0.accessMethod  # 
 certificate.extensions.authorityInfoAccess.accessDescriptions.0.accessLocation.type  # GeneralName type
 certificate.extensions.authorityInfoAccess.accessDescriptions.0.accessLocation.scheme  # URI scheme
 certificate.extensions.authorityInfoAccess.accessDescriptions.0.accessLocation.value  # URI value
-certificate.ocspURL           # OCSP URL from AIA
-certificate.caIssuersURL      # CA Issuers URL from AIA
+certificate.extensions.authorityInfoAccess.containsOCSP       # OCSP method present
+certificate.extensions.authorityInfoAccess.containsCaIssuers  # CA Issuers method present
 ```
 
 #### CRL Distribution Points
@@ -269,7 +267,6 @@ certificate.caIssuersURL      # CA Issuers URL from AIA
 certificate.extensions.cRLDistributionPoints           # CRL DP extension node
 certificate.extensions.cRLDistributionPoints.distributionPoints  # DistributionPoints array
 certificate.extensions.cRLDistributionPoints.distributionPoints.0.distributionPoint.fullName.generalNames.0.scheme  # URI scheme
-certificate.cRLDistributionPoints      # Legacy shortcut for CRL DP URLs
 ```
 
 #### SCT (Signed Certificate Timestamps)
@@ -279,19 +276,28 @@ certificate.signedCertificateTimestamps  # SCT list node (count = number of SCTs
 
 #### SAN (Subject Alternative Name)
 ```
-certificate.subjectAltName.dNSName              # DNS names
-certificate.subjectAltName.rfc822Name           # Email addresses
-certificate.subjectAltName.uniformResourceIdentifier  # URIs
-certificate.subjectAltName.iPAddress            # IP addresses
+certificate.subjectAltName.entries              # All GeneralNames in source order
+certificate.subjectAltName.dNSName              # DNS-name collection
+certificate.subjectAltName.rfc822Name           # Email-address collection
+certificate.subjectAltName.uniformResourceIdentifier  # URI collection
+certificate.subjectAltName.iPAddress            # IP-address collection
+certificate.subjectAltName.dNSName.0.tag        # GeneralName tag (2)
+certificate.subjectAltName.dNSName.0.raw         # Complete GeneralName DER
+certificate.subjectAltName.dNSName.0.rawValue    # Implicit GeneralName content
+certificate.issuerAltName                       # IAN uses the same structure
 ```
+
+Each per-type GeneralName entry has a scalar value, so collection rules target
+the per-type collection and use `every`. The raw entry, not a typed x509
+fallback, is authoritative.
 
 ### CRL Target Paths
 
 ```
 crl.issuer                    # CRL issuer DN
 crl.thisUpdate                 # ThisUpdate time
-crl.nextUpdate                 # NextUpdate time (may be zero)
-crl.isCACRL                   # Boolean: true if issuer is CA certificate
+crl.nextUpdate                 # Optional NextUpdate time; absent when omitted
+crl.isCACRL                   # Boolean: CA signer or >10-day profile inference
 crl.signatureAlgorithm         # Signature algorithm node
 crl.signatureAlgorithm.oid     # Algorithm OID
 crl.signatureAlgorithm.parameters      # Parameters node
@@ -309,7 +315,7 @@ crl.extensions.2.5.29.35       # authorityKeyIdentifier extension
 ### OCSP Target Paths
 
 ```
-ocsp.status                    # Response status (good, revoked, unknown)
+ocsp.status                    # Response status (Good, Revoked, Unknown)
 ocsp.signatureAlgorithm        # Signature algorithm node
 ocsp.signatureAlgorithm.oid    # Algorithm OID
 ocsp.tbsSignatureAlgorithm     # TBSResponseData signature algorithm
@@ -324,7 +330,8 @@ ocsp.nonce.present             # nonce presence (boolean)
 
 ## Operators
 
-PCL provides 107 operators organized by category. All operators are defined in `internal/operator/operator.go`.
+PCL's built-in operators are organized by category and registered in
+`internal/operator/operator.go`.
 
 ### Operator Categories
 
@@ -341,7 +348,7 @@ PCL provides 107 operators organized by category. All operators are defined in `
 11. **Component Operators** - Multi-valued field validation
 12. **CIDR Operators** - IP address range checking
 13. **PSL/TLD Operators** - Domain and TLD validation
-14. **ASN.1 Time Operators** - Encoding format validation
+14. **ASN.1 Time Metadata** - Encoding facts checked with generic operators
 15. **ASN.1 String Operators** - String type validation
 16. **Unique Value Operators** - Duplicate checking
 17. **DER Encoding Operators** - Byte-for-byte validation
@@ -355,8 +362,6 @@ PCL provides 107 operators organized by category. All operators are defined in `
 | `isEmpty` | None | Returns true if target value is empty |
 | `notEmpty` | None | Returns true if target value is NOT empty |
 | `isNull` | None | Returns true if node exists with `null=true` child (explicit NULL encoding) |
-
-**Usage Frequency**: `present` (157), `absent` (94)
 
 **Examples:**
 ```yaml
@@ -408,8 +413,6 @@ PCL provides 107 operators organized by category. All operators are defined in `
 | `contains` | [value] | Returns true if target contains the specified value |
 | `matches` | [fieldPath] | Returns true if target equals the value at another field path |
 
-**Usage Frequency**: `eq` (136+), `in` (31+), `neq` (7)
-
 **Examples:**
 ```yaml
 # Check version is 3 (most common eq usage)
@@ -456,8 +459,6 @@ PCL provides 107 operators organized by category. All operators are defined in `
 | `positive` | None | Returns true if target is a positive number |
 | `odd` | None | Returns true if target is an odd number |
 
-**Usage Frequency**: `gte` (21), `lte` (4)
-
 **Examples:**
 ```yaml
 # RSA key size at least 2048 bits (common pattern)
@@ -487,15 +488,16 @@ PCL provides 107 operators organized by category. All operators are defined in `
 | `minLength` | [count] | Returns true if node has at least N children/values |
 | `maxLength` | [count] | Returns true if node has at most N children/values |
 
-**Usage Frequency**: `regex` (17), `notRegex` (19), `maxLength` (17), `minLength` (6)
-
 **Examples:**
 ```yaml
 # Check subject does NOT contain underscore
 - id: no-underscore-in-cn
   target: certificate.subject.commonName
-  operator: notRegex
-  operands: ["_"]
+  operator: every
+  operands:
+    path: value
+    operator: notRegex
+    operands: ["_"]
   severity: warning
 
 # Check at least 2 SCTs present
@@ -524,8 +526,6 @@ PCL provides 107 operators organized by category. All operators are defined in `
 | `validityOrderCorrect` | None | Returns true if notBefore < notAfter |
 | `validityDays` | [minDays, maxDays] | Returns true if the validity period is within the inclusive day range |
 | `dateDiff` | {start, end?, minDays?, maxDays?, minHours?, maxHours?, maxMonths?} | Returns true if the date difference is within every supplied bound |
-
-**Usage Frequency**: `validityDays` (9), `dateDiff` (3), `after` (8)
 
 **Examples:**
 ```yaml
@@ -560,7 +560,7 @@ PCL provides 107 operators organized by category. All operators are defined in `
 |----------|----------|-------------|
 | `isCritical` | None | Returns true if the extension is marked critical |
 | `notCritical` | None | Returns true if the extension is NOT marked critical |
-| `noUnknownCriticalExtensions` | None | Returns true if no unhandled critical extensions exist |
+| `noUnknownCriticalExtensions` | None | Rejects critical OIDs not defined at that RFC 5280 object location; it does not prove that extension semantics are implemented |
 
 **Examples:**
 ```yaml
@@ -587,8 +587,6 @@ PCL provides 107 operators organized by category. All operators are defined in `
 | `ekuServerAuth` | None | Returns true if extKeyUsage contains serverAuth |
 | `ekuClientAuth` | None | Returns true if extKeyUsage contains clientAuth |
 
-**Usage Frequency**: `ekuContains` (48)
-
 **EKU names**: `serverAuth`, `clientAuth`, `codeSigning`, `emailProtection`, `timeStamping`, `ocspSigning`
 
 **Examples:**
@@ -602,20 +600,21 @@ PCL provides 107 operators organized by category. All operators are defined in `
   certType: [leaf]
 ```
 
-### 8. Key Usage Operators
+### 8. Key Usage Rules
 
-| Operator | Operands | Description |
-|----------|----------|-------------|
-| `keyUsageCA` | None | Returns true if keyUsage has correct CA bits |
-| `keyUsageLeaf` | None | Returns true if keyUsage has correct leaf bits |
-| `sanRequiredIfEmptySubject` | None | Returns true if SAN is present when subject is empty |
+Key Usage bits are ordinary boolean children. Express role-specific rules with
+`certType`, `when`, and generic comparisons.
 
 **Examples:**
 ```yaml
 # CA keyUsage validation
 - id: ca-key-usage
-  target: certificate.keyUsage
-  operator: keyUsageCA
+  when:
+    target: certificate.extensions.keyUsage
+    operator: present
+  target: certificate.keyUsage.keyCertSign
+  operator: eq
+  operands: [true]
   severity: error
   certType: [root, intermediate]
 ```
@@ -630,7 +629,6 @@ PCL provides 107 operators organized by category. All operators are defined in `
 | `akiMatchesSki` | None | Returns true if AKI matches issuer's SKI |
 | `pathLenValid` | None | Returns true if pathLenConstraint is valid for chain position |
 | `serialNumberUnique` | None | Detects a duplicate issuer/serial pair within the supplied chain; it cannot prove CA-wide uniqueness |
-| `noUniqueIdentifiers` | None | Returns true if issuerUniqueID and subjectUniqueID are absent |
 
 **Examples:**
 ```yaml
@@ -680,8 +678,9 @@ PCL provides 107 operators organized by category. All operators are defined in `
 **Examples:**
 ```yaml
 - id: ocsp-response-valid
-  target: ocsp
+  target: certificate
   operator: ocspValid
+  certType: [leaf]
   severity: error
 ```
 
@@ -693,7 +692,8 @@ The `every` operator checks that ALL elements in an array satisfy a condition.
 |----------|----------|-------------|
 | `every` | [{path, operator, operands, skipMissing}] | Iterates array elements and checks each |
 
-**Usage Frequency**: `every` (14)
+Use `every` to make traversal explicit when composing scalar-only operators
+such as `validIA5String` and `componentRegex` over canonical collections.
 
 **Parameters:**
 - `path`: Sub-path relative to each element (supports `*` wildcard)
@@ -725,7 +725,7 @@ inside `every` as well.
   target: certificate.extensions.cRLDistributionPoints.distributionPoints
   operator: every
   operands:
-    path: "*.distributionPoint.fullName.generalNames.*.scheme"
+    path: "distributionPoint.fullName.generalNames.*.scheme"
     operator: eq
     operands: ["http"]
   severity: error
@@ -747,29 +747,29 @@ inside `every` as well.
 |----------|----------|-------------|
 | `componentMaxLength` | [length, separator] | Each component has at most N characters |
 | `componentMinLength` | [length, separator] | Each component has at least N characters |
-| `componentRegex` | [pattern] | Each component matches regex |
+| `componentRegex` | [pattern] | Each component of one delimited string matches regex |
 | `componentNotRegex` | [pattern] | Each component does NOT match regex |
 | `anyComponentMatches` | [pattern] | ANY component matches regex |
 | `noComponentMatches` | [pattern] | NO component matches regex |
 
-**Usage Frequency**: `componentNotRegex` (12)
-
 **Examples:**
 ```yaml
-# DNS names must not contain wildcard
-- id: san-no-wildcard
+# Every DNS name must have valid labels
+- id: san-valid-labels
   target: certificate.subjectAltName.dNSName
-  operator: noComponentMatches
-  operands: ["^\\*"]
-  severity: warning
+  operator: every
+  operands:
+    - operator: componentRegex
+      operands: ["^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?$"]
+  severity: error
 ```
 
 ### 15. CIDR Operators (IP Address)
 
 | Operator | Operands | Description |
 |----------|----------|-------------|
-| `componentInCIDR` | [cidr1, cidr2, ...] | Each IP is in any CIDR range |
-| `componentNotInCIDR` | [cidr1, cidr2, ...] | Each IP is NOT in any CIDR range |
+| `componentInCIDR` | [cidr1, cidr2, ...] | At least one child IP, or the scalar IP, is in a CIDR range |
+| `componentNotInCIDR` | [cidr1, cidr2, ...] | Every child IP, or the scalar IP, is outside all CIDR ranges |
 
 **Examples:**
 ```yaml
@@ -792,8 +792,7 @@ inside `every` as well.
 | `tldNotRegistered` | None | TLD is NOT registered |
 | `isPublicSuffix` | None | Domain is a public suffix |
 | `isNotPublicSuffix` | None | Domain is NOT a public suffix |
-| `componentTLDRegistered` | None | Each domain's TLD is registered |
-| `componentTLDNotRegistered` | None | Each domain's TLD is NOT registered |
+| `componentTLDNotRegistered` | None | At least one domain's TLD is not registered |
 | `componentIsPublicSuffix` | None | Any domain is a public suffix |
 | `componentNotPublicSuffix` | None | All domains are NOT public suffixes |
 
@@ -802,20 +801,28 @@ inside `every` as well.
 # No internal names (BR 4.2.2)
 - id: no-internal-names
   target: certificate.subjectAltName.dNSName
-  operator: componentTLDRegistered
+  operator: every
+  operands:
+    - operator: tldRegistered
   severity: error
 ```
 
-### 17. ASN.1 Time Format Operators
+### 17. ASN.1 Time Metadata
 
-| Operator | Operands | Description |
-|----------|----------|-------------|
-| `utctimeHasSeconds` | None | UTCTime includes seconds |
-| `utctimeHasZulu` | None | UTCTime ends with 'Z' |
-| `generalizedTimeHasZulu` | None | GeneralizedTime ends with 'Z' |
-| `generalizedTimeNoFraction` | None | No fractional seconds |
-| `isUTCTime` | None | Field uses UTCTime encoding |
-| `isGeneralizedTime` | None | Field uses GeneralizedTime encoding |
+Certificate validity endpoints expose `encoding` (23 for UTCTime, 24 for
+GeneralizedTime), `raw`, `rawValue`, `hasSeconds`, `hasFraction`, and
+`hasZulu`. Compose those facts with generic operators:
+
+```yaml
+- id: utc-time-has-seconds
+  when:
+    target: certificate.validity.notBefore.encoding
+    operator: eq
+    operands: [23]
+  target: certificate.validity.notBefore.hasSeconds
+  operator: eq
+  operands: [true]
+```
 
 ### 18. ASN.1 String Type Operators
 
@@ -827,9 +834,10 @@ inside `every` as well.
 | `validIA5String` | None | String contains only valid IA5String chars (ASCII, 0-127) |
 | `validPrintableString` | None | String contains only valid PrintableString chars (A-Z, a-z, 0-9, + specific specials) |
 | `utf8NoBom` | None | UTF-8 string has no BOM |
-| `containsBOM` | None | String contains BOM |
+| `containsBom` | None | String contains BOM |
 
-**Usage Frequency**: `validIA5String` (4), `isIA5String`, `isUTF8String` (for encoding type checks)
+`validIA5String` validates one scalar. Use `every` for GeneralName or other
+multi-valued collections.
 
 ### 19. Unique Value Operators
 
@@ -844,13 +852,11 @@ inside `every` as well.
 |----------|----------|-------------|
 | `derEqualsHex` | [hexString] | DER encoding matches expected hex bytes |
 
-**Usage Frequency**: `derEqualsHex` (8)
-
 ### 21. Subject DN Operators
 
 | Operator | Operands | Description |
 |----------|----------|-------------|
-| `noDuplicateAttributes` | None | Subject DN has no duplicate attributes |
+| `noDuplicateAttributes` | None | CABF single-instance subject attribute OIDs do not repeat |
 
 ---
 
@@ -872,22 +878,29 @@ PCL uses two different fields. Do not put policy-level `appliesTo` on individual
 
 | Field | Values | Purpose |
 |-------|--------|---------|
-| `appliesTo` | `cert`, `crl`, `ocsp` | Which **input object** this policy is evaluated against |
+| `appliesTo` | `cert`, `crl`, `ocsp`, `tst`, `sct`, `attrCert` | Which **input object** this policy is evaluated against |
 | `certType` | `leaf`, `root`, … | Optional: run the **entire policy** only on matching certificate roles |
 | `crlType` | `completeCRL`, … | Optional: CRL subtype filter (see CRL policies) |
 
 ```yaml
-id: RFC6960
+id: rfc6960
 version: "1.0"
-appliesTo:
-  - ocsp
+appliesTo: [cert]
 rules:
-  - id: RFC6960_STATUS_VALID
-    target: ocsp.status
-    # ...
+  - id: ocsp-valid
+    target: certificate
+    operator: ocspValid
+    certType: [leaf]
+    severity: error
 ```
 
-An explicit `appliesTo` is authoritative. If it is omitted, PCL infers an order-independent set of inputs from every rule's primary `target` namespace (`certificate.*`, `crl.*`, `ocsp.*`). A `when` target is a dependency only and does not change the execution input; an unqualified primary target is input-agnostic. This selects input objects only, not `root` vs `leaf` roles.
+An explicit `appliesTo` is authoritative. If it is omitted, PCL infers an
+order-independent set of inputs from every rule's primary target namespace
+(`certificate`, `crl`, `ocsp`, `tst`, `sct`, or `attrCert`). A `when` target is
+a dependency only and does not change the execution input; an unqualified
+primary target is input-agnostic. The current CLI loads certificate, CRL, and
+OCSP objects; the remaining values are reserved by the policy schema. Input
+selection is separate from `root` versus `leaf` roles.
 
 ### Rule-level (`certType` on each rule)
 
@@ -899,6 +912,7 @@ An explicit `appliesTo` is authoritative. If it is omitted, PCL infers an order-
 | `ocspSigning` | OCSP responder certificate |
 | `crl` | When linting a CRL (matches evaluation context type) |
 | `ocsp` | When linting an OCSP response object |
+| `tst`, `sct`, `attrCert` | Reserved evaluation-context roles accepted by the policy schema |
 
 Omit `certType` on a rule to evaluate it for every role (others with `certType` are **SKIP** when the role does not match). Each rule is filtered independently.
 
@@ -915,7 +929,8 @@ Omit `certType` on a rule to evaluate it for every role (others with `certType` 
 # Apply to CA certificates
 - id: ca-key-cert-sign
   target: certificate.keyUsage.keyCertSign
-  operator: present
+  operator: eq
+  operands: [true]
   severity: error
   certType: [root, intermediate]
 
@@ -951,12 +966,15 @@ The `when` clause adds a precondition. If false, the rule is skipped.
 **2. Extension conditional checks:**
 ```yaml
 - id: crl-dp-http-scheme
-  target: certificate.cRLDistributionPoints.0
-  operator: regex
-  operands: ["^http://"]
+  target: certificate.extensions.cRLDistributionPoints.distributionPoints
+  operator: every
+  operands:
+    path: "distributionPoint.fullName.generalNames.*.scheme"
+    operator: eq
+    operands: ["http"]
   severity: error
   when:
-    target: certificate.cRLDistributionPoints
+    target: certificate.extensions.cRLDistributionPoints
     operator: present
 ```
 
@@ -1045,7 +1063,8 @@ rules:
   - id: ca-key-cert-sign
     reference: RFC5280 4.2.1.3
     target: certificate.keyUsage.keyCertSign
-    operator: present
+    operator: eq
+    operands: [true]
     severity: error
     certType: [root, intermediate]
 

@@ -10,60 +10,60 @@ func TestComponentMaxLength(t *testing.T) {
 	op := ComponentMaxLength{}
 
 	tests := []struct {
-		name     string
-		value    string
-		maxLen   int
+		name      string
+		value     string
+		maxLen    int
 		delimiter string
-		expected bool
+		expected  bool
 	}{
 		{
-			name:     "valid DNS labels (all under 63)",
-			value:    "subdomain.example.test",
-			maxLen:   63,
+			name:      "valid DNS labels (all under 63)",
+			value:     "subdomain.example.test",
+			maxLen:    63,
 			delimiter: ".",
-			expected: true,
+			expected:  true,
 		},
 		{
-			name:     "label exceeds max 63",
-			value:    "thisisaverylonglabelthatdefinitelyexceedssixtythreecharactersaaa.example.test",
-			maxLen:   63,
+			name:      "label exceeds max 63",
+			value:     "thisisaverylonglabelthatdefinitelyexceedssixtythreecharactersaaa.example.test",
+			maxLen:    63,
 			delimiter: ".",
-			expected: false,
+			expected:  false,
 		},
 		{
-			name:     "exactly max length 63",
-			value:    "exactly63characterssssssssssssssssssssssssssssssssssss.example",
-			maxLen:   63,
+			name:      "exactly max length 63",
+			value:     "exactly63characterssssssssssssssssssssssssssssssssssss.example",
+			maxLen:    63,
 			delimiter: ".",
-			expected: true,
+			expected:  true,
 		},
 		{
-			name:     "single component valid",
-			value:    "short",
-			maxLen:   63,
+			name:      "single component valid",
+			value:     "short",
+			maxLen:    63,
 			delimiter: ".",
-			expected: true,
+			expected:  true,
 		},
 		{
-			name:     "empty component should pass maxLength (length 0 <= any max)",
-			value:    "example..test",
-			maxLen:   63,
+			name:      "empty component should pass maxLength (length 0 <= any max)",
+			value:     "example..test",
+			maxLen:    63,
 			delimiter: ".",
-			expected: true,
+			expected:  true,
 		},
 		{
-			name:     "custom delimiter slash",
-			value:    "path/to/resource",
-			maxLen:   10,
+			name:      "custom delimiter slash",
+			value:     "path/to/resource",
+			maxLen:    10,
 			delimiter: "/",
-			expected: true,
+			expected:  true,
 		},
 		{
-			name:     "custom delimiter exceeds",
-			value:    "verylongpathsegment/to/resource",
-			maxLen:   10,
+			name:      "custom delimiter exceeds",
+			value:     "verylongpathsegment/to/resource",
+			maxLen:    10,
 			delimiter: "/",
-			expected: false,
+			expected:  false,
 		},
 	}
 
@@ -98,39 +98,39 @@ func TestComponentMinLength(t *testing.T) {
 	op := ComponentMinLength{}
 
 	tests := []struct {
-		name     string
-		value    string
-		minLen   int
+		name      string
+		value     string
+		minLen    int
 		delimiter string
-		expected bool
+		expected  bool
 	}{
 		{
-			name:     "all labels meet minimum",
-			value:    "subdomain.example.test",
-			minLen:   1,
+			name:      "all labels meet minimum",
+			value:     "subdomain.example.test",
+			minLen:    1,
 			delimiter: ".",
-			expected: true,
+			expected:  true,
 		},
 		{
-			name:     "empty label fails minimum",
-			value:    "example..test",
-			minLen:   1,
+			name:      "empty label fails minimum",
+			value:     "example..test",
+			minLen:    1,
 			delimiter: ".",
-			expected: false,
+			expected:  false,
 		},
 		{
-			name:     "single char labels",
-			value:    "a.b.c",
-			minLen:   1,
+			name:      "single char labels",
+			value:     "a.b.c",
+			minLen:    1,
 			delimiter: ".",
-			expected: true,
+			expected:  true,
 		},
 		{
-			name:     "label too short",
-			value:    "ab.c.d",
-			minLen:   3,
+			name:      "label too short",
+			value:     "ab.c.d",
+			minLen:    3,
 			delimiter: ".",
-			expected: false,
+			expected:  false,
 		},
 	}
 
@@ -153,39 +153,39 @@ func TestComponentRegex(t *testing.T) {
 	op := ComponentRegex{}
 
 	tests := []struct {
-		name     string
-		value    string
-		pattern  string
+		name      string
+		value     string
+		pattern   string
 		delimiter string
-		expected bool
+		expected  bool
 	}{
 		{
-			name:     "valid DNS labels (alphanumeric and hyphen)",
-			value:    "sub-domain.example.test",
-			pattern:  "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$",
+			name:      "valid DNS labels (alphanumeric and hyphen)",
+			value:     "sub-domain.example.test",
+			pattern:   "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$",
 			delimiter: ".",
-			expected: true,
+			expected:  true,
 		},
 		{
-			name:     "DNS label with underscore fails",
-			value:    "invalid_label.example.test",
-			pattern:  "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$",
+			name:      "DNS label with underscore fails",
+			value:     "invalid_label.example.test",
+			pattern:   "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$",
 			delimiter: ".",
-			expected: false,
+			expected:  false,
 		},
 		{
-			name:     "IDN A-label format",
-			value:    "xn--pss25c.xn--abc.example",
-			pattern:  "^(xn--[a-z0-9-]+|[a-z0-9]([a-z0-9-]*[a-z0-9])?)$",
+			name:      "IDN A-label format",
+			value:     "xn--pss25c.xn--abc.example",
+			pattern:   "^(xn--[a-z0-9-]+|[a-z0-9]([a-z0-9-]*[a-z0-9])?)$",
 			delimiter: ".",
-			expected: true,
+			expected:  true,
 		},
 		{
-			name:     "label starts with hyphen fails",
-			value:    "-invalid.example.test",
-			pattern:  "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$",
+			name:      "label starts with hyphen fails",
+			value:     "-invalid.example.test",
+			pattern:   "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$",
 			delimiter: ".",
-			expected: false,
+			expected:  false,
 		},
 	}
 
@@ -204,36 +204,76 @@ func TestComponentRegex(t *testing.T) {
 	}
 }
 
+func TestComponentRegexRejectsCollectionNode(t *testing.T) {
+	collection := node.New("dNSName", nil)
+	collection.Children["0"] = node.New("0", "example.com")
+
+	got, err := (ComponentRegex{}).Evaluate(collection, nil, []any{"^[a-z]+$"})
+	if err != nil {
+		t.Fatalf("ComponentRegex.Evaluate() error = %v", err)
+	}
+	if got {
+		t.Fatal("ComponentRegex accepted a collection node; use every for collection traversal")
+	}
+}
+
+func TestEveryComposesComponentRegex(t *testing.T) {
+	collection := node.New("dNSName", nil)
+	collection.Children["0"] = node.New("0", "example.com")
+	collection.Children["1"] = node.New("1", "invalid_label.example")
+
+	operands := []any{map[string]any{
+		"operator": "componentRegex",
+		"operands": []any{"^[a-z]([a-z0-9-]*[a-z0-9])?$"},
+	}}
+	got, err := DefaultRegistry().Evaluate("every", collection, nil, operands)
+	if err != nil {
+		t.Fatalf("every(componentRegex) error = %v", err)
+	}
+	if got {
+		t.Fatal("every(componentRegex) accepted an invalid value after a valid value")
+	}
+
+	collection.Children["1"] = node.New("1", "valid-label.example")
+	got, err = DefaultRegistry().Evaluate("every", collection, nil, operands)
+	if err != nil {
+		t.Fatalf("every(componentRegex) error = %v", err)
+	}
+	if !got {
+		t.Fatal("every(componentRegex) rejected valid DNS labels")
+	}
+}
+
 func TestComponentNotRegex(t *testing.T) {
 	op := ComponentNotRegex{}
 
 	tests := []struct {
-		name     string
-		value    string
-		pattern  string
+		name      string
+		value     string
+		pattern   string
 		delimiter string
-		expected bool
+		expected  bool
 	}{
 		{
-			name:     "no underscore in labels",
-			value:    "valid.example.test",
-			pattern:  "_",
+			name:      "no underscore in labels",
+			value:     "valid.example.test",
+			pattern:   "_",
 			delimiter: ".",
-			expected: true,
+			expected:  true,
 		},
 		{
-			name:     "underscore present fails",
-			value:    "invalid_label.example.test",
-			pattern:  "_",
+			name:      "underscore present fails",
+			value:     "invalid_label.example.test",
+			pattern:   "_",
 			delimiter: ".",
-			expected: false,
+			expected:  false,
 		},
 		{
-			name:     "no forbidden chars",
-			value:    "clean.example",
-			pattern:  "[*?]",
+			name:      "no forbidden chars",
+			value:     "clean.example",
+			pattern:   "[*?]",
 			delimiter: ".",
-			expected: true,
+			expected:  true,
 		},
 	}
 

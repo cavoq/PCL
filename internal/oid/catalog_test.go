@@ -24,22 +24,79 @@ func TestParse(t *testing.T) {
 
 func TestExtensionName(t *testing.T) {
 	tests := map[string]string{
-		KeyUsage:            "keyUsage",
-		NameConstraints:     "nameConstraints",
-		CertificatePolicies: "certificatePolicies",
-		AuthorityInfoAccess: "authorityInfoAccess",
-		DeltaCRLIndicator:   "deltaCRLIndicator",
-		CertificateIssuer:   "certificateIssuer",
+		SubjectDirectoryAttributes: "subjectDirectoryAttributes",
+		KeyUsage:                   "keyUsage",
+		PrivateKeyUsagePeriod:      "privateKeyUsagePeriod",
+		NameConstraints:            "nameConstraints",
+		CertificatePolicies:        "certificatePolicies",
+		PolicyMappings:             "policyMappings",
+		PolicyConstraints:          "policyConstraints",
+		FreshestCRL:                "freshestCRL",
+		InhibitAnyPolicy:           "inhibitAnyPolicy",
+		AuthorityInfoAccess:        "authorityInfoAccess",
+		HoldInstructionCode:        "holdInstructionCode",
+		InvalidityDate:             "invalidityDate",
+		DeltaCRLIndicator:          "deltaCRLIndicator",
+		CertificateIssuer:          "certificateIssuer",
 	}
 	for identifier, want := range tests {
 		got, ok := ExtensionName(identifier)
 		if !ok || got != want {
 			t.Errorf("ExtensionName(%q) = %q, %v; want %q, true", identifier, got, ok, want)
 		}
+		gotIdentifier, ok := ExtensionOID(want)
+		if !ok || gotIdentifier != identifier {
+			t.Errorf("ExtensionOID(%q) = %q, %v; want %q, true", want, gotIdentifier, ok, identifier)
+		}
 	}
 
 	if _, ok := ExtensionName(AccessMethodOCSP); ok {
 		t.Fatal("access method was classified as an extension")
+	}
+}
+
+func TestExtensionLocations(t *testing.T) {
+	tests := []struct {
+		identifier string
+		location   ExtensionLocation
+		want       bool
+	}{
+		{KeyUsage, ExtensionInCertificate, true},
+		{KeyUsage, ExtensionInCRL, false},
+		{AuthorityKeyIdentifier, ExtensionInCertificate, true},
+		{AuthorityKeyIdentifier, ExtensionInCRL, true},
+		{CRLNumber, ExtensionInCRL, true},
+		{CRLNumber, ExtensionInCertificate, false},
+		{CRLReason, ExtensionInCRLEntry, true},
+		{CRLReason, ExtensionInCRL, false},
+		{HoldInstructionCode, ExtensionInCRLEntry, true},
+		{"1.2.3.4", ExtensionInCertificate, false},
+	}
+	for _, test := range tests {
+		if got := ExtensionKnownAt(test.identifier, test.location); got != test.want {
+			t.Errorf("ExtensionKnownAt(%q, %d) = %v, want %v", test.identifier, test.location, got, test.want)
+		}
+	}
+}
+
+func TestExtensionCatalogDefinitionsAreUnique(t *testing.T) {
+	identifiers := make(map[string]struct{}, len(extensionCatalog))
+	names := make(map[string]struct{}, len(extensionCatalog))
+	for _, definition := range extensionCatalog {
+		if !ValidDotted(definition.identifier) {
+			t.Errorf("extension identifier %q is not canonical", definition.identifier)
+		}
+		if definition.name == "" || definition.locations == 0 {
+			t.Errorf("incomplete extension definition: %+v", definition)
+		}
+		if _, exists := identifiers[definition.identifier]; exists {
+			t.Errorf("duplicate extension identifier %q", definition.identifier)
+		}
+		if _, exists := names[definition.name]; exists {
+			t.Errorf("duplicate extension name %q", definition.name)
+		}
+		identifiers[definition.identifier] = struct{}{}
+		names[definition.name] = struct{}{}
 	}
 }
 

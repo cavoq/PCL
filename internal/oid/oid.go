@@ -59,12 +59,8 @@ func NormalizeOID(nameOrOID string) string {
 	if value, ok := ExtKeyUsageOID(nameOrOID); ok {
 		return value
 	}
-	switch nameOrOID {
-	case "deltaCRLIndicator":
-		return DeltaCRLIndicator
-	case "issuingDistributionPoint":
-		return IssuingDistributionPoint
-	default:
-		return nameOrOID
+	if value, ok := ExtensionOID(nameOrOID); ok {
+		return value
 	}
+	return nameOrOID
 }

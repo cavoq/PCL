@@ -29,7 +29,7 @@ import (
 //	target: certificate.extensions.cRLDistributionPoints.distributionPoints
 //	operator: every
 //	operands:
-//	  path: "*.distributionPoint.fullName.generalNames.*.scheme"
+//	  path: "distributionPoint.fullName.generalNames.*.scheme"
 //	  operator: eq
 //	  operands: ["http"]
 type Every struct{}

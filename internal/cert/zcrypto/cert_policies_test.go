@@ -1,6 +1,7 @@
 package zcrypto
 
 import (
+	stdasn1 "encoding/asn1"
 	"testing"
 
 	"github.com/cavoq/PCL/internal/node"
@@ -15,14 +16,11 @@ func buildCertPoliciesValue(policyOID string, cpsURI string, explicitText string
 		// PolicyInformation
 		b.AddASN1(cryptobyte_asn1.SEQUENCE, func(b *cryptobyte.Builder) {
 			// policyIdentifier
-			b.AddASN1(cryptobyte_asn1.OBJECT_IDENTIFIER, func(b *cryptobyte.Builder) {
-				// Parse OID string to bytes (simplified for testing)
-				if policyOID == "2.23.140.1.2.1" { // DV OID
-					b.AddBytes([]byte{0x60, 0x86, 0x48, 0x01, 0x86, 0xFD, 0x6C, 0x01, 0x02, 0x01})
-				} else {
-					b.AddBytes([]byte{0x55, 0x1D, 0x20, 0x00}) // anyPolicy
-				}
-			})
+			if policyOID == "2.23.140.1.2.1" { // DV OID
+				b.AddASN1ObjectIdentifier(stdasn1.ObjectIdentifier{2, 23, 140, 1, 2, 1})
+			} else {
+				b.AddASN1ObjectIdentifier(stdasn1.ObjectIdentifier{2, 5, 29, 32, 0})
+			}
 			// policyQualifiers (optional)
 			if cpsURI != "" || explicitText != "" {
 				b.AddASN1(cryptobyte_asn1.SEQUENCE, func(b *cryptobyte.Builder) {

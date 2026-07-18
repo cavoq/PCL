@@ -8,18 +8,18 @@ crl: crls/revoked-leaf.crl
 eval_time: "2026-06-01T00:00:00Z"
 expected:
   leaf:
-    pass: 39
+    pass: 42
     fail: 1
     skip: 61
   intermediate:
-    pass: 42
+    pass: 46
     fail: 1
-    skip: 58
+    skip: 57
   root:
-    pass: 33
+    pass: 37
     fail: 1
-    skip: 67
+    skip: 66
   crl:
     pass: 10
     fail: 2
-    skip: 89
+    skip: 92

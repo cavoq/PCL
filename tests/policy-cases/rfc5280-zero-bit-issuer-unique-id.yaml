@@ -1,0 +1,12 @@
+name: rfc5280-zero-bit-issuer-unique-id
+policy: ../policies/RFC5280.yaml
+fixture: certificate-zero-bit-issuer-unique-id
+rules:
+  - tbs-certificate-metadata-well-formed
+  - version-v2-when-unique-id
+  - issuer-unique-id-absent
+expected:
+  root:
+    pass: 2
+    fail: 1
+    skip: 0
