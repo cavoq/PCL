@@ -36,6 +36,12 @@ func isCACRL(revocationList *x509.RevocationList, issuerCerts []*x509.Certificat
 	if signer := SigningCertFromPool(revocationList, issuerCerts); signer != nil && signer.IsCA {
 		return true
 	}
+	// Profile classification may use an identity hint when a synthetic or
+	// otherwise unverifiable CRL is inspected. Security decisions never use
+	// this fallback; CRLSignedBy and revocation status require verification.
+	if signer := matchingCertFromPool(revocationList, issuerCerts); signer != nil && signer.IsCA {
+		return true
+	}
 	return inferCACRLFromValidity(revocationList)
 }
 

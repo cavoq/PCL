@@ -73,24 +73,47 @@ func TestParseEKU(t *testing.T) {
 	tests := []struct {
 		name string
 		want x509.ExtKeyUsage
+		ok   bool
 	}{
-		{"any", x509.ExtKeyUsageAny},
-		{"serverAuth", x509.ExtKeyUsageServerAuth},
-		{"clientAuth", x509.ExtKeyUsageClientAuth},
-		{"codeSigning", x509.ExtKeyUsageCodeSigning},
-		{"emailProtection", x509.ExtKeyUsageEmailProtection},
-		{"timeStamping", x509.ExtKeyUsageTimeStamping},
-		{"ocspSigning", x509.ExtKeyUsageOcspSigning},
-		{"unknown", 0},
+		{"any", x509.ExtKeyUsageAny, true},
+		{"serverAuth", x509.ExtKeyUsageServerAuth, true},
+		{"clientAuth", x509.ExtKeyUsageClientAuth, true},
+		{"codeSigning", x509.ExtKeyUsageCodeSigning, true},
+		{"emailProtection", x509.ExtKeyUsageEmailProtection, true},
+		{"timeStamping", x509.ExtKeyUsageTimeStamping, true},
+		{"ocspSigning", x509.ExtKeyUsageOcspSigning, true},
+		{"unknown", 0, false},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := parseEKU(tt.name)
-			if got != tt.want {
-				t.Errorf("parseEKU(%s) = %v, want %v", tt.name, got, tt.want)
+			got, ok := parseEKU(tt.name)
+			if got != tt.want || ok != tt.ok {
+				t.Errorf("parseEKU(%s) = (%v, %v), want (%v, %v)", tt.name, got, ok, tt.want, tt.ok)
 			}
 		})
+	}
+}
+
+func TestEKUContainsHandlesAnyUsage(t *testing.T) {
+	ctx := &EvaluationContext{Cert: &cert.Info{Cert: &x509.Certificate{
+		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
+	}}}
+
+	contains, err := (EKUContains{}).Evaluate(nil, ctx, []any{"any"})
+	if err != nil {
+		t.Fatalf("EKUContains returned error: %v", err)
+	}
+	if !contains {
+		t.Fatal("EKUContains did not recognize ExtKeyUsageAny")
+	}
+
+	notContains, err := (EKUNotContains{}).Evaluate(nil, ctx, []any{"any"})
+	if err != nil {
+		t.Fatalf("EKUNotContains returned error: %v", err)
+	}
+	if notContains {
+		t.Fatal("EKUNotContains did not recognize ExtKeyUsageAny")
 	}
 }
 

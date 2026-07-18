@@ -23,28 +23,25 @@ func TestRuleAppliesToInput_mixedRFC5280Style(t *testing.T) {
 	}
 	brCRL := rule.Rule{ID: "BR_CRL_VALID", Target: "crl", Operator: "crlValid", CertType: []string{"crl"}}
 
-	crlCtx := operator.NewEvaluationContext(nil, &cert.Info{Type: "crl"}, nil)
-	certCtx := operator.NewEvaluationContext(nil, &cert.Info{Type: "intermediate"}, nil)
-
-	if RuleAppliesToInput(certRule, InputCRL, crlCtx) {
+	if RuleAppliesToInput(certRule, InputCRL) {
 		t.Fatal("certificate.serialNumber rule must not run on CRL input")
 	}
-	if !RuleAppliesToInput(crlRule, InputCRL, crlCtx) {
+	if !RuleAppliesToInput(crlRule, InputCRL) {
 		t.Fatal("crl-valid must run on CRL input")
 	}
-	if !RuleAppliesToInput(crlRule, InputCert, certCtx) {
-		t.Fatal("crl-valid must run when CRL is embedded in cert tree pass")
+	if RuleAppliesToInput(crlRule, InputCert) {
+		t.Fatal("crl-valid must run only in the dedicated CRL pass")
 	}
-	if !RuleAppliesToInput(revokedRule, InputCert, certCtx) {
+	if !RuleAppliesToInput(revokedRule, InputCert) {
 		t.Fatal("cert-not-revoked must run on cert input")
 	}
-	if RuleAppliesToInput(revokedRule, InputCRL, crlCtx) {
+	if RuleAppliesToInput(revokedRule, InputCRL) {
 		t.Fatal("cert-not-revoked must not run on CRL-only pass")
 	}
-	if !RuleAppliesToInput(brCRL, InputCRL, crlCtx) {
+	if !RuleAppliesToInput(brCRL, InputCRL) {
 		t.Fatal("certType [crl] must run on CRL input")
 	}
-	if RuleAppliesToInput(brCRL, InputCert, certCtx) {
+	if RuleAppliesToInput(brCRL, InputCert) {
 		t.Fatal("certType [crl] must not run on intermediate cert input")
 	}
 }
@@ -107,8 +104,7 @@ func TestInputTypeFromContext(t *testing.T) {
 // Ensure unqualified custom targets still evaluate (unit-test policies).
 func TestRuleAppliesToInput_unqualifiedTarget(t *testing.T) {
 	r := rule.Rule{Target: "keySize", Operator: "eq"}
-	ctx := operator.NewEvaluationContext(nil, &cert.Info{Type: "crl"}, nil)
-	if !RuleAppliesToInput(r, InputCRL, ctx) {
+	if !RuleAppliesToInput(r, InputCRL) {
 		t.Fatal("unqualified target should apply to any input")
 	}
 }
@@ -116,27 +112,24 @@ func TestRuleAppliesToInput_unqualifiedTarget(t *testing.T) {
 func TestRuleAppliesToInput_ocspInput(t *testing.T) {
 	ocspRule := rule.Rule{ID: "ocsp-status", Target: "ocsp.status", Operator: "eq"}
 	certRule := rule.Rule{ID: "cert-version", Target: "certificate.version", Operator: "eq"}
-	ocspCtx := operator.NewEvaluationContext(nil, &cert.Info{Type: "ocsp"}, nil)
-
-	if !RuleAppliesToInput(ocspRule, InputOCSP, ocspCtx) {
+	if !RuleAppliesToInput(ocspRule, InputOCSP) {
 		t.Fatal("ocsp.* must run on OCSP input")
 	}
-	if RuleAppliesToInput(certRule, InputOCSP, ocspCtx) {
+	if RuleAppliesToInput(certRule, InputOCSP) {
 		t.Fatal("certificate.* must not run on OCSP-only pass")
 	}
 }
 
-func TestRuleAppliesToInput_certTypeNilCtx(t *testing.T) {
+func TestRuleAppliesToInput_routesIndependentlyOfCertTypeContext(t *testing.T) {
 	r := rule.Rule{Target: "certificate.version", Operator: "eq", CertType: []string{"leaf"}}
-	if RuleAppliesToInput(r, InputCert, nil) {
-		t.Fatal("certType rule must not run when ctx is nil")
+	if !RuleAppliesToInput(r, InputCert) {
+		t.Fatal("certificate target must route to the certificate pass without role context")
 	}
 }
 
 func TestRuleAppliesToInput_unknownInputTypeAllowsUnqualified(t *testing.T) {
 	r := rule.Rule{Target: "customNode", Operator: "present"}
-	ctx := operator.NewEvaluationContext(nil, &cert.Info{Type: "ocsp"}, nil)
-	if !RuleAppliesToInput(r, "other", ctx) {
+	if !RuleAppliesToInput(r, "other") {
 		t.Fatal("unqualified rules should run for non-crl/non-ocsp input labels")
 	}
 }
@@ -152,12 +145,10 @@ func TestInputTypeFromContext_ocspAndNil(t *testing.T) {
 
 func TestRuleAppliesToInput_certTypeOnLeaf(t *testing.T) {
 	r := rule.Rule{Target: "certificate.version", Operator: "eq", CertType: []string{"leaf"}}
-	leafCtx := operator.NewEvaluationContext(nil, &cert.Info{Type: "leaf"}, nil)
-	crlCtx := operator.NewEvaluationContext(nil, &cert.Info{Type: "crl"}, nil)
-	if !RuleAppliesToInput(r, InputCert, leafCtx) {
-		t.Fatal("leaf certType on leaf")
+	if !RuleAppliesToInput(r, InputCert) {
+		t.Fatal("certificate target must route to certificate input")
 	}
-	if RuleAppliesToInput(r, InputCert, crlCtx) {
-		t.Fatal("leaf certType must not run when evaluating crl object")
+	if RuleAppliesToInput(r, InputCRL) {
+		t.Fatal("certificate target must not route to CRL input")
 	}
 }

@@ -89,9 +89,9 @@ func TestCRLSignedBy_chainOrder_table(t *testing.T) {
 	op := CRLSignedBy{}
 
 	tests := []struct {
-		name    string
-		chain   []*x509.Certificate
-		wantOK  bool
+		name   string
+		chain  []*x509.Certificate
+		wantOK bool
 	}{
 		{
 			name:   "impostor then real signer: must not stop at DN-only match",
@@ -109,9 +109,9 @@ func TestCRLSignedBy_chainOrder_table(t *testing.T) {
 			wantOK: false,
 		},
 		{
-			name:   "unrelated CA only: CRL not applicable",
+			name:   "unrelated CA only: signer cannot be verified",
 			chain:  []*x509.Certificate{{Subject: pkix.Name{CommonName: "Other"}, SerialNumber: big.NewInt(1), IsCA: true}},
-			wantOK: true,
+			wantOK: false,
 		},
 	}
 

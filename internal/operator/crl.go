@@ -1,6 +1,8 @@
 package operator
 
 import (
+	"time"
+
 	crlpkg "github.com/cavoq/PCL/internal/crl"
 	"github.com/cavoq/PCL/internal/node"
 	"github.com/zmap/zcrypto/x509"
@@ -11,25 +13,7 @@ type CRLValid struct{}
 func (CRLValid) Name() string { return "crlValid" }
 
 func (CRLValid) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (bool, error) {
-	if !ctx.HasCRLs() {
-		return false, nil
-	}
-
-	for _, crlInfo := range ctx.CRLs {
-		if crlInfo == nil || crlInfo.CRL == nil {
-			continue
-		}
-		crl := crlInfo.CRL
-
-		if ctx.Now.Before(crl.ThisUpdate) {
-			return false, nil
-		}
-		if !crl.NextUpdate.IsZero() && ctx.Now.After(crl.NextUpdate) {
-			return false, nil
-		}
-	}
-
-	return true, nil
+	return profileCRLsSatisfy(ctx, crlpkg.IsCurrentAt), nil
 }
 
 type CRLNotExpired struct{}
@@ -37,22 +21,26 @@ type CRLNotExpired struct{}
 func (CRLNotExpired) Name() string { return "crlNotExpired" }
 
 func (CRLNotExpired) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (bool, error) {
-	if !ctx.HasCRLs() {
-		return false, nil
+	return profileCRLsSatisfy(ctx, crlpkg.IsNotExpiredAt), nil
+}
+
+func profileCRLsSatisfy(ctx *EvaluationContext, predicate func(*x509.RevocationList, time.Time) bool) bool {
+	if ctx == nil {
+		return false
 	}
 
-	for _, crlInfo := range ctx.CRLs {
+	sawCRL := false
+	for _, crlInfo := range ctx.ProfileCRLs() {
 		if crlInfo == nil || crlInfo.CRL == nil {
 			continue
 		}
-		crl := crlInfo.CRL
-
-		if !crl.NextUpdate.IsZero() && ctx.Now.After(crl.NextUpdate) {
-			return false, nil
+		sawCRL = true
+		if !predicate(crlInfo.CRL, ctx.Now) {
+			return false
 		}
 	}
 
-	return true, nil
+	return sawCRL
 }
 
 type CRLSignedBy struct{}
@@ -60,39 +48,30 @@ type CRLSignedBy struct{}
 func (CRLSignedBy) Name() string { return "crlSignedBy" }
 
 func (CRLSignedBy) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (bool, error) {
-	if !ctx.HasCRLs() {
+	if ctx == nil {
 		return false, nil
 	}
 
-	if !ctx.HasChain() {
+	issuerPool := ctx.CRLIssuerPool()
+	if len(issuerPool) == 0 {
 		return false, nil
 	}
 
-	for _, crlInfo := range ctx.CRLs {
+	sawCRL := false
+	for _, crlInfo := range ctx.ProfileCRLs() {
 		if crlInfo == nil || crlInfo.CRL == nil {
 			continue
 		}
+		sawCRL = true
 		crl := crlInfo.CRL
 
-		chainCerts := make([]*x509.Certificate, 0, len(ctx.Chain))
-		for _, issuerInfo := range ctx.Chain {
-			if issuerInfo.Cert != nil {
-				chainCerts = append(chainCerts, issuerInfo.Cert)
-			}
-		}
-
-		// Same selection as isCACRL: prefer signature-verified signer over the
-		// first DN/AKI match in chain order (see SigningCertFromPool).
-		signer := crlpkg.SigningCertFromPool(crl, chainCerts)
+		signer := crlpkg.VerifyingCertFromPool(crl, issuerPool)
 		if signer == nil {
-			continue
-		}
-		if err := crl.CheckSignatureFrom(signer); err != nil {
 			return false, nil
 		}
 	}
 
-	return true, nil
+	return sawCRL, nil
 }
 
 type NotRevoked struct{}
@@ -104,30 +83,17 @@ func (NotRevoked) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (bool,
 		return false, nil
 	}
 
-	cert := ctx.Cert.Cert
-	certSerial := cert.SerialNumber.String()
-	certIssuer := cert.Issuer.String()
-
-	if !ctx.HasCRLs() {
-		return true, nil // No CRLs = not revoked
-	}
-
+	lists := make([]*x509.RevocationList, 0, len(ctx.CRLs))
 	for _, crlInfo := range ctx.CRLs {
 		if crlInfo == nil || crlInfo.CRL == nil {
 			continue
 		}
-		crl := crlInfo.CRL
-
-		if crl.Issuer.String() != certIssuer {
-			continue
-		}
-
-		for _, revoked := range crl.RevokedCertificates {
-			if revoked.SerialNumber != nil && revoked.SerialNumber.String() == certSerial {
-				return false, nil
-			}
-		}
+		lists = append(lists, crlInfo.CRL)
 	}
 
-	return true, nil
+	statusCtx := crlpkg.RevocationContext{
+		Now:     ctx.Now,
+		Issuers: ctx.CRLIssuerPool(),
+	}
+	return crlpkg.StatusForCertificate(ctx.Cert.Cert, lists, statusCtx) == crlpkg.RevocationGood, nil
 }

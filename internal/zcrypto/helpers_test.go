@@ -3,6 +3,7 @@ package zcrypto
 import (
 	"testing"
 
+	"github.com/cavoq/PCL/internal/oid"
 	"github.com/zmap/zcrypto/encoding/asn1"
 	"github.com/zmap/zcrypto/x509/pkix"
 )
@@ -199,5 +200,35 @@ func TestBuildExtensions_ExtensionStructure(t *testing.T) {
 		if _, ok := extNode.Children[child]; !ok {
 			t.Errorf("extension should have %q child", child)
 		}
+	}
+}
+
+func TestBuildExtensions_CRLFriendlyNames(t *testing.T) {
+	tests := []struct {
+		objectID asn1.ObjectIdentifier
+		name     string
+	}{
+		{objectID: asn1.ObjectIdentifier{2, 5, 29, 20}, name: "cRLNumber"},
+		{objectID: asn1.ObjectIdentifier{2, 5, 29, 27}, name: "deltaCRLIndicator"},
+		{objectID: asn1.ObjectIdentifier{2, 5, 29, 28}, name: "issuingDistributionPoint"},
+		{objectID: asn1.ObjectIdentifier{2, 5, 29, 29}, name: "certificateIssuer"},
+		{objectID: asn1.ObjectIdentifier{2, 5, 29, 35}, name: "authorityKeyIdentifier"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			oidString := tt.objectID.String()
+			extensions := BuildExtensions([]pkix.Extension{{Id: tt.objectID}})
+			if extensions.Children[oidString] == nil {
+				t.Fatalf("numeric OID node %s missing", oidString)
+			}
+			if extensions.Children[tt.name] != extensions.Children[oidString] {
+				t.Fatalf("friendly name %s does not alias %s", tt.name, oidString)
+			}
+		})
+	}
+
+	if oid.CRLNumber != "2.5.29.20" {
+		t.Fatalf("shared CRL Number OID = %s", oid.CRLNumber)
 	}
 }

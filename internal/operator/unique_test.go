@@ -10,9 +10,9 @@ func TestUniqueValues(t *testing.T) {
 	op := UniqueValues{}
 
 	tests := []struct {
-		name     string
-		node     *node.Node
-		want     bool
+		name string
+		node *node.Node
+		want bool
 	}{
 		{
 			name: "nil node should return false",
@@ -60,6 +60,16 @@ func TestUniqueValues(t *testing.T) {
 			node: node.New("test", nil),
 			want: true,
 		},
+		{
+			name: "duplicate structured values should return false",
+			node: func() *node.Node {
+				n := node.New("test", nil)
+				n.Children["0"] = node.New("0", map[string]any{"key": []any{1, "two"}})
+				n.Children["1"] = node.New("1", map[string]any{"key": []any{1, "two"}})
+				return n
+			}(),
+			want: false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -79,9 +89,9 @@ func TestUniqueChildren(t *testing.T) {
 	op := UniqueChildren{}
 
 	tests := []struct {
-		name     string
-		node     *node.Node
-		want     bool
+		name string
+		node *node.Node
+		want bool
 	}{
 		{
 			name: "nil node should return false",

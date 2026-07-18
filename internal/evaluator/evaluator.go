@@ -31,10 +31,23 @@ type Context struct {
 	CRLResolveTimeout  time.Duration
 	CRLResolveMaxDepth int
 	CRLResolveWarn     io.Writer
+
+	crlIssuerPools map[*crl.Info][]*x509.Certificate
 }
 
 func Chain(ctx Context) []policy.Result {
+	ctx = PrepareCRLIssuers(ctx)
 	var results []policy.Result
+	var embeddedCRL *crl.Info
+	var embeddedCRLIssuers []*x509.Certificate
+	for _, crlInfo := range ctx.CRLs {
+		if crlInfo != nil && crlInfo.CRL != nil {
+			embeddedCRL = crlInfo
+			embeddedCRLIssuers = ctx.crlIssuerPools[crlInfo]
+			break
+		}
+	}
+	allCRLIssuers := combinedCRLIssuerPool(ctx)
 
 	for _, c := range ctx.Chain {
 		tree := certzcrypto.BuildTree(c.Cert)
@@ -44,21 +57,22 @@ func Chain(ctx Context) []policy.Result {
 			tree.Children["downloadURL"] = node.New("downloadURL", c.Source.URL)
 		}
 
-		if len(ctx.CRLs) > 0 {
-			for _, crlInfo := range ctx.CRLs {
-				if crlInfo.CRL != nil {
-					crlNode := crl.BuildTree(crlInfo.CRL)
-					if crlNode != nil {
-						tree.Children["crl"] = crlNode
-					}
-					break
-				}
+		if embeddedCRL != nil {
+			crlNode := crl.BuildTreeWithChain(embeddedCRL.CRL, embeddedCRLIssuers)
+			if crlNode != nil {
+				tree.Children["crl"] = crlNode
 			}
 		}
 
 		evalOpts := []operator.ContextOption{
 			operator.WithCRLs(ctx.CRLs),
 			operator.WithOCSPs(ctx.OCSPs),
+		}
+		if embeddedCRL != nil {
+			evalOpts = append(evalOpts,
+				operator.WithCurrentCRL(embeddedCRL),
+				operator.WithCRLIssuers(allCRLIssuers),
+			)
 		}
 		evalCtx := operator.NewEvaluationContext(tree, c, ctx.Chain, evalOpts...)
 
@@ -110,6 +124,7 @@ func OCSP(ctx Context) []policy.Result {
 }
 
 func CRL(ctx Context) []policy.Result {
+	ctx = PrepareCRLIssuers(ctx)
 	var results []policy.Result
 
 	for _, crlInfo := range ctx.CRLs {
@@ -117,7 +132,7 @@ func CRL(ctx Context) []policy.Result {
 			continue
 		}
 
-		issuerCerts := issuerCertsForCRL(ctx, crlInfo.CRL)
+		issuerCerts := ctx.crlIssuerPools[crlInfo]
 
 		crlNode := crl.BuildTreeWithChain(crlInfo.CRL, issuerCerts)
 		if crlNode == nil {
@@ -131,7 +146,11 @@ func CRL(ctx Context) []policy.Result {
 		}
 
 		tree := crlNode
-		evalOpts := []operator.ContextOption{operator.WithCRLs(ctx.CRLs)}
+		evalOpts := []operator.ContextOption{
+			operator.WithCRLs(ctx.CRLs),
+			operator.WithCurrentCRL(crlInfo),
+			operator.WithCRLIssuers(issuerCerts),
+		}
 		evalCtx := operator.NewEvaluationContext(tree, crlCertInfo, ctx.Chain, evalOpts...)
 
 		filteredPolicies := policy.ByCRL(ctx.Policies, crlInfo.CRL)
@@ -208,6 +227,43 @@ func issuerCertsForCRL(ctx Context, revocationList *x509.RevocationList) []*x509
 		)
 	}
 	return cert.CertsFromInfos(ctx.Chain)
+}
+
+// PrepareCRLIssuers resolves each CRL issuer once and stores the pools on the
+// evaluation context. Passing the returned context to Chain and CRL makes
+// certificate revocation and CRL-profile checks consume identical evidence.
+func PrepareCRLIssuers(ctx Context) Context {
+	if ctx.crlIssuerPools != nil {
+		return ctx
+	}
+
+	ctx.crlIssuerPools = make(map[*crl.Info][]*x509.Certificate, len(ctx.CRLs))
+	for _, crlInfo := range ctx.CRLs {
+		if crlInfo == nil || crlInfo.CRL == nil {
+			continue
+		}
+		ctx.crlIssuerPools[crlInfo] = issuerCertsForCRL(ctx, crlInfo.CRL)
+	}
+	return ctx
+}
+
+func combinedCRLIssuerPool(ctx Context) []*x509.Certificate {
+	pool := make([]*x509.Certificate, 0, len(ctx.Chain))
+	seen := make(map[*x509.Certificate]struct{})
+	for _, crlInfo := range ctx.CRLs {
+		candidates := ctx.crlIssuerPools[crlInfo]
+		for _, candidate := range candidates {
+			if candidate == nil {
+				continue
+			}
+			if _, duplicate := seen[candidate]; duplicate {
+				continue
+			}
+			seen[candidate] = struct{}{}
+			pool = append(pool, candidate)
+		}
+	}
+	return pool
 }
 
 // ExtractCertsFromInfo extracts x509 certificates from cert.Info values.

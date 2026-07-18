@@ -1,8 +1,15 @@
 # RFC 5280 Policy Coverage
 
-This document tracks implementation of [RFC 5280](https://datatracker.ietf.org/doc/html/rfc5280) requirements.
+This document tracks the RFC 5280 requirements implemented by PCL's profile
+policy. The policy is a certificate and CRL **linter**; it is not an
+RFC-equivalent Section 6 certification-path or revocation validator.
 
-> Items marked **(parsing)** are validated by the x509 library during parsing.
+Implementation order, architectural ownership, and completion criteria are
+tracked in the [RFC 5280 conformance roadmap](../docs/RFC5280_ROADMAP.md).
+
+`Covered` means an active rule has executable positive and negative behavior.
+`Partial` means the rule checks only part of the normative requirement.
+Parser behavior is credited only where a dedicated malformed-DER test exists.
 
 ---
 
@@ -19,14 +26,14 @@ This document tracks implementation of [RFC 5280](https://datatracker.ietf.org/d
 | Requirement | Level | Rule |
 |-------------|-------|------|
 | Serial number MUST be positive integer | MUST | `serial-number-positive` |
-| Serial number MUST be unique per CA | MUST | `serial-number-unique` |
+| Serial number MUST be unique per CA | MUST | External issuance-database requirement; not enforceable from one path |
 | Serial number MUST NOT exceed 20 octets | MUST | `serial-number-length` |
 
 ### 4.1.2.3 Signature
 | Requirement | Level | Rule |
 |-------------|-------|------|
-| Algorithm MUST match outer signatureAlgorithm | MUST | `signatureAlgorithmMatchesTBS` |
-| Signature MUST be valid | MUST | `signatureValid` |
+| Algorithm MUST match outer signatureAlgorithm | MUST | `signature-algorithm-matches-tbs` |
+| Signature MUST be valid | MUST | `signature-valid` (partial path semantics) |
 
 ### 4.1.2.4 Issuer
 | Requirement | Level | Rule |
@@ -70,15 +77,16 @@ This document tracks implementation of [RFC 5280](https://datatracker.ietf.org/d
 ### 4.2.1.3 Key Usage
 | Requirement | Level | Rule |
 |-------------|-------|------|
-| Key Usage SHOULD be present | SHOULD | `key-usage-present` |
-| Key Usage SHOULD be critical | SHOULD | `key-usage-critical-for-ca` |
-| CA certs MUST have keyCertSign | MUST | `ca-key-cert-sign` |
+| CA signing certificates MUST include Key Usage | MUST | `key-usage-present` (the policy treats root/intermediate inputs as certificate-signing roles) |
+| When present, at least one bit MUST be set | MUST | `key-usage-has-at-least-one-bit` |
+| CA Key Usage SHOULD be critical | SHOULD | `key-usage-critical-for-ca` |
+| Certificate-signing keys MUST have keyCertSign | MUST | `ca-key-cert-sign` (root/intermediate role assumption) |
 | Non-CA certs MUST NOT have keyCertSign | MUST NOT | `leaf-key-usage-valid` |
 
 ### 4.2.1.5 Policy Mappings
 | Requirement | Level | Rule |
 |-------------|-------|------|
-| Policy Mappings MUST be critical | MUST | `policy-mappings-critical` |
+| Policy Mappings SHOULD be critical | SHOULD | `policy-mappings-critical` |
 
 ### 4.2.1.6 Subject Alternative Name
 | Requirement | Level | Rule |
@@ -108,7 +116,7 @@ This document tracks implementation of [RFC 5280](https://datatracker.ietf.org/d
 | Requirement | Level | Rule |
 |-------------|-------|------|
 | MUST be critical | MUST | `name-constraints-critical` |
-| MUST be enforced in path validation | MUST | `nameConstraintsValid` |
+| MUST be enforced in path validation | MUST | `name-constraints-valid` (partial: not a complete §6 implementation) |
 
 ### 4.2.1.11 Policy Constraints
 | Requirement | Level | Rule |
@@ -118,7 +126,7 @@ This document tracks implementation of [RFC 5280](https://datatracker.ietf.org/d
 ### 4.2.1.12 Extended Key Usage
 | Requirement | Level | Rule |
 |-------------|-------|------|
-| Certificate used only for indicated purposes | MUST | `ekuContains`, `ekuServerAuth`, `ekuClientAuth` |
+| Certificate used only for indicated purposes | MUST | Not currently enforced by `RFC5280.yaml` |
 
 ### 4.2.1.13 CRL Distribution Points
 | Requirement | Level | Rule |
@@ -149,15 +157,19 @@ This document tracks implementation of [RFC 5280](https://datatracker.ietf.org/d
 
 ## Path Validation (Section 6)
 
-| Requirement | Level | Rule |
-|-------------|-------|------|
-| Signature verification | MUST | `signatureValid` |
-| Issuer/Subject DN chaining | MUST | `issuedBy` |
-| Validity period checking | MUST | `not-expired`, `not-yet-valid` |
-| Path length constraints | MUST | `pathLenValid` |
-| Name constraints processing | MUST | `nameConstraintsValid` |
-| Policy processing | MUST | `certificatePolicyValid` |
-| Unknown critical extensions rejection | MUST | `noUnknownCriticalExtensions` |
+The following are independent lint checks, not an implementation of the RFC
+5280 Section 6 state machine. PCL currently has no explicit trust-anchor,
+initial-policy-set, policy-inhibition, or application-purpose inputs.
+
+| Requirement | Status | Rule |
+|-------------|--------|------|
+| Signature verification | Partial | `signature-valid` |
+| Issuer/Subject DN chaining | Partial | `issuer-matches-subject-for-root` and internal chain heuristics |
+| Validity period checking | Covered as profile lint | `not-expired`, `not-yet-valid` |
+| Path length constraints | Partial | `ca-path-len-valid` |
+| Name constraints processing | Partial | `name-constraints-valid` |
+| Policy processing | Not active | `certificatePolicyValid` operator exists, but the policy rule is disabled |
+| Unknown critical extensions rejection | Partial | `no-unknown-critical-extensions` |
 
 ---
 
@@ -166,22 +178,29 @@ This document tracks implementation of [RFC 5280](https://datatracker.ietf.org/d
 ### CRL Fields
 | Requirement | Level | Rule |
 |-------------|-------|------|
-| Signature valid | MUST | `crlSignedBy` |
-| thisUpdate not in future | MUST | `crlValid` |
-| nextUpdate after thisUpdate | MUST | `crlValid`, `crlNotExpired` |
-| Serial number not in revoked list | MUST | `notRevoked` |
+| Signature valid | MUST | `crl-signed-by` |
+| Inner and outer signature algorithms match | MUST | `crl-signature-algorithm-matches-tbs` |
+| thisUpdate not in future | MUST | `crl-valid` |
+| nextUpdate present and current | MUST | `crl-next-update-present`, `crl-valid` |
+| Certificate revocation status | Partial | `cert-not-revoked` (absent CRL input is N/A; supplied but unverified, stale, unrelated, delta, or scoped data remains unknown and fails the operator) |
 
 ### CRL Extensions
 | Requirement | Level | Rule |
 |-------------|-------|------|
 | AKI MUST NOT be critical | MUST NOT | `crl-aki-not-critical` |
+| AKI keyIdentifier MUST be present | MUST | `crl-authority-key-identifier-present` |
 | CRL Number MUST NOT be critical | MUST NOT | `crl-number-not-critical` |
+| CRL Number MUST be present | MUST | `crl-number-present` |
 | Delta CRL Indicator MUST be critical | MUST | `crl-delta-indicator-critical` |
 | IDP MUST be critical | MUST | `crl-idp-critical` |
 
 ---
 
 ## OCSP (RFC 6960)
+
+OCSP is a different standard and does not contribute to RFC 5280 coverage.
+The legacy RFC 5280 bundle still contains these rules for compatibility; they
+should be loaded from a separate RFC 6960 policy in the policy-splitting work.
 
 | Requirement | Rule |
 |-------------|------|
@@ -192,18 +211,11 @@ This document tracks implementation of [RFC 5280](https://datatracker.ietf.org/d
 
 ---
 
-## Best Practices (Not RFC 5280)
+## Supplemental Rules (Not RFC 5280 Coverage)
 
-The following rules enforce modern security practices beyond RFC 5280:
-
-| Rule | Description |
-|------|-------------|
-| `rsa-key-size-minimum` | RSA keys >= 2048 bits |
-| `rsa-exponent-valid` | RSA exponent is odd |
-| `rsa-exponent-recommended` | RSA exponent >= 65537 |
-| `ecdsa-curve-allowed` | ECDSA uses P-256/P-384/P-521 |
-| `signature-algorithm-allowed` | Modern signature algorithms only |
-| `signature-algorithm-not-weak` | No MD5/SHA-1 signatures |
+Rules whose references begin with `LOCAL-`, plus RFC 6960, RFC 9549, PSL,
+CA/B Forum, and reasonable-size constraints, are supplemental profile checks.
+They must not be counted as RFC 5280 requirements.
 
 ---
 
@@ -231,7 +243,9 @@ The following rules enforce modern security practices beyond RFC 5280:
 
 ## Out of Scope
 
-Handled by the x509 parsing library:
-- ASN.1 encoding validation
-- UTCTime/GeneralizedTime encoding rules
-- URI/name format validation
+The current policy does not claim complete coverage for:
+
+- RFC 5280 Section 6 path-validation and CRL-validation state machines
+- RFC 5280 Section 7 internationalized name comparison
+- CA-wide issuance properties such as serial-number uniqueness
+- ASN.1, time, URI, or name validation without an explicit parser/operator test

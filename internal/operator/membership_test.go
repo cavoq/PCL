@@ -19,6 +19,18 @@ func TestInOperator(t *testing.T) {
 		{"int not in set", 1024, []any{2048, 4096}, false},
 		{"single operand match", "RSA", []any{"RSA"}, true},
 		{"numeric type coercion", 2048, []any{2048.0}, true},
+		{
+			"structured operand match",
+			map[string]any{"key": []any{1, "two"}},
+			[]any{map[string]any{"key": []any{1, "two"}}},
+			true,
+		},
+		{
+			"large integer does not equal rounded float",
+			int64(9_007_199_254_740_993),
+			[]any{float64(9_007_199_254_740_992)},
+			false,
+		},
 	}
 
 	op := In{}
@@ -106,6 +118,22 @@ func TestContainsOperator(t *testing.T) {
 				t.Errorf("got %v, want %v", got, tt.expected)
 			}
 		})
+	}
+}
+
+func TestContainsStructuredValues(t *testing.T) {
+	want := map[string]any{"nested": []any{1, "two"}}
+	values := []any{
+		map[string]any{"other": true},
+		map[string]any{"nested": []any{1, "two"}},
+	}
+
+	got, err := (Contains{}).Evaluate(node.New("values", values), nil, []any{want})
+	if err != nil {
+		t.Fatalf("Contains returned error: %v", err)
+	}
+	if !got {
+		t.Fatal("Contains did not match an equal structured value")
 	}
 }
 

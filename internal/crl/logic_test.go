@@ -13,9 +13,6 @@ import (
 	"github.com/zmap/zcrypto/x509/pkix"
 )
 
-// TestCertSignsCRL_issuerMatchDoesNotVerifySignature documents that CertSignsCRL
-// is a cheap identity hint only. Operators that need cryptographic proof must
-// call CheckSignatureFrom (see CRLSignedBy).
 func TestCertSignsCRL_nilInputs(t *testing.T) {
 	if CertSignsCRL(nil, &x509.RevocationList{}) {
 		t.Fatal("nil cert must not sign CRL")
@@ -32,7 +29,7 @@ func TestSigningCertFromPool_nilCRL(t *testing.T) {
 	}
 }
 
-func TestCertSignsCRL_issuerMatchDoesNotVerifySignature(t *testing.T) {
+func TestCertSignsCRLRejectsIssuerMatchWithoutSignature(t *testing.T) {
 	revocationList, err := ParseCRL(mustReadCRLFixture(t))
 	if err != nil {
 		t.Fatalf("parse CRL: %v", err)
@@ -61,8 +58,8 @@ func TestCertSignsCRL_issuerMatchDoesNotVerifySignature(t *testing.T) {
 		t.Fatalf("parse fake signer: %v", err)
 	}
 
-	if !CertSignsCRL(parsed, revocationList) {
-		t.Fatal("CertSignsCRL reports true on DN/AKI match without checking signature")
+	if CertSignsCRL(parsed, revocationList) {
+		t.Fatal("CertSignsCRL must reject DN/AKI match without a valid signature")
 	}
 	if revocationList.CheckSignatureFrom(parsed) == nil {
 		t.Fatal("bogus cert must not verify CRL signature")
@@ -129,6 +126,62 @@ func TestSigningCertFromPool_prefersSignatureOverSubjectSpoof(t *testing.T) {
 	}
 	if got.Subject.CommonName != "Real CRL CA" {
 		t.Fatalf("SigningCertFromPool() CN = %q, want Real CRL CA", got.Subject.CommonName)
+	}
+}
+
+func TestVerifyingCertFromPoolRejectsSameKeyDifferentSubject(t *testing.T) {
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("generate key: %v", err)
+	}
+	now := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+	issuerTemplate := &cryptox509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               cryptopkix.Name{CommonName: "Named CRL Issuer"},
+		NotBefore:             now.Add(-time.Hour),
+		NotAfter:              now.Add(24 * time.Hour),
+		KeyUsage:              cryptox509.KeyUsageCertSign | cryptox509.KeyUsageCRLSign,
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+		SubjectKeyId:          []byte{0xaa},
+	}
+	issuerDER, err := cryptox509.CreateCertificate(rand.Reader, issuerTemplate, issuerTemplate, &key.PublicKey, key)
+	if err != nil {
+		t.Fatalf("create issuer: %v", err)
+	}
+	issuerStd, err := cryptox509.ParseCertificate(issuerDER)
+	if err != nil {
+		t.Fatalf("parse issuer: %v", err)
+	}
+	crlDER, err := cryptox509.CreateRevocationList(rand.Reader, &cryptox509.RevocationList{
+		Number:     big.NewInt(1),
+		ThisUpdate: now,
+		NextUpdate: now.Add(time.Hour),
+	}, issuerStd, key)
+	if err != nil {
+		t.Fatalf("create CRL: %v", err)
+	}
+	revocationList, err := ParseCRL(crlDER)
+	if err != nil {
+		t.Fatalf("parse CRL: %v", err)
+	}
+
+	differentSubject := *issuerTemplate
+	differentSubject.SerialNumber = big.NewInt(2)
+	differentSubject.Subject = cryptopkix.Name{CommonName: "Different Subject"}
+	differentDER, err := cryptox509.CreateCertificate(rand.Reader, &differentSubject, &differentSubject, &key.PublicKey, key)
+	if err != nil {
+		t.Fatalf("create same-key certificate: %v", err)
+	}
+	different, err := x509.ParseCertificate(differentDER)
+	if err != nil {
+		t.Fatalf("parse same-key certificate: %v", err)
+	}
+	if revocationList.CheckSignatureFrom(different) != nil {
+		t.Fatal("test setup requires zcrypto signature verification to accept the shared key")
+	}
+	if got := VerifyingCertFromPool(revocationList, []*x509.Certificate{different}); got != nil {
+		t.Fatal("same public key with a different subject must not identify the CRL issuer")
 	}
 }
 

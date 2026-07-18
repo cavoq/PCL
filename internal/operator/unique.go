@@ -1,6 +1,8 @@
 package operator
 
 import (
+	"reflect"
+
 	"github.com/cavoq/PCL/internal/node"
 )
 
@@ -22,15 +24,17 @@ func (UniqueValues) Evaluate(n *node.Node, _ *EvaluationContext, _ []any) (bool,
 		return true, nil
 	}
 
-	seen := make(map[any]bool)
+	var seen []any
 	for _, child := range n.Children {
 		if child.Value == nil {
 			continue // Skip nil values
 		}
-		if seen[child.Value] {
-			return false, nil // Duplicate found
+		for _, value := range seen {
+			if reflect.DeepEqual(value, child.Value) {
+				return false, nil // Duplicate found
+			}
 		}
-		seen[child.Value] = true
+		seen = append(seen, child.Value)
 	}
 
 	return true, nil

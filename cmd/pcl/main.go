@@ -37,6 +37,7 @@ func newRootCmd(opts *linter.Config) *cobra.Command {
 			if !hasCert && !hasIssuer && opts.CRLPath == "" && opts.OCSPPath == "" {
 				return fmt.Errorf("at least one of --cert, --cert-url, --issuer, --issuer-url, --crl, or --ocsp is required")
 			}
+			opts.Diagnostics = cmd.ErrOrStderr()
 			return linter.Run(*opts, cmd.OutOrStdout())
 		},
 	}

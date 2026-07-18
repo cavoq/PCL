@@ -38,6 +38,12 @@ func TestEqOperator(t *testing.T) {
 			expected: false,
 		},
 		{
+			name:     "nil node is not implicit false",
+			node:     nil,
+			operands: []any{false},
+			expected: false,
+		},
+		{
 			name:     "no operands",
 			node:     node.New("x", 5),
 			operands: []any{},

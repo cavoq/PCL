@@ -8,6 +8,42 @@ type Operator interface {
 	Evaluate(n *node.Node, ctx *EvaluationContext, operands []any) (bool, error)
 }
 
+// OperandValidator is an optional operator capability for validating policy
+// operands before evaluation. Operators that do not implement it remain valid,
+// which preserves support for existing custom operators.
+//
+// The active registry is provided so composite operators can validate nested
+// operator invocations against the same set of registered operators.
+type OperandValidator interface {
+	ValidateOperands(operands []any, registry *Registry) error
+}
+
+// OperandValidatorFunc adapts a validation function to OperandValidator. It is
+// useful for sharing data-driven operand contracts across multiple operators.
+type OperandValidatorFunc func(operands []any, registry *Registry) error
+
+func (validate OperandValidatorFunc) ValidateOperands(operands []any, registry *Registry) error {
+	return validate(operands, registry)
+}
+
+// RegistryAwareOperator is an optional operator capability for composite
+// operators that need to invoke another operator. Registry.Evaluate supplies
+// the active registry so nested evaluation honors custom registrations.
+type RegistryAwareOperator interface {
+	EvaluateWithRegistry(
+		n *node.Node,
+		ctx *EvaluationContext,
+		operands []any,
+		registry *Registry,
+	) (bool, error)
+}
+
+// MissingTargetAware marks operators for which a missing node is meaningful
+// input rather than an evaluation gap (for example, present and absent).
+type MissingTargetAware interface {
+	AcceptsMissingTarget()
+}
+
 var All = []Operator{
 	Eq{},
 	Neq{},
@@ -22,6 +58,8 @@ var All = []Operator{
 	Contains{},
 	Before{},
 	After{},
+	OnOrBefore{},
+	OnOrAfter{},
 	Matches{},
 	Positive{},
 	Odd{},

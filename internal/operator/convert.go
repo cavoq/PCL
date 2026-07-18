@@ -1,45 +1,52 @@
 package operator
 
-func ToFloat64(v any) (float64, bool) {
-	switch n := v.(type) {
-	case int:
-		return float64(n), true
-	case int8:
-		return float64(n), true
-	case int16:
-		return float64(n), true
-	case int32:
-		return float64(n), true
-	case int64:
-		return float64(n), true
-	case uint:
-		return float64(n), true
-	case uint8:
-		return float64(n), true
-	case uint16:
-		return float64(n), true
-	case uint32:
-		return float64(n), true
-	case uint64:
-		return float64(n), true
-	case float32:
-		return float64(n), true
-	case float64:
-		return n, true
-	default:
+import "math/big"
+
+// compareNumericValues compares all numeric representations supported by the
+// operator package without converting integers through float64. The boolean
+// result is false for non-numeric and non-finite values.
+func compareNumericValues(a, b any) (int, bool) {
+	aValue, ok := numericValue(a)
+	if !ok {
 		return 0, false
 	}
+	bValue, ok := numericValue(b)
+	if !ok {
+		return 0, false
+	}
+	return aValue.Cmp(bValue), true
 }
 
-func ToInt(v any) (int, bool) {
-	switch val := v.(type) {
+func numericValue(value any) (*big.Rat, bool) {
+	result := new(big.Rat)
+	switch number := value.(type) {
 	case int:
-		return val, true
+		return result.SetInt64(int64(number)), true
+	case int8:
+		return result.SetInt64(int64(number)), true
+	case int16:
+		return result.SetInt64(int64(number)), true
+	case int32:
+		return result.SetInt64(int64(number)), true
 	case int64:
-		return int(val), true
+		return result.SetInt64(number), true
+	case uint:
+		return result.SetUint64(uint64(number)), true
+	case uint8:
+		return result.SetUint64(uint64(number)), true
+	case uint16:
+		return result.SetUint64(uint64(number)), true
+	case uint32:
+		return result.SetUint64(uint64(number)), true
+	case uint64:
+		return result.SetUint64(number), true
+	case float32:
+		converted := result.SetFloat64(float64(number))
+		return converted, converted != nil
 	case float64:
-		return int(val), true
+		converted := result.SetFloat64(number)
+		return converted, converted != nil
 	default:
-		return 0, false
+		return nil, false
 	}
 }

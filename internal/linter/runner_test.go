@@ -10,6 +10,7 @@ import (
 	"math/big"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -274,7 +275,7 @@ rules:
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			policies, err := loadPolicies(tt.paths)
+			policies, err := loadPolicies(tt.paths, operator.DefaultRegistry())
 			if tt.wantErr {
 				if err == nil {
 					t.Error("expected error, got nil")
@@ -289,6 +290,87 @@ rules:
 				t.Errorf("got %d policies, want %d", len(policies), tt.wantLen)
 			}
 		})
+	}
+}
+
+func TestLoadPoliciesRejectsUnknownOperator(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "unknown-operator.yaml")
+	data := []byte(`
+id: invalid-policy
+rules:
+  - id: typo
+    target: certificate.version
+    operator: doesNotExist
+    severity: error
+`)
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := loadPolicies([]string{path}, operator.DefaultRegistry())
+	if err == nil || !strings.Contains(err.Error(), `unknown operator "doesNotExist"`) {
+		t.Fatalf("expected executable-policy validation error, got %v", err)
+	}
+
+	err = Run(Config{PolicyPaths: []string{path}}, &bytes.Buffer{})
+	if err == nil || !strings.Contains(err.Error(), `unknown operator "doesNotExist"`) {
+		t.Fatalf("Run should reject the policy before loading inputs, got %v", err)
+	}
+}
+
+func TestLoadPoliciesRejectsInvalidOperands(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "invalid-operands.yaml")
+	data := []byte(`
+id: invalid-policy
+rules:
+  - id: invalid-operands
+    target: certificate.version
+    operator: gte
+    operands: [not-a-number]
+    severity: error
+`)
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := loadPolicies([]string{path}, operator.DefaultRegistry())
+	if err == nil || !strings.Contains(err.Error(), `operator "gte"`) {
+		t.Fatalf("expected operand validation error, got %v", err)
+	}
+
+	err = Run(Config{PolicyPaths: []string{path}}, &bytes.Buffer{})
+	if err == nil || !strings.Contains(err.Error(), `operator "gte"`) {
+		t.Fatalf("Run should reject operands before loading inputs, got %v", err)
+	}
+}
+
+func TestLoadPoliciesRejectsEmptyInputs(t *testing.T) {
+	registry := operator.DefaultRegistry()
+	if _, err := loadPolicies(nil, registry); err == nil {
+		t.Fatal("expected missing policy path error")
+	}
+	if _, err := loadPolicies([]string{t.TempDir()}, registry); err == nil {
+		t.Fatal("expected empty policy directory error")
+	}
+
+	path := filepath.Join(t.TempDir(), "empty.yaml")
+	if err := os.WriteFile(path, []byte("id: empty\nrules: []\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := loadPolicies([]string{path}, registry); err == nil || !strings.Contains(err.Error(), "contains no rules") {
+		t.Fatalf("expected zero-rule policy error, got %v", err)
+	}
+}
+
+func TestRunRejectsNoApplicablePolicy(t *testing.T) {
+	cfg := Config{
+		PolicyPaths: []string{filepath.Join("..", "..", "tests", "policies", "crl-validity.yaml")},
+		CertPath:    filepath.Join("..", "..", "tests", "certs", "root.pem"),
+	}
+
+	err := Run(cfg, &bytes.Buffer{})
+	if err == nil || !strings.Contains(err.Error(), "no loaded policy applies") {
+		t.Fatalf("expected no-applicable-policy error, got %v", err)
 	}
 }
 
@@ -325,6 +407,76 @@ func TestLoadIssuersIfProvided(t *testing.T) {
 	}
 	if cleanup != nil {
 		t.Errorf("expected nil cleanup")
+	}
+}
+
+func TestApplyDefaults_normalizesLegacyIssuerPath(t *testing.T) {
+	cfg := Config{
+		IssuerPath:  "legacy.pem",
+		IssuerPaths: []string{"other.pem"},
+	}
+	applyDefaults(&cfg)
+
+	want := []string{"legacy.pem", "other.pem"}
+	if len(cfg.IssuerPaths) != len(want) {
+		t.Fatalf("IssuerPaths = %v, want %v", cfg.IssuerPaths, want)
+	}
+	for i := range want {
+		if cfg.IssuerPaths[i] != want[i] {
+			t.Fatalf("IssuerPaths = %v, want %v", cfg.IssuerPaths, want)
+		}
+	}
+}
+
+func TestCleanupStack_closesInReverseOrderOnce(t *testing.T) {
+	var got []int
+	var cleanups cleanupStack
+	cleanups.Add(func() { got = append(got, 1) })
+	cleanups.Add(nil)
+	cleanups.Add(func() { got = append(got, 2) })
+
+	cleanups.Close()
+	cleanups.Close()
+
+	if len(got) != 2 || got[0] != 2 || got[1] != 1 {
+		t.Fatalf("cleanup order = %v, want [2 1]", got)
+	}
+}
+
+func TestLoadCertificates_returnsCleanupOnDownloadError(t *testing.T) {
+	_, cleanup, err := loadCertificates(Config{CertURLs: []string{"://invalid"}})
+	if err == nil {
+		t.Fatal("expected invalid URL error")
+	}
+	if cleanup == nil {
+		t.Fatal("expected temporary-directory cleanup with error")
+	}
+	cleanup()
+}
+
+func TestLoadIssuers_returnsCleanupOnDownloadError(t *testing.T) {
+	_, cleanup, err := loadIssuers(Config{IssuerURLs: []string{"://invalid"}})
+	if err == nil {
+		t.Fatal("expected invalid URL error")
+	}
+	if cleanup == nil {
+		t.Fatal("expected temporary-directory cleanup with error")
+	}
+	cleanup()
+}
+
+func TestRun_certificateLoadFailureIsFatal(t *testing.T) {
+	cfg := Config{
+		PolicyPaths: []string{filepath.Join("..", "..", "tests", "policies", "basic.yaml")},
+		CertPath:    filepath.Join(t.TempDir(), "missing.pem"),
+	}
+
+	err := Run(cfg, &bytes.Buffer{})
+	if err == nil {
+		t.Fatal("expected certificate load error")
+	}
+	if !strings.Contains(err.Error(), "failed to load certificates") {
+		t.Fatalf("Run error = %q, want certificate load context", err)
 	}
 }
 
@@ -368,7 +520,7 @@ func TestProcessCertificates_withCRLAndResolve(t *testing.T) {
 
 	certDir := filepath.Join("..", "..", "tests", "certs")
 	cfg := Config{
-		CertPath:    filepath.Join(certDir, "leaf.pem"),
+		CertPath: filepath.Join(certDir, "leaf.pem"),
 		IssuerPaths: []string{
 			filepath.Join(certDir, "intermediate.pem"),
 			filepath.Join(certDir, "root.pem"),
@@ -389,9 +541,15 @@ func TestProcessCertificates_withCRLAndResolve(t *testing.T) {
 
 	reg := operator.DefaultRegistry()
 	var buf bytes.Buffer
-	results, cleanup := processCertificates(cfg, []policy.Policy{pol}, reg, crls, nil, issuers, issuerCleanup, &buf)
+	if issuerCleanup != nil {
+		defer issuerCleanup()
+	}
+	results, cleanup, err := processCertificates(cfg, []policy.Policy{pol}, reg, crls, nil, issuers, &buf)
 	if cleanup != nil {
 		defer cleanup()
+	}
+	if err != nil {
+		t.Fatalf("processCertificates: %v", err)
 	}
 	if results == nil {
 		t.Fatal("expected results slice from processCertificates")
@@ -484,9 +642,12 @@ func TestProcessCertificates_autoValidateExtendsChainFromIssuerPool(t *testing.T
 
 	reg := operator.DefaultRegistry()
 	var buf bytes.Buffer
-	results, cleanup := processCertificates(cfg, []policy.Policy{pol}, reg, nil, nil, nil, nil, &buf)
+	results, cleanup, err := processCertificates(cfg, []policy.Policy{pol}, reg, nil, nil, nil, &buf)
 	if cleanup != nil {
 		defer cleanup()
+	}
+	if err != nil {
+		t.Fatalf("processCertificates: %v", err)
 	}
 	if results == nil {
 		t.Fatal("expected results from auto-validate with issuer pool")

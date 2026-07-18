@@ -1,413 +1,130 @@
 package operator
 
 import (
-	"math/big"
+	"path/filepath"
 	"testing"
 	"time"
-
-	stdocsp "golang.org/x/crypto/ocsp"
-
-	"github.com/zmap/zcrypto/x509"
 
 	"github.com/cavoq/PCL/internal/cert"
 	"github.com/cavoq/PCL/internal/ocsp"
 )
 
-func TestOCSPValidName(t *testing.T) {
-	op := OCSPValid{}
-	if op.Name() != "ocspValid" {
-		t.Error("wrong name")
+func TestOCSPOperatorNames(t *testing.T) {
+	tests := []struct {
+		operator Operator
+		want     string
+	}{
+		{operator: OCSPValid{}, want: "ocspValid"},
+		{operator: NotRevokedOCSP{}, want: "notRevokedOCSP"},
+		{operator: OCSPGood{}, want: "ocspGood"},
+	}
+	for _, test := range tests {
+		if got := test.operator.Name(); got != test.want {
+			t.Errorf("name = %q, want %q", got, test.want)
+		}
 	}
 }
 
-func TestOCSPValidNilContext(t *testing.T) {
-	op := OCSPValid{}
-	got, err := op.Evaluate(nil, nil, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
+func TestOCSPOperatorsUseAcceptedEvidence(t *testing.T) {
+	tests := []struct {
+		name            string
+		responseFile    string
+		afterNextUpdate bool
+		wantValid       bool
+		wantNotRevoked  bool
+		wantGood        bool
+	}{
+		{name: "absent"},
+		{name: "good", responseFile: "good-leaf.ocsp", wantValid: true, wantNotRevoked: true, wantGood: true},
+		{name: "good without nextUpdate", responseFile: "no-next-update-leaf.ocsp", wantValid: true, wantNotRevoked: true, wantGood: true},
+		{name: "revoked", responseFile: "revoked-leaf.ocsp", wantValid: true},
+		{name: "unknown", responseFile: "unknown-leaf.ocsp", wantValid: true},
+		{name: "different serial", responseFile: "wrong-leaf.ocsp"},
+		{name: "issuer mismatch", responseFile: "issuer-mismatch-leaf.ocsp"},
+		{name: "bad signature", responseFile: "wrong-signer-leaf.ocsp"},
+		{name: "stale", responseFile: "stale-leaf.ocsp", afterNextUpdate: true},
 	}
-	if got {
-		t.Error("nil context should return false")
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ctx := loadOCSPOperatorContext(t, test.responseFile, test.afterNextUpdate)
+
+			valid, err := (OCSPValid{}).Evaluate(nil, ctx, nil)
+			if err != nil {
+				t.Fatalf("ocspValid: %v", err)
+			}
+			notRevoked, err := (NotRevokedOCSP{}).Evaluate(nil, ctx, nil)
+			if err != nil {
+				t.Fatalf("notRevokedOCSP: %v", err)
+			}
+			good, err := (OCSPGood{}).Evaluate(nil, ctx, nil)
+			if err != nil {
+				t.Fatalf("ocspGood: %v", err)
+			}
+
+			if valid != test.wantValid || notRevoked != test.wantNotRevoked || good != test.wantGood {
+				t.Fatalf("results = (valid=%v, notRevoked=%v, good=%v), want (%v, %v, %v)",
+					valid, notRevoked, good, test.wantValid, test.wantNotRevoked, test.wantGood)
+			}
+		})
 	}
 }
 
-func TestOCSPValidNoOCSPs(t *testing.T) {
-	op := OCSPValid{}
-	ctx := &EvaluationContext{OCSPs: nil}
-	got, err := op.Evaluate(nil, ctx, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if got {
-		t.Error("empty OCSPs should return false")
+func TestOCSPOperatorsFailClosedWithoutIssuer(t *testing.T) {
+	ctx := loadOCSPOperatorContext(t, "good-leaf.ocsp", false)
+	ctx.Chain = ctx.Chain[:1]
+
+	for _, operator := range []Operator{OCSPValid{}, NotRevokedOCSP{}, OCSPGood{}} {
+		got, err := operator.Evaluate(nil, ctx, nil)
+		if err != nil {
+			t.Fatalf("%s: %v", operator.Name(), err)
+		}
+		if got {
+			t.Fatalf("%s accepted evidence without its issuer", operator.Name())
+		}
 	}
 }
 
-func TestOCSPValidNoChain(t *testing.T) {
-	op := OCSPValid{}
-	now := time.Now()
+func loadOCSPOperatorContext(t *testing.T, responseFile string, afterNextUpdate bool) *EvaluationContext {
+	t.Helper()
+
+	leaf := loadSingleCertificate(t, filepath.Join("..", "..", "tests", "certs", "ocsp-leaf.pem"))
+	issuer := loadSingleCertificate(t, filepath.Join("..", "..", "tests", "certs", "ocsp-intermediate.pem"))
 	ctx := &EvaluationContext{
-		Now: now,
-		OCSPs: []*ocsp.Info{{
-			Response: &stdocsp.Response{
-				ThisUpdate: now.Add(-time.Hour),
-				NextUpdate: now.Add(time.Hour),
-			},
-		}},
-		Chain: nil,
+		Cert:  leaf,
+		Chain: []*cert.Info{leaf, issuer},
 	}
-	got, err := op.Evaluate(nil, ctx, nil)
+	if responseFile == "" {
+		ctx.Now = time.Date(2026, time.July, 18, 12, 0, 0, 0, time.UTC)
+		return ctx
+	}
+
+	responses, err := ocsp.GetOCSPs(filepath.Join("..", "..", "tests", "ocsps", responseFile))
 	if err != nil {
-		t.Errorf("unexpected error: %v", err)
+		t.Fatalf("load OCSP response %s: %v", responseFile, err)
 	}
-	if got {
-		t.Error("no chain should return false")
+	if len(responses) != 1 || responses[0] == nil || responses[0].Response == nil {
+		t.Fatalf("expected one OCSP response from %s", responseFile)
 	}
+	ctx.OCSPs = responses
+	ctx.Now = responses[0].Response.ThisUpdate
+	if afterNextUpdate {
+		if responses[0].Response.NextUpdate.IsZero() {
+			t.Fatalf("fixture %s has no nextUpdate", responseFile)
+		}
+		ctx.Now = responses[0].Response.NextUpdate.Add(time.Second)
+	}
+	return ctx
 }
 
-func TestOCSPValidBeforeThisUpdate(t *testing.T) {
-	op := OCSPValid{}
-	now := time.Now()
-	ctx := &EvaluationContext{
-		Now: now,
-		OCSPs: []*ocsp.Info{{
-			Response: &stdocsp.Response{
-				ThisUpdate: now.Add(time.Hour),
-				NextUpdate: now.Add(2 * time.Hour),
-			},
-		}},
-		Chain: []*cert.Info{{}},
-	}
-	got, err := op.Evaluate(nil, ctx, nil)
+func loadSingleCertificate(t *testing.T, path string) *cert.Info {
+	t.Helper()
+	certificates, err := cert.LoadCertificates(path)
 	if err != nil {
-		t.Errorf("unexpected error: %v", err)
+		t.Fatalf("load certificate %s: %v", path, err)
 	}
-	if got {
-		t.Error("OCSP before thisUpdate should be invalid")
+	if len(certificates) != 1 {
+		t.Fatalf("certificate count for %s = %d, want 1", path, len(certificates))
 	}
-}
-
-func TestOCSPValidAfterNextUpdate(t *testing.T) {
-	op := OCSPValid{}
-	now := time.Now()
-	ctx := &EvaluationContext{
-		Now: now,
-		OCSPs: []*ocsp.Info{{
-			Response: &stdocsp.Response{
-				ThisUpdate: now.Add(-2 * time.Hour),
-				NextUpdate: now.Add(-time.Hour),
-			},
-		}},
-		Chain: []*cert.Info{{}},
-	}
-	got, err := op.Evaluate(nil, ctx, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if got {
-		t.Error("OCSP after nextUpdate should be invalid")
-	}
-}
-
-func TestOCSPValidNilResponseInInfo(t *testing.T) {
-	op := OCSPValid{}
-	now := time.Now()
-	ctx := &EvaluationContext{
-		Now: now,
-		OCSPs: []*ocsp.Info{
-			{Response: nil},
-		},
-		Chain: []*cert.Info{{}},
-	}
-	got, err := op.Evaluate(nil, ctx, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if got {
-		t.Error("nil responses should not make OCSP valid")
-	}
-}
-
-func TestNotRevokedOCSPName(t *testing.T) {
-	op := NotRevokedOCSP{}
-	if op.Name() != "notRevokedOCSP" {
-		t.Error("wrong name")
-	}
-}
-
-func TestNotRevokedOCSPNilContext(t *testing.T) {
-	op := NotRevokedOCSP{}
-	got, err := op.Evaluate(nil, nil, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if got {
-		t.Error("nil context should return false")
-	}
-}
-
-func TestNotRevokedOCSPNilCert(t *testing.T) {
-	op := NotRevokedOCSP{}
-	ctx := &EvaluationContext{Cert: nil}
-	got, err := op.Evaluate(nil, ctx, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if got {
-		t.Error("nil cert should return false")
-	}
-}
-
-func TestNotRevokedOCSPNoOCSPs(t *testing.T) {
-	op := NotRevokedOCSP{}
-	ctx := &EvaluationContext{
-		Cert: &cert.Info{
-			Cert: &x509.Certificate{
-				SerialNumber: big.NewInt(123),
-			},
-		},
-		OCSPs: nil,
-	}
-	got, err := op.Evaluate(nil, ctx, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if !got {
-		t.Error("no OCSPs should return true (not revoked)")
-	}
-}
-
-func TestNotRevokedOCSPCertNotRevoked(t *testing.T) {
-	op := NotRevokedOCSP{}
-	serial := big.NewInt(123)
-	ctx := &EvaluationContext{
-		Cert: &cert.Info{
-			Cert: &x509.Certificate{
-				SerialNumber: serial,
-			},
-		},
-		OCSPs: []*ocsp.Info{{
-			Response: &stdocsp.Response{
-				SerialNumber: serial,
-				Status:       stdocsp.Good,
-			},
-		}},
-	}
-	got, err := op.Evaluate(nil, ctx, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if !got {
-		t.Error("good status should return true")
-	}
-}
-
-func TestNotRevokedOCSPCertRevoked(t *testing.T) {
-	op := NotRevokedOCSP{}
-	serial := big.NewInt(123)
-	ctx := &EvaluationContext{
-		Cert: &cert.Info{
-			Cert: &x509.Certificate{
-				SerialNumber: serial,
-			},
-		},
-		OCSPs: []*ocsp.Info{{
-			Response: &stdocsp.Response{
-				SerialNumber: serial,
-				Status:       stdocsp.Revoked,
-			},
-		}},
-	}
-	got, err := op.Evaluate(nil, ctx, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if got {
-		t.Error("revoked status should return false")
-	}
-}
-
-func TestNotRevokedOCSPCertUnknown(t *testing.T) {
-	op := NotRevokedOCSP{}
-	serial := big.NewInt(123)
-	ctx := &EvaluationContext{
-		Cert: &cert.Info{
-			Cert: &x509.Certificate{
-				SerialNumber: serial,
-			},
-		},
-		OCSPs: []*ocsp.Info{{
-			Response: &stdocsp.Response{
-				SerialNumber: serial,
-				Status:       stdocsp.Unknown,
-			},
-		}},
-	}
-	got, err := op.Evaluate(nil, ctx, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if got {
-		t.Error("unknown status should return false")
-	}
-}
-
-func TestNotRevokedOCSPDifferentSerial(t *testing.T) {
-	op := NotRevokedOCSP{}
-	ctx := &EvaluationContext{
-		Cert: &cert.Info{
-			Cert: &x509.Certificate{
-				SerialNumber: big.NewInt(123),
-			},
-		},
-		OCSPs: []*ocsp.Info{{
-			Response: &stdocsp.Response{
-				SerialNumber: big.NewInt(456),
-				Status:       stdocsp.Revoked,
-			},
-		}},
-	}
-	got, err := op.Evaluate(nil, ctx, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if !got {
-		t.Error("different serial should not affect cert")
-	}
-}
-
-func TestOCSPGoodName(t *testing.T) {
-	op := OCSPGood{}
-	if op.Name() != "ocspGood" {
-		t.Error("wrong name")
-	}
-}
-
-func TestOCSPGoodNilContext(t *testing.T) {
-	op := OCSPGood{}
-	got, err := op.Evaluate(nil, nil, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if got {
-		t.Error("nil context should return false")
-	}
-}
-
-func TestOCSPGoodNoOCSPs(t *testing.T) {
-	op := OCSPGood{}
-	ctx := &EvaluationContext{
-		Cert: &cert.Info{
-			Cert: &x509.Certificate{
-				SerialNumber: big.NewInt(123),
-			},
-		},
-		OCSPs: nil,
-	}
-	got, err := op.Evaluate(nil, ctx, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if got {
-		t.Error("no OCSPs should return false (requires explicit Good)")
-	}
-}
-
-func TestOCSPGoodWithGoodStatus(t *testing.T) {
-	op := OCSPGood{}
-	serial := big.NewInt(123)
-	ctx := &EvaluationContext{
-		Cert: &cert.Info{
-			Cert: &x509.Certificate{
-				SerialNumber: serial,
-			},
-		},
-		OCSPs: []*ocsp.Info{{
-			Response: &stdocsp.Response{
-				SerialNumber: serial,
-				Status:       stdocsp.Good,
-			},
-		}},
-	}
-	got, err := op.Evaluate(nil, ctx, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if !got {
-		t.Error("good status should return true")
-	}
-}
-
-func TestOCSPGoodWithRevokedStatus(t *testing.T) {
-	op := OCSPGood{}
-	serial := big.NewInt(123)
-	ctx := &EvaluationContext{
-		Cert: &cert.Info{
-			Cert: &x509.Certificate{
-				SerialNumber: serial,
-			},
-		},
-		OCSPs: []*ocsp.Info{{
-			Response: &stdocsp.Response{
-				SerialNumber: serial,
-				Status:       stdocsp.Revoked,
-			},
-		}},
-	}
-	got, err := op.Evaluate(nil, ctx, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if got {
-		t.Error("revoked status should return false")
-	}
-}
-
-func TestOCSPGoodWithUnknownStatus(t *testing.T) {
-	op := OCSPGood{}
-	serial := big.NewInt(123)
-	ctx := &EvaluationContext{
-		Cert: &cert.Info{
-			Cert: &x509.Certificate{
-				SerialNumber: serial,
-			},
-		},
-		OCSPs: []*ocsp.Info{{
-			Response: &stdocsp.Response{
-				SerialNumber: serial,
-				Status:       stdocsp.Unknown,
-			},
-		}},
-	}
-	got, err := op.Evaluate(nil, ctx, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if got {
-		t.Error("unknown status should return false")
-	}
-}
-
-func TestOCSPGoodDifferentSerial(t *testing.T) {
-	op := OCSPGood{}
-	ctx := &EvaluationContext{
-		Cert: &cert.Info{
-			Cert: &x509.Certificate{
-				SerialNumber: big.NewInt(123),
-			},
-		},
-		OCSPs: []*ocsp.Info{{
-			Response: &stdocsp.Response{
-				SerialNumber: big.NewInt(456),
-				Status:       stdocsp.Good,
-			},
-		}},
-	}
-	got, err := op.Evaluate(nil, ctx, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if got {
-		t.Error("different serial should not match")
-	}
+	return certificates[0]
 }

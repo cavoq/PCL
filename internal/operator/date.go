@@ -2,6 +2,8 @@ package operator
 
 import (
 	"fmt"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/cavoq/PCL/internal/node"
@@ -12,16 +14,7 @@ type Before struct{}
 func (Before) Name() string { return "before" }
 
 func (Before) Evaluate(n *node.Node, ctx *EvaluationContext, operands []any) (bool, error) {
-	if n == nil {
-		return false, nil
-	}
-
-	nodeTime, err := toTime(n.Value)
-	if err != nil {
-		return false, err
-	}
-
-	compareTime, err := getCompareTime(operands, ctx)
+	nodeTime, compareTime, err := dateComparison(n, ctx, operands)
 	if err != nil {
 		return false, err
 	}
@@ -34,21 +27,56 @@ type After struct{}
 func (After) Name() string { return "after" }
 
 func (After) Evaluate(n *node.Node, ctx *EvaluationContext, operands []any) (bool, error) {
-	if n == nil {
-		return false, nil
-	}
-
-	nodeTime, err := toTime(n.Value)
-	if err != nil {
-		return false, err
-	}
-
-	compareTime, err := getCompareTime(operands, ctx)
+	nodeTime, compareTime, err := dateComparison(n, ctx, operands)
 	if err != nil {
 		return false, err
 	}
 
 	return nodeTime.After(compareTime), nil
+}
+
+type OnOrBefore struct{}
+
+func (OnOrBefore) Name() string { return "onOrBefore" }
+
+func (OnOrBefore) Evaluate(n *node.Node, ctx *EvaluationContext, operands []any) (bool, error) {
+	nodeTime, compareTime, err := dateComparison(n, ctx, operands)
+	if err != nil {
+		return false, err
+	}
+
+	return !nodeTime.After(compareTime), nil
+}
+
+type OnOrAfter struct{}
+
+func (OnOrAfter) Name() string { return "onOrAfter" }
+
+func (OnOrAfter) Evaluate(n *node.Node, ctx *EvaluationContext, operands []any) (bool, error) {
+	nodeTime, compareTime, err := dateComparison(n, ctx, operands)
+	if err != nil {
+		return false, err
+	}
+
+	return !nodeTime.Before(compareTime), nil
+}
+
+func dateComparison(n *node.Node, ctx *EvaluationContext, operands []any) (time.Time, time.Time, error) {
+	if n == nil {
+		return time.Time{}, time.Time{}, fmt.Errorf("date target is missing")
+	}
+
+	nodeTime, err := toTime(n.Value)
+	if err != nil {
+		return time.Time{}, time.Time{}, err
+	}
+
+	compareTime, err := getCompareTime(operands, ctx)
+	if err != nil {
+		return time.Time{}, time.Time{}, err
+	}
+
+	return nodeTime, compareTime, nil
 }
 
 func getCompareTime(operands []any, ctx *EvaluationContext) (time.Time, error) {
@@ -106,102 +134,43 @@ func toTime(v any) (time.Time, error) {
 //   - maxHours: maximum allowed hours (optional)
 //
 // Example YAML usage:
-//   target: crl
-//   operator: dateDiff
-//   operands:
-//     start: thisUpdate
-//     end: nextUpdate
-//     maxDays: 10
+//
+//	target: crl
+//	operator: dateDiff
+//	operands:
+//	  start: thisUpdate
+//	  end: nextUpdate
+//	  maxDays: 10
 //
 // For BR OCSP validity interval (8 hours to 10 days):
-//   target: ocsp
-//   operator: dateDiff
-//   operands:
-//     start: thisUpdate
-//     end: nextUpdate
-//     minHours: 8
-//     maxDays: 10
+//
+//	target: ocsp
+//	operator: dateDiff
+//	operands:
+//	  start: thisUpdate
+//	  end: nextUpdate
+//	  minHours: 8
+//	  maxDays: 10
 type DateDiff struct{}
 
 func (DateDiff) Name() string { return "dateDiff" }
 
+func (DateDiff) ValidateOperands(operands []any, _ *Registry) error {
+	_, err := parseDateDiffOperands(operands)
+	return err
+}
+
 func (DateDiff) Evaluate(n *node.Node, _ *EvaluationContext, operands []any) (bool, error) {
+	parsed, err := parseDateDiffOperands(operands)
+	if err != nil {
+		return false, err
+	}
 	if n == nil {
 		return false, nil
 	}
 
-	// Parse operands
-	var startPath string
-	var endPath string
-	var maxDays int
-	var maxMonths int
-	var minDays int
-	var minHours int
-	var maxHours int
-
-	if len(operands) == 0 {
-		return false, nil
-	}
-
-	if m, ok := operands[0].(map[string]any); ok {
-		if p, ok := m["start"].(string); ok {
-			startPath = p
-		}
-		if p, ok := m["end"].(string); ok {
-			endPath = p
-		}
-		// Also support "from" as alias for "start"
-		if p, ok := m["from"].(string); ok && startPath == "" {
-			startPath = p
-		}
-		if d, ok := m["maxDays"].(int); ok {
-			maxDays = d
-		}
-		if d64, ok := m["maxDays"].(int64); ok {
-			maxDays = int(d64)
-		}
-		if f64, ok := m["maxDays"].(float64); ok {
-			maxDays = int(f64)
-		}
-		if mVal, ok := m["maxMonths"].(int); ok {
-			maxMonths = mVal
-		}
-		if m64, ok := m["maxMonths"].(int64); ok {
-			maxMonths = int(m64)
-		}
-		if mf64, ok := m["maxMonths"].(float64); ok {
-			maxMonths = int(mf64)
-		}
-		if d, ok := m["minDays"].(int); ok {
-			minDays = d
-		}
-		// Parse hours parameters
-		if h, ok := m["minHours"].(int); ok {
-			minHours = h
-		}
-		if h64, ok := m["minHours"].(int64); ok {
-			minHours = int(h64)
-		}
-		if hf64, ok := m["minHours"].(float64); ok {
-			minHours = int(hf64)
-		}
-		if h, ok := m["maxHours"].(int); ok {
-			maxHours = h
-		}
-		if h64, ok := m["maxHours"].(int64); ok {
-			maxHours = int(h64)
-		}
-		if hf64, ok := m["maxHours"].(float64); ok {
-			maxHours = int(hf64)
-		}
-	}
-
-	if startPath == "" {
-		return false, nil
-	}
-
 	// Resolve start date from target node's children
-	startNode := resolvePath(n, startPath)
+	startNode := resolvePath(n, parsed.startPath)
 	if startNode == nil || startNode.Value == nil {
 		return false, nil
 	}
@@ -213,8 +182,8 @@ func (DateDiff) Evaluate(n *node.Node, _ *EvaluationContext, operands []any) (bo
 
 	// Resolve end date - if endPath not specified, use target node's value
 	var endDate time.Time
-	if endPath != "" {
-		endNode := resolvePath(n, endPath)
+	if parsed.endPath != "" {
+		endNode := resolvePath(n, parsed.endPath)
 		if endNode == nil || endNode.Value == nil {
 			return false, nil
 		}
@@ -235,46 +204,172 @@ func (DateDiff) Evaluate(n *node.Node, _ *EvaluationContext, operands []any) (bo
 
 	// Calculate difference
 	diff := endDate.Sub(startDate)
+	if diff < 0 {
+		return false, nil
+	}
 
 	// Check maximum days
-	if maxDays > 0 {
-		maxDuration := time.Duration(maxDays) * 24 * time.Hour
+	if parsed.maxDays > 0 {
+		maxDuration := time.Duration(parsed.maxDays) * 24 * time.Hour
 		if diff > maxDuration {
 			return false, nil
 		}
 	}
 
 	// Check maximum hours
-	if maxHours > 0 {
-		maxDuration := time.Duration(maxHours) * time.Hour
+	if parsed.maxHours > 0 {
+		maxDuration := time.Duration(parsed.maxHours) * time.Hour
 		if diff > maxDuration {
 			return false, nil
 		}
 	}
 
 	// Check maximum months (using AddDate for accurate month calculation)
-	if maxMonths > 0 {
-		maxDate := startDate.AddDate(0, maxMonths, 0)
+	if parsed.maxMonths > 0 {
+		maxDate := startDate.AddDate(0, parsed.maxMonths, 0)
 		if endDate.After(maxDate) {
 			return false, nil
 		}
 	}
 
 	// Check minimum days
-	if minDays > 0 {
-		minDuration := time.Duration(minDays) * 24 * time.Hour
+	if parsed.minDays > 0 {
+		minDuration := time.Duration(parsed.minDays) * 24 * time.Hour
 		if diff < minDuration {
 			return false, nil
 		}
 	}
 
 	// Check minimum hours
-	if minHours > 0 {
-		minDuration := time.Duration(minHours) * time.Hour
+	if parsed.minHours > 0 {
+		minDuration := time.Duration(parsed.minHours) * time.Hour
 		if diff < minDuration {
 			return false, nil
 		}
 	}
 
 	return true, nil
+}
+
+type dateDiffOperands struct {
+	startPath string
+	endPath   string
+	maxDays   int
+	maxMonths int
+	minDays   int
+	minHours  int
+	maxHours  int
+}
+
+const (
+	maxDateDiffHours  = (1<<63 - 1) / int64(time.Hour)
+	maxDateDiffDays   = (1<<63 - 1) / (24 * int64(time.Hour))
+	maxDateDiffMonths = int64(2_000_000_000)
+)
+
+func parseDateDiffOperands(operands []any) (dateDiffOperands, error) {
+	if len(operands) != 1 {
+		return dateDiffOperands{}, fmt.Errorf("requires exactly 1 object operand")
+	}
+	object, ok := operands[0].(map[string]any)
+	if !ok {
+		return dateDiffOperands{}, fmt.Errorf("operands[0]: expected object")
+	}
+
+	allowed := map[string]struct{}{
+		"start": {}, "from": {}, "end": {}, "maxDays": {}, "maxMonths": {},
+		"minDays": {}, "minHours": {}, "maxHours": {},
+	}
+	var unknown []string
+	for key := range object {
+		if _, exists := allowed[key]; !exists {
+			unknown = append(unknown, key)
+		}
+	}
+	if len(unknown) > 0 {
+		sort.Strings(unknown)
+		return dateDiffOperands{}, fmt.Errorf("operands[0]: unknown field(s) %s", strings.Join(unknown, ", "))
+	}
+	if _, startSet := object["start"]; startSet {
+		if _, fromSet := object["from"]; fromSet {
+			return dateDiffOperands{}, fmt.Errorf("operands[0]: start and from are mutually exclusive")
+		}
+	}
+
+	var parsed dateDiffOperands
+	startKey := "start"
+	startValue, exists := object["start"]
+	if !exists {
+		startKey = "from"
+		startValue, exists = object["from"]
+	}
+	if !exists {
+		return dateDiffOperands{}, fmt.Errorf("operands[0].start: field is required")
+	}
+	parsed.startPath, ok = nonEmptyDateDiffPath(startValue)
+	if !ok {
+		return dateDiffOperands{}, fmt.Errorf("operands[0].%s: expected non-empty string", startKey)
+	}
+	if endValue, exists := object["end"]; exists {
+		parsed.endPath, ok = nonEmptyDateDiffPath(endValue)
+		if !ok {
+			return dateDiffOperands{}, fmt.Errorf("operands[0].end: expected non-empty string")
+		}
+	}
+
+	fields := []struct {
+		name    string
+		target  *int
+		maximum int64
+	}{
+		{name: "maxDays", target: &parsed.maxDays, maximum: maxDateDiffDays},
+		{name: "maxMonths", target: &parsed.maxMonths, maximum: maxDateDiffMonths},
+		{name: "minDays", target: &parsed.minDays, maximum: maxDateDiffDays},
+		{name: "minHours", target: &parsed.minHours, maximum: maxDateDiffHours},
+		{name: "maxHours", target: &parsed.maxHours, maximum: maxDateDiffHours},
+	}
+	boundCount := 0
+	for _, field := range fields {
+		value, exists := object[field.name]
+		if !exists {
+			continue
+		}
+		integer, err := parseIntegerOperand(value)
+		if err != nil || integer <= 0 {
+			return dateDiffOperands{}, fmt.Errorf("operands[0].%s: expected positive integer", field.name)
+		}
+		if int64(integer) > field.maximum {
+			return dateDiffOperands{}, fmt.Errorf(
+				"operands[0].%s: exceeds maximum supported value %d",
+				field.name,
+				field.maximum,
+			)
+		}
+		*field.target = integer
+		boundCount++
+	}
+	if boundCount == 0 {
+		return dateDiffOperands{}, fmt.Errorf("operands[0]: at least one duration bound is required")
+	}
+	if parsed.minDays > 0 && parsed.maxDays > 0 && parsed.minDays > parsed.maxDays {
+		return dateDiffOperands{}, fmt.Errorf("operands[0]: minDays must not exceed maxDays")
+	}
+	if parsed.minHours > 0 && parsed.maxHours > 0 && parsed.minHours > parsed.maxHours {
+		return dateDiffOperands{}, fmt.Errorf("operands[0]: minHours must not exceed maxHours")
+	}
+	if parsed.minDays > 0 && parsed.maxHours > 0 && parsed.minDays > parsed.maxHours/24 {
+		return dateDiffOperands{}, fmt.Errorf("operands[0]: minimum duration must not exceed maximum duration")
+	}
+	if parsed.minHours > 0 && parsed.maxDays > 0 {
+		wholeDays, remainingHours := parsed.minHours/24, parsed.minHours%24
+		if wholeDays > parsed.maxDays || (wholeDays == parsed.maxDays && remainingHours > 0) {
+			return dateDiffOperands{}, fmt.Errorf("operands[0]: minimum duration must not exceed maximum duration")
+		}
+	}
+	return parsed, nil
+}
+
+func nonEmptyDateDiffPath(value any) (string, bool) {
+	path, ok := value.(string)
+	return path, ok && path != "" && strings.TrimSpace(path) == path
 }

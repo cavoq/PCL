@@ -6,6 +6,9 @@ import (
 	"time"
 
 	"github.com/cavoq/PCL/internal/node"
+	zasn1 "github.com/zmap/zcrypto/encoding/asn1"
+	"github.com/zmap/zcrypto/x509"
+	"github.com/zmap/zcrypto/x509/pkix"
 )
 
 func assertPathExists(t *testing.T, root *node.Node, path string) {
@@ -31,6 +34,23 @@ func assertPathValue(t *testing.T, root *node.Node, path string, want any) {
 	}
 	if n.Value != want {
 		t.Errorf("path %q: expected %v (%T), got %v (%T)", path, want, want, n.Value, n.Value)
+	}
+}
+
+func TestBuilder_ProjectsMalformedDecodedExtensions(t *testing.T) {
+	cert := &x509.Certificate{Extensions: []pkix.Extension{
+		{Id: zasn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 1, 1}, Value: []byte{0x30, 0x00}},
+		{Id: zasn1.ObjectIdentifier{2, 5, 29, 31}, Value: []byte{0x30, 0x00}},
+		{Id: zasn1.ObjectIdentifier{2, 5, 29, 32}, Value: []byte{0x30, 0x00}},
+	}}
+
+	tree := BuildTree(cert)
+	for _, path := range []string{
+		"certificate.extensions.1.3.6.1.5.5.7.1.1.malformed",
+		"certificate.extensions.2.5.29.31.malformed",
+		"certificate.extensions.2.5.29.32.malformed",
+	} {
+		assertPathValue(t, tree, path, true)
 	}
 }
 
@@ -74,6 +94,8 @@ func TestBuilder_SignatureAlgorithm(t *testing.T) {
 	assertPathExists(t, root, "certificate.signatureAlgorithm")
 	assertPathExists(t, root, "certificate.signatureAlgorithm.algorithm")
 	assertPathExists(t, root, "certificate.signatureAlgorithm.oid")
+	assertPathExists(t, root, "certificate.signatureAlgorithm.rawDER")
+	assertPathExists(t, root, "certificate.tbsSignatureAlgorithm.rawDER")
 
 	assertPathValue(t, root, "certificate.signatureAlgorithm.algorithm", "SHA256-RSA")
 }
@@ -116,6 +138,14 @@ func TestBuilder_Validity(t *testing.T) {
 	if _, ok := notAfter.Value.(time.Time); !ok {
 		t.Errorf("notAfter should be time.Time, got %T", notAfter.Value)
 	}
+	assertPathValue(t, root, "certificate.validity.notBefore.encoding", 23)
+	assertPathValue(t, root, "certificate.validity.notBefore.isUTC", true)
+	assertPathValue(t, root, "certificate.validity.notBefore.hasSeconds", true)
+	assertPathValue(t, root, "certificate.validity.notBefore.hasZulu", true)
+	assertPathValue(t, root, "certificate.validity.notAfter.encoding", 23)
+	assertPathValue(t, root, "certificate.validity.notAfter.isUTC", true)
+	assertPathValue(t, root, "certificate.validity.notAfter.hasSeconds", true)
+	assertPathValue(t, root, "certificate.validity.notAfter.hasZulu", true)
 }
 
 func TestBuilder_SubjectPublicKeyInfo_RSA(t *testing.T) {
@@ -143,8 +173,8 @@ func TestBuilder_KeyUsage_LeafCert(t *testing.T) {
 	assertPathValue(t, root, "certificate.keyUsage.digitalSignature", true)
 	assertPathValue(t, root, "certificate.keyUsage.keyEncipherment", true)
 
-	assertPathNotExists(t, root, "certificate.keyUsage.keyCertSign")
-	assertPathNotExists(t, root, "certificate.keyUsage.cRLSign")
+	assertPathValue(t, root, "certificate.keyUsage.keyCertSign", false)
+	assertPathValue(t, root, "certificate.keyUsage.cRLSign", false)
 }
 
 func TestBuilder_KeyUsage_CACert(t *testing.T) {
@@ -153,6 +183,18 @@ func TestBuilder_KeyUsage_CACert(t *testing.T) {
 	assertPathExists(t, root, "certificate.keyUsage")
 	assertPathValue(t, root, "certificate.keyUsage.keyCertSign", true)
 	assertPathValue(t, root, "certificate.keyUsage.cRLSign", true)
+}
+
+func TestBuilder_KeyUsagePresenceComesFromExtension(t *testing.T) {
+	withoutExtension := BuildTree(&x509.Certificate{})
+	assertPathNotExists(t, withoutExtension, "certificate.keyUsage")
+
+	withExtension := BuildTree(&x509.Certificate{
+		Extensions: []pkix.Extension{{Id: zasn1.ObjectIdentifier{2, 5, 29, 15}}},
+	})
+	assertPathExists(t, withExtension, "certificate.keyUsage")
+	assertPathValue(t, withExtension, "certificate.keyUsage.digitalSignature", false)
+	assertPathValue(t, withExtension, "certificate.keyUsage.keyCertSign", false)
 }
 
 func TestBuilder_ExtKeyUsage(t *testing.T) {
@@ -247,6 +289,33 @@ func TestBuilder_BuildTree(t *testing.T) {
 func TestBuilder_NoSubjectAltName(t *testing.T) {
 	root := loadCert(t, "intermediate.pem")
 	assertPathNotExists(t, root, "certificate.subjectAltName")
+}
+
+func TestBuilder_SubjectAltNameUsesExtensionAndAllGeneralNameForms(t *testing.T) {
+	registeredID := zasn1.ObjectIdentifier{1, 2}
+	cert := &x509.Certificate{
+		Extensions: []pkix.Extension{{
+			Id:    zasn1.ObjectIdentifier{2, 5, 29, 17},
+			Value: []byte{0x30, 0x03, 0x88, 0x01, 0x2a},
+		}},
+		RegisteredIDs: []zasn1.ObjectIdentifier{registeredID},
+	}
+	root := BuildTree(cert)
+	assertPathValue(t, root, "certificate.subjectAltName", 1)
+	assertPathValue(t, root, "certificate.subjectAltName.registeredID.0", registeredID.String())
+
+	x400Only := BuildTree(&x509.Certificate{Extensions: []pkix.Extension{{
+		Id:    zasn1.ObjectIdentifier{2, 5, 29, 17},
+		Value: []byte{0x30, 0x09, 0xa3, 0x07, 0x30, 0x05, 0x83, 0x03, 'O', 'r', 'g'},
+	}}})
+	assertPathValue(t, x400Only, "certificate.subjectAltName", 1)
+	assertPathExists(t, x400Only, "certificate.subjectAltName.x400Address.0")
+
+	empty := BuildTree(&x509.Certificate{Extensions: []pkix.Extension{{
+		Id:    zasn1.ObjectIdentifier{2, 5, 29, 17},
+		Value: []byte{0x30, 0x00},
+	}}})
+	assertPathValue(t, empty, "certificate.subjectAltName", 0)
 }
 
 func TestBuilder_ExtensionDetails(t *testing.T) {

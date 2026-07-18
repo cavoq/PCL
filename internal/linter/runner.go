@@ -17,16 +17,29 @@ import (
 
 func Run(cfg Config, w io.Writer) error {
 	applyDefaults(&cfg)
+	var cleanups cleanupStack
+	defer cleanups.Close()
 
-	// Load policies
-	policies, err := loadPolicies(cfg.PolicyPaths)
+	diagnostics := cfg.Diagnostics
+	if diagnostics == nil && (cfg.OutputFmt == "json" || cfg.OutputFmt == "yaml") {
+		// Keep machine-readable output a single valid document. Diagnostic
+		// acquisition warnings belong on a separate channel.
+		diagnostics = io.Discard
+	} else if diagnostics == nil {
+		diagnostics = w
+	}
+
+	reg := operator.DefaultRegistry()
+
+	// Load policies and validate that every rule is executable by the same
+	// registry that will evaluate it. YAML shape validation alone cannot catch
+	// misspelled or unavailable operators.
+	policies, err := loadPolicies(cfg.PolicyPaths, reg)
 	if err != nil {
 		return err
 	}
 
-	reg := operator.DefaultRegistry()
 	var results []policy.Result
-	var cleanup func()
 
 	// Load CRLs if provided
 	crls, err := loadCRLs(cfg.CRLPath)
@@ -46,15 +59,18 @@ func Run(cfg Config, w io.Writer) error {
 
 	// Load issuers for CRL/OCSP signature verification
 	issuers, issuerCleanup, err := loadIssuersIfProvided(cfg, hasIssuer)
+	cleanups.Add(issuerCleanup)
 	if err != nil {
 		return err
 	}
-	if issuerCleanup != nil {
-		cleanup = issuerCleanup
-	}
 
 	if hasCert {
-		results, cleanup = processCertificates(cfg, policies, reg, crls, ocsps, issuers, cleanup, w)
+		var certCleanup func()
+		results, certCleanup, err = processCertificates(cfg, policies, reg, crls, ocsps, issuers, diagnostics)
+		cleanups.Add(certCleanup)
+		if err != nil {
+			return err
+		}
 	} else if len(crls) > 0 {
 		results = evaluator.CRLOnly(policies, reg, crls, issuers)
 	} else if len(ocsps) > 0 {
@@ -62,17 +78,19 @@ func Run(cfg Config, w io.Writer) error {
 	} else {
 		return fmt.Errorf("no certificates, CRLs, or OCSP responses provided")
 	}
-
-	// Run cleanup at the end
-	if cleanup != nil {
-		cleanup()
+	if len(results) == 0 {
+		return fmt.Errorf("no loaded policy applies to the supplied input")
 	}
 
 	// Output results
 	return outputResults(cfg, results, w)
 }
 
-func loadPolicies(paths []string) ([]policy.Policy, error) {
+func loadPolicies(paths []string, reg *operator.Registry) ([]policy.Policy, error) {
+	if len(paths) == 0 {
+		return nil, fmt.Errorf("at least one policy path is required")
+	}
+
 	var policies []policy.Policy
 	for _, path := range paths {
 		isDir, err := isDirectory(path)
@@ -81,17 +99,25 @@ func loadPolicies(paths []string) ([]policy.Policy, error) {
 		}
 
 		if isDir {
-			p, err := policy.ParseDir(path)
+			p, err := policy.ParseDirWithRegistry(path, reg)
 			if err != nil {
 				return nil, fmt.Errorf("failed to parse policy directory %s: %w", path, err)
 			}
 			policies = append(policies, p...)
 		} else {
-			p, err := policy.ParseFile(path)
+			p, err := policy.ParseFileWithRegistry(path, reg)
 			if err != nil {
 				return nil, fmt.Errorf("failed to parse policy file %s: %w", path, err)
 			}
 			policies = append(policies, p)
+		}
+	}
+	if len(policies) == 0 {
+		return nil, fmt.Errorf("no policy files found")
+	}
+	for _, parsed := range policies {
+		if len(parsed.Rules) == 0 {
+			return nil, fmt.Errorf("policy %s contains no rules", parsed.ID)
 		}
 	}
 	return policies, nil
@@ -123,34 +149,20 @@ func loadIssuersIfProvided(cfg Config, hasIssuer bool) ([]*cert.Info, func(), er
 	if !hasIssuer {
 		return nil, nil, nil
 	}
-	return loadIssuers(cfg, nil)
+	return loadIssuers(cfg)
 }
 
-func processCertificates(cfg Config, policies []policy.Policy, reg *operator.Registry, crls []*crl.Info, ocsps []*ocsp.Info, issuers []*cert.Info, existingCleanup func(), w io.Writer) ([]policy.Result, func()) {
+func processCertificates(cfg Config, policies []policy.Policy, reg *operator.Registry, crls []*crl.Info, ocsps []*ocsp.Info, issuers []*cert.Info, w io.Writer) ([]policy.Result, func(), error) {
 	// Load leaf certificates
-	var cleanup func() //nolint:prealloc // overwritten by loadCertificates
-	certs, certCleanup, err := loadCertificates(cfg)
+	certs, cleanup, err := loadCertificates(cfg)
 	if err != nil {
-		return nil, existingCleanup
-	}
-
-	// Combine cleanup functions
-	if certCleanup != nil {
-		prevCleanup := existingCleanup
-		cleanup = func() {
-			certCleanup()
-			if prevCleanup != nil {
-				prevCleanup()
-			}
-		}
-	} else {
-		cleanup = existingCleanup
+		return nil, cleanup, err
 	}
 
 	// Build chain
 	allCerts := append(certs, issuers...)
 	if len(allCerts) == 0 {
-		return nil, cleanup
+		return nil, cleanup, fmt.Errorf("no certificates available to build a chain")
 	}
 
 	// Auto-validate: climb chain via CA Issuers URLs (pool fallback when no CaIssuers)
@@ -187,8 +199,7 @@ func processCertificates(cfg Config, policies []policy.Policy, reg *operator.Reg
 
 	chain, err := cert.BuildChain(allCerts)
 	if err != nil {
-		_, _ = fmt.Fprintf(w, "Warning: failed to build chain: %v\n", err)
-		return nil, cleanup
+		return nil, cleanup, fmt.Errorf("failed to build certificate chain: %w", err)
 	}
 
 	nonceOpts := buildNonceOptions(cfg)
@@ -223,6 +234,7 @@ func processCertificates(cfg Config, policies []policy.Policy, reg *operator.Reg
 		CRLResolveMaxDepth: crlResolveMaxDepth(cfg),
 		CRLResolveWarn:     w,
 	}
+	evalCtx = evaluator.PrepareCRLIssuers(evalCtx)
 	results := evaluator.Chain(evalCtx)
 
 	if len(ocsps) > 0 {
@@ -233,7 +245,7 @@ func processCertificates(cfg Config, policies []policy.Policy, reg *operator.Reg
 		results = append(results, evaluator.CRL(evalCtx)...)
 	}
 
-	return results, cleanup
+	return results, cleanup, nil
 }
 
 func outputResults(cfg Config, results []policy.Result, w io.Writer) error {
@@ -266,6 +278,9 @@ func crlResolveMaxDepth(cfg Config) int {
 }
 
 func applyDefaults(cfg *Config) {
+	if cfg.IssuerPath != "" && !containsString(cfg.IssuerPaths, cfg.IssuerPath) {
+		cfg.IssuerPaths = append([]string{cfg.IssuerPath}, cfg.IssuerPaths...)
+	}
 	if cfg.CertTimeout <= 0 {
 		cfg.CertTimeout = 10 * time.Second
 	}
@@ -282,6 +297,15 @@ func applyDefaults(cfg *Config) {
 			cfg.MaxChainDepth = 10
 		}
 	}
+}
+
+func containsString(values []string, target string) bool {
+	for _, value := range values {
+		if value == target {
+			return true
+		}
+	}
+	return false
 }
 
 func isDirectory(path string) (bool, error) {

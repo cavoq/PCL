@@ -6,15 +6,7 @@ issuers:
   - certs/crl-signature-root.pem
 crl: crls/crl-signature-intermediate.crl
 expected:
-  leaf:
-    pass: 1
-    fail: 0
-    skip: 0
-  intermediate:
-    pass: 1
-    fail: 0
-    skip: 0
-  root:
+  crl:
     pass: 1
     fail: 0
     skip: 0

@@ -4,6 +4,7 @@ import (
 	"github.com/zmap/zcrypto/x509"
 
 	"github.com/cavoq/PCL/internal/node"
+	"github.com/cavoq/PCL/internal/oid"
 )
 
 type EKUContains struct{}
@@ -27,8 +28,8 @@ func (EKUContains) Evaluate(_ *node.Node, ctx *EvaluationContext, operands []any
 			continue
 		}
 
-		eku := parseEKU(ekuName)
-		if eku == 0 {
+		eku, ok := parseEKU(ekuName)
+		if !ok {
 			continue
 		}
 
@@ -68,8 +69,8 @@ func (EKUNotContains) Evaluate(_ *node.Node, ctx *EvaluationContext, operands []
 			continue
 		}
 
-		eku := parseEKU(ekuName)
-		if eku == 0 {
+		eku, ok := parseEKU(ekuName)
+		if !ok {
 			continue
 		}
 
@@ -119,23 +120,6 @@ func hasEKU(ctx *EvaluationContext, targetEKU x509.ExtKeyUsage) (bool, error) {
 	return false, nil
 }
 
-func parseEKU(name string) x509.ExtKeyUsage {
-	switch name {
-	case "any":
-		return x509.ExtKeyUsageAny
-	case "serverAuth":
-		return x509.ExtKeyUsageServerAuth
-	case "clientAuth":
-		return x509.ExtKeyUsageClientAuth
-	case "codeSigning":
-		return x509.ExtKeyUsageCodeSigning
-	case "emailProtection":
-		return x509.ExtKeyUsageEmailProtection
-	case "timeStamping":
-		return x509.ExtKeyUsageTimeStamping
-	case "ocspSigning":
-		return x509.ExtKeyUsageOcspSigning
-	default:
-		return 0
-	}
+func parseEKU(name string) (x509.ExtKeyUsage, bool) {
+	return oid.ExtKeyUsage(name)
 }

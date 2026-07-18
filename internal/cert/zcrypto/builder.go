@@ -7,17 +7,30 @@ import (
 	"crypto/rsa"
 	"encoding/hex"
 	"fmt"
+	"net"
+	"strconv"
 	"time"
 
+	zasn1 "github.com/zmap/zcrypto/encoding/asn1"
 	"github.com/zmap/zcrypto/x509"
 	"github.com/zmap/zcrypto/x509/ct"
+	"github.com/zmap/zcrypto/x509/pkix"
 
-	"github.com/cavoq/PCL/internal/asn1"
+	internalasn1 "github.com/cavoq/PCL/internal/asn1"
 	"github.com/cavoq/PCL/internal/node"
+	"github.com/cavoq/PCL/internal/oid"
 	"github.com/cavoq/PCL/internal/zcrypto"
 )
 
 type ZCryptoBuilder struct{}
+
+type extensionNodeParser func([]byte) (*node.Node, error)
+
+var certificateExtensionParsers = map[string]extensionNodeParser{
+	oid.AuthorityInfoAccess:   ParseAIAStrict,
+	oid.CRLDistributionPoints: ParseCRLDPStrict,
+	oid.CertificatePolicies:   ParseCertPoliciesStrict,
+}
 
 func NewZCryptoBuilder() *ZCryptoBuilder {
 	return &ZCryptoBuilder{}
@@ -47,6 +60,7 @@ func buildCertificate(cert *x509.Certificate) *node.Node {
 	root.Children["issuer"] = zcrypto.BuildPkixName("issuer", cert.Issuer)
 	root.Children["validity"] = buildValidity(cert)
 	root.Children["subject"] = zcrypto.BuildPkixName("subject", cert.Subject)
+	root.Children["subjectEmpty"] = node.New("subjectEmpty", len(cert.Subject.Names) == 0)
 	root.Children["subjectPublicKeyInfo"] = buildSubjectPublicKeyInfo(cert)
 
 	if cert.IssuerUniqueId.BitLength > 0 {
@@ -59,41 +73,28 @@ func buildCertificate(cert *x509.Certificate) *node.Node {
 
 	if len(cert.Extensions) > 0 {
 		root.Children["extensions"] = zcrypto.BuildExtensions(cert.Extensions)
-
-		// Parse AIA extension with full ASN.1 structure
+		extensionsNode := root.Children["extensions"]
 		for _, ext := range cert.Extensions {
 			oidStr := ext.Id.String()
-			if oidStr == "1.3.6.1.5.5.7.1.1" {
-				aiaNode := ParseAIA(ext.Value)
-				if extNode, ok := root.Children["extensions"].Children["authorityInfoAccess"]; ok {
-					// Merge parsed AIA into extension node
-					for k, v := range aiaNode.Children {
-						extNode.Children[k] = v
-					}
-				}
+			parser, supported := certificateExtensionParsers[oidStr]
+			if !supported {
+				continue
 			}
-			if oidStr == "2.5.29.31" {
-				crlDPNode := ParseCRLDP(ext.Value)
-				if extNode, ok := root.Children["extensions"].Children["cRLDistributionPoints"]; ok {
-					// Merge parsed CRL DP into extension node
-					for k, v := range crlDPNode.Children {
-						extNode.Children[k] = v
-					}
-				}
+			extNode := extensionsNode.Children[oidStr]
+			parsed, err := parser(ext.Value)
+			if err != nil {
+				extNode.Children["malformed"] = node.New("malformed", true)
+				continue
 			}
-			if oidStr == "2.5.29.32" {
-				certPoliciesNode := ParseCertPolicies(ext.Value)
-				if extNode, ok := root.Children["extensions"].Children["certificatePolicies"]; ok {
-					// Merge parsed Certificate Policies into extension node
-					for k, v := range certPoliciesNode.Children {
-						extNode.Children[k] = v
-					}
-				}
+			for name, child := range parsed.Children {
+				extNode.Children[name] = child
 			}
 		}
 	}
 
-	root.Children["keyUsage"] = buildKeyUsage(cert.KeyUsage)
+	if hasExtension(cert.Extensions, oid.KeyUsage) {
+		root.Children["keyUsage"] = buildKeyUsage(cert.KeyUsage)
+	}
 
 	if len(cert.ExtKeyUsage) > 0 {
 		root.Children["extKeyUsage"] = buildExtKeyUsage(cert.ExtKeyUsage)
@@ -111,12 +112,12 @@ func buildCertificate(cert *x509.Certificate) *node.Node {
 		root.Children["authorityKeyIdentifier"] = node.New("authorityKeyIdentifier", cert.AuthorityKeyId)
 	}
 
-	if hasSAN(cert) {
+	if hasExtension(cert.Extensions, oid.SubjectAlternativeName) {
 		root.Children["subjectAltName"] = buildSubjectAltName(cert)
 	}
 
 	// Add Issuer Alt Name (IAN)
-	if hasIAN(cert) {
+	if hasExtension(cert.Extensions, oid.IssuerAlternativeName) {
 		root.Children["issuerAltName"] = buildIssuerAltName(cert)
 	}
 
@@ -165,13 +166,14 @@ func buildCertificate(cert *x509.Certificate) *node.Node {
 	// Add Certificate Policies
 	if len(cert.PolicyIdentifiers) > 0 {
 		policiesNode := node.New("certificatePolicies", nil)
-		for i, oid := range cert.PolicyIdentifiers {
+		for i, policyID := range cert.PolicyIdentifiers {
+			policyOID := policyID.String()
 			policyNode := node.New(fmt.Sprintf("%d", i), nil)
-			policyNode.Children["oid"] = node.New("oid", oid.String())
-			policiesNode.Children[oid.String()] = policyNode
+			policyNode.Children["oid"] = node.New("oid", policyOID)
+			policiesNode.Children[policyOID] = policyNode
 			// Add friendly name for known policy OIDs
-			friendlyName := policyFriendlyName(oid.String())
-			if friendlyName != "" {
+			friendlyName, known := oid.CertificatePolicyName(policyOID)
+			if known {
 				policiesNode.Children[friendlyName] = policyNode
 			}
 		}
@@ -182,105 +184,13 @@ func buildCertificate(cert *x509.Certificate) *node.Node {
 }
 
 func buildSignatureAlgorithm(cert *x509.Certificate) *node.Node {
-	n := node.New("signatureAlgorithm", nil)
-	n.Children["algorithm"] = node.New("algorithm", cert.SignatureAlgorithm.String())
-	if len(cert.SignatureAlgorithmOID) > 0 {
-		n.Children["oid"] = node.New("oid", cert.SignatureAlgorithmOID.String())
-	}
-	params := ParseCertSignatureAlgorithmParams(cert.Raw)
-	// Add raw DER bytes for byte-for-byte encoding validation (Mozilla requirements)
-	if len(params.RawDER) > 0 {
-		n.Children["rawDER"] = node.New("rawDER", params.RawDER)
-	}
-	paramsNode := buildAlgorithmIDParams(params)
-	if paramsNode != nil {
-		n.Children["parameters"] = paramsNode
-	}
-	return n
+	params := internalasn1.ParseSignedObjectAlgorithmParams(cert.Raw)
+	return zcrypto.BuildAlgorithmIdentifier("signatureAlgorithm", cert.SignatureAlgorithm.String(), params)
 }
 
 func buildTBSSignatureAlgorithm(cert *x509.Certificate) *node.Node {
-	n := node.New("tbsSignatureAlgorithm", nil)
-	n.Children["algorithm"] = node.New("algorithm", cert.SignatureAlgorithm.String())
-	if len(cert.SignatureAlgorithmOID) > 0 {
-		n.Children["oid"] = node.New("oid", cert.SignatureAlgorithmOID.String())
-	}
-	params := ParseTBSCertSignatureParams(cert.RawTBSCertificate)
-	// Add raw DER bytes for byte-for-byte encoding validation (Mozilla requirements)
-	if len(params.RawDER) > 0 {
-		n.Children["rawDER"] = node.New("rawDER", params.RawDER)
-	}
-	paramsNode := buildAlgorithmIDParams(params)
-	if paramsNode != nil {
-		n.Children["parameters"] = paramsNode
-	}
-	return n
-}
-
-func buildAlgorithmIDParams(params asn1.ParamsState) *node.Node {
-	// If parameters are absent, do NOT create a node.
-	// This allows the `absent` operator to work correctly.
-	if params.IsAbsent {
-		return nil
-	}
-
-	// If parameters are NULL, create node with null=true.
-	// This allows the `isNull` operator to work correctly.
-	n := node.New("parameters", nil)
-	n.Children["null"] = node.New("null", params.IsNull)
-
-	// For ECDSA, the NamedCurve is the curve OID (e.g., secp256r1, secp384r1)
-	if params.NamedCurve != "" {
-		n.Children["namedCurve"] = node.New("namedCurve", params.NamedCurve)
-	}
-
-	if params.PSS != nil {
-		n.Children["pss"] = buildPSSParams(params.PSS)
-	}
-
-	if params.OAEP != nil {
-		n.Children["oaep"] = buildOAEPParams(params.OAEP)
-	}
-
-	return n
-}
-
-func buildPSSParams(pss *asn1.PSSParams) *node.Node {
-	n := node.New("pss", nil)
-
-	n.Children["hashAlgorithm"] = buildNestedAlgorithmID(pss.HashAlgorithm)
-	n.Children["hashAlgorithmSet"] = node.New("hashAlgorithmSet", pss.HashAlgorithmSet)
-	n.Children["maskGenAlgorithm"] = buildNestedAlgorithmID(pss.MaskGenAlgorithm)
-	n.Children["maskGenAlgorithmSet"] = node.New("maskGenAlgorithmSet", pss.MaskGenAlgorithmSet)
-	n.Children["saltLength"] = node.New("saltLength", pss.SaltLength)
-	n.Children["saltLengthSet"] = node.New("saltLengthSet", pss.SaltLengthSet)
-	n.Children["trailerField"] = node.New("trailerField", pss.TrailerField)
-	n.Children["trailerFieldSet"] = node.New("trailerFieldSet", pss.TrailerFieldSet)
-
-	return n
-}
-
-func buildOAEPParams(oaep *asn1.OAEPParams) *node.Node {
-	n := node.New("oaep", nil)
-
-	n.Children["hashAlgorithm"] = buildNestedAlgorithmID(oaep.HashAlgorithm)
-	n.Children["hashAlgorithmSet"] = node.New("hashAlgorithmSet", oaep.HashAlgorithmSet)
-	n.Children["maskGenAlgorithm"] = buildNestedAlgorithmID(oaep.MaskGenAlgorithm)
-	n.Children["maskGenAlgorithmSet"] = node.New("maskGenAlgorithmSet", oaep.MaskGenAlgorithmSet)
-	n.Children["pSourceAlgorithm"] = buildNestedAlgorithmID(oaep.PSourceAlgorithm)
-	n.Children["pSourceAlgorithmSet"] = node.New("pSourceAlgorithmSet", oaep.PSourceAlgorithmSet)
-
-	return n
-}
-
-func buildNestedAlgorithmID(algo asn1.AlgorithmIdentifier) *node.Node {
-	n := node.New("algorithm", nil)
-	n.Children["oid"] = node.New("oid", algo.OID)
-	params := buildAlgorithmIDParams(algo.Params)
-	if params != nil {
-		n.Children["parameters"] = params
-	}
-	return n
+	params := parseTBSCertSignatureParams(cert.RawTBSCertificate)
+	return zcrypto.BuildAlgorithmIdentifier("tbsSignatureAlgorithm", cert.SignatureAlgorithm.String(), params)
 }
 
 func buildValidity(cert *x509.Certificate) *node.Node {
@@ -289,24 +199,11 @@ func buildValidity(cert *x509.Certificate) *node.Node {
 	notBeforeNode := node.New("notBefore", cert.NotBefore)
 	notAfterNode := node.New("notAfter", cert.NotAfter)
 
-	// Parse time encoding info from TBSCertificate
 	if len(cert.RawTBSCertificate) > 0 {
-		encodingInfo, err := ParseValidityEncoding(cert.RawTBSCertificate)
-		if err == nil && encodingInfo != nil {
-			if encodingInfo.NotBefore != nil {
-				notBeforeNode.Children["encoding"] = node.New("encoding", encodingInfo.NotBefore.Tag)
-				notBeforeNode.Children["format"] = node.New("format", encodingInfo.NotBefore.RawString)
-				notBeforeNode.Children["isUTC"] = node.New("isUTC", encodingInfo.NotBefore.IsUTC)
-				notBeforeNode.Children["hasSeconds"] = node.New("hasSeconds", encodingInfo.NotBefore.HasSeconds)
-				notBeforeNode.Children["hasZulu"] = node.New("hasZulu", encodingInfo.NotBefore.HasZulu)
-			}
-			if encodingInfo.NotAfter != nil {
-				notAfterNode.Children["encoding"] = node.New("encoding", encodingInfo.NotAfter.Tag)
-				notAfterNode.Children["format"] = node.New("format", encodingInfo.NotAfter.RawString)
-				notAfterNode.Children["isUTC"] = node.New("isUTC", encodingInfo.NotAfter.IsUTC)
-				notAfterNode.Children["hasSeconds"] = node.New("hasSeconds", encodingInfo.NotAfter.HasSeconds)
-				notAfterNode.Children["hasZulu"] = node.New("hasZulu", encodingInfo.NotAfter.HasZulu)
-			}
+		encoding, err := parseValidityEncoding(cert.RawTBSCertificate)
+		if err == nil {
+			addTimeEncoding(notBeforeNode, encoding.NotBefore)
+			addTimeEncoding(notAfterNode, encoding.NotAfter)
 		}
 	}
 
@@ -315,23 +212,19 @@ func buildValidity(cert *x509.Certificate) *node.Node {
 	return n
 }
 
+func addTimeEncoding(target *node.Node, encoding internalasn1.TimeFormatInfo) {
+	target.Children["encoding"] = node.New("encoding", encoding.Tag)
+	target.Children["format"] = node.New("format", encoding.RawString)
+	target.Children["isUTC"] = node.New("isUTC", encoding.IsUTC)
+	target.Children["hasSeconds"] = node.New("hasSeconds", encoding.HasSeconds)
+	target.Children["hasZulu"] = node.New("hasZulu", encoding.HasZulu)
+}
+
 func buildSubjectPublicKeyInfo(cert *x509.Certificate) *node.Node {
 	n := node.New("subjectPublicKeyInfo", nil)
 
-	algo := node.New("algorithm", nil)
-	algo.Children["algorithm"] = node.New("algorithm", cert.PublicKeyAlgorithm.String())
-	if len(cert.PublicKeyAlgorithmOID) > 0 {
-		algo.Children["oid"] = node.New("oid", cert.PublicKeyAlgorithmOID.String())
-	}
-	params := ParseSubjectPublicKeyInfoParams(cert.RawSubjectPublicKeyInfo)
-	// Add raw DER bytes for byte-for-byte encoding validation (Mozilla requirements)
-	if len(params.RawDER) > 0 {
-		algo.Children["rawDER"] = node.New("rawDER", params.RawDER)
-	}
-	paramsNode := buildAlgorithmIDParams(params)
-	if paramsNode != nil {
-		algo.Children["parameters"] = paramsNode
-	}
+	params := parseSubjectPublicKeyInfoParams(cert.RawSubjectPublicKeyInfo)
+	algo := zcrypto.BuildAlgorithmIdentifier("algorithm", cert.PublicKeyAlgorithm.String(), params)
 	n.Children["algorithm"] = algo
 
 	if cert.PublicKey != nil {
@@ -352,36 +245,17 @@ func buildSubjectPublicKeyInfo(cert *x509.Certificate) *node.Node {
 
 func buildKeyUsage(ku x509.KeyUsage) *node.Node {
 	n := node.New("keyUsage", int(ku))
-
-	if ku&x509.KeyUsageDigitalSignature != 0 {
-		n.Children["digitalSignature"] = node.New("digitalSignature", true)
-	}
-	if ku&x509.KeyUsageContentCommitment != 0 {
-		// Both names for the same bit: contentCommitment (RFC name) and nonRepudiation (common name)
-		n.Children["contentCommitment"] = node.New("contentCommitment", true)
-		n.Children["nonRepudiation"] = node.New("nonRepudiation", true)
-	}
-	if ku&x509.KeyUsageKeyEncipherment != 0 {
-		n.Children["keyEncipherment"] = node.New("keyEncipherment", true)
-	}
-	if ku&x509.KeyUsageDataEncipherment != 0 {
-		n.Children["dataEncipherment"] = node.New("dataEncipherment", true)
-	}
-	if ku&x509.KeyUsageKeyAgreement != 0 {
-		n.Children["keyAgreement"] = node.New("keyAgreement", true)
-	}
-	if ku&x509.KeyUsageCertSign != 0 {
-		n.Children["keyCertSign"] = node.New("keyCertSign", true)
-	}
-	if ku&x509.KeyUsageCRLSign != 0 {
-		n.Children["cRLSign"] = node.New("cRLSign", true)
-	}
-	if ku&x509.KeyUsageEncipherOnly != 0 {
-		n.Children["encipherOnly"] = node.New("encipherOnly", true)
-	}
-	if ku&x509.KeyUsageDecipherOnly != 0 {
-		n.Children["decipherOnly"] = node.New("decipherOnly", true)
-	}
+	n.Children["digitalSignature"] = node.New("digitalSignature", ku&x509.KeyUsageDigitalSignature != 0)
+	contentCommitment := ku&x509.KeyUsageContentCommitment != 0
+	n.Children["contentCommitment"] = node.New("contentCommitment", contentCommitment)
+	n.Children["nonRepudiation"] = node.New("nonRepudiation", contentCommitment)
+	n.Children["keyEncipherment"] = node.New("keyEncipherment", ku&x509.KeyUsageKeyEncipherment != 0)
+	n.Children["dataEncipherment"] = node.New("dataEncipherment", ku&x509.KeyUsageDataEncipherment != 0)
+	n.Children["keyAgreement"] = node.New("keyAgreement", ku&x509.KeyUsageKeyAgreement != 0)
+	n.Children["keyCertSign"] = node.New("keyCertSign", ku&x509.KeyUsageCertSign != 0)
+	n.Children["cRLSign"] = node.New("cRLSign", ku&x509.KeyUsageCRLSign != 0)
+	n.Children["encipherOnly"] = node.New("encipherOnly", ku&x509.KeyUsageEncipherOnly != 0)
+	n.Children["decipherOnly"] = node.New("decipherOnly", ku&x509.KeyUsageDecipherOnly != 0)
 
 	return n
 }
@@ -420,94 +294,152 @@ func buildBasicConstraints(cert *x509.Certificate) *node.Node {
 	return n
 }
 
-func hasSAN(cert *x509.Certificate) bool {
-	return len(cert.DNSNames) > 0 ||
-		len(cert.EmailAddresses) > 0 ||
-		len(cert.IPAddresses) > 0 ||
-		len(cert.URIs) > 0
+func hasExtension(extensions []pkix.Extension, targetOID string) bool {
+	_, ok := findExtension(extensions, targetOID)
+	return ok
+}
+
+func findExtension(extensions []pkix.Extension, targetOID string) (pkix.Extension, bool) {
+	for _, extension := range extensions {
+		if extension.Id.String() == targetOID {
+			return extension, true
+		}
+	}
+	return pkix.Extension{}, false
 }
 
 func buildSubjectAltName(cert *x509.Certificate) *node.Node {
-	n := node.New("subjectAltName", nil)
-
-	if len(cert.DNSNames) > 0 {
-		dnsNode := node.New("dNSName", nil)
-		for i, dns := range cert.DNSNames {
-			dnsNode.Children[string(rune('0'+i))] = node.New(string(rune('0'+i)), dns)
-		}
-		n.Children["dNSName"] = dnsNode
-	}
-
-	if len(cert.EmailAddresses) > 0 {
-		emailNode := node.New("rfc822Name", nil)
-		for i, email := range cert.EmailAddresses {
-			emailNode.Children[string(rune('0'+i))] = node.New(string(rune('0'+i)), email)
-		}
-		n.Children["rfc822Name"] = emailNode
-	}
-
-	if len(cert.IPAddresses) > 0 {
-		ipNode := node.New("iPAddress", nil)
-		for i, ip := range cert.IPAddresses {
-			ipNode.Children[string(rune('0'+i))] = node.New(string(rune('0'+i)), ip.String())
-		}
-		n.Children["iPAddress"] = ipNode
-	}
-
-	if len(cert.URIs) > 0 {
-		uriNode := node.New("uniformResourceIdentifier", nil)
-		for i, uri := range cert.URIs {
-			uriNode.Children[string(rune('0'+i))] = node.New(string(rune('0'+i)), uri)
-		}
-		n.Children["uniformResourceIdentifier"] = uriNode
-	}
-
+	n := buildGeneralNames("subjectAltName", generalNames{
+		otherNames:     cert.OtherNames,
+		dnsNames:       cert.DNSNames,
+		emailAddresses: cert.EmailAddresses,
+		directoryNames: cert.DirectoryNames,
+		ediPartyNames:  cert.EDIPartyNames,
+		uris:           cert.URIs,
+		ipAddresses:    cert.IPAddresses,
+		registeredIDs:  cert.RegisteredIDs,
+	})
+	addRawGeneralNamesInfo(n, cert.Extensions, oid.SubjectAlternativeName)
 	return n
-}
-
-func hasIAN(cert *x509.Certificate) bool {
-	return len(cert.IANDNSNames) > 0 ||
-		len(cert.IANEmailAddresses) > 0 ||
-		len(cert.IANIPAddresses) > 0 ||
-		len(cert.IANURIs) > 0
 }
 
 func buildIssuerAltName(cert *x509.Certificate) *node.Node {
-	n := node.New("issuerAltName", nil)
+	n := buildGeneralNames("issuerAltName", generalNames{
+		otherNames:     cert.IANOtherNames,
+		dnsNames:       cert.IANDNSNames,
+		emailAddresses: cert.IANEmailAddresses,
+		directoryNames: cert.IANDirectoryNames,
+		ediPartyNames:  cert.IANEDIPartyNames,
+		uris:           cert.IANURIs,
+		ipAddresses:    cert.IANIPAddresses,
+		registeredIDs:  cert.IANRegisteredIDs,
+	})
+	addRawGeneralNamesInfo(n, cert.Extensions, oid.IssuerAlternativeName)
+	return n
+}
 
-	if len(cert.IANDNSNames) > 0 {
-		dnsNode := node.New("dNSName", nil)
-		for i, dns := range cert.IANDNSNames {
-			dnsNode.Children[string(rune('0'+i))] = node.New(string(rune('0'+i)), dns)
+type generalNames struct {
+	otherNames     []pkix.OtherName
+	dnsNames       []string
+	emailAddresses []string
+	directoryNames []pkix.Name
+	ediPartyNames  []pkix.EDIPartyName
+	uris           []string
+	ipAddresses    []net.IP
+	registeredIDs  []zasn1.ObjectIdentifier
+}
+
+func buildGeneralNames(name string, names generalNames) *node.Node {
+	n := node.New(name, nil)
+	addGeneralNameStrings(n, "dNSName", names.dnsNames)
+	addGeneralNameStrings(n, "rfc822Name", names.emailAddresses)
+	addGeneralNameStrings(n, "uniformResourceIdentifier", names.uris)
+
+	if len(names.ipAddresses) > 0 {
+		values := node.New("iPAddress", nil)
+		for i, value := range names.ipAddresses {
+			index := strconv.Itoa(i)
+			values.Children[index] = node.New(index, value.String())
 		}
-		n.Children["dNSName"] = dnsNode
+		n.Children["iPAddress"] = values
 	}
 
-	if len(cert.IANEmailAddresses) > 0 {
-		emailNode := node.New("rfc822Name", nil)
-		for i, email := range cert.IANEmailAddresses {
-			emailNode.Children[string(rune('0'+i))] = node.New(string(rune('0'+i)), email)
+	if len(names.otherNames) > 0 {
+		values := node.New("otherName", nil)
+		for i, value := range names.otherNames {
+			index := strconv.Itoa(i)
+			entry := node.New(index, value.Value.FullBytes)
+			entry.Children["typeID"] = node.New("typeID", value.TypeID.String())
+			values.Children[index] = entry
 		}
-		n.Children["rfc822Name"] = emailNode
+		n.Children["otherName"] = values
 	}
 
-	if len(cert.IANIPAddresses) > 0 {
-		ipNode := node.New("iPAddress", nil)
-		for i, ip := range cert.IANIPAddresses {
-			ipNode.Children[string(rune('0'+i))] = node.New(string(rune('0'+i)), ip.String())
+	if len(names.directoryNames) > 0 {
+		values := node.New("directoryName", nil)
+		for i, value := range names.directoryNames {
+			index := strconv.Itoa(i)
+			values.Children[index] = zcrypto.BuildPkixName(index, value)
 		}
-		n.Children["iPAddress"] = ipNode
+		n.Children["directoryName"] = values
 	}
 
-	if len(cert.IANURIs) > 0 {
-		uriNode := node.New("uniformResourceIdentifier", nil)
-		for i, uri := range cert.IANURIs {
-			uriNode.Children[string(rune('0'+i))] = node.New(string(rune('0'+i)), uri)
+	if len(names.ediPartyNames) > 0 {
+		values := node.New("ediPartyName", nil)
+		for i, value := range names.ediPartyNames {
+			index := strconv.Itoa(i)
+			entry := node.New(index, nil)
+			if value.NameAssigner != "" {
+				entry.Children["nameAssigner"] = node.New("nameAssigner", value.NameAssigner)
+			}
+			entry.Children["partyName"] = node.New("partyName", value.PartyName)
+			values.Children[index] = entry
 		}
-		n.Children["uniformResourceIdentifier"] = uriNode
+		n.Children["ediPartyName"] = values
+	}
+
+	if len(names.registeredIDs) > 0 {
+		values := node.New("registeredID", nil)
+		for i, value := range names.registeredIDs {
+			index := strconv.Itoa(i)
+			values.Children[index] = node.New(index, value.String())
+		}
+		n.Children["registeredID"] = values
 	}
 
 	return n
+}
+
+func addGeneralNameStrings(parent *node.Node, name string, names []string) {
+	if len(names) == 0 {
+		return
+	}
+	values := node.New(name, nil)
+	for i, value := range names {
+		index := strconv.Itoa(i)
+		values.Children[index] = node.New(index, value)
+	}
+	parent.Children[name] = values
+}
+
+func addRawGeneralNamesInfo(parent *node.Node, extensions []pkix.Extension, targetOID string) {
+	extension, ok := findExtension(extensions, targetOID)
+	if !ok {
+		return
+	}
+	info, err := parseGeneralNamesInfo(extension.Value)
+	if err != nil {
+		return
+	}
+	parent.Value = info.Count
+	if len(info.X400Addresses) > 0 {
+		values := node.New("x400Address", nil)
+		for i, value := range info.X400Addresses {
+			index := strconv.Itoa(i)
+			values.Children[index] = node.New(index, value)
+		}
+		parent.Children["x400Address"] = values
+	}
 }
 
 func buildRSAKey(key *rsa.PublicKey) *node.Node {

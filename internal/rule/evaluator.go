@@ -22,22 +22,6 @@ type Result struct {
 	Message   string `json:"message,omitempty" yaml:"message,omitempty"`
 }
 
-// normalizeOperands converts Operands (any type) to []any for operator evaluation.
-// Handles: []any (direct use), map[string]any (wrap as single element), nil (empty).
-func normalizeOperands(operands any) []any {
-	if operands == nil {
-		return nil
-	}
-	switch v := operands.(type) {
-	case []any:
-		return v
-	case map[string]any:
-		return []any{v}
-	default:
-		return []any{v}
-	}
-}
-
 func Evaluate(
 	root *node.Node,
 	r Rule,
@@ -46,10 +30,10 @@ func Evaluate(
 ) Result {
 	if !certTypeMatches(r, ctx) {
 		return Result{
-			RuleID:   r.ID,
+			RuleID:    r.ID,
 			Reference: r.Reference,
-			Verdict:  VerdictSkip,
-			Severity: r.Severity,
+			Verdict:   VerdictSkip,
+			Severity:  r.Severity,
 		}
 	}
 
@@ -74,84 +58,31 @@ func Evaluate(
 		}
 	}
 
-	n, found := root.Resolve(r.Target)
-
-	// For presence/absence/null operators, continue evaluation even if target not found
-	if !found && r.Operator != "present" && r.Operator != "absent" && r.Operator != "isNull" {
-		// Special handling for eq/neq on keyUsage boolean fields
-		if (r.Operator == "eq" || r.Operator == "neq") && isKeyUsageBooleanField(r.Target) {
-			var targetNode *node.Node
-			op, err := reg.Get(r.Operator)
-			if err != nil {
-				return Result{
-					RuleID:    r.ID,
-					Reference: r.Reference,
-					Verdict:   VerdictFail,
-					Message:   fmt.Sprintf("operator not found: %s", r.Operator),
-					Severity:  r.Severity,
-				}
-			}
-			ok, err := op.Evaluate(targetNode, ctx, normalizeOperands(r.Operands))
-			if err != nil {
-				return Result{
-					RuleID:    r.ID,
-					Reference: r.Reference,
-					Verdict:   VerdictFail,
-					Message:   fmt.Sprintf("operator %s on %s: %v", r.Operator, r.Target, err),
-					Severity:  r.Severity,
-				}
-			}
-			verdict := VerdictPass
-			if !ok {
-				verdict = VerdictFail
-			}
+	ok, err := resolveAndEvaluate(root, r.Target, r.Operator, r.Operands, reg, ctx)
+	if err != nil {
+		if _, missing := err.(targetNotFoundError); missing && !node.HasInputNamespace(root, r.Target) {
 			return Result{
 				RuleID:    r.ID,
 				Reference: r.Reference,
-				Verdict:   verdict,
+				Verdict:   VerdictSkip,
+				Message:   err.Error(),
 				Severity:  r.Severity,
 			}
 		}
 		return Result{
 			RuleID:    r.ID,
 			Reference: r.Reference,
-			Verdict:   VerdictSkip,
-			Severity:  r.Severity,
-			Message:   "target not found: " + r.Target,
-		}
-	}
-
-	// Pass nil node if target not found (for present/absent operators)
-	var targetNode *node.Node
-	if found {
-		targetNode = n
-	}
-
-	op, err := reg.Get(r.Operator)
-	if err != nil {
-		return Result{
-			RuleID:    r.ID,
-			Reference: r.Reference,
 			Verdict:   VerdictFail,
-			Message:   fmt.Sprintf("operator not found: %s", r.Operator),
-			Severity:  r.Severity,
-		}
-	}
-
-	ok, err := op.Evaluate(targetNode, ctx, normalizeOperands(r.Operands))
-	if err != nil {
-		return Result{
-			RuleID:    r.ID,
-			Reference: r.Reference,
-			Verdict:   VerdictFail,
-			Message:   fmt.Sprintf("operator %s on %s: %v", r.Operator, r.Target, err),
+			Message:   err.Error(),
 			Severity:  r.Severity,
 		}
 	}
 
 	verdict := VerdictPass
+	message := ""
 	if !ok {
 		verdict = VerdictFail
+		message = r.Message
 	}
 
 	return Result{
@@ -159,6 +90,7 @@ func Evaluate(
 		Reference: r.Reference,
 		Verdict:   verdict,
 		Severity:  r.Severity,
+		Message:   message,
 	}
 }
 
@@ -168,14 +100,54 @@ func evaluateCondition(
 	reg *operator.Registry,
 	ctx *operator.EvaluationContext,
 ) (bool, error) {
-	n, _ := root.Resolve(cond.Target)
+	ok, err := resolveAndEvaluate(root, cond.Target, cond.Operator, cond.Operands, reg, ctx)
+	if _, missing := err.(targetNotFoundError); missing {
+		if !node.HasInputNamespace(root, cond.Target) {
+			return false, nil
+		}
+		return false, err
+	}
+	return ok, err
+}
 
-	op, err := reg.Get(cond.Operator)
+type targetNotFoundError struct {
+	target string
+}
+
+func (err targetNotFoundError) Error() string {
+	return "target not found: " + err.target
+}
+
+func resolveAndEvaluate(
+	root *node.Node,
+	target string,
+	operatorName string,
+	operands any,
+	reg *operator.Registry,
+	ctx *operator.EvaluationContext,
+) (bool, error) {
+	op, err := reg.Get(operatorName)
 	if err != nil {
-		return false, fmt.Errorf("operator not found: %s", cond.Operator)
+		return false, fmt.Errorf("operator not found: %s", operatorName)
 	}
 
-	return op.Evaluate(n, ctx, normalizeOperands(cond.Operands))
+	var n *node.Node
+	found := false
+	if root != nil {
+		n, found = root.Resolve(target)
+	}
+	if !found {
+		if _, ok := op.(operator.MissingTargetAware); !ok {
+			return false, targetNotFoundError{target: target}
+		}
+		n = nil
+	}
+
+	ok, err := reg.Evaluate(operatorName, n, ctx, operator.NormalizeOperands(operands))
+	if err != nil {
+		return false, fmt.Errorf("operator %s on %s: %v", operatorName, target, err)
+	}
+	return ok, nil
 }
 
 func certTypeMatches(r Rule, ctx *operator.EvaluationContext) bool {
@@ -183,27 +155,7 @@ func certTypeMatches(r Rule, ctx *operator.EvaluationContext) bool {
 		return true
 	}
 	if ctx == nil || ctx.Cert == nil {
-		return true
+		return false
 	}
 	return slices.Contains(r.CertType, ctx.Cert.Type)
 }
-
-// isKeyUsageBooleanField checks if the target is a keyUsage boolean field.
-// These fields represent key usage bits that are implicitly false when not present.
-func isKeyUsageBooleanField(target string) bool {
-	keyUsageFields := []string{
-		"certificate.keyUsage.digitalSignature",
-		"certificate.keyUsage.nonRepudiation",
-		"certificate.keyUsage.contentCommitment",
-		"certificate.keyUsage.keyEncipherment",
-		"certificate.keyUsage.dataEncipherment",
-		"certificate.keyUsage.keyAgreement",
-		"certificate.keyUsage.keyCertSign",
-		"certificate.keyUsage.cRLSign",
-		"certificate.keyUsage.encipherOnly",
-		"certificate.keyUsage.decipherOnly",
-	}
-	return slices.Contains(keyUsageFields, target)
-}
-
-

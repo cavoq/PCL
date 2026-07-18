@@ -158,13 +158,11 @@ func bytesEqual(a, b []byte) bool {
 }
 
 func equal(a, b any) bool {
-	if a == b {
+	if reflect.DeepEqual(a, b) {
 		return true
 	}
-	af, aok := ToFloat64(a)
-	bf, bok := ToFloat64(b)
-	if aok && bok {
-		return af == bf
+	if order, ok := compareNumericValues(a, b); ok {
+		return order == 0
 	}
 	return fmt.Sprintf("%v", a) == fmt.Sprintf("%v", b)
 }

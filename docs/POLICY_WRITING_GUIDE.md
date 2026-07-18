@@ -96,6 +96,11 @@ Each rule has the following structure:
 | `certType` | No | Certificate roles for this rule (see Certificate Type Filtering) |
 | `when` | No | Precondition that must be true before evaluating the rule |
 
+Policies loaded for execution validate each operator invocation before any
+certificate is evaluated. This includes `when` clauses and nested `every`
+checks. Invalid arity, operand types, regular expressions, OIDs, CIDRs, and
+unknown structured fields are reported as policy-load errors with the rule ID.
+
 ---
 
 ## Target Paths
@@ -468,11 +473,13 @@ PCL provides 107 operators organized by category. All operators are defined in `
 
 | Operator | Operands | Description |
 |----------|----------|-------------|
-| `before` | None | Returns true if target date is before current time |
-| `after` | [date] | Returns true if target date is after specified date (or current time if empty) |
+| `before` | [date] (optional) | Returns true if target date is before the specified date, or current time if omitted |
+| `after` | [date] (optional) | Returns true if target date is after the specified date, or current time if omitted |
+| `onOrBefore` | [date] (optional) | Returns true if target date is before or equal to the specified date, or current time if omitted |
+| `onOrAfter` | [date] (optional) | Returns true if target date is after or equal to the specified date, or current time if omitted |
 | `validityOrderCorrect` | None | Returns true if notBefore < notAfter |
-| `validityDays` | [days] | Returns true if validity period <= N days |
-| `dateDiff` | [{start, end, maxDays, maxMonths, minHours}] | Returns true if date difference is within limits |
+| `validityDays` | [minDays, maxDays] | Returns true if the validity period is within the inclusive day range |
+| `dateDiff` | {start, end?, minDays?, maxDays?, minHours?, maxHours?, maxMonths?} | Returns true if the date difference is within every supplied bound |
 
 **Usage Frequency**: `validityDays` (9), `dateDiff` (3), `after` (8)
 
@@ -484,11 +491,11 @@ PCL provides 107 operators organized by category. All operators are defined in `
   operator: after
   severity: error
 
-# Subscriber cert validity <= 398 days
+# Subscriber cert validity from 0 through 398 days
 - id: subscriber-validity-max
   target: certificate.validity
   operator: validityDays
-  operands: [398]
+  operands: [0, 398]
   severity: error
   certType: [leaf]
 
@@ -578,7 +585,7 @@ PCL provides 107 operators organized by category. All operators are defined in `
 | `issuedBy` | None | Returns true if certificate's issuer DN matches issuer's subject DN |
 | `akiMatchesSki` | None | Returns true if AKI matches issuer's SKI |
 | `pathLenValid` | None | Returns true if pathLenConstraint is valid for chain position |
-| `serialNumberUnique` | None | Returns true if serial number is unique within the chain |
+| `serialNumberUnique` | None | Detects a duplicate issuer/serial pair within the supplied chain; it cannot prove CA-wide uniqueness |
 | `noUniqueIdentifiers` | None | Returns true if issuerUniqueID and subjectUniqueID are absent |
 
 **Examples:**
@@ -600,10 +607,10 @@ PCL provides 107 operators organized by category. All operators are defined in `
 
 | Operator | Operands | Description |
 |----------|----------|-------------|
-| `crlValid` | None | Returns true if CRL is valid (time check) |
-| `crlNotExpired` | None | Returns true if CRL has not expired |
-| `crlSignedBy` | None | Returns true if CRL signature is valid |
-| `notRevoked` | None | Returns true if certificate is not in CRL's revoked list |
+| `crlValid` | None | Returns true if CRL has a present, ordered `nextUpdate` and the evaluation time is within its inclusive window |
+| `crlNotExpired` | None | Compatibility deadline check; rejects missing or elapsed `nextUpdate` but does not check `thisUpdate` |
+| `crlSignedBy` | None | Returns true only when the CRL signature verifies against a resolved issuer certificate |
+| `notRevoked` | None | Returns true only when an applicable CRL exists and does not list the certificate; missing/unrelated CRLs are unknown and return false |
 
 **Examples:**
 ```yaml
@@ -622,9 +629,9 @@ PCL provides 107 operators organized by category. All operators are defined in `
 
 | Operator | Operands | Description |
 |----------|----------|-------------|
-| `ocspValid` | None | Returns true if OCSP response is valid |
-| `notRevokedOCSP` | None | Returns true if OCSP status is not "revoked" |
-| `ocspGood` | None | Returns true if OCSP status is explicitly "Good" |
+| `ocspValid` | None | True when at least one response is certificate/issuer-bound, current, and authenticated |
+| `notRevokedOCSP` | None | True only when accepted aggregate status is Good; Unknown and absent evidence fail closed |
+| `ocspGood` | None | True when at least one accepted response explicitly reports Good |
 
 **Examples:**
 ```yaml
@@ -649,6 +656,10 @@ The `every` operator checks that ALL elements in an array satisfy a condition.
 - `operator`: Inner operator name
 - `operands`: Operands for the inner operator
 - `skipMissing`: Skip elements where path doesn't exist (default: false)
+
+The inner operator is resolved and its operands are validated through the same
+operator registry as the enclosing rule, so registered custom operators work
+inside `every` as well.
 
 **Examples:**
 ```yaml
@@ -684,7 +695,7 @@ The `every` operator checks that ALL elements in an array satisfy a condition.
 | Operator | Operands | Description |
 |----------|----------|-------------|
 | `nameConstraintsValid` | None | Returns true if names are valid against chain's constraints |
-| `certificatePolicyValid` | None | Returns true if policy OIDs are valid through chain |
+| `certificatePolicyValid` | [oid, ...] | Returns true if at least one acceptable policy OID is valid through the chain |
 
 ### 14. Component Operators (Multi-Valued Fields)
 
@@ -832,7 +843,7 @@ rules:
     # ...
 ```
 
-If `appliesTo` is omitted, the input type is inferred from the **first rule’s** `target` prefix (`certificate.*`, `crl.*`, `ocsp.*`). That only selects cert vs CRL vs OCSP processing — not `root` vs `leaf`.
+An explicit `appliesTo` is authoritative. If it is omitted, PCL infers an order-independent set of inputs from every rule's primary `target` namespace (`certificate.*`, `crl.*`, `ocsp.*`). A `when` target is a dependency only and does not change the execution input; an unqualified primary target is input-agnostic. This selects input objects only, not `root` vs `leaf` roles.
 
 ### Rule-level (`certType` on each rule)
 

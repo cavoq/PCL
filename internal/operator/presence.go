@@ -8,7 +8,8 @@ import (
 
 type Present struct{}
 
-func (Present) Name() string { return "present" }
+func (Present) Name() string          { return "present" }
+func (Present) AcceptsMissingTarget() {}
 
 func (Present) Evaluate(n *node.Node, _ *EvaluationContext, _ []any) (bool, error) {
 	return n != nil, nil
@@ -16,7 +17,8 @@ func (Present) Evaluate(n *node.Node, _ *EvaluationContext, _ []any) (bool, erro
 
 type Absent struct{}
 
-func (Absent) Name() string { return "absent" }
+func (Absent) Name() string          { return "absent" }
+func (Absent) AcceptsMissingTarget() {}
 
 func (Absent) Evaluate(n *node.Node, _ *EvaluationContext, _ []any) (bool, error) {
 	return n == nil, nil
@@ -24,7 +26,8 @@ func (Absent) Evaluate(n *node.Node, _ *EvaluationContext, _ []any) (bool, error
 
 type IsEmpty struct{}
 
-func (IsEmpty) Name() string { return "isEmpty" }
+func (IsEmpty) Name() string          { return "isEmpty" }
+func (IsEmpty) AcceptsMissingTarget() {}
 
 func (IsEmpty) Evaluate(n *node.Node, _ *EvaluationContext, _ []any) (bool, error) {
 	if n == nil {

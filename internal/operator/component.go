@@ -30,8 +30,8 @@ func (ComponentMaxLength) Evaluate(n *node.Node, _ *EvaluationContext, operands 
 		return false, nil
 	}
 
-	maxLen, ok := ToInt(operands[0])
-	if !ok {
+	maxLen, err := parseIntegerOperand(operands[0])
+	if err != nil {
 		return false, fmt.Errorf("componentMaxLength requires integer max length operand")
 	}
 
@@ -90,8 +90,8 @@ func (ComponentMinLength) Evaluate(n *node.Node, _ *EvaluationContext, operands 
 		return false, nil
 	}
 
-	minLen, ok := ToInt(operands[0])
-	if !ok {
+	minLen, err := parseIntegerOperand(operands[0])
+	if err != nil {
 		return false, fmt.Errorf("componentMinLength requires integer min length operand")
 	}
 

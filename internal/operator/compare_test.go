@@ -85,6 +85,27 @@ func TestGtOperator(t *testing.T) {
 	}
 }
 
+func TestNumericComparisonPreservesLargeIntegerPrecision(t *testing.T) {
+	const smaller = int64(9_007_199_254_740_992)
+	larger := smaller + 1
+
+	got, err := (Gt{}).Evaluate(node.New("large", larger), nil, []any{smaller})
+	if err != nil {
+		t.Fatalf("Gt returned error: %v", err)
+	}
+	if !got {
+		t.Fatal("large integers were compared through a lossy float64 conversion")
+	}
+
+	got, err = (Lte{}).Evaluate(node.New("large", larger), nil, []any{float64(smaller)})
+	if err != nil {
+		t.Fatalf("Lte returned error: %v", err)
+	}
+	if got {
+		t.Fatal("integer was treated as equal to a rounded float64 value")
+	}
+}
+
 func TestLtOperator(t *testing.T) {
 	tests := []struct {
 		name     string

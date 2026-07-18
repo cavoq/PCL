@@ -7,15 +7,18 @@ import (
 	"github.com/cavoq/PCL/internal/crl"
 	"github.com/cavoq/PCL/internal/node"
 	"github.com/cavoq/PCL/internal/ocsp"
+	"github.com/zmap/zcrypto/x509"
 )
 
 type EvaluationContext struct {
-	Root  *node.Node
-	Now   time.Time
-	Cert  *cert.Info
-	Chain []*cert.Info
-	CRLs  []*crl.Info
-	OCSPs []*ocsp.Info
+	Root       *node.Node
+	Now        time.Time
+	Cert       *cert.Info
+	Chain      []*cert.Info
+	CRLs       []*crl.Info
+	CurrentCRL *crl.Info
+	CRLIssuers []*x509.Certificate
+	OCSPs      []*ocsp.Info
 }
 
 func (ctx *EvaluationContext) HasCert() bool {
@@ -48,6 +51,38 @@ func WithCRLs(crls []*crl.Info) ContextOption {
 	return func(ctx *EvaluationContext) {
 		ctx.CRLs = crls
 	}
+}
+
+func WithCurrentCRL(current *crl.Info) ContextOption {
+	return func(ctx *EvaluationContext) {
+		ctx.CurrentCRL = current
+	}
+}
+
+func (ctx *EvaluationContext) ProfileCRLs() []*crl.Info {
+	if ctx == nil {
+		return nil
+	}
+	if ctx.CurrentCRL != nil {
+		return []*crl.Info{ctx.CurrentCRL}
+	}
+	return ctx.CRLs
+}
+
+func WithCRLIssuers(issuers []*x509.Certificate) ContextOption {
+	return func(ctx *EvaluationContext) {
+		ctx.CRLIssuers = issuers
+	}
+}
+
+func (ctx *EvaluationContext) CRLIssuerPool() []*x509.Certificate {
+	if ctx == nil {
+		return nil
+	}
+	if len(ctx.CRLIssuers) > 0 {
+		return ctx.CRLIssuers
+	}
+	return cert.CertsFromInfos(ctx.Chain)
 }
 
 func WithOCSPs(ocsps []*ocsp.Info) ContextOption {

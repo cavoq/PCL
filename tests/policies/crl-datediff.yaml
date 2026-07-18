@@ -22,8 +22,11 @@ rules:
         maxMonths: 12
     severity: error
 
-  # Test every operator with skipMissing (empty CRL should pass)
+  # Empty revokedCertificates is not applicable; populated entries use skipMissing.
   - id: crl-reason-codes-valid
+    when:
+      target: crl.revokedCertificates
+      operator: present
     target: crl.revokedCertificates
     operator: every
     operands:

@@ -98,9 +98,9 @@ func TestNoDuplicateAttributes(t *testing.T) {
 				n.Children["commonName_1"] = cn2
 				return n
 			}(),
-			// Expected true because "commonName_1" doesn't match nameToOID["commonName"]
-			// This is edge case - duplicate detection requires OID info
-			want: true,
+			// The node name, rather than its potentially suffixed parent key,
+			// supplies the attribute identity when no explicit OID is present.
+			want: false,
 		},
 		{
 			name: "duplicate organizationName returns false",
@@ -148,7 +148,7 @@ func TestNoDuplicateAttributes(t *testing.T) {
 			want: true,
 		},
 		{
-			name: "child without OID node is skipped",
+			name: "single child without OID uses node name",
 			node: func() *node.Node {
 				n := node.New("subject", nil)
 				cn := node.New("commonName", "example.com")

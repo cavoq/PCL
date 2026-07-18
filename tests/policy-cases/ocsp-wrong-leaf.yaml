@@ -7,8 +7,8 @@ issuers:
 ocsp: ocsps/wrong-leaf.ocsp
 expected:
   leaf:
-    pass: 1
-    fail: 2
+    pass: 0
+    fail: 3
     skip: 0
   intermediate:
     pass: 0

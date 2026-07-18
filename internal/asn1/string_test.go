@@ -63,3 +63,31 @@ func TestGetEncodingType(t *testing.T) {
 		}
 	}
 }
+
+func TestStringTypeName(t *testing.T) {
+	tests := map[int]string{
+		12: "utf8String",
+		19: "printableString",
+		22: "ia5String",
+		26: "visibleString",
+		28: "universalString",
+		30: "bmpString",
+		13: "unknown",
+		20: "unknown",
+	}
+	for tag, want := range tests {
+		if got := StringTypeName(tag); got != want {
+			t.Fatalf("StringTypeName(%d) = %q, want %q", tag, got, want)
+		}
+	}
+}
+
+func TestValidatePrintableString_RejectsNonAlphabetCharacter(t *testing.T) {
+	info, err := ValidatePrintableString([]byte{0x13, 0x01, '&'})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if info.ValidChars {
+		t.Fatal("ampersand is not part of the ASN.1 PrintableString alphabet")
+	}
+}

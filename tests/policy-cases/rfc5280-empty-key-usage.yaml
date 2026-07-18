@@ -1,0 +1,10 @@
+name: rfc5280-empty-key-usage
+policy: ../policies/RFC5280.yaml
+fixture: certificate-empty-key-usage
+rules:
+  - key-usage-has-at-least-one-bit
+expected:
+  root:
+    pass: 0
+    fail: 1
+    skip: 0

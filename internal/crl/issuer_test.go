@@ -1,6 +1,7 @@
 package crl
 
 import (
+	"bytes"
 	"crypto/rand"
 	"crypto/rsa"
 	cryptox509 "crypto/x509"
@@ -46,20 +47,27 @@ func TestCertMatchesCRLIssuer(t *testing.T) {
 			cert: signer,
 		},
 		{
-			name: "subject match",
+			name: "subject match with conflicting AKI",
 			cert: signer,
 			crl: &x509.RevocationList{
 				Issuer:         pkix.Name{CommonName: "Signer"},
 				AuthorityKeyId: []byte{0x99},
 			},
-			want: true,
 		},
 		{
-			name: "authority key identifier match",
+			name: "authority key identifier cannot replace issuer name",
 			cert: other,
 			crl: &x509.RevocationList{
 				Issuer:         pkix.Name{CommonName: "Different Issuer DN"},
 				AuthorityKeyId: []byte{0x04, 0x05, 0x06},
+			},
+		},
+		{
+			name: "subject and authority key identifier match",
+			cert: signer,
+			crl: &x509.RevocationList{
+				Issuer:         pkix.Name{CommonName: "Signer"},
+				AuthorityKeyId: []byte{0x01, 0x02, 0x03},
 			},
 			want: true,
 		},
@@ -83,7 +91,7 @@ func TestCertMatchesCRLIssuer(t *testing.T) {
 	}
 }
 
-func TestSigningCertFromPool(t *testing.T) {
+func TestSigningCertFromPoolRequiresSignature(t *testing.T) {
 	signer := &x509.Certificate{
 		Subject:      pkix.Name{CommonName: "Signer"},
 		SubjectKeyId: []byte{0x07},
@@ -99,8 +107,11 @@ func TestSigningCertFromPool(t *testing.T) {
 	}
 
 	got := SigningCertFromPool(revocationList, []*x509.Certificate{other, signer})
-	if got != signer {
-		t.Fatalf("SigningCertFromPool() = %v, want signer", got)
+	if got != nil {
+		t.Fatalf("SigningCertFromPool() = %v, want nil for unsigned CRL", got)
+	}
+	if got := matchingCertFromPool(revocationList, []*x509.Certificate{other, signer}); got != signer {
+		t.Fatalf("matchingCertFromPool() = %v, want signer hint", got)
 	}
 }
 
@@ -115,7 +126,7 @@ func TestResolveIssuerCerts_nilCRL(t *testing.T) {
 	}
 }
 
-func TestCertSignsCRL_matchesViaSignature(t *testing.T) {
+func TestCertSignsCRLDoesNotAcceptIssuerHint(t *testing.T) {
 	revocationList, err := ParseCRL(mustReadCRLFixture(t))
 	if err != nil {
 		t.Fatalf("parse CRL: %v", err)
@@ -126,8 +137,8 @@ func TestCertSignsCRL_matchesViaSignature(t *testing.T) {
 		IsCA:         true,
 		SerialNumber: big.NewInt(1),
 	}
-	if !CertSignsCRL(signer, revocationList) {
-		t.Fatal("expected CertSignsCRL true for issuer DN match")
+	if CertSignsCRL(signer, revocationList) {
+		t.Fatal("issuer identity without a verifying public key must not prove a CRL signature")
 	}
 }
 
@@ -140,15 +151,19 @@ func TestSigningCertFromPool_nilWhenNoMatch(t *testing.T) {
 }
 
 func TestResolveIssuerCerts_skipsFetchWhenSignerInChain(t *testing.T) {
-	signer := &x509.Certificate{
-		Subject:      pkix.Name{CommonName: "Test CA"},
-		SubjectKeyId: []byte{0x0a},
-		IsCA:         true,
-		SerialNumber: big.NewInt(5),
+	_, signer, signerStd, signerKey := testCRLIssuerCA(t, "Test CA")
+	now := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+	crlDER, err := cryptox509.CreateRevocationList(rand.Reader, &cryptox509.RevocationList{
+		Number:     big.NewInt(1),
+		ThisUpdate: now,
+		NextUpdate: now.Add(24 * time.Hour),
+	}, signerStd, signerKey)
+	if err != nil {
+		t.Fatalf("create CRL: %v", err)
 	}
-	revocationList := &x509.RevocationList{
-		Issuer:         pkix.Name{CommonName: "Test CA"},
-		AuthorityKeyId: []byte{0x0a},
+	revocationList, err := ParseCRL(crlDER)
+	if err != nil {
+		t.Fatalf("parse CRL: %v", err)
 	}
 	chain := []*cert.Info{{Cert: signer}}
 
@@ -230,7 +245,21 @@ func TestIsCACRL_usesValidityWhenSignerNotCA(t *testing.T) {
 }
 
 func TestResolveIssuerCerts_fetchesViaAIA(t *testing.T) {
-	parentDER, parent := testCRLIssuerCA(t, "CRL CA")
+	parentDER, parent, parentStd, parentKey := testCRLIssuerCA(t, "CRL CA")
+	now := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+	crlDER, err := cryptox509.CreateRevocationList(rand.Reader, &cryptox509.RevocationList{
+		Number:     big.NewInt(1),
+		ThisUpdate: now,
+		NextUpdate: now.Add(24 * time.Hour),
+	}, parentStd, parentKey)
+	if err != nil {
+		t.Fatalf("create CRL: %v", err)
+	}
+	revocationList, err := ParseCRL(crlDER)
+	if err != nil {
+		t.Fatalf("parse CRL: %v", err)
+	}
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write(parentDER)
 	}))
@@ -242,18 +271,18 @@ func TestResolveIssuerCerts_fetchesViaAIA(t *testing.T) {
 		SerialNumber:          big.NewInt(2),
 		IssuingCertificateURL: []string{server.URL},
 	}
-	revocationList := &x509.RevocationList{
-		Issuer:         pkix.Name{CommonName: "Different Issuer DN"},
-		AuthorityKeyId: []byte{0x01, 0x02},
+	spoof := &x509.Certificate{
+		Subject:      revocationList.Issuer,
+		SubjectKeyId: parent.SubjectKeyId,
+		SerialNumber: big.NewInt(99),
 	}
 
-	pool := ResolveIssuerCerts([]*cert.Info{{Cert: leaf}}, revocationList, time.Second, 2, nil)
-	if len(pool) != 2 {
-		t.Fatalf("pool len = %d, want leaf + fetched parent", len(pool))
+	pool := ResolveIssuerCerts([]*cert.Info{{Cert: spoof}, {Cert: leaf}}, revocationList, time.Second, 2, nil)
+	if len(pool) != 3 {
+		t.Fatalf("pool len = %d, want spoof + leaf + fetched parent", len(pool))
 	}
-	signer := SigningCertFromPool(revocationList, pool)
-	if signer == nil || signer.Subject.CommonName != "CRL CA" {
-		t.Fatalf("SigningCertFromPool() = %v, want CRL CA signer", signer)
+	if signer := VerifyingCertFromPool(revocationList, pool); signer == nil || !bytes.Equal(signer.Raw, parent.Raw) {
+		t.Fatalf("VerifyingCertFromPool() = %v, want fetched CRL CA signer", signer)
 	}
 }
 
@@ -345,7 +374,7 @@ func mustReadCRLFixture(t *testing.T) []byte {
 	return data
 }
 
-func testCRLIssuerCA(t *testing.T, cn string) ([]byte, *x509.Certificate) {
+func testCRLIssuerCA(t *testing.T, cn string) ([]byte, *x509.Certificate, *cryptox509.Certificate, *rsa.PrivateKey) {
 	t.Helper()
 
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
@@ -371,5 +400,9 @@ func testCRLIssuerCA(t *testing.T, cn string) ([]byte, *x509.Certificate) {
 	if err != nil {
 		t.Fatalf("parse certificate: %v", err)
 	}
-	return der, parsed
+	standard, err := cryptox509.ParseCertificate(der)
+	if err != nil {
+		t.Fatalf("parse standard certificate: %v", err)
+	}
+	return der, parsed, standard, key
 }

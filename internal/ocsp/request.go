@@ -4,15 +4,13 @@ import (
 	"crypto"
 	"crypto/rand"
 	"crypto/x509"
-	stdasn1 "encoding/asn1"
 	"encoding/hex"
 	"fmt"
 
 	der "github.com/cavoq/PCL/internal/asn1"
+	"github.com/cavoq/PCL/internal/oid"
 	"golang.org/x/crypto/ocsp"
 )
-
-var nonceOID = stdasn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 48, 1, 2}
 
 // NonceOptions configures nonce in OCSP requests (RFC 9654).
 type NonceOptions struct {
@@ -129,6 +127,10 @@ func addNonceToOCSPRequest(ocspRequest []byte, nonce []byte) ([]byte, error) {
 		return nil, fmt.Errorf("invalid TBSRequest: length mismatch")
 	}
 
+	nonceOID, err := oid.Parse(oid.OCSPNonce)
+	if err != nil {
+		return nil, err
+	}
 	nonceOIDDER, err := der.EncodeObjectIdentifier(nonceOID)
 	if err != nil {
 		return nil, err

@@ -32,7 +32,7 @@ func (f *TextFormatter) Format(w io.Writer, out LintOutput) error {
 			out.Meta.FailedRules,
 			verdictLabelColored(rule.VerdictSkip),
 			out.Meta.SkippedRules,
-			severityLabelColored("warning"),
+			severityLabelColored(rule.SeverityWarning),
 			warnTotal,
 		); err != nil {
 			return err
@@ -75,7 +75,7 @@ func (f *TextFormatter) Format(w io.Writer, out LintOutput) error {
 			failCount,
 			verdictLabelColored(rule.VerdictSkip),
 			skipCount,
-			severityLabelColored("warning"),
+			severityLabelColored(rule.SeverityWarning),
 			warnCount,
 		); err != nil {
 			return err
@@ -128,10 +128,10 @@ func verdictLabelColoredPaddedWithSeverity(verdict string, severity string, widt
 		return colorize(padded, ansiGreen)
 	case rule.VerdictFail:
 		// INFO level failures use white (informational), more visible than blue
-		if severity == "info" {
+		if severity == rule.SeverityInfo {
 			return colorize(padded, ansiWhite)
 		}
-		if severity == "warning" {
+		if severity == rule.SeverityWarning {
 			return colorize(padded, ansiYellow)
 		}
 		return colorize(padded, ansiRed)
@@ -263,7 +263,7 @@ func countResults(results []rule.Result) (int, int, int, int) {
 			passed++
 		case rule.VerdictFail:
 			failed++
-			if rr.Severity == "warning" {
+			if rr.Severity == rule.SeverityWarning {
 				warned++
 			}
 		case rule.VerdictSkip:
@@ -294,7 +294,7 @@ func countsFromResult(pr policy.Result) (int, int, int, int) {
 }
 
 func severityLabel(severity string) string {
-	if severity == "warning" {
+	if severity == rule.SeverityWarning {
 		return "WARN"
 	}
 	if severity == "" {
@@ -305,10 +305,10 @@ func severityLabel(severity string) string {
 
 func severityLabelColored(severity string) string {
 	label := severityLabel(severity)
-	if severity == "warning" {
+	if severity == rule.SeverityWarning {
 		return colorize(label, ansiYellow)
 	}
-	if severity == "info" {
+	if severity == rule.SeverityInfo {
 		return colorize(label, ansiBlue)
 	}
 	return label

@@ -37,7 +37,7 @@ func FromPolicyResults(policyResults []policy.Result) LintOutput {
 			case rule.VerdictFail:
 				failed++
 				counts.Failed++
-				if rr.Severity == "warning" {
+				if rr.Severity == rule.SeverityWarning {
 					counts.Warned++
 				}
 			case rule.VerdictSkip:

@@ -1,12 +1,14 @@
 package zcrypto
 
 import (
+	stdasn1 "encoding/asn1"
 	"encoding/hex"
 
 	"golang.org/x/crypto/cryptobyte"
 	cryptobyte_asn1 "golang.org/x/crypto/cryptobyte/asn1"
 
 	"github.com/cavoq/PCL/internal/asn1"
+	oidpkg "github.com/cavoq/PCL/internal/oid"
 )
 
 // NonceState represents the parsed nonce extension.
@@ -17,8 +19,13 @@ type NonceState struct {
 	HexValue string
 }
 
-// Nonce OID: id-pkix-ocsp-nonce (1.3.6.1.5.5.7.48.1.2)
-const nonceOID = "1.3.6.1.5.5.7.48.1.2"
+// CertID contains the issuer binding carried by the first SingleResponse in
+// a BasicOCSPResponse. The semantic comparison with a candidate issuer belongs
+// to the parent OCSP domain package.
+type CertID struct {
+	IssuerNameHash []byte
+	IssuerKeyHash  []byte
+}
 
 // ParseNonceFromRaw extracts the nonce from OCSP responseExtensions.
 // The nonce is in responseExtensions (inside TBSResponseData), NOT in singleExtensions.
@@ -26,47 +33,13 @@ const nonceOID = "1.3.6.1.5.5.7.48.1.2"
 func ParseNonceFromRaw(rawOCSP []byte) NonceState {
 	result := NonceState{Present: false}
 
-	input := cryptobyte.String(rawOCSP)
-
-	// Read OCSPResponse SEQUENCE
-	var ocspResp cryptobyte.String
-	if !input.ReadASN1(&ocspResp, cryptobyte_asn1.SEQUENCE) {
+	basicDER, ok := readBasicOCSPResponse(rawOCSP)
+	if !ok {
 		return result
 	}
 
-	// Read ResponseStatus (ENUMERATED)
-	var status cryptobyte.String
-	if !ocspResp.ReadASN1(&status, cryptobyte_asn1.ENUM) {
-		return result
-	}
-
-	// Read ResponseBytes (context-specific [0] EXPLICIT)
-	var responseBytesOuter cryptobyte.String
-	if !ocspResp.ReadASN1(&responseBytesOuter, cryptobyte_asn1.Tag(0).ContextSpecific().Constructed()) {
-		return result
-	}
-
-	// Inside the [0] wrapper, read ResponseBytes SEQUENCE
-	var responseBytes cryptobyte.String
-	if !responseBytesOuter.ReadASN1(&responseBytes, cryptobyte_asn1.SEQUENCE) {
-		return result
-	}
-
-	// Skip responseType OID
-	var responseType cryptobyte.String
-	if !responseBytes.ReadASN1(&responseType, cryptobyte_asn1.OBJECT_IDENTIFIER) {
-		return result
-	}
-
-	// Read response OCTET STRING (contains BasicOCSPResponse)
-	var responseOctet cryptobyte.String
-	if !responseBytes.ReadASN1(&responseOctet, cryptobyte_asn1.OCTET_STRING) {
-		return result
-	}
-
-	// Parse BasicOCSPResponse from OCTET STRING
 	var basicResp cryptobyte.String
-	if !responseOctet.ReadASN1(&basicResp, cryptobyte_asn1.SEQUENCE) {
+	if !basicDER.ReadASN1(&basicResp, cryptobyte_asn1.SEQUENCE) {
 		return result
 	}
 
@@ -127,13 +100,12 @@ func ParseNonceFromRaw(rawOCSP []byte) NonceState {
 		}
 
 		// Read OID
-		var oid cryptobyte.String
-		if !ext.ReadASN1(&oid, cryptobyte_asn1.OBJECT_IDENTIFIER) {
+		var oid stdasn1.ObjectIdentifier
+		if !ext.ReadASN1ObjectIdentifier(&oid) {
 			break
 		}
 
-		oidStr := oidString(oid)
-		if oidStr != nonceOID {
+		if oid.String() != oidpkg.OCSPNonce {
 			continue
 		}
 
@@ -168,130 +140,120 @@ func ParseNonceFromRaw(rawOCSP []byte) NonceState {
 	return result
 }
 
-// oidString converts cryptobyte.String OID to dotted string format.
-func oidString(oid cryptobyte.String) string {
-	var components []int
-
-	// First two components are encoded specially: first*40 + second
-	var firstByte uint8
-	if !oid.ReadUint8(&firstByte) {
-		return ""
-	}
-	components = append(components, int(firstByte)/40)
-	components = append(components, int(firstByte)%40)
-
-	// Remaining components use base128 encoding
-	for !oid.Empty() {
-		var val int
-		if !readBase128Int(&oid, &val) {
-			break
-		}
-		components = append(components, val)
-	}
-
-	// Build dotted string
-	result := ""
-	for i, comp := range components {
-		if i > 0 {
-			result += "."
-		}
-		result += intToString(comp)
-	}
-	return result
-}
-
-// readBase128Int reads a base128-encoded integer from cryptobyte.String.
-func readBase128Int(s *cryptobyte.String, out *int) bool {
-	var val int
-	var b uint8
-	for {
-		if !s.ReadUint8(&b) {
-			return false
-		}
-		val <<= 7
-		val |= int(b & 0x7f)
-		if b&0x80 == 0 {
-			break
-		}
-	}
-	*out = val
-	return true
-}
-
-// intToString converts int to string without importing strconv.
-func intToString(n int) string {
-	if n == 0 {
-		return "0"
-	}
-	var digits []byte
-	for n > 0 {
-		digits = append([]byte{byte('0' + n%10)}, digits...)
-		n /= 10
-	}
-	return string(digits)
-}
-
 // ParseOCSPSignatureAlgorithmParams parses the signatureAlgorithm
 // from an OCSP response and returns the parameters state.
 // OCSP structure: OCSPResponse -> responseBytes -> BasicOCSPResponse -> signatureAlgorithm
 func ParseOCSPSignatureAlgorithmParams(rawOCSP []byte) asn1.ParamsState {
+	basicDER, ok := readBasicOCSPResponse(rawOCSP)
+	if !ok {
+		return asn1.ParamsState{}
+	}
+	return asn1.ParseSignedObjectAlgorithmParams(basicDER)
+}
+
+// ParseCertID extracts the issuer name and key hashes from the first
+// SingleResponse in an OCSP response. golang.org/x/crypto/ocsp exposes the
+// selected hash algorithm but not these two encoded hash values.
+func ParseCertID(rawOCSP []byte) (CertID, bool) {
+	basicDER, ok := readBasicOCSPResponse(rawOCSP)
+	if !ok {
+		return CertID{}, false
+	}
+
+	var basicResponse cryptobyte.String
+	if !basicDER.ReadASN1(&basicResponse, cryptobyte_asn1.SEQUENCE) || !basicDER.Empty() {
+		return CertID{}, false
+	}
+
+	var responseData cryptobyte.String
+	if !basicResponse.ReadASN1(&responseData, cryptobyte_asn1.SEQUENCE) {
+		return CertID{}, false
+	}
+	if !responseData.SkipOptionalASN1(cryptobyte_asn1.Tag(0).ContextSpecific().Constructed()) {
+		return CertID{}, false
+	}
+
+	var responderID cryptobyte.String
+	var responderIDTag cryptobyte_asn1.Tag
+	if !responseData.ReadAnyASN1(&responderID, &responderIDTag) {
+		return CertID{}, false
+	}
+	if !responseData.SkipASN1(cryptobyte_asn1.GeneralizedTime) {
+		return CertID{}, false
+	}
+
+	var responses cryptobyte.String
+	if !responseData.ReadASN1(&responses, cryptobyte_asn1.SEQUENCE) {
+		return CertID{}, false
+	}
+
+	var singleResponse cryptobyte.String
+	if !responses.ReadASN1(&singleResponse, cryptobyte_asn1.SEQUENCE) {
+		return CertID{}, false
+	}
+
+	var certID cryptobyte.String
+	if !singleResponse.ReadASN1(&certID, cryptobyte_asn1.SEQUENCE) {
+		return CertID{}, false
+	}
+
+	var hashAlgorithm cryptobyte.String
+	if !certID.ReadASN1(&hashAlgorithm, cryptobyte_asn1.SEQUENCE) {
+		return CertID{}, false
+	}
+
+	var issuerNameHash cryptobyte.String
+	if !certID.ReadASN1(&issuerNameHash, cryptobyte_asn1.OCTET_STRING) {
+		return CertID{}, false
+	}
+	var issuerKeyHash cryptobyte.String
+	if !certID.ReadASN1(&issuerKeyHash, cryptobyte_asn1.OCTET_STRING) {
+		return CertID{}, false
+	}
+	if !certID.SkipASN1(cryptobyte_asn1.INTEGER) || !certID.Empty() {
+		return CertID{}, false
+	}
+
+	return CertID{
+		IssuerNameHash: append([]byte(nil), issuerNameHash...),
+		IssuerKeyHash:  append([]byte(nil), issuerKeyHash...),
+	}, true
+}
+
+// readBasicOCSPResponse returns the DER-encoded BasicOCSPResponse carried in
+// an OCSPResponse. The OCSP envelope traversal is shared by nonce and
+// signature-algorithm parsing, while interpretation remains with each caller.
+func readBasicOCSPResponse(rawOCSP []byte) (cryptobyte.String, bool) {
 	input := cryptobyte.String(rawOCSP)
 
-	// Read OCSPResponse SEQUENCE
 	var ocspResp cryptobyte.String
-	if !input.ReadASN1(&ocspResp, cryptobyte_asn1.SEQUENCE) {
-		return asn1.ParamsState{}
+	if !input.ReadASN1(&ocspResp, cryptobyte_asn1.SEQUENCE) || !input.Empty() {
+		return nil, false
 	}
 
-	// Read ResponseStatus (ENUMERATED - Tag(10))
 	var status cryptobyte.String
 	if !ocspResp.ReadASN1(&status, cryptobyte_asn1.ENUM) {
-		return asn1.ParamsState{}
+		return nil, false
 	}
 
-	// Read ResponseBytes (context-specific [0] EXPLICIT)
-	// The [0] tag is context-specific and constructed (EXPLICIT means wrapped in another SEQUENCE)
 	var responseBytesOuter cryptobyte.String
 	if !ocspResp.ReadASN1(&responseBytesOuter, cryptobyte_asn1.Tag(0).ContextSpecific().Constructed()) {
-		return asn1.ParamsState{}
+		return nil, false
 	}
 
-	// Inside the [0] wrapper, we have ResponseBytes SEQUENCE
 	var responseBytes cryptobyte.String
-	if !responseBytesOuter.ReadASN1(&responseBytes, cryptobyte_asn1.SEQUENCE) {
-		return asn1.ParamsState{}
+	if !responseBytesOuter.ReadASN1(&responseBytes, cryptobyte_asn1.SEQUENCE) || !responseBytesOuter.Empty() {
+		return nil, false
 	}
 
-	// Skip responseType OID
-	var responseType cryptobyte.String
-	if !responseBytes.ReadASN1(&responseType, cryptobyte_asn1.OBJECT_IDENTIFIER) {
-		return asn1.ParamsState{}
+	var responseType stdasn1.ObjectIdentifier
+	if !responseBytes.ReadASN1ObjectIdentifier(&responseType) || responseType.String() != oidpkg.OCSPBasicResponse {
+		return nil, false
 	}
 
-	// Read response OCTET STRING (contains BasicOCSPResponse)
-	var responseOctet cryptobyte.String
-	if !responseBytes.ReadASN1(&responseOctet, cryptobyte_asn1.OCTET_STRING) {
-		return asn1.ParamsState{}
+	var basicDER cryptobyte.String
+	if !responseBytes.ReadASN1(&basicDER, cryptobyte_asn1.OCTET_STRING) || !responseBytes.Empty() {
+		return nil, false
 	}
-
-	// Parse BasicOCSPResponse from OCTET STRING
-	var basicResp cryptobyte.String
-	if !responseOctet.ReadASN1(&basicResp, cryptobyte_asn1.SEQUENCE) {
-		return asn1.ParamsState{}
-	}
-
-	// Skip TBSResponseData SEQUENCE
-	var tbsResp cryptobyte.String
-	if !basicResp.ReadASN1(&tbsResp, cryptobyte_asn1.SEQUENCE) {
-		return asn1.ParamsState{}
-	}
-
-	// Read signatureAlgorithm (AlgorithmIdentifier after TBSResponseData)
-	var sigAlgo cryptobyte.String
-	var tag cryptobyte_asn1.Tag
-	if !basicResp.ReadAnyASN1Element(&sigAlgo, &tag) {
-		return asn1.ParamsState{}
-	}
-
-	return asn1.ParseAlgorithmIDParams(sigAlgo)
+	return basicDER, true
 }

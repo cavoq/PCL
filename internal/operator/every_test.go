@@ -1,10 +1,39 @@
 package operator
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/cavoq/PCL/internal/node"
 )
+
+type everyCustomOperator struct{}
+
+func (everyCustomOperator) Name() string { return "everyCustom" }
+
+func (everyCustomOperator) Evaluate(
+	n *node.Node,
+	_ *EvaluationContext,
+	operands []any,
+) (bool, error) {
+	if n == nil || len(operands) != 1 {
+		return false, nil
+	}
+	return n.Value == operands[0], nil
+}
+
+type everyFailingOperator struct{}
+
+func (everyFailingOperator) Name() string { return "everyFailing" }
+
+func (everyFailingOperator) Evaluate(
+	_ *node.Node,
+	_ *EvaluationContext,
+	_ []any,
+) (bool, error) {
+	return false, fmt.Errorf("inner failure")
+}
 
 func TestEvery(t *testing.T) {
 	op := Every{}
@@ -24,8 +53,8 @@ func TestEvery(t *testing.T) {
 			wantErr:  false,
 		},
 		{
-			name: "empty children returns true",
-			node: node.New("test", nil),
+			name:     "empty children returns true",
+			node:     node.New("test", nil),
 			operands: []any{map[string]any{"check": "present"}},
 			want:     true,
 			wantErr:  false,
@@ -64,7 +93,7 @@ func TestEvery(t *testing.T) {
 				return n
 			}(),
 			operands: []any{map[string]any{
-				"check": "in",
+				"check":  "in",
 				"values": []any{1, 3, 5, 7, 9},
 			}},
 			want:    true,
@@ -80,7 +109,7 @@ func TestEvery(t *testing.T) {
 				return n
 			}(),
 			operands: []any{map[string]any{
-				"check": "in",
+				"check":  "in",
 				"values": []any{1, 3, 5, 7, 9},
 			}},
 			want:    false,
@@ -99,8 +128,8 @@ func TestEvery(t *testing.T) {
 				return n
 			}(),
 			operands: []any{map[string]any{
-				"path":  "value",
-				"check": "in",
+				"path":   "value",
+				"check":  "in",
 				"values": []any{1, 3, 5},
 			}},
 			want:    true,
@@ -119,8 +148,8 @@ func TestEvery(t *testing.T) {
 				return n
 			}(),
 			operands: []any{map[string]any{
-				"path":  "value",
-				"check": "in",
+				"path":   "value",
+				"check":  "in",
 				"values": []any{1, 3, 5},
 			}},
 			want:    false,
@@ -178,8 +207,8 @@ func TestEvery(t *testing.T) {
 				return n
 			}(),
 			operands: []any{map[string]any{
-				"path":  "a.b",
-				"check": "in",
+				"path":   "a.b",
+				"check":  "in",
 				"values": []any{1, 3, 5, 9},
 			}},
 			want:    true,
@@ -206,8 +235,8 @@ func TestEvery(t *testing.T) {
 				return n
 			}(),
 			operands: []any{map[string]any{
-				"path":  "extensions.2.5.29.21.value",
-				"check": "in",
+				"path":   "extensions.2.5.29.21.value",
+				"check":  "in",
 				"values": []any{1, 3, 5, 9},
 			}},
 			want:    true,
@@ -294,6 +323,114 @@ func TestEvery(t *testing.T) {
 	}
 }
 
+func TestEveryValidatesStructuredOperands(t *testing.T) {
+	registry := DefaultRegistry()
+	tests := []struct {
+		name       string
+		operands   []any
+		wantErr    bool
+		wantDetail string
+	}{
+		{
+			name:     "modern form",
+			operands: []any{map[string]any{"operator": "eq", "operands": []any{"value"}}},
+		},
+		{
+			name:     "legacy form",
+			operands: []any{map[string]any{"check": "in", "values": []any{1, 2}}},
+		},
+		{
+			name:     "unknown field",
+			operands: []any{map[string]any{"operator": "present", "typo": true}},
+			wantErr:  true,
+		},
+		{
+			name:     "conflicting operator aliases",
+			operands: []any{map[string]any{"operator": "present", "check": "present"}},
+			wantErr:  true,
+		},
+		{
+			name:       "invalid nested operands",
+			operands:   []any{map[string]any{"operator": "regex", "operands": []any{"["}}},
+			wantErr:    true,
+			wantDetail: "operands[0].operands",
+		},
+		{
+			name:     "path whitespace",
+			operands: []any{map[string]any{"path": " value", "operator": "present"}},
+			wantErr:  true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := registry.Validate("every", test.operands)
+			if test.wantErr && err == nil {
+				t.Fatal("expected validation error")
+			}
+			if !test.wantErr && err != nil {
+				t.Fatalf("unexpected validation error: %v", err)
+			}
+			if test.wantDetail != "" && (err == nil || !strings.Contains(err.Error(), test.wantDetail)) {
+				t.Fatalf("validation error %q does not contain %q", err, test.wantDetail)
+			}
+		})
+	}
+}
+
+func TestEveryUsesActiveRegistryForNestedOperator(t *testing.T) {
+	registry := NewRegistry()
+	registry.Register(Every{})
+	registry.RegisterValidated(
+		everyCustomOperator{},
+		OperandValidatorFunc(func(operands []any, _ *Registry) error {
+			if len(operands) != 1 {
+				return fmt.Errorf("requires one operand")
+			}
+			return nil
+		}),
+	)
+
+	operands := []any{map[string]any{
+		"operator": "everyCustom",
+		"operands": []any{"match"},
+	}}
+	if err := registry.Validate("every", operands); err != nil {
+		t.Fatalf("nested custom operator was not validated through active registry: %v", err)
+	}
+
+	target := node.New("items", nil)
+	target.Children["0"] = node.New("0", "match")
+	target.Children["1"] = node.New("1", "match")
+	got, err := registry.Evaluate("every", target, nil, operands)
+	if err != nil {
+		t.Fatalf("nested custom operator evaluation failed: %v", err)
+	}
+	if !got {
+		t.Fatal("nested custom operator did not evaluate through active registry")
+	}
+}
+
+func TestEveryWrapsNestedEvaluationError(t *testing.T) {
+	registry := NewRegistry()
+	registry.Register(Every{})
+	registry.Register(everyFailingOperator{})
+
+	target := node.New("items", nil)
+	target.Children["entry"] = node.New("entry", "value")
+	_, err := registry.Evaluate("every", target, nil, []any{map[string]any{
+		"operator": "everyFailing",
+	}})
+	if err == nil {
+		t.Fatal("expected nested evaluation error")
+	}
+	for _, want := range []string{`inner operator "everyFailing"`, `child "entry"`, "inner failure"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Fatalf("nested error %q does not contain %q", err, want)
+		}
+	}
+}
+
 func TestResolvePath(t *testing.T) {
 	tests := []struct {
 		name string
@@ -368,8 +505,8 @@ func TestResolvePathWithWildcard(t *testing.T) {
 		name         string
 		node         *node.Node
 		path         string
-		wantCount    int    // Expected number of children in result
-		wantAnyValue any    // Check if any child has this value
+		wantCount    int // Expected number of children in result
+		wantAnyValue any // Check if any child has this value
 	}{
 		// Case 1: Wildcard at end - collect all direct children
 		{

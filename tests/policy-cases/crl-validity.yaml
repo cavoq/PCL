@@ -4,15 +4,7 @@ certs: certs
 crl: ../internal/crl/testdata/test.crl
 eval_time: "2026-01-10T00:00:00Z"
 expected:
-  leaf:
-    pass: 2
-    fail: 0
-    skip: 0
-  intermediate:
-    pass: 2
-    fail: 0
-    skip: 0
-  root:
+  crl:
     pass: 2
     fail: 0
     skip: 0

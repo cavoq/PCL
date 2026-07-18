@@ -1,0 +1,10 @@
+name: rfc5280-certificate-algorithm-mismatch
+policy: ../policies/RFC5280.yaml
+fixture: certificate-algorithm-mismatch
+rules:
+  - signature-algorithm-matches-tbs
+expected:
+  root:
+    pass: 0
+    fail: 1
+    skip: 0

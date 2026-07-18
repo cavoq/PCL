@@ -60,3 +60,18 @@ graph LR
 | **Evaluation Engine** | Apply rules to certificates using a registry of 40+ operators |
 | **Certificate Abstraction** | Unified node-tree representation for flexible field access |
 | **Output Formatter** | Generate results in text, JSON, or YAML format |
+
+### Policy execution boundary
+
+Policy parsing and operator semantics are deliberately separate. The policy
+package owns YAML shape, metadata, includes, and rule structure. Operators own
+their operand contracts, while the registry binds those contracts to the exact
+operator implementations used for evaluation.
+
+`Parse`, `ParseFile`, and `ParseDir` perform structural parsing. Execution
+paths use their `WithRegistry` counterparts to reject unknown operators and
+malformed main, conditional, or nested operands before processing inputs.
+`Registry.Evaluate` enforces the same contract as a final boundary for callers
+that construct policies or invocations programmatically. Composite operators
+such as `every` resolve and invoke inner operators through that same registry,
+including custom registrations.

@@ -14,8 +14,10 @@ import (
 
 	"github.com/cavoq/PCL/internal/cert"
 	"github.com/cavoq/PCL/internal/crl"
+	"github.com/cavoq/PCL/internal/node"
 	"github.com/cavoq/PCL/internal/operator"
 	"github.com/cavoq/PCL/internal/policy"
+	"github.com/cavoq/PCL/internal/rule"
 	"github.com/cavoq/PCL/internal/source"
 	"github.com/zmap/zcrypto/x509"
 	"github.com/zmap/zcrypto/x509/pkix"
@@ -171,6 +173,24 @@ func TestIssuerCertsForCRL_withoutResolveFlags(t *testing.T) {
 	}
 }
 
+func TestPrepareCRLIssuersSharesPoolWithCertificatePass(t *testing.T) {
+	signer := &x509.Certificate{SerialNumber: big.NewInt(1)}
+	crlInfo := &crl.Info{CRL: &x509.RevocationList{}}
+	ctx := PrepareCRLIssuers(Context{
+		Chain: []*cert.Info{{Cert: signer}},
+		CRLs:  []*crl.Info{crlInfo},
+	})
+
+	perCRL := ctx.crlIssuerPools[crlInfo]
+	combined := combinedCRLIssuerPool(ctx)
+	if len(perCRL) != 1 || perCRL[0] != signer {
+		t.Fatalf("per-CRL issuer pool = %v, want signer", perCRL)
+	}
+	if len(combined) != 1 || combined[0] != signer {
+		t.Fatalf("certificate-pass issuer pool = %v, want same signer", combined)
+	}
+}
+
 func TestCRL_skipsNilEntries(t *testing.T) {
 	now := time.Now().UTC().Truncate(time.Second)
 	valid := &x509.RevocationList{
@@ -202,6 +222,43 @@ func TestCRL_skipsNilEntries(t *testing.T) {
 	results := CRL(ctx)
 	if len(results) == 0 {
 		t.Fatal("expected CRL policy results for valid CRL entry")
+	}
+}
+
+type currentCRLProbe struct{}
+
+func (currentCRLProbe) Name() string { return "currentCRLProbe" }
+
+func (currentCRLProbe) Evaluate(_ *node.Node, ctx *operator.EvaluationContext, _ []any) (bool, error) {
+	profile := ctx.ProfileCRLs()
+	return ctx.CurrentCRL != nil && len(profile) == 1 && profile[0] == ctx.CurrentCRL, nil
+}
+
+func TestCRL_bindsEachCurrentCRL(t *testing.T) {
+	registry := operator.NewRegistry()
+	registry.Register(currentCRLProbe{})
+	pol := policy.Policy{
+		ID: "current-crl",
+		Rules: []rule.Rule{{
+			ID:       "current-crl",
+			Target:   "crl",
+			Operator: "currentCRLProbe",
+			Severity: "error",
+		}},
+	}
+	lists := []*crl.Info{
+		{CRL: &x509.RevocationList{Issuer: pkix.Name{CommonName: "One"}}},
+		{CRL: &x509.RevocationList{Issuer: pkix.Name{CommonName: "Two"}}},
+	}
+
+	results := CRL(Context{Policies: []policy.Policy{pol}, Registry: registry, CRLs: lists})
+	if len(results) != 2 {
+		t.Fatalf("results = %d, want one per CRL", len(results))
+	}
+	for i, result := range results {
+		if result.Verdict != rule.VerdictPass {
+			t.Fatalf("result %d verdict = %s, want pass", i, result.Verdict)
+		}
 	}
 }
 

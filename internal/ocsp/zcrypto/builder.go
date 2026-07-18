@@ -3,14 +3,12 @@ package zcrypto
 
 import (
 	"crypto"
-	"crypto/x509"
-	"crypto/x509/pkix"
 	"fmt"
 
 	"golang.org/x/crypto/ocsp"
 
-	"github.com/cavoq/PCL/internal/asn1"
 	"github.com/cavoq/PCL/internal/node"
+	sharedzcrypto "github.com/cavoq/PCL/internal/zcrypto"
 )
 
 type OCSPBuilder struct{}
@@ -54,10 +52,10 @@ func buildOCSP(resp *ocsp.Response) *node.Node {
 	// Signature algorithm (from BasicOCSPResponse)
 	// OCSP has only one signatureAlgorithm field, not separate TBS and outer like certificates/CRLs
 	params := ParseOCSPSignatureAlgorithmParams(resp.Raw)
-	root.Children["signatureAlgorithm"] = buildSignatureAlgorithm(resp.SignatureAlgorithm, params)
+	root.Children["signatureAlgorithm"] = sharedzcrypto.BuildAlgorithmIdentifier("signatureAlgorithm", resp.SignatureAlgorithm.String(), params)
 	// For consistency with cert/CRL tree structure, we also create tbsSignatureAlgorithm
 	// pointing to the same signature algorithm
-	root.Children["tbsSignatureAlgorithm"] = buildSignatureAlgorithm(resp.SignatureAlgorithm, params)
+	root.Children["tbsSignatureAlgorithm"] = sharedzcrypto.BuildAlgorithmIdentifier("tbsSignatureAlgorithm", resp.SignatureAlgorithm.String(), params)
 
 	// Responder ID
 	root.Children["responderID"] = buildResponderID(resp)
@@ -67,7 +65,7 @@ func buildOCSP(resp *ocsp.Response) *node.Node {
 
 	// Extensions
 	if len(resp.Extensions) > 0 {
-		root.Children["extensions"] = buildExtensions(resp.Extensions)
+		root.Children["extensions"] = sharedzcrypto.BuildStandardExtensions(resp.Extensions)
 	}
 
 	// Nonce extension (RFC 9654)
@@ -85,75 +83,6 @@ func buildOCSP(resp *ocsp.Response) *node.Node {
 	root.Children["nonce"] = nonceNode
 
 	return root
-}
-
-func buildExtensions(extensions []pkix.Extension) *node.Node {
-	n := node.New("extensions", nil)
-
-	for _, ext := range extensions {
-		extNode := node.New(ext.Id.String(), nil)
-		extNode.Children["oid"] = node.New("oid", ext.Id.String())
-		extNode.Children["critical"] = node.New("critical", ext.Critical)
-		extNode.Children["value"] = node.New("value", ext.Value)
-		n.Children[ext.Id.String()] = extNode
-	}
-
-	return n
-}
-
-func buildSignatureAlgorithm(algo x509.SignatureAlgorithm, params asn1.ParamsState) *node.Node {
-	n := node.New("signatureAlgorithm", nil)
-	n.Children["algorithm"] = node.New("algorithm", algo.String())
-	n.Children["oid"] = node.New("oid", params.OID)
-	paramNode := buildAlgorithmIDParams(params)
-	if paramNode != nil {
-		n.Children["parameters"] = paramNode
-	}
-	return n
-}
-
-func buildAlgorithmIDParams(params asn1.ParamsState) *node.Node {
-	// If parameters are absent, do NOT create a node.
-	// This allows the `absent` operator to work correctly.
-	if params.IsAbsent {
-		return nil
-	}
-
-	// If parameters are NULL, create node with null=true.
-	// This allows the `isNull` operator to work correctly.
-	n := node.New("parameters", nil)
-	n.Children["null"] = node.New("null", params.IsNull)
-
-	if params.PSS != nil {
-		n.Children["pss"] = buildPSSParams(params.PSS)
-	}
-
-	return n
-}
-
-func buildPSSParams(pss *asn1.PSSParams) *node.Node {
-	n := node.New("pss", nil)
-
-	n.Children["hashAlgorithm"] = buildNestedAlgorithmID(pss.HashAlgorithm)
-	n.Children["hashAlgorithmSet"] = node.New("hashAlgorithmSet", pss.HashAlgorithmSet)
-	n.Children["maskGenAlgorithm"] = buildNestedAlgorithmID(pss.MaskGenAlgorithm)
-	n.Children["maskGenAlgorithmSet"] = node.New("maskGenAlgorithmSet", pss.MaskGenAlgorithmSet)
-	n.Children["saltLength"] = node.New("saltLength", pss.SaltLength)
-	n.Children["saltLengthSet"] = node.New("saltLengthSet", pss.SaltLengthSet)
-	n.Children["trailerField"] = node.New("trailerField", pss.TrailerField)
-	n.Children["trailerFieldSet"] = node.New("trailerFieldSet", pss.TrailerFieldSet)
-
-	return n
-}
-
-func buildNestedAlgorithmID(algo asn1.AlgorithmIdentifier) *node.Node {
-	n := node.New("algorithm", nil)
-	n.Children["oid"] = node.New("oid", algo.OID)
-	paramNode := buildAlgorithmIDParams(algo.Params)
-	if paramNode != nil {
-		n.Children["parameters"] = paramNode
-	}
-	return n
 }
 
 func buildResponderID(resp *ocsp.Response) *node.Node {

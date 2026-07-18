@@ -9,7 +9,22 @@ const (
 	EncodingUTF8String
 	EncodingBMPString
 	EncodingUniversalString
+	EncodingVisibleString
 )
+
+type stringTypeDescriptor struct {
+	encoding EncodingType
+	name     string
+}
+
+var stringTypesByTag = map[int]stringTypeDescriptor{
+	12: {encoding: EncodingUTF8String, name: "utf8String"},
+	19: {encoding: EncodingPrintableString, name: "printableString"},
+	22: {encoding: EncodingIA5String, name: "ia5String"},
+	26: {encoding: EncodingVisibleString, name: "visibleString"},
+	28: {encoding: EncodingUniversalString, name: "universalString"},
+	30: {encoding: EncodingBMPString, name: "bmpString"},
+}
 
 type EncodingInfo struct {
 	Type         EncodingType
@@ -81,7 +96,7 @@ func isPrintableStringChar(b byte) bool {
 		return true
 	}
 	switch b {
-	case ' ', '\'', '(', ')', '+', ',', '-', '.', '/', ':', '=', '?', '&', '[', ']', '#', '@', '!', '"', '%', '*', ';', '<', '>', '_', '\\', '{', '}', '|', '~', '^':
+	case ' ', '\'', '(', ')', '+', ',', '-', '.', '/', ':', '=', '?':
 		return true
 	}
 	return false
@@ -89,18 +104,17 @@ func isPrintableStringChar(b byte) bool {
 
 // GetEncodingType returns the encoding type from ASN.1 tag.
 func GetEncodingType(tag int) EncodingType {
-	switch tag {
-	case 22:
-		return EncodingIA5String
-	case 19:
-		return EncodingPrintableString
-	case 12:
-		return EncodingUTF8String
-	case 30:
-		return EncodingBMPString
-	case 28:
-		return EncodingUniversalString
-	default:
-		return EncodingUnknown
+	if descriptor, ok := stringTypesByTag[tag]; ok {
+		return descriptor.encoding
 	}
+	return EncodingUnknown
+}
+
+// StringTypeName returns the canonical policy-facing name for an ASN.1
+// character string tag.
+func StringTypeName(tag int) string {
+	if descriptor, ok := stringTypesByTag[tag]; ok {
+		return descriptor.name
+	}
+	return "unknown"
 }

@@ -3,17 +3,10 @@ package operator
 import (
 	"encoding/asn1"
 
-	zasn1 "github.com/zmap/zcrypto/encoding/asn1"
 	"github.com/zmap/zcrypto/x509"
 
 	"github.com/cavoq/PCL/internal/node"
-)
-
-var (
-	oidPolicyMappings    = zasn1.ObjectIdentifier{2, 5, 29, 33}
-	oidPolicyConstraints = zasn1.ObjectIdentifier{2, 5, 29, 36}
-	oidInhibitAnyPolicy  = zasn1.ObjectIdentifier{2, 5, 29, 54}
-	oidAnyPolicy         = asn1.ObjectIdentifier{2, 5, 29, 32, 0}
+	"github.com/cavoq/PCL/internal/oid"
 )
 
 type CertificatePolicyValid struct{}
@@ -37,7 +30,7 @@ func (CertificatePolicyValid) Evaluate(_ *node.Node, ctx *EvaluationContext, ope
 	}
 
 	validPolicies := make(map[string]bool)
-	validPolicies[oidAnyPolicy.String()] = true
+	validPolicies[oid.AnyPolicy] = true
 
 	requireExplicitPolicy := -1
 	inhibitPolicyMapping := -1
@@ -63,22 +56,22 @@ func (CertificatePolicyValid) Evaluate(_ *node.Node, ctx *EvaluationContext, ope
 		}
 
 		certPolicies := make(map[string]bool)
-		for _, oid := range cert.PolicyIdentifiers {
-			certPolicies[oid.String()] = true
+		for _, policyID := range cert.PolicyIdentifiers {
+			certPolicies[policyID.String()] = true
 		}
 
 		if inhibitAnyPolicy >= 0 && i <= inhibitAnyPolicy {
-			delete(certPolicies, oidAnyPolicy.String())
+			delete(certPolicies, oid.AnyPolicy)
 		}
 
 		if len(certPolicies) == 0 {
 			validPolicies = make(map[string]bool)
-		} else if validPolicies[oidAnyPolicy.String()] {
+		} else if validPolicies[oid.AnyPolicy] {
 			validPolicies = certPolicies
 		} else {
 			newValid := make(map[string]bool)
 			for p := range certPolicies {
-				if validPolicies[p] || p == oidAnyPolicy.String() {
+				if validPolicies[p] || p == oid.AnyPolicy {
 					newValid[p] = true
 				}
 			}
@@ -96,11 +89,11 @@ func (CertificatePolicyValid) Evaluate(_ *node.Node, ctx *EvaluationContext, ope
 	}
 
 	if requireExplicitPolicy >= 0 && ctx.Cert.Position >= requireExplicitPolicy {
-		delete(validPolicies, oidAnyPolicy.String())
+		delete(validPolicies, oid.AnyPolicy)
 	}
 
 	for policy := range acceptablePolicies {
-		if validPolicies[policy] || validPolicies[oidAnyPolicy.String()] {
+		if validPolicies[policy] || validPolicies[oid.AnyPolicy] {
 			return true, nil
 		}
 	}
@@ -115,7 +108,7 @@ type policyMapping struct {
 
 func parsePolicyMappings(cert *x509.Certificate) []policyMapping {
 	for _, ext := range cert.Extensions {
-		if ext.Id.Equal(oidPolicyMappings) {
+		if ext.Id.String() == oid.PolicyMappings {
 			return decodePolicyMappings(ext.Value)
 		}
 	}
@@ -147,7 +140,7 @@ type policyConstraintsData struct {
 
 func parsePolicyConstraints(cert *x509.Certificate) policyConstraintsData {
 	for _, ext := range cert.Extensions {
-		if ext.Id.Equal(oidPolicyConstraints) {
+		if ext.Id.String() == oid.PolicyConstraints {
 			return decodePolicyConstraints(ext.Value)
 		}
 	}
@@ -186,7 +179,7 @@ func decodePolicyConstraints(data []byte) policyConstraintsData {
 
 func parseInhibitAnyPolicy(cert *x509.Certificate) *int {
 	for _, ext := range cert.Extensions {
-		if ext.Id.Equal(oidInhibitAnyPolicy) {
+		if ext.Id.String() == oid.InhibitAnyPolicy {
 			var skipCerts int
 			if _, err := asn1.Unmarshal(ext.Value, &skipCerts); err == nil {
 				return &skipCerts

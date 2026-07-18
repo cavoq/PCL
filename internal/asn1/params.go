@@ -4,9 +4,11 @@ package asn1
 type ParamsState struct {
 	IsNull     bool   // parameters is ASN.1 NULL
 	IsAbsent   bool   // parameters field is absent
+	Malformed  bool   // AlgorithmIdentifier or its parameters failed strict DER parsing
 	OID        string // algorithm OID
 	NamedCurve string // namedCurve OID for ECDSA (from parameters field)
 	RawDER     []byte // raw DER bytes of the entire AlgorithmIdentifier SEQUENCE
+	RawParams  []byte // raw DER bytes of the parameters element, when present
 
 	// RSASSA-PSS parameters (OID 1.2.840.113549.1.1.10)
 	PSS *PSSParams

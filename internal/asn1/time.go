@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"golang.org/x/crypto/cryptobyte"
+	cryptobyte_asn1 "golang.org/x/crypto/cryptobyte/asn1"
 )
 
 // TimeFormatInfo contains information about ASN.1 time encoding.
@@ -81,19 +84,10 @@ func ParseGeneralizedTime(derBytes []byte) (*TimeFormatInfo, error) {
 }
 
 func readDERValue(derBytes []byte, expectedTag int, name string) ([]byte, error) {
-	if len(derBytes) < 2 {
-		return nil, fmt.Errorf("invalid %s: too short", name)
+	input := cryptobyte.String(derBytes)
+	var value cryptobyte.String
+	if !input.ReadASN1(&value, cryptobyte_asn1.Tag(expectedTag)) || !input.Empty() {
+		return nil, fmt.Errorf("invalid %s DER", name)
 	}
-
-	tag := int(derBytes[0])
-	if tag != expectedTag {
-		return nil, fmt.Errorf("invalid %s tag: expected %d, got %d", name, expectedTag, tag)
-	}
-
-	length := int(derBytes[1])
-	if len(derBytes) < 2+length {
-		return nil, fmt.Errorf("invalid %s: length mismatch", name)
-	}
-
-	return derBytes[2 : 2+length], nil
+	return value, nil
 }

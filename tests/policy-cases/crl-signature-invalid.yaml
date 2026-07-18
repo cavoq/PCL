@@ -3,15 +3,7 @@ policy: policies/crl-signed-by.yaml
 certs: certs
 crl: crls/revoked-leaf.crl
 expected:
-  leaf:
-    pass: 0
-    fail: 1
-    skip: 0
-  intermediate:
-    pass: 0
-    fail: 1
-    skip: 0
-  root:
+  crl:
     pass: 0
     fail: 1
     skip: 0

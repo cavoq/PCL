@@ -1,13 +1,22 @@
 package tests
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
+	cryptox509 "crypto/x509"
+	cryptopkix "crypto/x509/pkix"
+	stdasn1 "encoding/asn1"
+	"encoding/pem"
+	"math/big"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/zmap/zcrypto/x509"
 	"gopkg.in/yaml.v3"
 
+	derasn1 "github.com/cavoq/PCL/internal/asn1"
 	"github.com/cavoq/PCL/internal/cert"
 	certzcrypto "github.com/cavoq/PCL/internal/cert/zcrypto"
 	"github.com/cavoq/PCL/internal/crl"
@@ -38,14 +47,17 @@ func TestIntegrationPolicies(t *testing.T) {
 }
 
 type testCase struct {
-	Name     string            `yaml:"name"`
-	Policy   string            `yaml:"policy"`
-	Certs    string            `yaml:"certs"`
-	Issuers  []string          `yaml:"issuers,omitempty"`
-	CRL      string            `yaml:"crl,omitempty"`
-	OCSP     string            `yaml:"ocsp,omitempty"`
-	EvalTime string            `yaml:"eval_time,omitempty"`
-	Expected map[string]counts `yaml:"expected"`
+	Name             string            `yaml:"name"`
+	Policy           string            `yaml:"policy"`
+	Fixture          string            `yaml:"fixture,omitempty"`
+	Rules            []string          `yaml:"rules,omitempty"`
+	Certs            string            `yaml:"certs"`
+	Issuers          []string          `yaml:"issuers,omitempty"`
+	CRL              string            `yaml:"crl,omitempty"`
+	OCSP             string            `yaml:"ocsp,omitempty"`
+	EvalTime         string            `yaml:"eval_time,omitempty"`
+	WantCRLLoadError bool              `yaml:"want_crl_load_error,omitempty"`
+	Expected         map[string]counts `yaml:"expected"`
 }
 
 type counts struct {
@@ -71,17 +83,20 @@ func loadCase(path string) (testCase, error) {
 
 func runCase(t *testing.T, caseDir string, tc testCase) {
 	t.Helper()
+	if tc.Fixture != "" {
+		tc = materializeCaseFixture(t, tc)
+	}
 
 	testsDir := filepath.Dir(caseDir)
-	policyPath := filepath.Join(testsDir, tc.Policy)
-	certsPath := filepath.Join(testsDir, tc.Certs)
+	policyPath := resolveCasePath(testsDir, tc.Policy)
+	certsPath := resolveCasePath(testsDir, tc.Certs)
 	crlPath := ""
 	ocspPath := ""
 	if tc.CRL != "" {
-		crlPath = filepath.Join(testsDir, tc.CRL)
+		crlPath = resolveCasePath(testsDir, tc.CRL)
 	}
 	if tc.OCSP != "" {
-		ocspPath = filepath.Join(testsDir, tc.OCSP)
+		ocspPath = resolveCasePath(testsDir, tc.OCSP)
 	}
 	var evalTime time.Time
 	if tc.EvalTime != "" {
@@ -92,9 +107,13 @@ func runCase(t *testing.T, caseDir string, tc testCase) {
 		evalTime = parsed
 	}
 
-	p, err := policy.ParseFile(policyPath)
+	reg := operator.DefaultRegistry()
+	p, err := policy.ParseFileWithRegistry(policyPath, reg)
 	if err != nil {
 		t.Fatalf("unexpected policy parse error: %v", err)
+	}
+	if len(tc.Rules) > 0 {
+		p = selectPolicyRules(t, p, tc.Rules)
 	}
 
 	certs, err := cert.LoadCertificates(certsPath)
@@ -102,7 +121,7 @@ func runCase(t *testing.T, caseDir string, tc testCase) {
 		t.Fatalf("unexpected cert load error: %v", err)
 	}
 	for _, issuer := range tc.Issuers {
-		issuerCerts, err := cert.LoadCertificates(filepath.Join(testsDir, issuer))
+		issuerCerts, err := cert.LoadCertificates(resolveCasePath(testsDir, issuer))
 		if err != nil {
 			t.Fatalf("unexpected issuer cert load error: %v", err)
 		}
@@ -114,7 +133,6 @@ func runCase(t *testing.T, caseDir string, tc testCase) {
 		t.Fatalf("unexpected chain error: %v", err)
 	}
 
-	reg := operator.DefaultRegistry()
 	results := make([]policy.Result, 0, len(chain))
 	ctxOpts := make([]operator.ContextOption, 0)
 
@@ -123,7 +141,13 @@ func runCase(t *testing.T, caseDir string, tc testCase) {
 	if crlPath != "" {
 		crlInfos, err = crl.GetCRLs(crlPath)
 		if err != nil {
+			if tc.WantCRLLoadError {
+				return
+			}
 			t.Fatalf("unexpected CRL load error: %v", err)
+		}
+		if tc.WantCRLLoadError {
+			t.Fatal("expected generated CRL to be rejected during loading")
 		}
 		ctxOpts = append(ctxOpts, operator.WithCRLs(crlInfos))
 	}
@@ -137,28 +161,62 @@ func runCase(t *testing.T, caseDir string, tc testCase) {
 		ctxOpts = append(ctxOpts, operator.WithOCSPs(ocsps))
 	}
 
+	var embeddedCRL *crl.Info
+	var embeddedCRLIssuers []*x509.Certificate
+	for _, crlInfo := range crlInfos {
+		if crlInfo != nil && crlInfo.CRL != nil {
+			embeddedCRL = crlInfo
+			embeddedCRLIssuers = cert.CertsFromInfos(chain)
+			break
+		}
+	}
+
 	for _, c := range chain {
 		tree := certzcrypto.BuildTree(c.Cert)
 
-		// Add CRL node with isCACRL (same path as evaluator.CRL / auto-validate).
-		if len(crlInfos) > 0 {
-			for _, crlInfo := range crlInfos {
-				if crlInfo.CRL != nil {
-					issuerPool := crl.ResolveIssuerCerts(chain, crlInfo.CRL, 0, 0, nil)
-					crlNode := crl.BuildTreeWithChain(crlInfo.CRL, issuerPool)
-					if crlNode != nil {
-						tree.Children["crl"] = crlNode
-					}
-					break
-				}
+		if embeddedCRL != nil {
+			crlNode := crl.BuildTreeWithChain(embeddedCRL.CRL, embeddedCRLIssuers)
+			if crlNode != nil {
+				tree.Children["crl"] = crlNode
 			}
 		}
 
-		ctx := operator.NewEvaluationContext(tree, c, chain, ctxOpts...)
+		certOpts := append([]operator.ContextOption(nil), ctxOpts...)
+		if embeddedCRL != nil {
+			certOpts = append(certOpts,
+				operator.WithCurrentCRL(embeddedCRL),
+				operator.WithCRLIssuers(embeddedCRLIssuers),
+			)
+		}
+		ctx := operator.NewEvaluationContext(tree, c, chain, certOpts...)
 		if !evalTime.IsZero() {
 			ctx.Now = evalTime
 		}
-		results = append(results, policy.Evaluate(p, tree, reg, ctx))
+		for _, candidate := range policy.ByCertificate([]policy.Policy{p}, c.Cert) {
+			results = append(results, policy.Evaluate(candidate, tree, reg, ctx))
+		}
+	}
+
+	for _, crlInfo := range crlInfos {
+		if crlInfo == nil || crlInfo.CRL == nil {
+			continue
+		}
+		issuerPool := cert.CertsFromInfos(chain)
+		tree := crl.BuildTreeWithChain(crlInfo.CRL, issuerPool)
+		ctx := operator.NewEvaluationContext(
+			tree,
+			&cert.Info{Type: "crl", FilePath: crlInfo.FilePath, Source: crlInfo.Source},
+			chain,
+			operator.WithCRLs(crlInfos),
+			operator.WithCurrentCRL(crlInfo),
+			operator.WithCRLIssuers(issuerPool),
+		)
+		if !evalTime.IsZero() {
+			ctx.Now = evalTime
+		}
+		for _, candidate := range policy.ByCRL([]policy.Policy{p}, crlInfo.CRL) {
+			results = append(results, policy.Evaluate(candidate, tree, reg, ctx))
+		}
 	}
 
 	if len(results) != len(tc.Expected) {
@@ -190,4 +248,206 @@ func countVerdicts(results []rule.Result) counts {
 		}
 	}
 	return c
+}
+
+func resolveCasePath(baseDir, path string) string {
+	if filepath.IsAbs(path) {
+		return path
+	}
+	return filepath.Join(baseDir, path)
+}
+
+func selectPolicyRules(t *testing.T, p policy.Policy, ruleIDs []string) policy.Policy {
+	t.Helper()
+
+	wanted := make(map[string]struct{}, len(ruleIDs))
+	for _, id := range ruleIDs {
+		wanted[id] = struct{}{}
+	}
+
+	filtered := make([]rule.Rule, 0, len(ruleIDs))
+	for _, candidate := range p.Rules {
+		if _, ok := wanted[candidate.ID]; !ok {
+			continue
+		}
+		filtered = append(filtered, candidate)
+		delete(wanted, candidate.ID)
+	}
+	if len(wanted) > 0 {
+		for id := range wanted {
+			t.Errorf("policy %q does not contain selected rule %q", p.ID, id)
+		}
+		t.FailNow()
+	}
+	p.Rules = filtered
+	return p
+}
+
+func materializeCaseFixture(t *testing.T, tc testCase) testCase {
+	t.Helper()
+	dir := t.TempDir()
+
+	switch tc.Fixture {
+	case "certificate-algorithm-mismatch":
+		_, _, der := makeIntegrationCertificate(t, nil)
+		tc.Certs = writePEMFixture(t, dir, "certificate.pem", "CERTIFICATE", replaceOuterSignatureAlgorithm(t, der))
+	case "crl-algorithm-mismatch":
+		key, issuer, issuerDER := makeIntegrationCertificate(t, nil)
+		tc.Certs = writePEMFixture(t, dir, "issuer.pem", "CERTIFICATE", issuerDER)
+		crlDER := makeIntegrationCRL(t, issuer, key)
+		tc.CRL = writePEMFixture(t, dir, "list.pem", "X509 CRL", replaceOuterSignatureAlgorithm(t, crlDER))
+	case "certificate-empty-key-usage":
+		_, _, der := makeIntegrationCertificate(t, func(template *cryptox509.Certificate) {
+			template.KeyUsage = 0
+			template.ExtraExtensions = []cryptopkix.Extension{{
+				Id:       stdasn1.ObjectIdentifier{2, 5, 29, 15},
+				Critical: true,
+				Value:    []byte{0x03, 0x01, 0x00},
+			}}
+		})
+		tc.Certs = writePEMFixture(t, dir, "certificate.pem", "CERTIFICATE", der)
+	case "certificate-validity-boundary":
+		boundary := time.Date(2026, 7, 18, 12, 0, 0, 0, time.UTC)
+		_, _, der := makeIntegrationCertificate(t, func(template *cryptox509.Certificate) {
+			template.NotBefore = boundary
+			template.NotAfter = boundary
+		})
+		tc.Certs = writePEMFixture(t, dir, "certificate.pem", "CERTIFICATE", der)
+		tc.EvalTime = boundary.Format(time.RFC3339)
+	case "crl-missing-required-fields":
+		key, issuer, issuerDER := makeIntegrationCertificate(t, nil)
+		tc.Certs = writePEMFixture(t, dir, "issuer.pem", "CERTIFICATE", issuerDER)
+		crlDER := removeCRLRequiredFields(t, makeIntegrationCRL(t, issuer, key))
+		tc.CRL = writePEMFixture(t, dir, "list.pem", "X509 CRL", crlDER)
+	default:
+		t.Fatalf("unknown generated fixture %q", tc.Fixture)
+	}
+
+	return tc
+}
+
+func makeIntegrationCertificate(
+	t *testing.T,
+	mutate func(*cryptox509.Certificate),
+) (*rsa.PrivateKey, *cryptox509.Certificate, []byte) {
+	t.Helper()
+	key, err := rsa.GenerateKey(rand.Reader, 1024)
+	if err != nil {
+		t.Fatalf("generate key: %v", err)
+	}
+	template := &cryptox509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               cryptopkix.Name{CommonName: "integration-generated"},
+		NotBefore:             time.Date(2026, 7, 18, 11, 0, 0, 0, time.UTC),
+		NotAfter:              time.Date(2027, 7, 18, 13, 0, 0, 0, time.UTC),
+		KeyUsage:              cryptox509.KeyUsageCertSign | cryptox509.KeyUsageCRLSign,
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+		SubjectKeyId:          []byte{0x01, 0x02, 0x03},
+	}
+	if mutate != nil {
+		mutate(template)
+	}
+	der, err := cryptox509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
+	if err != nil {
+		t.Fatalf("create certificate: %v", err)
+	}
+	issuer, err := cryptox509.ParseCertificate(der)
+	if err != nil {
+		t.Fatalf("parse issuer certificate: %v", err)
+	}
+	return key, issuer, der
+}
+
+func makeIntegrationCRL(
+	t *testing.T,
+	issuer *cryptox509.Certificate,
+	key *rsa.PrivateKey,
+) []byte {
+	t.Helper()
+	der, err := cryptox509.CreateRevocationList(rand.Reader, &cryptox509.RevocationList{
+		Number:     big.NewInt(1),
+		ThisUpdate: time.Date(2026, 7, 18, 11, 0, 0, 0, time.UTC),
+		NextUpdate: time.Date(2026, 7, 19, 11, 0, 0, 0, time.UTC),
+	}, issuer, key)
+	if err != nil {
+		t.Fatalf("create CRL: %v", err)
+	}
+	return der
+}
+
+func writePEMFixture(t *testing.T, dir, name, blockType string, der []byte) string {
+	t.Helper()
+	path := filepath.Join(dir, name)
+	data := pem.EncodeToMemory(&pem.Block{Type: blockType, Bytes: der})
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		t.Fatalf("write generated fixture: %v", err)
+	}
+	return path
+}
+
+func replaceOuterSignatureAlgorithm(t *testing.T, der []byte) []byte {
+	t.Helper()
+	var envelope struct {
+		TBS       stdasn1.RawValue
+		Algorithm stdasn1.RawValue
+		Signature stdasn1.RawValue
+	}
+	if rest, err := stdasn1.Unmarshal(der, &envelope); err != nil || len(rest) != 0 {
+		t.Fatalf("decode signed envelope: rest=%x err=%v", rest, err)
+	}
+	var outer struct {
+		Algorithm  stdasn1.ObjectIdentifier
+		Parameters stdasn1.RawValue `asn1:"optional"`
+	}
+	if rest, err := stdasn1.Unmarshal(envelope.Algorithm.FullBytes, &outer); err != nil || len(rest) != 0 {
+		t.Fatalf("decode outer AlgorithmIdentifier: rest=%x err=%v", rest, err)
+	}
+	outer.Algorithm = stdasn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 12} // sha384WithRSAEncryption
+	outerDER, err := stdasn1.Marshal(outer)
+	if err != nil {
+		t.Fatalf("encode mismatched outer AlgorithmIdentifier: %v", err)
+	}
+	content := append([]byte(nil), envelope.TBS.FullBytes...)
+	content = append(content, outerDER...)
+	content = append(content, envelope.Signature.FullBytes...)
+	return derasn1.EncodeSequence(content)
+}
+
+func removeCRLRequiredFields(t *testing.T, der []byte) []byte {
+	t.Helper()
+	var envelope struct {
+		TBS       stdasn1.RawValue
+		Algorithm stdasn1.RawValue
+		Signature stdasn1.RawValue
+	}
+	if rest, err := stdasn1.Unmarshal(der, &envelope); err != nil || len(rest) != 0 {
+		t.Fatalf("decode CRL envelope: rest=%x err=%v", rest, err)
+	}
+
+	var tbs struct {
+		Raw                 stdasn1.RawContent
+		Version             int `asn1:"optional,default:0"`
+		Signature           cryptopkix.AlgorithmIdentifier
+		Issuer              stdasn1.RawValue
+		ThisUpdate          time.Time
+		NextUpdate          time.Time                       `asn1:"optional"`
+		RevokedCertificates []cryptopkix.RevokedCertificate `asn1:"optional"`
+		Extensions          []cryptopkix.Extension          `asn1:"tag:0,optional,explicit"`
+	}
+	if rest, err := stdasn1.Unmarshal(envelope.TBS.FullBytes, &tbs); err != nil || len(rest) != 0 {
+		t.Fatalf("decode TBSCertList: rest=%x err=%v", rest, err)
+	}
+	tbs.Raw = nil
+	tbs.NextUpdate = time.Time{}
+	tbs.Extensions = nil
+	tbsDER, err := stdasn1.Marshal(tbs)
+	if err != nil {
+		t.Fatalf("encode TBSCertList without required fields: %v", err)
+	}
+
+	content := append([]byte(nil), tbsDER...)
+	content = append(content, envelope.Algorithm.FullBytes...)
+	content = append(content, envelope.Signature.FullBytes...)
+	return derasn1.EncodeSequence(content)
 }

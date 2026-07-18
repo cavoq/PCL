@@ -49,6 +49,32 @@ func TestRuleEvaluationFail(t *testing.T) {
 	}
 }
 
+func TestRuleEvaluationFailureUsesConfiguredMessage(t *testing.T) {
+	root := node.New("root", nil)
+	root.Children["a"] = node.New("a", 42)
+
+	reg := operator.NewRegistry()
+	reg.Register(operator.Eq{})
+	r := Rule{
+		ID:       "test",
+		Target:   "a",
+		Operator: "eq",
+		Operands: []any{100},
+		Message:  "a must equal 100",
+	}
+
+	failed := Evaluate(root, r, reg, nil)
+	if failed.Message != r.Message {
+		t.Fatalf("failure message = %q, want %q", failed.Message, r.Message)
+	}
+
+	r.Operands = []any{42}
+	passed := Evaluate(root, r, reg, nil)
+	if passed.Message != "" {
+		t.Fatalf("passing result unexpectedly contains message %q", passed.Message)
+	}
+}
+
 func TestRuleEvaluationMissingOperator(t *testing.T) {
 	root := node.New("root", nil)
 	root.Children["a"] = node.New("a", 42)
@@ -78,6 +104,43 @@ func (errOp) Name() string { return "err" }
 
 func (errOp) Evaluate(_ *node.Node, _ *operator.EvaluationContext, _ []any) (bool, error) {
 	return false, fmt.Errorf("boom")
+}
+
+type registryAwareRuleOp struct{}
+
+func (registryAwareRuleOp) Name() string { return "registryAware" }
+
+func (registryAwareRuleOp) Evaluate(
+	_ *node.Node,
+	_ *operator.EvaluationContext,
+	_ []any,
+) (bool, error) {
+	return false, nil
+}
+
+func (registryAwareRuleOp) EvaluateWithRegistry(
+	_ *node.Node,
+	_ *operator.EvaluationContext,
+	_ []any,
+	_ *operator.Registry,
+) (bool, error) {
+	return true, nil
+}
+
+func TestRuleEvaluationUsesRegistryAwareOperator(t *testing.T) {
+	root := node.New("root", nil)
+	root.Children["a"] = node.New("a", 42)
+	reg := operator.NewRegistry()
+	reg.Register(registryAwareRuleOp{})
+
+	result := Evaluate(root, Rule{
+		ID:       "test",
+		Target:   "a",
+		Operator: "registryAware",
+	}, reg, nil)
+	if result.Verdict != VerdictPass {
+		t.Fatalf("verdict = %s, want pass (%s)", result.Verdict, result.Message)
+	}
 }
 
 func TestRuleEvaluationOperatorError(t *testing.T) {
@@ -259,5 +322,120 @@ func TestRuleEvaluationMissingTarget(t *testing.T) {
 	// The operator should receive nil node for missing target
 	if res.Verdict != VerdictFail {
 		t.Errorf("expected fail for missing target with 'present' operator, got %s", res.Verdict)
+	}
+}
+
+func TestRuleEvaluationMissingTargetCanBeEmpty(t *testing.T) {
+	root := node.New("root", nil)
+	reg := operator.NewRegistry()
+	reg.Register(operator.IsEmpty{})
+
+	result := Evaluate(root, Rule{
+		ID:       "test",
+		Target:   "nonexistent",
+		Operator: "isEmpty",
+	}, reg, nil)
+	if result.Verdict != VerdictPass {
+		t.Fatalf("missing target should be empty, got %s (%s)", result.Verdict, result.Message)
+	}
+}
+
+func TestRuleEvaluationApplicableMissingTargetFails(t *testing.T) {
+	root := node.New("root", nil)
+	root.Children["enabled"] = node.New("enabled", true)
+	reg := operator.NewRegistry()
+	reg.Register(operator.Eq{})
+
+	r := Rule{
+		ID:       "test",
+		Target:   "missing",
+		Operator: "eq",
+		Operands: []any{true},
+		When: &Condition{
+			Target:   "enabled",
+			Operator: "eq",
+			Operands: []any{true},
+		},
+	}
+
+	res := Evaluate(root, r, reg, nil)
+	if res.Verdict != VerdictFail {
+		t.Fatalf("expected fail for applicable missing target, got %s", res.Verdict)
+	}
+	if res.Message != "target not found: missing" {
+		t.Fatalf("unexpected message: %q", res.Message)
+	}
+}
+
+func TestRuleEvaluationMissingWhenTarget(t *testing.T) {
+	root := node.New("root", nil)
+	root.Children["value"] = node.New("value", true)
+	reg := operator.NewRegistry()
+	reg.Register(operator.Eq{})
+	reg.Register(operator.Present{})
+
+	tests := []struct {
+		name       string
+		condition  Condition
+		want       string
+		wantPrefix string
+	}{
+		{
+			name:      "present condition makes rule inapplicable",
+			condition: Condition{Target: "missing", Operator: "present"},
+			want:      VerdictSkip,
+		},
+		{
+			name:       "missing comparison condition is an error on applicable input",
+			condition:  Condition{Target: "missing", Operator: "eq", Operands: []any{true}},
+			want:       VerdictFail,
+			wantPrefix: "when condition error: target not found: missing",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			res := Evaluate(root, Rule{
+				ID:       "test",
+				Target:   "value",
+				Operator: "eq",
+				Operands: []any{true},
+				When:     &tt.condition,
+			}, reg, nil)
+			if res.Verdict != tt.want {
+				t.Fatalf("verdict = %s, want %s", res.Verdict, tt.want)
+			}
+			if tt.wantPrefix != "" && res.Message != tt.wantPrefix {
+				t.Fatalf("message = %q, want %q", res.Message, tt.wantPrefix)
+			}
+		})
+	}
+}
+
+func TestRuleEvaluationMissingTargetUsesInputNamespace(t *testing.T) {
+	root := node.New("certificate", nil)
+	reg := operator.NewRegistry()
+	reg.Register(operator.Eq{})
+
+	tests := []struct {
+		name   string
+		target string
+		want   string
+	}{
+		{name: "missing applicable certificate field fails", target: "certificate.missing", want: VerdictFail},
+		{name: "unavailable CRL input skips", target: "crl.missing", want: VerdictSkip},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := Evaluate(root, Rule{
+				ID:       "test",
+				Target:   tt.target,
+				Operator: "eq",
+				Operands: []any{true},
+			}, reg, nil)
+			if result.Verdict != tt.want {
+				t.Fatalf("verdict = %s, want %s", result.Verdict, tt.want)
+			}
+		})
 	}
 }

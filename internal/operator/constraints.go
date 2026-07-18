@@ -2,6 +2,7 @@ package operator
 
 import (
 	"github.com/cavoq/PCL/internal/node"
+	"github.com/cavoq/PCL/internal/oid"
 )
 
 type PathLenValid struct{}
@@ -75,9 +76,9 @@ func (ValidityPeriodDays) Evaluate(n *node.Node, ctx *EvaluationContext, operand
 		return false, nil
 	}
 
-	minDays, ok1 := ToInt(operands[0])
-	maxDays, ok2 := ToInt(operands[1])
-	if !ok1 || !ok2 {
+	minDays, minErr := parseIntegerOperand(operands[0])
+	maxDays, maxErr := parseIntegerOperand(operands[1])
+	if minErr != nil || maxErr != nil {
 		return false, nil
 	}
 
@@ -88,31 +89,25 @@ type SANRequiredIfEmptySubject struct{}
 
 func (SANRequiredIfEmptySubject) Name() string { return "sanRequiredIfEmptySubject" }
 
-func (SANRequiredIfEmptySubject) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (bool, error) {
+func (SANRequiredIfEmptySubject) Evaluate(n *node.Node, ctx *EvaluationContext, _ []any) (bool, error) {
 	if ctx == nil || ctx.Cert == nil || ctx.Cert.Cert == nil {
 		return false, nil
 	}
 
 	cert := ctx.Cert.Cert
-
-	subjectEmpty := len(cert.Subject.Country) == 0 &&
-		len(cert.Subject.Organization) == 0 &&
-		len(cert.Subject.OrganizationalUnit) == 0 &&
-		cert.Subject.CommonName == "" &&
-		len(cert.Subject.Locality) == 0 &&
-		len(cert.Subject.Province) == 0 &&
-		cert.Subject.SerialNumber == ""
-
-	if !subjectEmpty {
+	if len(cert.Subject.Names) > 0 {
 		return true, nil
 	}
 
-	hasSAN := len(cert.DNSNames) > 0 ||
-		len(cert.EmailAddresses) > 0 ||
-		len(cert.IPAddresses) > 0 ||
-		len(cert.URIs) > 0
-
-	return hasSAN, nil
+	if n == nil {
+		return false, nil
+	}
+	san, found := n.Resolve("subjectAltName")
+	if !found || san == nil {
+		return false, nil
+	}
+	count, ok := san.Value.(int)
+	return ok && count > 0, nil
 }
 
 type KeyUsageCA struct{}
@@ -215,51 +210,41 @@ func (ValidityOrderCorrect) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []a
 	return cert.NotBefore.Before(cert.NotAfter), nil
 }
 
-type SignatureAlgorithmMatchesTBS struct{}
-
-func (SignatureAlgorithmMatchesTBS) Name() string { return "signatureAlgorithmMatchesTBS" }
-
-func (SignatureAlgorithmMatchesTBS) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (bool, error) {
-	if ctx == nil || ctx.Cert == nil || ctx.Cert.Cert == nil {
-		return false, nil
-	}
-
-	cert := ctx.Cert.Cert
-	// In Go's x509 package, SignatureAlgorithm is already parsed from both
-	// the tbsCertificate.signature and the outer signatureAlgorithm fields.
-	// If they didn't match, parsing would have failed.
-	// However, we validate that the algorithm is valid and known.
-	return cert.SignatureAlgorithm != 0, nil
-}
-
 type NoUnknownCriticalExtensions struct{}
 
 func (NoUnknownCriticalExtensions) Name() string { return "noUnknownCriticalExtensions" }
 
-func (NoUnknownCriticalExtensions) Evaluate(n *node.Node, ctx *EvaluationContext, _ []any) (bool, error) {
-	// For certificates: use zcrypto's UnhandledCriticalExtensions (more accurate)
-	if ctx != nil && ctx.Cert != nil && ctx.Cert.Cert != nil {
-		cert := ctx.Cert.Cert
-		return len(cert.UnhandledCriticalExtensions) == 0, nil
-	}
-
-	// For CRLs or other node types: check extensions from node tree
+func (NoUnknownCriticalExtensions) Evaluate(n *node.Node, _ *EvaluationContext, _ []any) (bool, error) {
 	if n == nil {
 		return false, nil
 	}
 
-	// Determine if this is a CRL node
-	if n.Name != "crl" {
-		return false, nil // Not applicable
+	switch n.Name {
+	case "certificate":
+		return noUnknownCriticalExtensions(n, knownCertificateExtensionOIDs), nil
+	case "crl":
+		return noUnknownCriticalExtensions(n, knownCRLExtensionOIDs), nil
+	default:
+		return false, nil
 	}
+}
 
+func noUnknownCriticalExtensions(n *node.Node, known map[string]struct{}) bool {
 	extsNode, _ := n.Resolve("extensions")
 	if extsNode == nil {
-		return true, nil // No extensions = no unknown critical
+		return true
 	}
 
-	// Check each extension for unknown critical ones
-	for oid, extNode := range extsNode.Children {
+	seen := make(map[*node.Node]struct{}, len(extsNode.Children))
+	for _, extNode := range extsNode.Children {
+		if extNode == nil {
+			continue
+		}
+		if _, duplicate := seen[extNode]; duplicate {
+			continue
+		}
+		seen[extNode] = struct{}{}
+
 		criticalNode, _ := extNode.Resolve("critical")
 		if criticalNode == nil {
 			continue
@@ -267,32 +252,60 @@ func (NoUnknownCriticalExtensions) Evaluate(n *node.Node, ctx *EvaluationContext
 
 		critical, ok := criticalNode.Value.(bool)
 		if !ok || !critical {
-			continue // Non-critical extensions are OK
+			continue
 		}
 
-		// Check if this OID is known for CRLs
-		if !isKnownCRLExtensionOID(oid) {
-			return false, nil // Unknown critical extension found
+		oidNode, _ := extNode.Resolve("oid")
+		if oidNode == nil {
+			return false
+		}
+		oidValue, ok := oidNode.Value.(string)
+		if !ok {
+			return false
+		}
+		if _, ok := known[oidValue]; !ok {
+			return false
 		}
 	}
 
-	return true, nil
+	return true
 }
 
-// Known CRL extension OIDs per RFC 5280 Section 5.2
-func isKnownCRLExtensionOID(oid string) bool {
-	knownOIDs := []string{
-		"2.5.29.20",           // cRLNumber
-		"2.5.29.27",           // deltaCRLIndicator
-		"2.5.29.28",           // issuingDistributionPoint
-		"2.5.29.35",           // authorityKeyIdentifier
-		"2.5.29.46",           // freshestCRL
-		"1.3.6.1.5.5.7.1.1",   // authorityInformationAccess
+var knownCertificateExtensionOIDs = oidSet(
+	oid.SubjectDirectoryAttributes,
+	oid.SubjectKeyIdentifier,
+	oid.KeyUsage,
+	oid.PrivateKeyUsagePeriod,
+	oid.SubjectAlternativeName,
+	oid.IssuerAlternativeName,
+	oid.BasicConstraints,
+	oid.NameConstraints,
+	oid.CRLDistributionPoints,
+	oid.CertificatePolicies,
+	oid.PolicyMappings,
+	oid.AuthorityKeyIdentifier,
+	oid.PolicyConstraints,
+	oid.ExtendedKeyUsage,
+	oid.FreshestCRL,
+	oid.InhibitAnyPolicy,
+	oid.AuthorityInfoAccess,
+	oid.SubjectInfoAccess,
+)
+
+var knownCRLExtensionOIDs = oidSet(
+	oid.AuthorityKeyIdentifier,
+	oid.IssuerAlternativeName,
+	oid.CRLNumber,
+	oid.DeltaCRLIndicator,
+	oid.IssuingDistributionPoint,
+	oid.FreshestCRL,
+	oid.AuthorityInfoAccess,
+)
+
+func oidSet(values ...string) map[string]struct{} {
+	result := make(map[string]struct{}, len(values))
+	for _, value := range values {
+		result[value] = struct{}{}
 	}
-	for _, known := range knownOIDs {
-		if oid == known {
-			return true
-		}
-	}
-	return false
+	return result
 }

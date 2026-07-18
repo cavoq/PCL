@@ -113,9 +113,9 @@ func TestCRLSignedBy_LERoot_impostorOnly_fails(t *testing.T) {
 	}
 }
 
-// TestCRLSignedBy_LERoot_noMatchingChainMemberIsNotApplicable when the CRL
-// issuer is not represented in the chain, the operator treats the CRL as N/A.
-func TestCRLSignedBy_LERoot_noMatchingChainMemberIsNotApplicable(t *testing.T) {
+// TestCRLSignedBy_LERoot_noMatchingChainMemberFails ensures an unverifiable
+// CRL cannot pass merely because its signer is absent from the supplied pool.
+func TestCRLSignedBy_LERoot_noMatchingChainMemberFails(t *testing.T) {
 	revocationList := loadLetsEncryptRootX1CRL(t)
 	unrelated := &x509.Certificate{
 		Subject:      pkix.Name{CommonName: "Unrelated CA"},
@@ -132,7 +132,7 @@ func TestCRLSignedBy_LERoot_noMatchingChainMemberIsNotApplicable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !got {
-		t.Fatal("expected pass (skip) when chain has no CRL signer candidate")
+	if got {
+		t.Fatal("expected failure when chain has no CRL signer candidate")
 	}
 }

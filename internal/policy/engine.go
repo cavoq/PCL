@@ -49,7 +49,7 @@ func Evaluate(
 	verdict := "pass"
 
 	for _, r := range p.Rules {
-		if !RuleAppliesToInput(r, inputType, ctx) {
+		if !RuleAppliesToInput(r, inputType) {
 			results = append(results, rule.Result{
 				RuleID:    r.ID,
 				Reference: r.Reference,
@@ -62,7 +62,7 @@ func Evaluate(
 		res := rule.Evaluate(root, r, reg, ctx)
 		results = append(results, res)
 
-		if res.Verdict == rule.VerdictFail && r.Severity == "error" {
+		if res.Verdict == rule.VerdictFail && r.Severity == rule.SeverityError {
 			verdict = "fail"
 		}
 	}

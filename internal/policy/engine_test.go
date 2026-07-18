@@ -111,4 +111,7 @@ func TestPolicyMultipleRules(t *testing.T) {
 	if len(res.Results) != 2 {
 		t.Fatalf("expected 2 rule results, got %d", len(res.Results))
 	}
+	if res.Results[0].RuleID != "rule-a" || res.Results[1].RuleID != "rule-b" {
+		t.Fatalf("rules evaluated out of policy order: %q, %q", res.Results[0].RuleID, res.Results[1].RuleID)
+	}
 }

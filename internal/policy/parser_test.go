@@ -3,7 +3,10 @@ package policy
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+
+	"github.com/cavoq/PCL/internal/operator"
 )
 
 func TestParse_Valid(t *testing.T) {
@@ -38,6 +41,7 @@ rules:
     target: certificate.version
     operator: eq
     operands: [3]
+    severity: error
   - id: r2
     target: certificate.subject.commonName
     operator: present
@@ -69,6 +73,21 @@ func TestParse_InvalidYAML(t *testing.T) {
 	}
 }
 
+func TestParse_RejectsMultipleYAMLDocuments(t *testing.T) {
+	data := []byte(`
+id: first
+rules: []
+---
+id: second
+rules: []
+`)
+
+	_, err := Parse(data)
+	if err == nil || !strings.Contains(err.Error(), "multiple documents") {
+		t.Fatalf("expected multiple-document error, got %v", err)
+	}
+}
+
 func TestParse_InvalidPolicy(t *testing.T) {
 	cases := []struct {
 		name string
@@ -82,6 +101,7 @@ rules:
     target: certificate.version
     operator: eq
     operands: [3]
+    severity: error
 `),
 		},
 		{
@@ -92,6 +112,7 @@ rules:
   - target: certificate.version
     operator: eq
     operands: [3]
+    severity: error
 `),
 		},
 		{
@@ -102,6 +123,7 @@ rules:
   - id: r1
     operator: eq
     operands: [3]
+    severity: error
 `),
 		},
 		{
@@ -111,6 +133,7 @@ id: test-policy
 rules:
   - id: r1
     target: certificate.version
+    severity: error
 `),
 		},
 		{
@@ -124,6 +147,7 @@ rules:
     target: certificate.version
     operator: eq
     operands: [3]
+    severity: error
 `),
 		},
 		{
@@ -137,6 +161,7 @@ rules:
     target: certificate.version
     operator: eq
     operands: [3]
+    severity: error
 `),
 		},
 	}
@@ -151,6 +176,226 @@ rules:
 	}
 }
 
+func TestParse_RejectsUnknownFields(t *testing.T) {
+	data := []byte(`
+id: test-policy
+rules:
+  - id: r1
+    target: certificate.version
+    operator: eq
+    severity: error
+    severty: warning
+`)
+
+	_, err := Parse(data)
+	if err == nil || !strings.Contains(err.Error(), "field severty not found") {
+		t.Fatalf("expected strict unknown-field error, got %v", err)
+	}
+}
+
+func TestParse_RejectsDuplicateRuleIDs(t *testing.T) {
+	data := []byte(`
+id: test-policy
+rules:
+  - id: duplicate
+    target: certificate.version
+    operator: present
+    severity: error
+  - id: duplicate
+    target: certificate.serialNumber
+    operator: present
+    severity: error
+`)
+
+	_, err := Parse(data)
+	if err == nil || !strings.Contains(err.Error(), `duplicate rule id "duplicate"`) {
+		t.Fatalf("expected duplicate rule error, got %v", err)
+	}
+}
+
+func TestParse_RejectsDuplicateIncludes(t *testing.T) {
+	data := []byte(`
+id: test-policy
+includes:
+  - common.yaml
+  - ./common.yaml
+rules: []
+`)
+
+	_, err := Parse(data)
+	if err == nil || !strings.Contains(err.Error(), "duplicate include path") {
+		t.Fatalf("expected duplicate include error, got %v", err)
+	}
+}
+
+func TestParse_RejectsInvalidSeverity(t *testing.T) {
+	tests := []struct {
+		name        string
+		policy      string
+		wantMessage string
+	}{
+		{
+			name: "missing severity",
+			policy: `
+id: test-policy
+rules:
+  - id: r1
+    target: certificate.version
+    operator: present
+`,
+			wantMessage: "severity is required",
+		},
+		{
+			name: "unsupported severity",
+			policy: `
+id: test-policy
+rules:
+  - id: r1
+    target: certificate.version
+    operator: present
+    severity: fatal
+`,
+			wantMessage: `invalid severity "fatal"`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := Parse([]byte(tt.policy))
+			if err == nil || !strings.Contains(err.Error(), tt.wantMessage) {
+				t.Fatalf("expected error containing %q, got %v", tt.wantMessage, err)
+			}
+		})
+	}
+}
+
+func TestParse_AllowsOIDCertificateType(t *testing.T) {
+	data := []byte(`
+id: test-policy
+certType: [1.2.3.4]
+rules:
+  - id: r1
+    target: certificate.version
+    operator: present
+    severity: error
+`)
+
+	if _, err := Parse(data); err != nil {
+		t.Fatalf("custom OID certificate role rejected: %v", err)
+	}
+}
+
+func TestParse_RejectsInvalidScopeValues(t *testing.T) {
+	tests := []struct {
+		name        string
+		metadata    string
+		certType    string
+		wantMessage string
+	}{
+		{name: "input type", metadata: "appliesTo: [certificate]", wantMessage: "appliesTo contains unsupported value"},
+		{name: "policy certificate type", metadata: "certType: [subscriber]", wantMessage: "certType contains unsupported value"},
+		{name: "CRL type", metadata: "crlType: [delta]", wantMessage: "crlType contains unsupported value"},
+		{name: "rule certificate type", certType: "    certType: [subscriber]\n", wantMessage: "rule r1 certType contains unsupported value"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			data := "id: test-policy\n" + tt.metadata + "\nrules:\n" +
+				"  - id: r1\n" +
+				"    target: certificate.version\n" +
+				"    operator: present\n" +
+				"    severity: error\n" + tt.certType
+			_, err := Parse([]byte(data))
+			if err == nil || !strings.Contains(err.Error(), tt.wantMessage) {
+				t.Fatalf("expected error containing %q, got %v", tt.wantMessage, err)
+			}
+		})
+	}
+}
+
+func TestParse_RejectsWhitespacePaddedSemanticValues(t *testing.T) {
+	tests := []struct {
+		name   string
+		policy string
+	}{
+		{
+			name: "severity",
+			policy: `
+id: test-policy
+rules:
+  - id: r1
+    target: certificate.version
+    operator: present
+    severity: " error "
+`,
+		},
+		{
+			name: "input scope",
+			policy: `
+id: test-policy
+appliesTo: [" cert "]
+rules:
+  - id: r1
+    target: certificate.version
+    operator: present
+    severity: error
+`,
+		},
+		{
+			name: "rule target",
+			policy: `
+id: test-policy
+rules:
+  - id: r1
+    target: " certificate.version "
+    operator: present
+    severity: error
+`,
+		},
+		{
+			name: "rule operator",
+			policy: `
+id: test-policy
+rules:
+  - id: r1
+    target: certificate.version
+    operator: " present "
+    severity: error
+`,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := Parse([]byte(test.policy))
+			if err == nil || !strings.Contains(err.Error(), "leading or trailing whitespace") {
+				t.Fatalf("expected canonical-whitespace error, got %v", err)
+			}
+		})
+	}
+}
+
+func TestParse_PreservesRuleMessage(t *testing.T) {
+	data := []byte(`
+id: test-policy
+rules:
+  - id: r1
+    target: certificate.version
+    operator: eq
+    operands: [3]
+    severity: error
+    message: certificate must use version 3
+`)
+
+	parsed, err := Parse(data)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := parsed.Rules[0].Message; got != "certificate must use version 3" {
+		t.Fatalf("message = %q", got)
+	}
+}
+
 func TestParseFile(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "policy.yaml")
@@ -162,6 +407,7 @@ rules:
     target: certificate.version
     operator: eq
     operands: [3]
+    severity: error
 `)
 	if err := os.WriteFile(path, data, 0644); err != nil {
 		t.Fatal(err)
@@ -174,6 +420,19 @@ rules:
 
 	if p.ID != "file-policy" {
 		t.Errorf("expected ID 'file-policy', got %q", p.ID)
+	}
+}
+
+func TestParseFile_ShippedPoliciesConformToSchema(t *testing.T) {
+	for _, name := range []string{"RFC4055.yaml", "RFC5280.yaml"} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := ParseFileWithRegistry(
+				filepath.Join("..", "..", "policies", name),
+				operator.DefaultRegistry(),
+			); err != nil {
+				t.Fatalf("shipped policy does not conform to schema: %v", err)
+			}
+		})
 	}
 }
 
@@ -194,6 +453,7 @@ rules:
     target: certificate.version
     operator: eq
     operands: [3]
+    severity: error
 `)
 	child := []byte(`
 id: child
@@ -203,6 +463,7 @@ rules:
   - id: child-rule
     target: certificate.serialNumber
     operator: present
+    severity: error
 `)
 
 	if err := os.WriteFile(filepath.Join(dir, "base.yaml"), base, 0644); err != nil {
@@ -236,6 +497,7 @@ rules:
     target: certificate.version
     operator: eq
     operands: [3]
+    severity: error
 `)
 	b := []byte(`
 id: b
@@ -245,6 +507,7 @@ rules:
   - id: b-rule
     target: certificate.serialNumber
     operator: present
+    severity: error
 `)
 
 	if err := os.WriteFile(filepath.Join(dir, "a.yaml"), a, 0644); err != nil {
@@ -260,7 +523,7 @@ rules:
 	}
 }
 
-func TestParseFile_IncludesSharedDependency(t *testing.T) {
+func TestParseFile_DeduplicatesSharedDependency(t *testing.T) {
 	dir := t.TempDir()
 
 	root := []byte(`
@@ -273,6 +536,7 @@ rules:
     target: certificate.version
     operator: eq
     operands: [3]
+    severity: error
 `)
 	a := []byte(`
 id: a
@@ -282,6 +546,7 @@ rules:
   - id: a-rule
     target: certificate.serialNumber
     operator: present
+    severity: error
 `)
 	b := []byte(`
 id: b
@@ -291,6 +556,7 @@ rules:
   - id: b-rule
     target: certificate.subject
     operator: present
+    severity: error
 `)
 	common := []byte(`
 id: common
@@ -298,6 +564,7 @@ rules:
   - id: common-rule
     target: certificate.issuer
     operator: present
+    severity: error
 `)
 
 	if err := os.WriteFile(filepath.Join(dir, "root.yaml"), root, 0o644); err != nil {
@@ -313,13 +580,18 @@ rules:
 		t.Fatalf("unexpected write error: %v", err)
 	}
 
-	p, err := ParseFile(filepath.Join(dir, "root.yaml"))
+	parsed, err := ParseFile(filepath.Join(dir, "root.yaml"))
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf("parse diamond include: %v", err)
 	}
-
-	if len(p.Rules) != 5 {
-		t.Fatalf("expected 5 rules, got %d", len(p.Rules))
+	want := []string{"common-rule", "a-rule", "b-rule", "root-rule"}
+	if len(parsed.Rules) != len(want) {
+		t.Fatalf("rules = %d, want %d", len(parsed.Rules), len(want))
+	}
+	for i, id := range want {
+		if parsed.Rules[i].ID != id {
+			t.Fatalf("rule %d = %q, want %q", i, parsed.Rules[i].ID, id)
+		}
 	}
 }
 
@@ -333,6 +605,7 @@ rules:
     target: certificate.version
     operator: eq
     operands: [3]
+    severity: error
 `)
 	p2 := []byte(`
 id: policy2
@@ -341,6 +614,7 @@ rules:
     target: certificate.version
     operator: eq
     operands: [3]
+    severity: error
 `)
 
 	if err := os.WriteFile(filepath.Join(dir, "p1.yaml"), p1, 0644); err != nil {
@@ -378,6 +652,7 @@ rules:
     target: certificate.version
     operator: eq
     operands: [3]
+    severity: error
 `)
 	if err := os.WriteFile(filepath.Join(dir, "p.yaml"), p, 0644); err != nil {
 		t.Fatal(err)

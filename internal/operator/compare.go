@@ -18,7 +18,7 @@ func (Gte) Evaluate(n *node.Node, ctx *EvaluationContext, operands []any) (bool,
 	if len(operands) != 1 {
 		return false, fmt.Errorf("gte requires exactly 1 operand")
 	}
-	return compareNumbers(n.Value, operands[0], func(a, b float64) bool { return a >= b })
+	return compareNumbers(n.Value, operands[0], func(order int) bool { return order >= 0 })
 }
 
 type Gt struct{}
@@ -32,7 +32,7 @@ func (Gt) Evaluate(n *node.Node, ctx *EvaluationContext, operands []any) (bool, 
 	if len(operands) != 1 {
 		return false, fmt.Errorf("gt requires exactly 1 operand")
 	}
-	return compareNumbers(n.Value, operands[0], func(a, b float64) bool { return a > b })
+	return compareNumbers(n.Value, operands[0], func(order int) bool { return order > 0 })
 }
 
 type Lte struct{}
@@ -46,7 +46,7 @@ func (Lte) Evaluate(n *node.Node, ctx *EvaluationContext, operands []any) (bool,
 	if len(operands) != 1 {
 		return false, fmt.Errorf("lte requires exactly 1 operand")
 	}
-	return compareNumbers(n.Value, operands[0], func(a, b float64) bool { return a <= b })
+	return compareNumbers(n.Value, operands[0], func(order int) bool { return order <= 0 })
 }
 
 type Lt struct{}
@@ -60,19 +60,18 @@ func (Lt) Evaluate(n *node.Node, ctx *EvaluationContext, operands []any) (bool, 
 	if len(operands) != 1 {
 		return false, fmt.Errorf("lt requires exactly 1 operand")
 	}
-	return compareNumbers(n.Value, operands[0], func(a, b float64) bool { return a < b })
+	return compareNumbers(n.Value, operands[0], func(order int) bool { return order < 0 })
 }
 
-func compareNumbers(val, operand any, cmp func(a, b float64) bool) (bool, error) {
-	a, ok := ToFloat64(val)
+func compareNumbers(val, operand any, compare func(order int) bool) (bool, error) {
+	order, ok := compareNumericValues(val, operand)
 	if !ok {
-		return false, fmt.Errorf("value is not a number: %v", val)
+		if _, valueOK := numericValue(val); !valueOK {
+			return false, fmt.Errorf("value is not a finite number: %v", val)
+		}
+		return false, fmt.Errorf("operand is not a finite number: %v", operand)
 	}
-	b, ok := ToFloat64(operand)
-	if !ok {
-		return false, fmt.Errorf("operand is not a number: %v", operand)
-	}
-	return cmp(a, b), nil
+	return compare(order), nil
 }
 
 type Positive struct{}

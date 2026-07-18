@@ -13,7 +13,8 @@ import (
 // - Node exists but null is not true
 type IsNull struct{}
 
-func (IsNull) Name() string { return "isNull" }
+func (IsNull) Name() string          { return "isNull" }
+func (IsNull) AcceptsMissingTarget() {}
 
 func (IsNull) Evaluate(n *node.Node, _ *EvaluationContext, _ []any) (bool, error) {
 	if n == nil {

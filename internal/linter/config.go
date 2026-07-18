@@ -1,7 +1,10 @@
 // Package linter provides PCL lint runner orchestration.
 package linter
 
-import "time"
+import (
+	"io"
+	"time"
+)
 
 type Config struct {
 	PolicyPaths []string // Multiple policy paths
@@ -18,6 +21,7 @@ type Config struct {
 	OutputFmt   string
 	Verbosity   int
 	ShowMeta    bool
+	Diagnostics io.Writer // Optional warning/debug stream, separate from formatted results.
 
 	// Auto-validate mode options
 	AutoValidate  bool // Enable automatic PKI resource fetching (OCSP, CRL, chain climbing)

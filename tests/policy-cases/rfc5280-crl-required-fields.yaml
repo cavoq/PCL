@@ -1,0 +1,12 @@
+name: rfc5280-crl-required-fields
+policy: ../policies/RFC5280.yaml
+fixture: crl-missing-required-fields
+rules:
+  - crl-next-update-present
+  - crl-authority-key-identifier-present
+  - crl-number-present
+expected:
+  crl:
+    pass: 0
+    fail: 3
+    skip: 0

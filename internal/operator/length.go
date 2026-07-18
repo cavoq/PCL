@@ -15,8 +15,8 @@ func (MaxLength) Evaluate(n *node.Node, _ *EvaluationContext, operands []any) (b
 		return false, nil
 	}
 
-	maxLen, ok := ToInt(operands[0])
-	if !ok {
+	maxLen, err := parseIntegerOperand(operands[0])
+	if err != nil {
 		return false, nil
 	}
 
@@ -37,8 +37,8 @@ func (MinLength) Evaluate(n *node.Node, _ *EvaluationContext, operands []any) (b
 		return false, nil
 	}
 
-	minLen, ok := ToInt(operands[0])
-	if !ok {
+	minLen, err := parseIntegerOperand(operands[0])
+	if err != nil {
 		return false, nil
 	}
 

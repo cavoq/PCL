@@ -2,7 +2,9 @@
 package policy
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -14,14 +16,28 @@ import (
 )
 
 func ParseFile(path string) (Policy, error) {
-	return parseFileWithIncludes(path, map[string]bool{})
+	return parseFileWithIncludes(path, &includeState{
+		active: make(map[string]bool),
+		loaded: make(map[string]bool),
+	})
 }
 
 func Parse(data []byte) (Policy, error) {
 	var p Policy
-	if err := yaml.Unmarshal(data, &p); err != nil {
+	decoder := yaml.NewDecoder(bytes.NewReader(data))
+	decoder.KnownFields(true)
+	if err := decoder.Decode(&p); err != nil {
 		return Policy{}, fmt.Errorf("parsing yaml: %w", err)
 	}
+
+	var extra any
+	if err := decoder.Decode(&extra); err != io.EOF {
+		if err == nil {
+			return Policy{}, fmt.Errorf("parsing yaml: multiple documents are not supported")
+		}
+		return Policy{}, fmt.Errorf("parsing yaml: %w", err)
+	}
+
 	if err := validatePolicy(p); err != nil {
 		return Policy{}, err
 	}
@@ -59,47 +75,24 @@ func ParseDir(dir string) ([]Policy, error) {
 	return policies, nil
 }
 
-func validatePolicy(p Policy) error {
-	if strings.TrimSpace(p.ID) == "" {
-		return fmt.Errorf("policy id is required")
-	}
-	for i, inc := range p.Includes {
-		if strings.TrimSpace(inc) == "" {
-			return fmt.Errorf("include %d: path is required", i)
-		}
-	}
-	for i, r := range p.Rules {
-		if strings.TrimSpace(r.ID) == "" {
-			return fmt.Errorf("rule %d: id is required", i)
-		}
-		if strings.TrimSpace(r.Target) == "" {
-			return fmt.Errorf("rule %s: target is required", r.ID)
-		}
-		if strings.TrimSpace(r.Operator) == "" {
-			return fmt.Errorf("rule %s: operator is required", r.ID)
-		}
-		if r.When != nil {
-			if strings.TrimSpace(r.When.Target) == "" {
-				return fmt.Errorf("rule %s: when.target is required", r.ID)
-			}
-			if strings.TrimSpace(r.When.Operator) == "" {
-				return fmt.Errorf("rule %s: when.operator is required", r.ID)
-			}
-		}
-	}
-	return nil
+type includeState struct {
+	active map[string]bool
+	loaded map[string]bool
 }
 
-func parseFileWithIncludes(path string, seen map[string]bool) (Policy, error) {
+func parseFileWithIncludes(path string, state *includeState) (Policy, error) {
 	absPath, err := filepath.Abs(path)
 	if err != nil {
 		return Policy{}, fmt.Errorf("resolving path: %w", err)
 	}
-	if seen[absPath] {
+	if state.active[absPath] {
 		return Policy{}, fmt.Errorf("include cycle detected: %s", absPath)
 	}
-	seen[absPath] = true
-	defer delete(seen, absPath)
+	if state.loaded[absPath] {
+		return Policy{}, nil
+	}
+	state.active[absPath] = true
+	defer delete(state.active, absPath)
 
 	data, err := os.ReadFile(absPath)
 	if err != nil {
@@ -112,6 +105,7 @@ func parseFileWithIncludes(path string, seen map[string]bool) (Policy, error) {
 	}
 
 	if len(p.Includes) == 0 {
+		state.loaded[absPath] = true
 		return p, nil
 	}
 
@@ -124,7 +118,7 @@ func parseFileWithIncludes(path string, seen map[string]bool) (Policy, error) {
 		if !filepath.IsAbs(incPath) {
 			incPath = filepath.Join(baseDir, incPath)
 		}
-		incPolicy, err := parseFileWithIncludes(incPath, seen)
+		incPolicy, err := parseFileWithIncludes(incPath, state)
 		if err != nil {
 			return Policy{}, fmt.Errorf("including %s: %w", inc, err)
 		}
@@ -132,5 +126,9 @@ func parseFileWithIncludes(path string, seen map[string]bool) (Policy, error) {
 	}
 
 	merged.Rules = append(merged.Rules, p.Rules...)
+	if err := validatePolicy(merged); err != nil {
+		return Policy{}, fmt.Errorf("validating merged policy %s: %w", p.ID, err)
+	}
+	state.loaded[absPath] = true
 	return merged, nil
 }

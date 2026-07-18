@@ -1,6 +1,6 @@
 id: integration-crl-signed-by
 version: 1.0
-appliesTo: [cert]
+appliesTo: [crl]
 
 rules:
   - id: crl-signed-by-chain-issuer

@@ -1,6 +1,9 @@
 package asn1
 
 import (
+	stdasn1 "encoding/asn1"
+	"fmt"
+
 	"golang.org/x/crypto/cryptobyte"
 	cryptobyte_asn1 "golang.org/x/crypto/cryptobyte/asn1"
 )
@@ -13,71 +16,122 @@ const (
 	oidPSpecified = "1.2.840.113549.1.1.9"
 )
 
-// ParseAlgorithmIDParams parses an AlgorithmIdentifier from DER bytes
-// and returns the parameters state and OID.
+// ParseAlgorithmIDParams parses an AlgorithmIdentifier from DER bytes. It is
+// kept as a compatibility wrapper for callers that consume ParamsState only;
+// malformed input is reported through ParamsState.Malformed.
 func ParseAlgorithmIDParams(derBytes []byte) ParamsState {
-	result := ParamsState{}
-	// Store raw DER bytes for byte-for-byte encoding validation (Mozilla requirements)
-	result.RawDER = derBytes
+	if len(derBytes) == 0 {
+		return ParamsState{}
+	}
+	result, err := ParseAlgorithmIDParamsStrict(derBytes)
+	if err != nil {
+		result.Malformed = true
+	}
+	return result
+}
 
+// ParseAlgorithmIDParamsStrict parses exactly one DER AlgorithmIdentifier.
+// It distinguishes an absent parameters field from malformed DER and retains
+// the complete identifier and parameter encodings for byte-level rules.
+func ParseAlgorithmIDParamsStrict(derBytes []byte) (ParamsState, error) {
+	result := ParamsState{RawDER: append([]byte(nil), derBytes...)}
 	input := cryptobyte.String(derBytes)
 
 	var algoID cryptobyte.String
-	if !input.ReadASN1(&algoID, cryptobyte_asn1.SEQUENCE) {
-		return result
+	if !input.ReadASN1(&algoID, cryptobyte_asn1.SEQUENCE) || !input.Empty() {
+		return result, fmt.Errorf("invalid AlgorithmIdentifier sequence")
 	}
 
-	var oid cryptobyte.String
-	if !algoID.ReadASN1(&oid, cryptobyte_asn1.OBJECT_IDENTIFIER) {
-		return result
+	var objectID stdasn1.ObjectIdentifier
+	if !algoID.ReadASN1ObjectIdentifier(&objectID) {
+		return result, fmt.Errorf("invalid AlgorithmIdentifier OID")
 	}
-
-	// Convert OID to string representation
-	result.OID = oidString(oid)
+	result.OID = objectID.String()
 
 	if algoID.Empty() {
 		result.IsAbsent = true
-		return result
+		return result, nil
 	}
 
 	var params cryptobyte.String
 	var paramsTag cryptobyte_asn1.Tag
-	if !algoID.ReadAnyASN1Element(&params, &paramsTag) {
-		return result
+	if !algoID.ReadAnyASN1Element(&params, &paramsTag) || !algoID.Empty() {
+		return result, fmt.Errorf("AlgorithmIdentifier must contain exactly one parameters element")
 	}
+	result.RawParams = append([]byte(nil), params...)
 
-	if paramsTag == cryptobyte_asn1.NULL {
-		result.IsNull = true
-		return result
-	}
-
-	// For ECDSA (id-ecPublicKey), parameters is a namedCurve OID
-	// ECDSA OIDs: 1.2.840.10045.2.1 (id-ecPublicKey), 1.3.132.1.12 (id-ecDH), 1.3.132.1.13 (id-ecMQV)
-	if paramsTag == cryptobyte_asn1.OBJECT_IDENTIFIER {
-		var namedCurve cryptobyte.String
-		if params.ReadASN1(&namedCurve, cryptobyte_asn1.OBJECT_IDENTIFIER) {
-			result.NamedCurve = oidString(namedCurve)
+	if result.OID == oidRSAPSS || result.OID == oidRSAOAEP {
+		if paramsTag != cryptobyte_asn1.SEQUENCE {
+			return result, fmt.Errorf("algorithm %s parameters must be a SEQUENCE", result.OID)
 		}
-		return result
+		var err error
+		if result.OID == oidRSAPSS {
+			result.PSS, err = parsePSSParamsStrict(params)
+		} else {
+			result.OAEP, err = parseOAEPParamsStrict(params)
+		}
+		if err != nil {
+			return result, err
+		}
+		return result, nil
 	}
 
-	// Parse RSASSA-PSS parameters (OID 1.2.840.113549.1.1.10)
-	if result.OID == oidRSAPSS {
-		result.PSS = parsePSSParams(params)
-		return result
+	switch paramsTag {
+	case cryptobyte_asn1.NULL:
+		value := cryptobyte.String(params)
+		var nullValue cryptobyte.String
+		if !value.ReadASN1(&nullValue, cryptobyte_asn1.NULL) || !value.Empty() || !nullValue.Empty() {
+			return result, fmt.Errorf("invalid NULL algorithm parameters")
+		}
+		result.IsNull = true
+	case cryptobyte_asn1.OBJECT_IDENTIFIER:
+		value := cryptobyte.String(params)
+		var namedCurve stdasn1.ObjectIdentifier
+		if !value.ReadASN1ObjectIdentifier(&namedCurve) || !value.Empty() {
+			return result, fmt.Errorf("invalid object identifier algorithm parameters")
+		}
+		result.NamedCurve = namedCurve.String()
 	}
 
-	// Parse RSAES-OAEP parameters (OID 1.2.840.113549.1.1.7)
-	if result.OID == oidRSAOAEP {
-		result.OAEP = parseOAEPParams(params)
-		return result
-	}
+	return result, nil
+}
 
+// ParseSignedObjectAlgorithmParams extracts the outer AlgorithmIdentifier from
+// a DER signed object whose first fields are a TBS SEQUENCE followed by an
+// AlgorithmIdentifier. Certificates, CRLs, and BasicOCSPResponse all use this
+// envelope shape.
+func ParseSignedObjectAlgorithmParams(derBytes []byte) ParamsState {
+	if len(derBytes) == 0 {
+		return ParamsState{}
+	}
+	result, err := ParseSignedObjectAlgorithmParamsStrict(derBytes)
+	if err != nil {
+		result.Malformed = true
+	}
 	return result
 }
 
+// ParseSignedObjectAlgorithmParamsStrict extracts and strictly parses the
+// outer AlgorithmIdentifier from a signed-object envelope.
+func ParseSignedObjectAlgorithmParamsStrict(derBytes []byte) (ParamsState, error) {
+	input := cryptobyte.String(derBytes)
+	var signedObject cryptobyte.String
+	if !input.ReadASN1(&signedObject, cryptobyte_asn1.SEQUENCE) || !input.Empty() {
+		return ParamsState{}, fmt.Errorf("invalid signed-object sequence")
+	}
+	if !signedObject.SkipASN1(cryptobyte_asn1.SEQUENCE) {
+		return ParamsState{}, fmt.Errorf("invalid signed-object payload")
+	}
+
+	var algorithmDER cryptobyte.String
+	if !signedObject.ReadASN1Element(&algorithmDER, cryptobyte_asn1.SEQUENCE) {
+		return ParamsState{}, fmt.Errorf("invalid signed-object AlgorithmIdentifier")
+	}
+	return ParseAlgorithmIDParamsStrict(algorithmDER)
+}
+
 // parsePSSParams parses RSASSA-PSS-params from a SEQUENCE.
-func parsePSSParams(params cryptobyte.String) *PSSParams {
+func parsePSSParamsStrict(params cryptobyte.String) (*PSSParams, error) {
 	result := &PSSParams{
 		HashAlgorithm:    AlgorithmIdentifier{OID: oidSHA1},
 		MaskGenAlgorithm: AlgorithmIdentifier{OID: oidMGF1, Params: ParamsState{OID: oidSHA1}},
@@ -86,35 +140,46 @@ func parsePSSParams(params cryptobyte.String) *PSSParams {
 	}
 
 	var seq cryptobyte.String
-	if !params.ReadASN1(&seq, cryptobyte_asn1.SEQUENCE) {
-		return result
+	if !params.ReadASN1(&seq, cryptobyte_asn1.SEQUENCE) || !params.Empty() {
+		return result, fmt.Errorf("invalid RSASSA-PSS parameters")
 	}
 
-	if algo, ok := readExplicitAlgorithmIdentifier(&seq, 0); ok {
+	if algo, present, err := readExplicitAlgorithmIdentifier(&seq, 0); err != nil {
+		return result, fmt.Errorf("invalid RSASSA-PSS hashAlgorithm: %w", err)
+	} else if present {
 		result.HashAlgorithmSet = true
 		result.HashAlgorithm = algo
 	}
 
-	if algo, ok := readExplicitAlgorithmIdentifier(&seq, 1); ok {
+	if algo, present, err := readExplicitAlgorithmIdentifier(&seq, 1); err != nil {
+		return result, fmt.Errorf("invalid RSASSA-PSS maskGenAlgorithm: %w", err)
+	} else if present {
 		result.MaskGenAlgorithmSet = true
 		result.MaskGenAlgorithm = algo
 	}
 
-	if value, ok := readExplicitInteger(&seq, 2); ok {
+	if value, present, err := readExplicitInteger(&seq, 2); err != nil {
+		return result, fmt.Errorf("invalid RSASSA-PSS saltLength: %w", err)
+	} else if present {
 		result.SaltLengthSet = true
 		result.SaltLength = value
 	}
 
-	if value, ok := readExplicitInteger(&seq, 3); ok {
+	if value, present, err := readExplicitInteger(&seq, 3); err != nil {
+		return result, fmt.Errorf("invalid RSASSA-PSS trailerField: %w", err)
+	} else if present {
 		result.TrailerFieldSet = true
 		result.TrailerField = value
 	}
 
-	return result
+	if !seq.Empty() {
+		return result, fmt.Errorf("unexpected RSASSA-PSS parameter field")
+	}
+	return result, nil
 }
 
 // parseOAEPParams parses RSAES-OAEP-params from a SEQUENCE.
-func parseOAEPParams(params cryptobyte.String) *OAEPParams {
+func parseOAEPParamsStrict(params cryptobyte.String) (*OAEPParams, error) {
 	result := &OAEPParams{
 		HashAlgorithm:    AlgorithmIdentifier{OID: oidSHA1},
 		MaskGenAlgorithm: AlgorithmIdentifier{OID: oidMGF1, Params: ParamsState{OID: oidSHA1}},
@@ -122,54 +187,64 @@ func parseOAEPParams(params cryptobyte.String) *OAEPParams {
 	}
 
 	var seq cryptobyte.String
-	if !params.ReadASN1(&seq, cryptobyte_asn1.SEQUENCE) {
-		return result
+	if !params.ReadASN1(&seq, cryptobyte_asn1.SEQUENCE) || !params.Empty() {
+		return result, fmt.Errorf("invalid RSAES-OAEP parameters")
 	}
 
-	if algo, ok := readExplicitAlgorithmIdentifier(&seq, 0); ok {
+	if algo, present, err := readExplicitAlgorithmIdentifier(&seq, 0); err != nil {
+		return result, fmt.Errorf("invalid RSAES-OAEP hashAlgorithm: %w", err)
+	} else if present {
 		result.HashAlgorithmSet = true
 		result.HashAlgorithm = algo
 	}
 
-	if algo, ok := readExplicitAlgorithmIdentifier(&seq, 1); ok {
+	if algo, present, err := readExplicitAlgorithmIdentifier(&seq, 1); err != nil {
+		return result, fmt.Errorf("invalid RSAES-OAEP maskGenAlgorithm: %w", err)
+	} else if present {
 		result.MaskGenAlgorithmSet = true
 		result.MaskGenAlgorithm = algo
 	}
 
-	if algo, ok := readExplicitAlgorithmIdentifier(&seq, 2); ok {
+	if algo, present, err := readExplicitAlgorithmIdentifier(&seq, 2); err != nil {
+		return result, fmt.Errorf("invalid RSAES-OAEP pSourceAlgorithm: %w", err)
+	} else if present {
 		result.PSourceAlgorithmSet = true
 		result.PSourceAlgorithm = algo
 	}
 
-	return result
+	if !seq.Empty() {
+		return result, fmt.Errorf("unexpected RSAES-OAEP parameter field")
+	}
+	return result, nil
 }
 
-func readExplicitAlgorithmIdentifier(seq *cryptobyte.String, tag uint) (AlgorithmIdentifier, bool) {
+func readExplicitAlgorithmIdentifier(seq *cryptobyte.String, tag uint) (AlgorithmIdentifier, bool, error) {
 	var value cryptobyte.String
 	present, ok := readExplicit(seq, tag, &value)
 	if !present {
-		return AlgorithmIdentifier{}, false
+		return AlgorithmIdentifier{}, false, nil
 	}
 	if !ok {
-		return AlgorithmIdentifier{}, true
+		return AlgorithmIdentifier{}, true, fmt.Errorf("invalid explicit wrapper")
 	}
-	return parseNestedAlgorithmIdentifier(value), true
+	algorithm, err := parseNestedAlgorithmIdentifier(value)
+	return algorithm, true, err
 }
 
-func readExplicitInteger(seq *cryptobyte.String, tag uint) (int, bool) {
+func readExplicitInteger(seq *cryptobyte.String, tag uint) (int, bool, error) {
 	var value cryptobyte.String
 	present, ok := readExplicit(seq, tag, &value)
 	if !present {
-		return 0, false
+		return 0, false, nil
 	}
 	if !ok {
-		return 0, true
+		return 0, true, fmt.Errorf("invalid explicit wrapper")
 	}
 	var result int
-	if !value.ReadASN1Integer(&result) {
-		return 0, true
+	if !value.ReadASN1Integer(&result) || !value.Empty() {
+		return 0, true, fmt.Errorf("invalid integer")
 	}
-	return result, true
+	return result, true, nil
 }
 
 func readExplicit(seq *cryptobyte.String, tag uint, out *cryptobyte.String) (present bool, ok bool) {
@@ -184,42 +259,24 @@ func readExplicit(seq *cryptobyte.String, tag uint, out *cryptobyte.String) (pre
 }
 
 // parseNestedAlgorithmIdentifier parses an AlgorithmIdentifier structure.
-func parseNestedAlgorithmIdentifier(input cryptobyte.String) AlgorithmIdentifier {
+func parseNestedAlgorithmIdentifier(input cryptobyte.String) (AlgorithmIdentifier, error) {
 	result := AlgorithmIdentifier{}
 
-	var algoID cryptobyte.String
-	if !input.ReadASN1(&algoID, cryptobyte_asn1.SEQUENCE) {
-		return result
+	params, err := ParseAlgorithmIDParamsStrict(input)
+	if err != nil {
+		return result, err
 	}
-
-	var oid cryptobyte.String
-	if !algoID.ReadASN1(&oid, cryptobyte_asn1.OBJECT_IDENTIFIER) {
-		return result
-	}
-
-	result.OID = oidString(oid)
-
-	if algoID.Empty() {
-		result.Params.IsAbsent = true
-		return result
-	}
-
-	var params cryptobyte.String
-	var paramsTag cryptobyte_asn1.Tag
-	if !algoID.ReadAnyASN1Element(&params, &paramsTag) {
-		return result
-	}
-
-	if paramsTag == cryptobyte_asn1.NULL {
-		result.Params.IsNull = true
-		result.Params.OID = result.OID
-		return result
-	}
-
-	// For MGF1, the parameter is another AlgorithmIdentifier (hash algorithm)
+	result.OID = params.OID
+	result.Params = params
 	if result.OID == oidMGF1 {
-		result.Params = ParseAlgorithmIDParams(params)
+		if len(params.RawParams) == 0 {
+			return AlgorithmIdentifier{}, fmt.Errorf("MGF1 parameters are absent")
+		}
+		nested, err := ParseAlgorithmIDParamsStrict(params.RawParams)
+		if err != nil {
+			return AlgorithmIdentifier{}, fmt.Errorf("invalid MGF1 hash algorithm: %w", err)
+		}
+		result.Params = nested
 	}
-
-	return result
+	return result, nil
 }

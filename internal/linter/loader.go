@@ -21,11 +21,9 @@ func loadCertificates(cfg Config) ([]*cert.Info, func(), error) {
 
 	if len(cfg.CertURLs) > 0 {
 		loaded, tempCleanup, err := cert.DownloadAndLoadCertificates(cfg.CertURLs, cfg.CertTimeout, cfg.CertSaveDir)
+		cleanup = composeCleanup(cleanup, tempCleanup)
 		if err != nil {
 			return nil, cleanup, fmt.Errorf("failed to download certificates: %w", err)
-		}
-		if tempCleanup != nil {
-			cleanup = tempCleanup
 		}
 		certs = append(certs, loaded...)
 	}
@@ -38,8 +36,8 @@ func loadCertificates(cfg Config) ([]*cert.Info, func(), error) {
 }
 
 // loadIssuers loads issuer certificates from paths and URLs specified in config.
-func loadIssuers(cfg Config, existingCleanup func()) ([]*cert.Info, func(), error) {
-	cleanup := existingCleanup
+func loadIssuers(cfg Config) ([]*cert.Info, func(), error) {
+	var cleanup func()
 	var issuers []*cert.Info
 
 	for _, path := range cfg.IssuerPaths {
@@ -52,11 +50,9 @@ func loadIssuers(cfg Config, existingCleanup func()) ([]*cert.Info, func(), erro
 
 	if len(cfg.IssuerURLs) > 0 {
 		loaded, tempCleanup, err := cert.DownloadAndLoadCertificates(cfg.IssuerURLs, cfg.CertTimeout, cfg.CertSaveDir)
+		cleanup = composeCleanup(cleanup, tempCleanup)
 		if err != nil {
 			return nil, cleanup, fmt.Errorf("failed to download issuer certificates: %w", err)
-		}
-		if tempCleanup != nil {
-			cleanup = tempCleanup
 		}
 		issuers = append(issuers, loaded...)
 	}
@@ -66,4 +62,17 @@ func loadIssuers(cfg Config, existingCleanup func()) ([]*cert.Info, func(), erro
 	}
 
 	return issuers, cleanup, nil
+}
+
+func composeCleanup(first, second func()) func() {
+	if first == nil {
+		return second
+	}
+	if second == nil {
+		return first
+	}
+	return func() {
+		second()
+		first()
+	}
 }

@@ -125,12 +125,12 @@ rules:
     operator: positive
     severity: error
 
-  # Serial number uniqueness in chain
-  - id: serial-number-unique
-    reference: RFC5280 4.1.2.2
+  # Local diagnostic only: this cannot establish CA-wide RFC 5280 uniqueness
+  - id: serial-number-duplicate-in-chain
+    reference: LOCAL-CHAIN-HEURISTIC
     target: certificate
     operator: serialNumberUnique
-    severity: error
+    severity: warning
 
   # -------------------------------------------------
   # Signature validation (Section 4.1.2.3)
@@ -275,6 +275,8 @@ rules:
 |----------|-------------|
 | `before` | Date is before current time |
 | `after` | Date is after current time |
+| `onOrBefore` | Date is before or equal to the comparison time |
+| `onOrAfter` | Date is after or equal to the comparison time |
 | `validityOrderCorrect` | Validates notBefore < notAfter |
 | `validityDays` | Certificate validity period check |
 | `dateDiff` | Date difference validation with maxDays/maxMonths limits (for CRL nextUpdate) |
@@ -296,7 +298,7 @@ rules:
 | `issuedBy` | Issuer DN matches issuer's subject DN |
 | `akiMatchesSki` | Authority Key ID matches issuer's Subject Key ID |
 | `pathLenValid` | Path length constraint validation |
-| `serialNumberUnique` | Serial number uniqueness in chain |
+| `serialNumberUnique` | Duplicate issuer/serial diagnostic within the supplied chain; not CA-wide uniqueness |
 
 ### Key Usage & Constraints Operators
 
@@ -321,9 +323,9 @@ rules:
 | Operator | Description |
 |----------|-------------|
 | `crlValid` | CRL is within thisUpdate/nextUpdate window |
-| `crlNotExpired` | CRL nextUpdate is in the future |
-| `crlSignedBy` | CRL signature verification against chain |
-| `notRevoked` | Certificate not in CRL revoked list |
+| `crlNotExpired` | Compatibility check: nextUpdate is present and has not passed |
+| `crlSignedBy` | Cryptographic CRL signature verification against resolved issuers |
+| `notRevoked` | Certificate absent from an applicable CRL; missing/unrelated CRLs return false (unknown) |
 | `crlEntryHasReasonCode` | Revoked certificate entry has reason code extension (OID 2.5.29.21) |
 | `crlEntryReasonValid` | Revocation reason code is valid (0-10, except 7) |
 | `crlEntriesAllHaveReason` | All revoked entries have reason code extensions |
@@ -332,9 +334,9 @@ rules:
 
 | Operator | Description |
 |----------|-------------|
-| `ocspValid` | OCSP response is within validity window and signature is valid |
-| `notRevokedOCSP` | Certificate not revoked according to OCSP |
-| `ocspGood` | Certificate has explicit Good status in OCSP response |
+| `ocspValid` | At least one response is bound to the certificate and issuer, current, and signed by the issuer or an authorized responder |
+| `notRevokedOCSP` | Accepted aggregate status is Good; absent, unknown, stale, unrelated, invalidly signed, and revoked evidence fail |
+| `ocspGood` | At least one accepted response explicitly reports Good |
 
 ### Path Validation Operators
 
@@ -453,7 +455,7 @@ Use `certType` on individual rules to target certificate roles (`leaf`, `interme
 - `appliesTo`: which **input object** the policy is for — `cert`, `crl`, or `ocsp` (e.g. `appliesTo: [ocsp]` for OCSP-only policies).
 - `certType`: optional filter so the **whole policy** runs only on matching certificate roles (used with certificate linting).
 
-If `appliesTo` is omitted, the input type is inferred from the first rule’s `target` prefix (`certificate.*` → cert, `crl.*` → crl, `ocsp.*` → ocsp). That inference does **not** propagate `root` / `leaf` to other rules — role filtering is per-rule `certType` only.
+An explicit `appliesTo` is authoritative. If it is omitted, PCL infers an order-independent set of inputs from every rule's primary `target` namespace (`certificate.*` → cert, `crl.*` → crl, `ocsp.*` → ocsp). A `when` target is a dependency only and does not change the execution input; an unqualified primary target is input-agnostic. Role filtering remains per-rule `certType`.
 
 ## 🌳 Node Tree Structure
 

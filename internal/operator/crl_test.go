@@ -107,7 +107,7 @@ func TestCRLValidAfterNextUpdate(t *testing.T) {
 	}
 }
 
-func TestCRLValidNoNextUpdate(t *testing.T) {
+func TestCRLValidRejectsMissingNextUpdate(t *testing.T) {
 	op := CRLValid{}
 	now := time.Now()
 	ctx := &EvaluationContext{
@@ -122,8 +122,8 @@ func TestCRLValidNoNextUpdate(t *testing.T) {
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
-	if !got {
-		t.Error("CRL without nextUpdate after thisUpdate should be valid")
+	if got {
+		t.Error("RFC 5280 CRL without nextUpdate must be invalid")
 	}
 }
 
@@ -175,6 +175,7 @@ func TestCRLNotExpiredValid(t *testing.T) {
 		Now: now,
 		CRLs: []*crl.Info{{
 			CRL: &x509.RevocationList{
+				ThisUpdate: now.Add(-time.Hour),
 				NextUpdate: now.Add(time.Hour),
 			},
 		}},
@@ -185,6 +186,27 @@ func TestCRLNotExpiredValid(t *testing.T) {
 	}
 	if !got {
 		t.Error("CRL not expired should return true")
+	}
+}
+
+func TestCRLNotExpiredDoesNotDuplicateFullCurrentness(t *testing.T) {
+	now := time.Now()
+	ctx := &EvaluationContext{
+		Now: now,
+		CRLs: []*crl.Info{{
+			CRL: &x509.RevocationList{
+				ThisUpdate: now.Add(time.Hour),
+				NextUpdate: now.Add(2 * time.Hour),
+			},
+		}},
+	}
+
+	got, err := (CRLNotExpired{}).Evaluate(nil, ctx, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !got {
+		t.Fatal("future nextUpdate is not expired even when the CRL is not yet current")
 	}
 }
 
@@ -305,11 +327,8 @@ func TestCRLSignedByIssuerMismatch(t *testing.T) {
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
-	// When CRL issuer is not in chain, the CRL is not applicable for verification
-	// The operator returns true (no applicable CRLs to verify)
-	// The notRevoked operator handles checking revocation against applicable CRLs only
-	if !got {
-		t.Error("issuer not in chain should return true (CRL not applicable)")
+	if got {
+		t.Error("issuer not in chain must not count as a verified signature")
 	}
 }
 
@@ -358,36 +377,26 @@ func TestNotRevokedNoCRLs(t *testing.T) {
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
-	if !got {
-		t.Error("no CRLs should return true (not revoked)")
+	if got {
+		t.Error("no CRLs should return false because revocation status is unknown")
 	}
 }
 
 func TestNotRevokedCertNotInCRL(t *testing.T) {
 	op := NotRevoked{}
-	issuer := pkix.Name{CommonName: "Test CA"}
+	revocationList, _, issuer := signedCRLWithCA(t)
 	ctx := &EvaluationContext{
-		Cert: &cert.Info{
-			Cert: &x509.Certificate{
-				SerialNumber: big.NewInt(123),
-				Issuer:       issuer,
-			},
-		},
-		CRLs: []*crl.Info{{
-			CRL: &x509.RevocationList{
-				Issuer: issuer,
-				RevokedCertificates: []x509.RevokedCertificate{
-					{SerialNumber: big.NewInt(456)},
-				},
-			},
-		}},
+		Now:   time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC),
+		Cert:  &cert.Info{Cert: issuer},
+		Chain: []*cert.Info{{Cert: issuer}},
+		CRLs:  []*crl.Info{{CRL: revocationList}},
 	}
 	got, err := op.Evaluate(nil, ctx, nil)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 	if !got {
-		t.Error("cert not in CRL should return true")
+		t.Error("accepted CRL that does not list the certificate should return true")
 	}
 }
 
@@ -443,8 +452,8 @@ func TestNotRevokedDifferentIssuer(t *testing.T) {
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
-	if !got {
-		t.Error("CRL from different issuer should not affect cert")
+	if got {
+		t.Error("only unrelated CRLs should leave revocation status unknown")
 	}
 }
 
@@ -472,7 +481,32 @@ func TestNotRevokedNilCRLInInfo(t *testing.T) {
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
+	if got {
+		t.Error("unsigned synthetic CRL cannot prove a good revocation status")
+	}
+}
+
+func TestCRLProfileOperatorsUseCurrentCRL(t *testing.T) {
+	now := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)
+	current := &crl.Info{CRL: &x509.RevocationList{
+		ThisUpdate: now.Add(-time.Hour),
+		NextUpdate: now.Add(time.Hour),
+	}}
+	other := &crl.Info{CRL: &x509.RevocationList{
+		ThisUpdate: now.Add(time.Hour),
+		NextUpdate: now.Add(2 * time.Hour),
+	}}
+	ctx := &EvaluationContext{
+		Now:        now,
+		CRLs:       []*crl.Info{current, other},
+		CurrentCRL: current,
+	}
+
+	got, err := (CRLValid{}).Evaluate(nil, ctx, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	if !got {
-		t.Error("should skip nil CRL and check others")
+		t.Fatal("unrelated CRL must not contaminate current CRL evaluation")
 	}
 }
