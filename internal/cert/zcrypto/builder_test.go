@@ -1,6 +1,7 @@
 package zcrypto
 
 import (
+	"bytes"
 	"os"
 	"testing"
 	"time"
@@ -120,6 +121,44 @@ func TestBuilder_Subject(t *testing.T) {
 	assertPathValue(t, root, "certificate.subject.countryName", "DE")
 	assertPathValue(t, root, "certificate.subject.organizationName", "ExampleOrg")
 	assertPathValue(t, root, "certificate.subject.organizationalUnitName", "Leaf")
+}
+
+func TestBuilder_SubjectAndIssuerUseRawNameProjection(t *testing.T) {
+	cert, err := NewLoader().Load(loadTestCert(t, "leaf.pem"))
+	if err != nil {
+		t.Fatalf("load certificate: %v", err)
+	}
+	tree := BuildTree(cert)
+
+	for _, test := range []struct {
+		path string
+		raw  []byte
+	}{
+		{path: "certificate.subject", raw: cert.RawSubject},
+		{path: "certificate.issuer", raw: cert.RawIssuer},
+	} {
+		name, ok := tree.Resolve(test.path)
+		if !ok {
+			t.Fatalf("missing %s", test.path)
+		}
+		raw := name.Children["raw"]
+		if raw == nil || !bytes.Equal(raw.Value.([]byte), test.raw) {
+			t.Errorf("%s raw DER was not preserved", test.path)
+		}
+		if len(node.CollectionElements(name.Children["rdns"])) == 0 {
+			t.Errorf("%s has no projected RDNs", test.path)
+		}
+		commonNames := name.Children["commonName"]
+		if commonNames == nil || len(node.CollectionElements(commonNames)) == 0 {
+			t.Errorf("%s has no commonName occurrences", test.path)
+			continue
+		}
+		attribute := node.CollectionElements(commonNames)[0]
+		if attribute.Children["value"] == nil || attribute.Children["encoding"] == nil ||
+			attribute.Children["raw"] == nil {
+			t.Errorf("%s commonName lacks value/encoding/raw metadata", test.path)
+		}
+	}
 }
 
 func TestBuilder_Validity(t *testing.T) {
@@ -315,7 +354,43 @@ func TestBuilder_SubjectAltNameUsesExtensionAndAllGeneralNameForms(t *testing.T)
 		Id:    zasn1.ObjectIdentifier{2, 5, 29, 17},
 		Value: []byte{0x30, 0x00},
 	}}})
-	assertPathValue(t, empty, "certificate.subjectAltName", 0)
+	assertPathValue(t, empty, "certificate.subjectAltName.malformed", true)
+}
+
+func TestBuilder_SubjectAltNameDirectoryNameUsesRawProjection(t *testing.T) {
+	// GeneralNames { directoryName { commonName = UTF8String("directory") } }
+	value := []byte{
+		0x30, 0x18, 0xa4, 0x16, 0x30, 0x14, 0x31, 0x12,
+		0x30, 0x10, 0x06, 0x03, 0x55, 0x04, 0x03, 0x0c,
+		0x09, 'd', 'i', 'r', 'e', 'c', 't', 'o', 'r', 'y',
+	}
+	root := BuildTree(&x509.Certificate{Extensions: []pkix.Extension{{
+		Id:    zasn1.ObjectIdentifier{2, 5, 29, 17},
+		Value: value,
+	}}})
+
+	assertPathValue(t, root, "certificate.subjectAltName", 1)
+	assertPathValue(t, root, "certificate.subjectAltName.directoryName.0.commonName.0.value", "directory")
+	assertPathValue(t, root, "certificate.subjectAltName.directoryName.0.commonName.0.encoding", 12)
+	assertPathExists(t, root, "certificate.subjectAltName.directoryName.0.rdns.0.attributes.0.raw")
+}
+
+func TestBuilder_MalformedRawGeneralNamesDoNotLeaveTypedFallback(t *testing.T) {
+	value := []byte{0x30, 0x04, 0xa4, 0x02, 0x30, 0x00}
+	root := BuildTree(&x509.Certificate{
+		DirectoryNames: []pkix.Name{{CommonName: "lossy fallback"}},
+		Extensions: []pkix.Extension{{
+			Id:    zasn1.ObjectIdentifier{2, 5, 29, 17},
+			Value: value,
+		}},
+	})
+
+	assertPathValue(t, root, "certificate.subjectAltName.malformed", true)
+	assertPathNotExists(t, root, "certificate.subjectAltName.directoryName")
+	raw, ok := root.Resolve("certificate.subjectAltName.raw")
+	if !ok || !bytes.Equal(raw.Value.([]byte), value) {
+		t.Fatal("malformed GeneralNames raw DER was not preserved")
+	}
 }
 
 func TestBuilder_ExtensionDetails(t *testing.T) {

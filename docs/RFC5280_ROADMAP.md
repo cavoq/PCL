@@ -66,13 +66,22 @@ part of the permanent test structure.
 
 **Status: Next**
 
-- Preserve the complete `Name`/`RDNSequence`: RDN grouping and order,
-  duplicate attributes, raw DER, and the actual ASN.1 string tag.
-- Project currently missing name attributes, including `givenName`,
-  `surname`, `emailAddress`, and `domainComponent`.
+Completed work unit:
+
+- **P1.1 — Lossless distinguished names (Done):** certificate subjects and
+  issuers, CRL issuers, and raw `directoryName` values decoded from SAN, IAN,
+  AIA, and CRL distribution-point GeneralNames share one `Name`/`RDNSequence`
+  projection. It preserves RDN grouping and order, duplicate and previously
+  missing attributes, raw DER, and actual ASN.1 value tags. DN rules iterate
+  every occurrence through the canonical collection contract documented in
+  the policy-writing guide. Name Constraints and relative CRL names remain in
+  the P2 extension-semantics work.
+
+Remaining P1 work:
+
 - Base encoding, time, and unique-identifier checks on parsed metadata rather
   than inferred values.
-- Move multi-valued requirements to collection-aware `every`/`any`
+- Move remaining multi-valued requirements to collection-aware `every`/`any`
   composition.
 - Centralize extension identity and aliases while leaving decoded values in
   the owning format adapter.

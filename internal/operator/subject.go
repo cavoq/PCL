@@ -35,34 +35,53 @@ func (NoDuplicateAttributes) Evaluate(n *node.Node, _ *EvaluationContext, _ []an
 	if n == nil {
 		return false, nil
 	}
+	if malformed := n.Children["malformed"]; malformed != nil && malformed.Value == true {
+		return false, nil
+	}
 
 	foundOIDs := make(map[string]int)
+	if attributes := n.Children["attributes"]; attributes != nil {
+		for _, collection := range node.CollectionElements(attributes) {
+			for _, attribute := range node.CollectionElements(collection) {
+				if duplicateSingleInstanceAttribute(attribute, "", foundOIDs) {
+					return false, nil
+				}
+			}
+		}
+		return true, nil
+	}
 
 	for childName, child := range n.Children {
-		if child == nil {
-			continue
-		}
-		oidNode := child.Children["oid"]
-		var attrOID string
-		if oidNode != nil && oidNode.Value != nil {
-			attrOID = fmt.Sprintf("%v", oidNode.Value)
-		}
-
-		if attrOID == "" {
-			attrOID, _ = oid.AttributeOID(child.Name)
-		}
-		if attrOID == "" {
-			attrOID, _ = oid.AttributeOID(childName)
-		}
-
-		if _, singleInstance := singleInstanceAttributeOIDs[attrOID]; !singleInstance {
-			continue
-		}
-		foundOIDs[attrOID]++
-		if foundOIDs[attrOID] > 1 {
+		if duplicateSingleInstanceAttribute(child, childName, foundOIDs) {
 			return false, nil
 		}
 	}
 
 	return true, nil
+}
+
+func duplicateSingleInstanceAttribute(
+	attribute *node.Node,
+	childName string,
+	foundOIDs map[string]int,
+) bool {
+	if attribute == nil {
+		return false
+	}
+
+	var attrOID string
+	if oidNode := attribute.Children["oid"]; oidNode != nil && oidNode.Value != nil {
+		attrOID = fmt.Sprintf("%v", oidNode.Value)
+	}
+	if attrOID == "" {
+		attrOID, _ = oid.AttributeOID(attribute.Name)
+	}
+	if attrOID == "" {
+		attrOID, _ = oid.AttributeOID(childName)
+	}
+	if _, singleInstance := singleInstanceAttributeOIDs[attrOID]; !singleInstance {
+		return false
+	}
+	foundOIDs[attrOID]++
+	return foundOIDs[attrOID] > 1
 }

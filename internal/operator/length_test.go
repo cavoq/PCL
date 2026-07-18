@@ -17,6 +17,8 @@ func TestMaxLength(t *testing.T) {
 		{"string at limit", "hello", 5, true},
 		{"string exceeds limit", "hello world", 5, false},
 		{"empty string", "", 0, true},
+		{"unicode string counts characters", "éé", 2, true},
+		{"unicode string exceeds character limit", "éé", 1, false},
 		{"bytes within limit", []byte{1, 2, 3}, 5, true},
 		{"bytes exceeds limit", []byte{1, 2, 3, 4, 5, 6}, 5, false},
 		{"slice within limit", []int{1, 2, 3}, 5, true},
@@ -73,6 +75,8 @@ func TestMinLength(t *testing.T) {
 		{"string at minimum", "hello", 5, true},
 		{"string below minimum", "hi", 5, false},
 		{"empty string", "", 0, true},
+		{"unicode string counts characters", "日本", 2, true},
+		{"unicode string below character minimum", "日本", 3, false},
 		{"bytes meets minimum", []byte{1, 2, 3}, 2, true},
 		{"bytes below minimum", []byte{1}, 5, false},
 	}

@@ -1,0 +1,10 @@
+name: rfc5280-san-malformed
+policy: ../policies/RFC5280.yaml
+fixture: certificate-empty-general-names
+rules:
+  - san-general-names-well-formed
+expected:
+  leaf:
+    pass: 0
+    fail: 1
+    skip: 0

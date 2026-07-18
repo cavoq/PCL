@@ -1,0 +1,10 @@
+name: rfc5280-dn-second-common-name
+policy: ../policies/RFC5280.yaml
+fixture: certificate-dn-second-common-name-too-long
+rules:
+  - subject-cn-max-length
+expected:
+  leaf:
+    pass: 0
+    fail: 1
+    skip: 0

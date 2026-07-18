@@ -77,22 +77,23 @@ func (Every) EvaluateWithRegistry(
 		return false, nil
 	}
 
-	// If node has no children, trivially true
-	if len(n.Children) == 0 {
+	elements := node.CollectionElements(n)
+	// If node has no elements, trivially true.
+	if len(elements) == 0 {
 		return true, nil
 	}
 
-	// Check each child
-	for _, child := range n.Children {
-		if child == nil {
-			continue
-		}
-
+	// Check each logical collection element.
+	for _, child := range elements {
 		var targetNode *node.Node
 		if parsed.path == "" {
 			targetNode = child
 		} else {
-			targetNode = resolvePath(child, parsed.path)
+			resolution := resolvePathResult(child, parsed.path)
+			targetNode = resolution.node
+			if resolution.missing && !parsed.skipMissing {
+				return false, nil
+			}
 			if targetNode == nil {
 				if parsed.skipMissing {
 					continue
@@ -103,10 +104,7 @@ func (Every) EvaluateWithRegistry(
 
 		// If target is a virtual node (from wildcard), check all its children
 		if targetNode.Name == "*" && len(targetNode.Children) > 0 {
-			for _, subChild := range targetNode.Children {
-				if subChild == nil {
-					continue
-				}
+			for _, subChild := range node.CollectionElements(targetNode) {
 				result, err := registry.evaluateValidated(parsed.operator, subChild, ctx, parsed.operands)
 				if err != nil {
 					return false, fmt.Errorf(
@@ -249,8 +247,21 @@ func parseEveryObject(object map[string]any) (everyOperands, error) {
 // Handles OID-style keys that contain dots (e.g., "2.5.29.21").
 // Supports `*` wildcard to match all children at that level.
 func resolvePath(n *node.Node, path string) *node.Node {
+	return resolvePathResult(n, path).node
+}
+
+type pathResolution struct {
+	node    *node.Node
+	missing bool
+}
+
+// resolvePathResult preserves resolvePath's projected node while recording
+// whether a wildcard branch failed to resolve the remaining path. Composite
+// operators use that fact to distinguish a partial wildcard match from a
+// complete one.
+func resolvePathResult(n *node.Node, path string) pathResolution {
 	if n == nil || path == "" {
-		return n
+		return pathResolution{node: n}
 	}
 
 	current := n
@@ -258,7 +269,7 @@ func resolvePath(n *node.Node, path string) *node.Node {
 
 	for i := 0; i < len(parts); i++ {
 		if current == nil || current.Children == nil {
-			return nil
+			return pathResolution{}
 		}
 
 		part := parts[i]
@@ -266,10 +277,8 @@ func resolvePath(n *node.Node, path string) *node.Node {
 		// Handle wildcard: collect all children and continue matching
 		if part == "*" {
 			virtualNode := node.New("*", nil)
-			for _, child := range current.Children {
-				if child == nil {
-					continue
-				}
+			missing := false
+			for _, child := range node.CollectionElements(current) {
 				// Build remaining path
 				if i+1 < len(parts) {
 					remainingPath := combineParts(parts, i+1, len(parts))
@@ -284,28 +293,31 @@ func resolvePath(n *node.Node, path string) *node.Node {
 							remainingPath = ""
 						}
 					}
-					result := resolvePath(child, remainingPath)
-					if result != nil {
+					resolution := resolvePathResult(child, remainingPath)
+					missing = missing || resolution.missing
+					if resolution.node != nil {
 						// Merge results into virtual node
-						if len(result.Children) > 0 {
-							for _, v := range result.Children {
-								virtualNode.Children[fmt.Sprintf("%d", len(virtualNode.Children))] = v
+						if len(resolution.node.Children) > 0 {
+							for _, v := range node.CollectionElements(resolution.node) {
+								virtualNode.AddElement(v)
 							}
 						} else {
 							// Single value result
-							virtualNode.Children[fmt.Sprintf("%d", len(virtualNode.Children))] = result
+							virtualNode.AddElement(resolution.node)
 						}
+					} else {
+						missing = true
 					}
 				} else {
 					// * is the last part, add all children directly
-					virtualNode.Children[fmt.Sprintf("%d", len(virtualNode.Children))] = child
+					virtualNode.AddElement(child)
 				}
 			}
 			// Return nil if virtualNode has no children (nothing matched the wildcard)
 			if len(virtualNode.Children) == 0 {
-				return nil
+				return pathResolution{missing: missing}
 			}
-			return virtualNode
+			return pathResolution{node: virtualNode, missing: missing}
 		}
 
 		// Try to find child with exact match
@@ -326,12 +338,12 @@ func resolvePath(n *node.Node, path string) *node.Node {
 		}
 
 		if next == nil {
-			return nil
+			return pathResolution{}
 		}
 		current = next
 	}
 
-	return current
+	return pathResolution{node: current}
 }
 
 // isOIDStart checks if a part looks like the start of an OID (numeric).

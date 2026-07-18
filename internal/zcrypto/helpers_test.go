@@ -28,8 +28,11 @@ func TestBuildPkixName_Empty(t *testing.T) {
 	if node.Name != "subject" {
 		t.Errorf("expected name 'subject', got %q", node.Name)
 	}
-	if len(node.Children) != 0 {
-		t.Errorf("expected no children for empty name, got %d", len(node.Children))
+	if got := len(node.Children["rdns"].Children); got != 0 {
+		t.Errorf("expected no RDNs for empty name, got %d", got)
+	}
+	if got := len(node.Children["attributes"].Children); got != 0 {
+		t.Errorf("expected no attributes for empty name, got %d", got)
 	}
 }
 
@@ -90,10 +93,6 @@ func TestBuildPkixName_PartialFields(t *testing.T) {
 	}
 
 	node := BuildPkixName("subject", name)
-
-	if len(node.Children) != 2 {
-		t.Errorf("expected 2 children, got %d", len(node.Children))
-	}
 
 	if _, ok := node.Children["commonName"]; !ok {
 		t.Error("expected commonName child")

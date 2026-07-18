@@ -79,6 +79,20 @@ rules:
   # Issuer / Subject (Section 4.1.2.4, 4.1.2.6)
   # -------------------------------------------------
 
+  - id: issuer-name-well-formed
+    reference: RFC5280 4.1.2.4
+    target: certificate.issuer.malformed
+    operator: absent
+    certType: [leaf, intermediate, root]
+    severity: error
+
+  - id: subject-name-well-formed
+    reference: RFC5280 4.1.2.6
+    target: certificate.subject.malformed
+    operator: absent
+    certType: [leaf, intermediate, root]
+    severity: error
+
   - id: issuer-not-empty
     reference: RFC5280 4.1.2.4
     target: certificate.issuer
@@ -264,6 +278,15 @@ rules:
   # Subject Alternative Name (Section 4.2.1.6)
   # -------------------------------------------------
 
+  - id: san-general-names-well-formed
+    reference: RFC5280 4.2.1.6
+    when:
+      target: certificate.subjectAltName
+      operator: present
+    target: certificate.subjectAltName.malformed
+    operator: absent
+    severity: error
+
   - id: san-required-if-empty-subject
     reference: RFC5280 4.2.1.6
     target: certificate
@@ -286,6 +309,15 @@ rules:
   # -------------------------------------------------
   # Issuer Alternative Name (Section 4.2.1.7)
   # -------------------------------------------------
+
+  - id: ian-general-names-well-formed
+    reference: RFC5280 4.2.1.7
+    when:
+      target: certificate.issuerAltName
+      operator: present
+    target: certificate.issuerAltName.malformed
+    operator: absent
+    severity: error
 
   - id: ian-not-critical
     reference: RFC5280 4.2.1.7
@@ -485,6 +517,15 @@ rules:
   # CRL Profile (Section 5)
   # -------------------------------------------------
 
+  - id: crl-issuer-name-well-formed
+    reference: RFC5280 5.1.2.3
+    when:
+      target: crl
+      operator: present
+    target: crl.issuer.malformed
+    operator: absent
+    severity: error
+
   - id: crl-valid
     reference: RFC5280 5.1
     when:
@@ -668,8 +709,11 @@ rules:
       target: certificate.subject.commonName
       operator: present
     target: certificate.subject.commonName
-    operator: maxLength
-    operands: [64]
+    operator: every
+    operands:
+      - path: value
+        operator: maxLength
+        operands: [64]
     severity: error
     message: "commonName must not exceed 64 characters"
     certType: [leaf, intermediate]
@@ -681,8 +725,11 @@ rules:
       target: certificate.subject.organizationName
       operator: present
     target: certificate.subject.organizationName
-    operator: maxLength
-    operands: [64]
+    operator: every
+    operands:
+      - path: value
+        operator: maxLength
+        operands: [64]
     severity: error
     message: "organizationName must not exceed 64 characters"
     certType: [leaf, intermediate]
@@ -694,8 +741,11 @@ rules:
       target: certificate.subject.organizationalUnitName
       operator: present
     target: certificate.subject.organizationalUnitName
-    operator: maxLength
-    operands: [64]
+    operator: every
+    operands:
+      - path: value
+        operator: maxLength
+        operands: [64]
     severity: error
     message: "organizationalUnitName must not exceed 64 characters"
     certType: [leaf, intermediate]
@@ -707,8 +757,11 @@ rules:
       target: certificate.subject.localityName
       operator: present
     target: certificate.subject.localityName
-    operator: maxLength
-    operands: [128]
+    operator: every
+    operands:
+      - path: value
+        operator: maxLength
+        operands: [128]
     severity: error
     message: "localityName must not exceed 128 characters"
     certType: [leaf, intermediate]
@@ -720,8 +773,11 @@ rules:
       target: certificate.subject.stateOrProvinceName
       operator: present
     target: certificate.subject.stateOrProvinceName
-    operator: maxLength
-    operands: [128]
+    operator: every
+    operands:
+      - path: value
+        operator: maxLength
+        operands: [128]
     severity: error
     message: "stateOrProvinceName must not exceed 128 characters"
     certType: [leaf, intermediate]
@@ -733,8 +789,11 @@ rules:
       target: certificate.subject.countryName
       operator: present
     target: certificate.subject.countryName
-    operator: maxLength
-    operands: [2]
+    operator: every
+    operands:
+      - path: value
+        operator: maxLength
+        operands: [2]
     severity: error
     message: "countryName must be exactly 2 characters (ISO 3166-1)"
     certType: [leaf, intermediate]
@@ -745,60 +804,75 @@ rules:
       target: certificate.subject.countryName
       operator: present
     target: certificate.subject.countryName
-    operator: minLength
-    operands: [2]
+    operator: every
+    operands:
+      - path: value
+        operator: minLength
+        operands: [2]
     severity: error
     message: "countryName must be exactly 2 characters (ISO 3166-1)"
     certType: [leaf, intermediate]
 
-  # serialNumber (subject) max 64 characters (CABF BR)
+  # serialNumber (subject) max 64 characters (RFC 5280 Appendix A.1)
   - id: subject-serial-number-max-length
     reference: RFC5280 Appendix A.1
     when:
       target: certificate.subject.serialNumber
       operator: present
     target: certificate.subject.serialNumber
-    operator: maxLength
-    operands: [64]
+    operator: every
+    operands:
+      - path: value
+        operator: maxLength
+        operands: [64]
     severity: error
     message: "subject serialNumber must not exceed 64 characters"
     certType: [leaf, intermediate]
 
-  # givenName max 64 characters (RFC 5280)
+  # givenName uses X520name with ub-name 32768 (RFC 5280 Appendix A.1)
   - id: subject-givenname-max-length
     reference: RFC5280 Appendix A.1
     when:
       target: certificate.subject.givenName
       operator: present
     target: certificate.subject.givenName
-    operator: maxLength
-    operands: [64]
+    operator: every
+    operands:
+      - path: value
+        operator: maxLength
+        operands: [32768]
     severity: error
-    message: "givenName must not exceed 64 characters"
+    message: "givenName must not exceed 32768 characters"
     certType: [leaf, intermediate]
 
-  # surname max 64 characters (RFC 5280)
+  # surname uses X520name with ub-name 32768 (RFC 5280 Appendix A.1)
   - id: subject-surname-max-length
     reference: RFC5280 Appendix A.1
     when:
       target: certificate.subject.surname
       operator: present
     target: certificate.subject.surname
-    operator: maxLength
-    operands: [64]
+    operator: every
+    operands:
+      - path: value
+        operator: maxLength
+        operands: [32768]
     severity: error
-    message: "surname must not exceed 64 characters"
+    message: "surname must not exceed 32768 characters"
     certType: [leaf, intermediate]
 
-  # businessCategory max 128 characters (RFC 5280)
+  # Supplemental X.520/local profile: businessCategory max 128 characters
   - id: subject-business-category-max-length
-    reference: RFC5280 Appendix A.1
+    reference: LOCAL-X520-PROFILE
     when:
       target: certificate.subject.businessCategory
       operator: present
     target: certificate.subject.businessCategory
-    operator: maxLength
-    operands: [128]
+    operator: every
+    operands:
+      - path: value
+        operator: maxLength
+        operands: [128]
     severity: error
     message: "businessCategory must not exceed 128 characters"
     certType: [leaf, intermediate]
@@ -810,8 +884,11 @@ rules:
       target: certificate.subject.emailAddress
       operator: present
     target: certificate.subject.emailAddress
-    operator: maxLength
-    operands: [255]
+    operator: every
+    operands:
+      - path: value
+        operator: maxLength
+        operands: [255]
     severity: error
     message: "subject emailAddress must not exceed 255 characters"
     certType: [leaf, intermediate]
@@ -823,8 +900,11 @@ rules:
       target: certificate.subject.emailAddress
       operator: present
     target: certificate.subject.emailAddress
-    operator: regex
-    operands: ["^[^@]+@[^@]+$"]
+    operator: every
+    operands:
+      - path: value
+        operator: regex
+        operands: ["^[^@]+@[^@]+$"]
     severity: warning
     message: "subject emailAddress should be valid RFC 822 format"
     certType: [leaf, intermediate]
@@ -970,8 +1050,11 @@ rules:
       target: certificate.subject.domainComponent
       operator: present
     target: certificate.subject.domainComponent
-    operator: componentMaxLength
-    operands: [63, "."]
+    operator: every
+    operands:
+      - path: value
+        operator: maxLength
+        operands: [63]
     severity: error
     message: "Each domainComponent label must not exceed 63 characters"
     certType: [leaf, intermediate]
@@ -1085,36 +1168,42 @@ rules:
   # Encoding Validation (ASN.1 String Types)
   # -------------------------------------------------
 
-  # Country name MUST use PrintableString encoding (per RFC 5280 Appendix A.1)
-  # PrintableString allows: A-Z, 0-9, space, and specific special chars
+  # Country name MUST use the PrintableString ASN.1 tag (RFC 5280 Appendix A.1)
   - id: subject-country-printable-string
     reference: RFC5280 Appendix A.1
     when:
       target: certificate.subject.countryName
       operator: present
     target: certificate.subject.countryName
-    operator: validPrintableString
+    operator: every
+    operands:
+      - path: encoding
+        operator: eq
+        operands: [19]
     severity: warning
-    message: "countryName should use PrintableString compatible characters"
+    message: "countryName must use PrintableString encoding"
     certType: [leaf, intermediate]
 
-  # Common name should use PrintableString or UTF8String for legacy compatibility
+  # Common name uses DirectoryString: UTF8String, PrintableString, TeletexString,
+  # UniversalString, or BMPString (RFC 5280 Appendix A.1)
   - id: subject-cn-valid-encoding
     reference: RFC5280 Appendix A.1
     when:
       target: certificate.subject.commonName
       operator: present
     target: certificate.subject.commonName
-    operator: validIA5String
+    operator: every
+    operands:
+      - path: encoding
+        operator: in
+        operands: [12, 19, 20, 28, 30]
     severity: warning
-    message: "commonName should use IA5String compatible characters (ASCII)"
+    message: "commonName should use a DirectoryString ASN.1 type"
     certType: [leaf]
 
-  # Organization name should use PrintableString or UTF8String
-  # Note: BR 7.1.4.2 permits both UTF8String and PrintableString encoding for
-# organizationName, stateOrProvinceName, localityName. No content check needed.
-# UTF8String can contain any Unicode characters; PrintableString content check
-# only applies if the encoding tag is PrintableString (requires parser enhancement).
+  # OrganizationName, stateOrProvinceName, and localityName are DirectoryString
+  # values. Their actual ASN.1 tags are preserved, but this policy currently has
+  # no dedicated tag rule for those attributes.
 
   # DNS names in SAN must be IA5String (ASCII)
   - id: san-dnsname-valid-ia5string

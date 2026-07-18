@@ -155,6 +155,50 @@ certificate.issuer.localityName            # Locality (L)
 certificate.issuer.domainComponent         # Domain Component (DC)
 ```
 
+#### Distinguished Name collection contract
+
+Certificate subjects and issuers, and `crl.issuer`, share one representation.
+The Name node's scalar `Value` remains a display-string compatibility view; it
+does not preserve RDN grouping and must not be used as encoding evidence. The
+canonical paths preserve the encoded structure:
+
+```text
+subject
+├── rdns.0.attributes.0
+├── rdns.1.attributes.0
+└── attributes
+    ├── 2.5.4.3.0
+    └── commonName.0       # alias of the same OID collection
+```
+
+- `rdns` contains numeric elements in encoded RDN order. Each RDN keeps its
+  attributes together and exposes them as numeric elements in DER SET order.
+- `attributes` groups all occurrences by OID. Known friendly names and direct
+  Name children are aliases: for example, `attributes.2.5.4.3`,
+  `attributes.commonName`, `2.5.4.3`, and `commonName` identify the same
+  collection. A collection's scalar `Value` remains the first occurrence for
+  compatibility; policies that apply to all values must iterate the numeric
+  occurrences.
+- Each occurrence exposes `value`, `oid`, `tag`, `encoding`, `encodingName`,
+  `raw`, and `rawValue`. `tag` and the compatibility field `encoding` are the
+  numeric ASN.1 tag; `encodingName` is its readable name; `raw` is the complete
+  AttributeTypeAndValue DER and `rawValue` is the value element's content.
+
+`CollectionElements`, and therefore `every` and its wildcard traversal, uses
+numeric children in integer order whenever any are present. Metadata and named
+aliases are then ignored, so one occurrence is not checked twice. For older
+object-shaped nodes without numeric children, iteration falls back to unique,
+non-nil child nodes in deterministic key order.
+
+These guarantees are lossless only when raw Name DER is available. Synthetic
+`pkix.Name` inputs preserve the values and grouping exposed by that parsed
+structure, but report `encodingName: unknown`, tag/encoding `0`, and empty raw
+fields. Malformed raw Names retain `raw` plus `malformed: true` and do not
+silently substitute lossy attribute collections. This contract is one P1.1
+foundation; it does not by itself complete the P1 milestone. Attribute values
+with unknown tags remain opaque raw bytes; validating a locally defined
+attribute's syntax belongs to the policy or domain that defines that OID.
+
 #### Extensions (by OID or friendly name)
 ```
 certificate.extensions.2.5.29.14        # subjectKeyIdentifier extension

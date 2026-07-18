@@ -1,0 +1,10 @@
+name: rfc5280-crl-dn-malformed
+policy: ../policies/RFC5280.yaml
+fixture: crl-dn-noncanonical-order
+rules:
+  - crl-issuer-name-well-formed
+expected:
+  crl:
+    pass: 0
+    fail: 1
+    skip: 0

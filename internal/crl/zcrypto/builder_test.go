@@ -1,12 +1,14 @@
 package zcrypto
 
 import (
+	"bytes"
 	"encoding/pem"
 	"math/big"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"github.com/cavoq/PCL/internal/node"
 	"github.com/zmap/zcrypto/encoding/asn1"
 	"github.com/zmap/zcrypto/x509"
 	"github.com/zmap/zcrypto/x509/pkix"
@@ -61,6 +63,42 @@ func TestBuildTree_Issuer(t *testing.T) {
 	}
 	if cn.Value != "Test CA" {
 		t.Errorf("expected CN 'Test CA', got %v", cn.Value)
+	}
+}
+
+func TestBuildTree_IssuerUsesRawNameProjection(t *testing.T) {
+	crl := loadTestCRL(t, "test.crl")
+	tree := BuildTree(crl)
+	issuer, ok := tree.Resolve("issuer")
+	if !ok {
+		t.Fatal("missing issuer")
+	}
+	if raw := issuer.Children["raw"]; raw == nil || !bytes.Equal(raw.Value.([]byte), crl.RawIssuer) {
+		t.Fatal("CRL issuer raw DER was not preserved")
+	}
+	if len(node.CollectionElements(issuer.Children["rdns"])) == 0 {
+		t.Fatal("CRL issuer has no projected RDNs")
+	}
+	commonNames := node.CollectionElements(issuer.Children["commonName"])
+	if len(commonNames) == 0 || commonNames[0].Children["encoding"] == nil {
+		t.Fatal("CRL issuer commonName lacks occurrence encoding metadata")
+	}
+}
+
+func TestBuildTree_MalformedRawIssuerDoesNotUseParsedFallback(t *testing.T) {
+	tree := BuildTree(&x509.RevocationList{
+		RawIssuer: []byte{0x30, 0x01, 0x00},
+		Issuer:    pkix.Name{CommonName: "lossy fallback"},
+	})
+	issuer, ok := tree.Resolve("issuer")
+	if !ok {
+		t.Fatal("missing issuer")
+	}
+	if malformed := issuer.Children["malformed"]; malformed == nil || malformed.Value != true {
+		t.Fatal("malformed raw CRL issuer was not marked")
+	}
+	if issuer.Children["attributes"] != nil || issuer.Children["commonName"] != nil {
+		t.Fatal("malformed raw CRL issuer exposed lossy fallback attributes")
 	}
 }
 

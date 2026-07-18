@@ -35,6 +35,21 @@ func (everyFailingOperator) Evaluate(
 	return false, fmt.Errorf("inner failure")
 }
 
+type everyRecordingOperator struct {
+	seen *[]string
+}
+
+func (everyRecordingOperator) Name() string { return "everyRecording" }
+
+func (operator everyRecordingOperator) Evaluate(
+	n *node.Node,
+	_ *EvaluationContext,
+	_ []any,
+) (bool, error) {
+	*operator.seen = append(*operator.seen, n.Name)
+	return true, nil
+}
+
 func TestEvery(t *testing.T) {
 	op := Every{}
 
@@ -408,6 +423,126 @@ func TestEveryUsesActiveRegistryForNestedOperator(t *testing.T) {
 	}
 	if !got {
 		t.Fatal("nested custom operator did not evaluate through active registry")
+	}
+}
+
+func TestEveryUsesCanonicalCollectionElements(t *testing.T) {
+	tests := []struct {
+		name string
+		node *node.Node
+		want []string
+	}{
+		{
+			name: "numeric order ignores metadata and named aliases",
+			node: func() *node.Node {
+				collection := node.New("items", nil)
+				one := node.New("one", 1)
+				collection.Children["10"] = node.New("ten", 10)
+				collection.Children["2"] = node.New("two", 2)
+				collection.Children["1"] = one
+				collection.Children["count"] = node.New("count", 3)
+				collection.Children["first"] = one
+				return collection
+			}(),
+			want: []string{"one", "two", "ten"},
+		},
+		{
+			name: "named child fallback is ordered and deduplicates aliases",
+			node: func() *node.Node {
+				object := node.New("object", nil)
+				alpha := node.New("alpha", "a")
+				object.Children["zeta"] = node.New("zeta", "z")
+				object.Children["alias"] = alpha
+				object.Children["alpha"] = alpha
+				return object
+			}(),
+			want: []string{"alpha", "zeta"},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			seen := []string{}
+			registry := NewRegistry()
+			registry.Register(Every{})
+			registry.Register(everyRecordingOperator{seen: &seen})
+
+			got, err := registry.Evaluate("every", test.node, nil, []any{map[string]any{
+				"operator": "everyRecording",
+			}})
+			if err != nil {
+				t.Fatalf("Evaluate() error = %v", err)
+			}
+			if !got {
+				t.Fatal("Evaluate() = false, want true")
+			}
+			if fmt.Sprint(seen) != fmt.Sprint(test.want) {
+				t.Fatalf("evaluation order = %v, want %v", seen, test.want)
+			}
+		})
+	}
+}
+
+func TestEveryWildcardUsesCanonicalCollectionElements(t *testing.T) {
+	outer := node.New("outer", nil)
+	inner := node.New("inner", nil)
+	zero := node.New("zero", 0)
+	inner.Children["2"] = node.New("two", 2)
+	inner.Children["0"] = zero
+	inner.Children["count"] = node.New("count", 2)
+	inner.Children["first"] = zero
+	outer.Children["0"] = inner
+
+	seen := []string{}
+	registry := NewRegistry()
+	registry.Register(Every{})
+	registry.Register(everyRecordingOperator{seen: &seen})
+	got, err := registry.Evaluate("every", outer, nil, []any{map[string]any{
+		"path":     "*",
+		"operator": "everyRecording",
+	}})
+	if err != nil {
+		t.Fatalf("Evaluate() error = %v", err)
+	}
+	if !got {
+		t.Fatal("Evaluate() = false, want true")
+	}
+	if want := []string{"zero", "two"}; fmt.Sprint(seen) != fmt.Sprint(want) {
+		t.Fatalf("wildcard evaluation order = %v, want %v", seen, want)
+	}
+}
+
+func TestEveryWildcardHonorsSkipMissing(t *testing.T) {
+	target := node.New("outer", nil)
+	branches := node.New("branches", nil)
+	withValue := node.New("withValue", nil)
+	withValue.Children["value"] = node.New("value", "match")
+	branches.Children["0"] = withValue
+	branches.Children["1"] = node.New("withoutValue", nil)
+	target.Children["0"] = branches
+
+	for _, test := range []struct {
+		name        string
+		skipMissing bool
+		want        bool
+	}{
+		{name: "missing wildcard branch fails by default", want: false},
+		{name: "missing wildcard branch can be skipped", skipMissing: true, want: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			got, err := Every{}.Evaluate(target, nil, []any{map[string]any{
+				"path":        "*.value",
+				"operator":    "eq",
+				"operands":    []any{"match"},
+				"skipMissing": test.skipMissing,
+			}})
+			if err != nil {
+				t.Fatalf("Evaluate() error = %v", err)
+			}
+			if got != test.want {
+				t.Fatalf("Evaluate() = %v, want %v", got, test.want)
+			}
+		})
 	}
 }
 

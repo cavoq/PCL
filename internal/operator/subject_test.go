@@ -20,6 +20,34 @@ func TestNoDuplicateAttributes(t *testing.T) {
 			want: false,
 		},
 		{
+			name: "malformed name returns false",
+			node: func() *node.Node {
+				n := node.New("subject", "CN=fallback")
+				n.Children["malformed"] = node.New("malformed", true)
+				return n
+			}(),
+			want: false,
+		},
+		{
+			name: "canonical attribute collection detects duplicate commonName",
+			node: func() *node.Node {
+				n := node.New("subject", "CN=example.com,CN=example.org")
+				attributes := node.New("attributes", nil)
+				commonNames := node.New("commonName", "example.com")
+				commonNames.Children["oid"] = node.New("oid", "2.5.4.3")
+				for _, value := range []string{"example.com", "example.org"} {
+					attribute := node.New("attribute", value)
+					attribute.Children["oid"] = node.New("oid", "2.5.4.3")
+					commonNames.AddElement(attribute)
+				}
+				attributes.Children["commonName"] = commonNames
+				attributes.Children["2.5.4.3"] = commonNames
+				n.Children["attributes"] = attributes
+				return n
+			}(),
+			want: false,
+		},
+		{
 			name: "single commonName returns true",
 			node: func() *node.Node {
 				n := node.New("subject", nil)

@@ -7,14 +7,14 @@ issuers:
 eval_time: "2027-01-01T00:00:00Z"
 expected:
   leaf:
-    pass: 36
+    pass: 39
     fail: 0
-    skip: 60
+    skip: 62
   intermediate:
-    pass: 40
+    pass: 42
     fail: 0
-    skip: 56
+    skip: 59
   root:
-    pass: 31
+    pass: 33
     fail: 0
-    skip: 65
+    skip: 68

@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"strings"
 
+	internalasn1 "github.com/cavoq/PCL/internal/asn1"
 	"github.com/cavoq/PCL/internal/node"
+	nameprojector "github.com/cavoq/PCL/internal/zcrypto"
 	"golang.org/x/crypto/cryptobyte"
 	cryptobyte_asn1 "golang.org/x/crypto/cryptobyte/asn1"
 )
@@ -13,8 +15,9 @@ import (
 // generalNamesInfo contains certificate GeneralNames facts that zcrypto does
 // not expose through typed certificate fields.
 type generalNamesInfo struct {
-	Count         int
-	X400Addresses [][]byte
+	Count          int
+	X400Addresses  [][]byte
+	DirectoryNames [][]byte
 }
 
 type parsedGeneralName struct {
@@ -101,6 +104,9 @@ func buildParsedGeneralName(name string, value parsedGeneralName) *node.Node {
 				n.Children["scheme"] = node.New("scheme", scheme)
 			}
 		}
+	case 4:
+		n.Children["value"] = node.New("value", value.Content)
+		n.Children["directoryName"] = nameprojector.BuildRawName("directoryName", value.Content)
 	default:
 		n.Children["value"] = node.New("value", value.Content)
 	}
@@ -126,11 +132,17 @@ func parseGeneralNamesInfo(value []byte) (generalNamesInfo, error) {
 	if err != nil {
 		return generalNamesInfo{}, err
 	}
+	if len(parsedNames) == 0 {
+		return generalNamesInfo{}, fmt.Errorf("GeneralNames must not be empty")
+	}
 
 	info := generalNamesInfo{Count: len(parsedNames)}
 	for _, name := range parsedNames {
-		if name.Tag == 3 {
+		switch name.Tag {
+		case 3:
 			info.X400Addresses = append(info.X400Addresses, name.Encoded)
+		case 4:
+			info.DirectoryNames = append(info.DirectoryNames, name.Content)
 		}
 	}
 
@@ -177,9 +189,8 @@ func validateGeneralName(tag cryptobyte_asn1.Tag, encoded cryptobyte.String) err
 			return fmt.Errorf("invalid x400Address")
 		}
 	case 4: // directoryName: explicit Name/RDNSequence
-		value := cryptobyte.String(content)
-		var rdnSequence cryptobyte.String
-		if !value.ReadASN1(&rdnSequence, cryptobyte_asn1.SEQUENCE) || !value.Empty() || rdnSequence.Empty() {
+		parsed, err := internalasn1.ParseDistinguishedNameStrict(content)
+		if err != nil || len(parsed.RDNs) == 0 {
 			return fmt.Errorf("invalid directoryName")
 		}
 	case 5: // ediPartyName: partyName [1] is required

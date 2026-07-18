@@ -57,9 +57,9 @@ func buildCertificate(cert *x509.Certificate) *node.Node {
 
 	root.Children["signatureAlgorithm"] = buildSignatureAlgorithm(cert)
 	root.Children["tbsSignatureAlgorithm"] = buildTBSSignatureAlgorithm(cert)
-	root.Children["issuer"] = zcrypto.BuildPkixName("issuer", cert.Issuer)
+	root.Children["issuer"] = zcrypto.BuildName("issuer", cert.RawIssuer, cert.Issuer)
 	root.Children["validity"] = buildValidity(cert)
-	root.Children["subject"] = zcrypto.BuildPkixName("subject", cert.Subject)
+	root.Children["subject"] = zcrypto.BuildName("subject", cert.RawSubject, cert.Subject)
 	root.Children["subjectEmpty"] = node.New("subjectEmpty", len(cert.Subject.Names) == 0)
 	root.Children["subjectPublicKeyInfo"] = buildSubjectPublicKeyInfo(cert)
 
@@ -319,7 +319,7 @@ func buildSubjectAltName(cert *x509.Certificate) *node.Node {
 		ipAddresses:    cert.IPAddresses,
 		registeredIDs:  cert.RegisteredIDs,
 	})
-	addRawGeneralNamesInfo(n, cert.Extensions, oid.SubjectAlternativeName)
+	addRawGeneralNamesInfo(n, cert.Extensions, oid.SubjectAlternativeName, cert.DirectoryNames)
 	return n
 }
 
@@ -334,7 +334,7 @@ func buildIssuerAltName(cert *x509.Certificate) *node.Node {
 		ipAddresses:    cert.IANIPAddresses,
 		registeredIDs:  cert.IANRegisteredIDs,
 	})
-	addRawGeneralNamesInfo(n, cert.Extensions, oid.IssuerAlternativeName)
+	addRawGeneralNamesInfo(n, cert.Extensions, oid.IssuerAlternativeName, cert.IANDirectoryNames)
 	return n
 }
 
@@ -422,13 +422,23 @@ func addGeneralNameStrings(parent *node.Node, name string, names []string) {
 	parent.Children[name] = values
 }
 
-func addRawGeneralNamesInfo(parent *node.Node, extensions []pkix.Extension, targetOID string) {
+func addRawGeneralNamesInfo(
+	parent *node.Node,
+	extensions []pkix.Extension,
+	targetOID string,
+	directoryNameFallbacks []pkix.Name,
+) {
 	extension, ok := findExtension(extensions, targetOID)
 	if !ok {
 		return
 	}
 	info, err := parseGeneralNamesInfo(extension.Value)
 	if err != nil {
+		parent.Value = nil
+		parent.Children = map[string]*node.Node{
+			"raw":       node.New("raw", append([]byte(nil), extension.Value...)),
+			"malformed": node.New("malformed", true),
+		}
 		return
 	}
 	parent.Value = info.Count
@@ -439,6 +449,18 @@ func addRawGeneralNamesInfo(parent *node.Node, extensions []pkix.Extension, targ
 			values.Children[index] = node.New(index, value)
 		}
 		parent.Children["x400Address"] = values
+	}
+	if len(info.DirectoryNames) > 0 {
+		values := node.New("directoryName", nil)
+		for i, value := range info.DirectoryNames {
+			index := strconv.Itoa(i)
+			if i < len(directoryNameFallbacks) {
+				values.Children[index] = zcrypto.BuildName(index, value, directoryNameFallbacks[i])
+			} else {
+				values.Children[index] = zcrypto.BuildRawName(index, value)
+			}
+		}
+		parent.Children["directoryName"] = values
 	}
 }
 

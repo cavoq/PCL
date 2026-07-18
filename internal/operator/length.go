@@ -2,6 +2,7 @@ package operator
 
 import (
 	"reflect"
+	"unicode/utf8"
 
 	"github.com/cavoq/PCL/internal/node"
 )
@@ -57,7 +58,7 @@ func getLength(n *node.Node) int {
 
 	switch v := n.Value.(type) {
 	case string:
-		return len(v)
+		return utf8.RuneCountInString(v)
 	case []byte:
 		return len(v)
 	default:

@@ -29,7 +29,7 @@ func BuildTree(crl *x509.RevocationList) *node.Node {
 func buildCRL(crl *x509.RevocationList) *node.Node {
 	root := node.New("crl", nil)
 
-	root.Children["issuer"] = zcrypto.BuildPkixName("issuer", crl.Issuer)
+	root.Children["issuer"] = zcrypto.BuildName("issuer", crl.RawIssuer, crl.Issuer)
 	root.Children["thisUpdate"] = node.New("thisUpdate", crl.ThisUpdate)
 	if !crl.NextUpdate.IsZero() {
 		root.Children["nextUpdate"] = node.New("nextUpdate", crl.NextUpdate)

@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"bytes"
 	"crypto/rand"
 	"crypto/rsa"
 	cryptox509 "crypto/x509"
@@ -10,6 +11,7 @@ import (
 	"math/big"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -21,6 +23,7 @@ import (
 	certzcrypto "github.com/cavoq/PCL/internal/cert/zcrypto"
 	"github.com/cavoq/PCL/internal/crl"
 	"github.com/cavoq/PCL/internal/ocsp"
+	"github.com/cavoq/PCL/internal/oid"
 	"github.com/cavoq/PCL/internal/operator"
 	"github.com/cavoq/PCL/internal/policy"
 	"github.com/cavoq/PCL/internal/rule"
@@ -306,6 +309,17 @@ func materializeCaseFixture(t *testing.T, tc testCase) testCase {
 			}}
 		})
 		tc.Certs = writePEMFixture(t, dir, "certificate.pem", "CERTIFICATE", der)
+	case "certificate-empty-general-names":
+		_, _, der := makeIntegrationCertificate(t, func(template *cryptox509.Certificate) {
+			template.IsCA = false
+			template.KeyUsage = cryptox509.KeyUsageDigitalSignature
+			template.SubjectKeyId = nil
+			template.ExtraExtensions = []cryptopkix.Extension{{
+				Id:    stdasn1.ObjectIdentifier{2, 5, 29, 17},
+				Value: []byte{0x30, 0x00},
+			}}
+		})
+		tc.Certs = writePEMFixture(t, dir, "certificate.pem", "CERTIFICATE", der)
 	case "certificate-validity-boundary":
 		boundary := time.Date(2026, 7, 18, 12, 0, 0, 0, time.UTC)
 		_, _, der := makeIntegrationCertificate(t, func(template *cryptox509.Certificate) {
@@ -319,6 +333,38 @@ func materializeCaseFixture(t *testing.T, tc testCase) testCase {
 		tc.Certs = writePEMFixture(t, dir, "issuer.pem", "CERTIFICATE", issuerDER)
 		crlDER := removeCRLRequiredFields(t, makeIntegrationCRL(t, issuer, key))
 		tc.CRL = writePEMFixture(t, dir, "list.pem", "X509 CRL", crlDER)
+	case "crl-dn-noncanonical-order":
+		key, issuer, issuerDER := makeIntegrationCertificate(t, func(template *cryptox509.Certificate) {
+			template.RawSubject = makeIntegrationNonCanonicalName(t)
+		})
+		tc.Certs = writePEMFixture(t, dir, "issuer.pem", "CERTIFICATE", issuerDER)
+		tc.CRL = writePEMFixture(t, dir, "list.pem", "X509 CRL", makeIntegrationCRL(t, issuer, key))
+	case "certificate-dn-second-common-name-too-long":
+		tc.Certs = writePEMFixture(t, dir, "certificate.pem", "CERTIFICATE",
+			makeIntegrationLeafWithSubject(t, makeIntegrationName(t,
+				integrationNameAttribute{identifier: oid.AttributeCommonName, tag: integrationUTF8StringTag, value: "first"},
+				integrationNameAttribute{identifier: oid.AttributeCommonName, tag: integrationUTF8StringTag, value: strings.Repeat("x", 65)},
+			)),
+		)
+	case "certificate-dn-projected-attributes":
+		tc.Certs = writePEMFixture(t, dir, "certificate.pem", "CERTIFICATE",
+			makeIntegrationLeafWithSubject(t, makeIntegrationName(t,
+				integrationNameAttribute{identifier: oid.AttributeGivenName, tag: integrationUTF8StringTag, value: strings.Repeat("g", 65)},
+				integrationNameAttribute{identifier: oid.AttributeSurname, tag: integrationUTF8StringTag, value: strings.Repeat("s", 65)},
+				integrationNameAttribute{identifier: oid.AttributeEmailAddress, tag: integrationIA5StringTag, value: "not-an-email-address"},
+				integrationNameAttribute{identifier: oid.AttributeDomainComponent, tag: integrationIA5StringTag, value: strings.Repeat("d", 64)},
+			)),
+		)
+	case "certificate-country-name-utf8string":
+		tc.Certs = writePEMFixture(t, dir, "certificate.pem", "CERTIFICATE",
+			makeIntegrationLeafWithSubject(t, makeIntegrationName(t,
+				integrationNameAttribute{identifier: oid.AttributeCountryName, tag: integrationUTF8StringTag, value: "DE"},
+			)),
+		)
+	case "certificate-dn-noncanonical-order":
+		tc.Certs = writePEMFixture(t, dir, "certificate.pem", "CERTIFICATE",
+			makeIntegrationLeafWithSubject(t, makeIntegrationNonCanonicalName(t)),
+		)
 	default:
 		t.Fatalf("unknown generated fixture %q", tc.Fixture)
 	}
@@ -357,6 +403,100 @@ func makeIntegrationCertificate(
 		t.Fatalf("parse issuer certificate: %v", err)
 	}
 	return key, issuer, der
+}
+
+const (
+	integrationUTF8StringTag = 12
+	integrationIA5StringTag  = 22
+)
+
+type integrationNameAttribute struct {
+	identifier string
+	tag        int
+	value      string
+}
+
+func makeIntegrationLeafWithSubject(t *testing.T, rawSubject []byte) []byte {
+	t.Helper()
+	_, _, der := makeIntegrationCertificate(t, func(template *cryptox509.Certificate) {
+		template.RawSubject = rawSubject
+		template.IsCA = false
+		template.KeyUsage = cryptox509.KeyUsageDigitalSignature
+		template.SubjectKeyId = nil
+	})
+	return der
+}
+
+func makeIntegrationName(t *testing.T, attributes ...integrationNameAttribute) []byte {
+	t.Helper()
+	rdns := make(cryptopkix.RDNSequence, 0, len(attributes))
+	for _, attribute := range attributes {
+		identifier, err := oid.Parse(attribute.identifier)
+		if err != nil {
+			t.Fatalf("parse name attribute OID %q: %v", attribute.identifier, err)
+		}
+		rdns = append(rdns, cryptopkix.RelativeDistinguishedNameSET{
+			{
+				Type: identifier,
+				Value: stdasn1.RawValue{
+					Class: stdasn1.ClassUniversal,
+					Tag:   attribute.tag,
+					Bytes: []byte(attribute.value),
+				},
+			},
+		})
+	}
+	der, err := stdasn1.Marshal(rdns)
+	if err != nil {
+		t.Fatalf("marshal integration distinguished name: %v", err)
+	}
+	return der
+}
+
+func makeIntegrationNonCanonicalName(t *testing.T) []byte {
+	t.Helper()
+	first := makeIntegrationNameAttribute(t, integrationNameAttribute{
+		identifier: oid.AttributeCommonName,
+		tag:        integrationUTF8StringTag,
+		value:      "subject",
+	})
+	second := makeIntegrationNameAttribute(t, integrationNameAttribute{
+		identifier: oid.AttributeOrganizationName,
+		tag:        integrationUTF8StringTag,
+		value:      "subject",
+	})
+	if bytes.Compare(first, second) < 0 {
+		first, second = second, first
+	}
+	rdn := encodeIntegrationElement(0x31, append(first, second...))
+	return derasn1.EncodeSequence(rdn)
+}
+
+func makeIntegrationNameAttribute(t *testing.T, attribute integrationNameAttribute) []byte {
+	t.Helper()
+	identifier, err := oid.Parse(attribute.identifier)
+	if err != nil {
+		t.Fatalf("parse name attribute OID %q: %v", attribute.identifier, err)
+	}
+	der, err := stdasn1.Marshal(cryptopkix.AttributeTypeAndValue{
+		Type: identifier,
+		Value: stdasn1.RawValue{
+			Class: stdasn1.ClassUniversal,
+			Tag:   attribute.tag,
+			Bytes: []byte(attribute.value),
+		},
+	})
+	if err != nil {
+		t.Fatalf("marshal integration name attribute: %v", err)
+	}
+	return der
+}
+
+func encodeIntegrationElement(tag byte, content []byte) []byte {
+	if len(content) >= 128 {
+		panic("integration DER helper only supports short lengths")
+	}
+	return append([]byte{tag, byte(len(content))}, content...)
 }
 
 func makeIntegrationCRL(

@@ -7,6 +7,7 @@ func TestParseGeneralNamesInfoRejectsInvalidNames(t *testing.T) {
 		name  string
 		value []byte
 	}{
+		{name: "empty GeneralNames", value: []byte{0x30, 0x00}},
 		{name: "unknown choice", value: []byte{0x30, 0x02, 0x89, 0x00}},
 		{name: "wrong class", value: []byte{0x30, 0x03, 0x02, 0x01, 0x01}},
 		{name: "empty DNS name", value: []byte{0x30, 0x02, 0x82, 0x00}},

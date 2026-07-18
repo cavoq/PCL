@@ -10,6 +10,7 @@ const (
 	EncodingBMPString
 	EncodingUniversalString
 	EncodingVisibleString
+	EncodingTeletexString
 )
 
 type stringTypeDescriptor struct {
@@ -20,6 +21,7 @@ type stringTypeDescriptor struct {
 var stringTypesByTag = map[int]stringTypeDescriptor{
 	12: {encoding: EncodingUTF8String, name: "utf8String"},
 	19: {encoding: EncodingPrintableString, name: "printableString"},
+	20: {encoding: EncodingTeletexString, name: "teletexString"},
 	22: {encoding: EncodingIA5String, name: "ia5String"},
 	26: {encoding: EncodingVisibleString, name: "visibleString"},
 	28: {encoding: EncodingUniversalString, name: "universalString"},

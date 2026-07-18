@@ -53,6 +53,7 @@ func TestGetEncodingType(t *testing.T) {
 		22: EncodingIA5String,
 		19: EncodingPrintableString,
 		12: EncodingUTF8String,
+		20: EncodingTeletexString,
 		30: EncodingBMPString,
 		28: EncodingUniversalString,
 		99: EncodingUnknown,
@@ -68,12 +69,12 @@ func TestStringTypeName(t *testing.T) {
 	tests := map[int]string{
 		12: "utf8String",
 		19: "printableString",
+		20: "teletexString",
 		22: "ia5String",
 		26: "visibleString",
 		28: "universalString",
 		30: "bmpString",
 		13: "unknown",
-		20: "unknown",
 	}
 	for tag, want := range tests {
 		if got := StringTypeName(tag); got != want {

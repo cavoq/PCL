@@ -1,0 +1,10 @@
+name: rfc5280-country-name-actual-tag
+policy: ../policies/RFC5280.yaml
+fixture: certificate-country-name-utf8string
+rules:
+  - subject-country-printable-string
+expected:
+  leaf:
+    pass: 0
+    fail: 1
+    skip: 0

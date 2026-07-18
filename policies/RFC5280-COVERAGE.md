@@ -59,6 +59,29 @@ Parser behavior is credited only where a dedicated malformed-DER test exists.
 
 ---
 
+## Distinguished Names and Appendix A Attribute Syntax
+
+PCL preserves the ordered RDN sequence, multi-valued RDN grouping, duplicate
+attributes, raw DER, and the actual ASN.1 value tag for certificate subject and
+issuer names and CRL issuer names. Subject attribute aliases are collections;
+the rules below use `every` so each occurrence is checked rather than only the
+first value. These representation and syntax checks do not claim RFC 5280
+Section 7 internationalized-name comparison.
+
+| Requirement | Status | Rule |
+|-------------|--------|------|
+| Reject a malformed DER certificate subject or issuer Name instead of skipping attribute rules | Covered | `subject-name-well-formed`, `issuer-name-well-formed` |
+| Reject a malformed DER CRL issuer Name | Covered | `crl-issuer-name-well-formed` |
+| Enforce Appendix A upper bounds for every commonName, organizationName, organizationalUnitName, localityName, stateOrProvinceName, serialNumber, givenName, and surname occurrence | Partial (leaf/intermediate subjects only) | `subject-cn-max-length`, `subject-org-max-length`, `subject-ou-max-length`, `subject-locality-max-length`, `subject-state-max-length`, `subject-serial-number-max-length`, `subject-givenname-max-length`, `subject-surname-max-length` |
+| Enforce a two-character countryName for every occurrence | Partial (leaf/intermediate subjects only) | `subject-country-length`, `subject-country-min-length` |
+| Enforce subject emailAddress length and basic mailbox shape for every occurrence | Partial | `subject-email-max-length`, `subject-email-format` |
+| Enforce a 128-character businessCategory bound | Supplemental (X.520/local profile) | `subject-business-category-max-length` |
+| Enforce the domainComponent label bound for every occurrence | Supplemental (RFC 5890) | `subject-dc-label-max-length` |
+| Check each subject countryName's actual ASN.1 tag is PrintableString (tag 19) | Partial (warning; leaf/intermediate subjects only) | `subject-country-printable-string` |
+| Check each subject commonName's actual ASN.1 tag is a DirectoryString alternative | Partial (warning; leaf subjects only) | `subject-cn-valid-encoding` |
+
+---
+
 ## Extensions (Section 4.2)
 
 ### 4.2.1.1 Authority Key Identifier
@@ -91,12 +114,14 @@ Parser behavior is credited only where a dedicated malformed-DER test exists.
 ### 4.2.1.6 Subject Alternative Name
 | Requirement | Level | Rule |
 |-------------|-------|------|
+| GeneralNames and embedded directoryName values MUST be well-formed | MUST | `san-general-names-well-formed` |
 | SAN MUST be present if subject empty | MUST | `san-required-if-empty-subject` |
 | SAN MUST be critical if subject empty | MUST | `san-critical-if-subject-empty` |
 
 ### 4.2.1.7 Issuer Alternative Name
 | Requirement | Level | Rule |
 |-------------|-------|------|
+| GeneralNames and embedded directoryName values MUST be well-formed | MUST | `ian-general-names-well-formed` |
 | IAN SHOULD NOT be critical | SHOULD NOT | `ian-not-critical` |
 
 ### 4.2.1.8 Subject Directory Attributes

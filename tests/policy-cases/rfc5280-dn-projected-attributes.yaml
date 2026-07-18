@@ -1,0 +1,13 @@
+name: rfc5280-dn-projected-attributes
+policy: ../policies/RFC5280.yaml
+fixture: certificate-dn-projected-attributes
+rules:
+  - subject-givenname-max-length
+  - subject-surname-max-length
+  - subject-email-format
+  - subject-dc-label-max-length
+expected:
+  leaf:
+    pass: 2
+    fail: 2
+    skip: 0

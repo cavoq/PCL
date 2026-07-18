@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Lossless X.501 Name projection for certificate subjects and issuers, CRL issuers, and raw `directoryName` values in SAN, IAN, AIA, and CRL distribution-point GeneralNames, including RDN grouping, duplicate attributes, raw DER, and ASN.1 value tags
+- Canonical collection iteration that keeps indexed values ordered while excluding metadata and compatibility aliases
+
+### Changed
+- RFC 5280 distinguished-name rules now evaluate every attribute occurrence and use actual wire tags for encoding checks
+- String length operators count Unicode code points instead of UTF-8 bytes
+
 ## [2.0.0] - 2026-05-08
 
 ### Breaking Changes
