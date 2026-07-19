@@ -25,8 +25,15 @@ type extensionNodeParser func([]byte) (*node.Node, error)
 
 var certificateExtensionParsers = map[string]extensionNodeParser{
 	oid.AuthorityInfoAccess:   ParseAIAStrict,
+	oid.KeyUsage:              ParseKeyUsageStrict,
+	oid.BasicConstraints:      ParseBasicConstraintsStrict,
+	oid.NameConstraints:       ParseNameConstraintsStrict,
 	oid.CRLDistributionPoints: ParseCRLDPStrict,
 	oid.CertificatePolicies:   ParseCertPoliciesStrict,
+	oid.PolicyMappings:        ParsePolicyMappingsStrict,
+	oid.PolicyConstraints:     ParsePolicyConstraintsStrict,
+	oid.ExtendedKeyUsage:      ParseExtKeyUsageStrict,
+	oid.InhibitAnyPolicy:      ParseInhibitAnyPolicyStrict,
 }
 
 func NewZCryptoBuilder() *ZCryptoBuilder {
@@ -43,6 +50,7 @@ func BuildTree(cert *x509.Certificate) *node.Node {
 
 func buildCertificate(cert *x509.Certificate) *node.Node {
 	root := node.New("certificate", nil)
+	parsedExtensions := make(map[string]*node.Node)
 	metadata := projectTBSCertificateMetadata(root, cert.RawTBSCertificate)
 
 	root.Children["version"] = node.New("version", cert.Version)
@@ -78,8 +86,13 @@ func buildCertificate(cert *x509.Certificate) *node.Node {
 	if len(cert.Extensions) > 0 {
 		root.Children["extensions"] = zcrypto.BuildExtensions(cert.Extensions)
 		extensionsNode := root.Children["extensions"]
+		seenExtensions := make(map[string]struct{}, len(cert.Extensions))
 		for _, ext := range cert.Extensions {
 			oidStr := ext.Id.String()
+			if _, duplicate := seenExtensions[oidStr]; duplicate {
+				continue
+			}
+			seenExtensions[oidStr] = struct{}{}
 			parser, supported := certificateExtensionParsers[oidStr]
 			if !supported {
 				continue
@@ -88,24 +101,61 @@ func buildCertificate(cert *x509.Certificate) *node.Node {
 			parsed, err := parser(ext.Value)
 			if err != nil {
 				extNode.Children["malformed"] = node.New("malformed", true)
+				name, _ := oid.ExtensionName(oidStr)
+				parsedExtensions[oidStr] = malformedExtensionNodeWithRaw(name, false, ext.Value)
 				continue
 			}
+			parsedExtensions[oidStr] = parsed
 			for name, child := range parsed.Children {
 				extNode.Children[name] = child
 			}
 		}
 	}
 
-	if hasExtension(cert.Extensions, oid.KeyUsage) {
+	if projected := parsedExtensions[oid.KeyUsage]; projected != nil {
+		if projected.Children["malformed"] != nil {
+			fallback := buildKeyUsage(cert.KeyUsage)
+			fallback.Children["malformed"] = node.New("malformed", true)
+			fallback.Children["raw"] = projected.Children["raw"]
+			projected = fallback
+		}
+		root.Children["keyUsage"] = projected
+	} else if hasExtension(cert.Extensions, oid.KeyUsage) {
 		root.Children["keyUsage"] = buildKeyUsage(cert.KeyUsage)
 	}
 
-	if len(cert.ExtKeyUsage) > 0 {
+	if projected := parsedExtensions[oid.ExtendedKeyUsage]; projected != nil {
+		if projected.Children["malformed"] != nil && len(cert.ExtKeyUsage) > 0 {
+			fallback := buildExtKeyUsage(cert.ExtKeyUsage)
+			fallback.Children["malformed"] = node.New("malformed", true)
+			fallback.Children["raw"] = projected.Children["raw"]
+			projected = fallback
+		}
+		root.Children["extKeyUsage"] = projected
+	} else if len(cert.ExtKeyUsage) > 0 {
 		root.Children["extKeyUsage"] = buildExtKeyUsage(cert.ExtKeyUsage)
 	}
 
-	if cert.BasicConstraintsValid {
+	if projected := parsedExtensions[oid.BasicConstraints]; projected != nil {
+		if projected.Children["malformed"] != nil && cert.BasicConstraintsValid {
+			fallback := buildBasicConstraints(cert)
+			fallback.Children["malformed"] = node.New("malformed", true)
+			fallback.Children["raw"] = projected.Children["raw"]
+			projected = fallback
+		}
+		root.Children["basicConstraints"] = projected
+	} else if cert.BasicConstraintsValid {
 		root.Children["basicConstraints"] = buildBasicConstraints(cert)
+	}
+
+	for identifier, name := range map[string]string{
+		oid.PolicyMappings:    "policyMappings",
+		oid.PolicyConstraints: "policyConstraints",
+		oid.InhibitAnyPolicy:  "inhibitAnyPolicy",
+	} {
+		if projected := parsedExtensions[identifier]; projected != nil {
+			root.Children[name] = projected
+		}
 	}
 
 	if len(cert.SubjectKeyId) > 0 {
@@ -118,15 +168,36 @@ func buildCertificate(cert *x509.Certificate) *node.Node {
 
 	if hasExtension(cert.Extensions, oid.SubjectAlternativeName) {
 		root.Children["subjectAltName"] = buildSubjectAltName(cert)
+		mirrorGeneralNamesMalformed(
+			root.Children["extensions"],
+			oid.SubjectAlternativeName,
+			root.Children["subjectAltName"],
+		)
 	}
 
 	// Add Issuer Alt Name (IAN)
 	if hasExtension(cert.Extensions, oid.IssuerAlternativeName) {
 		root.Children["issuerAltName"] = buildIssuerAltName(cert)
+		mirrorGeneralNamesMalformed(
+			root.Children["extensions"],
+			oid.IssuerAlternativeName,
+			root.Children["issuerAltName"],
+		)
 	}
 
 	// Add Name Constraints (for CA certificates)
-	if hasNameConstraints(cert) {
+	if projected := parsedExtensions[oid.NameConstraints]; projected != nil {
+		if extension, ok := findExtension(cert.Extensions, oid.NameConstraints); ok {
+			projected.Children["critical"] = node.New("critical", extension.Critical)
+		}
+		if projected.Children["malformed"] != nil && hasNameConstraints(cert) {
+			fallback := buildNameConstraints(cert)
+			fallback.Children["malformed"] = node.New("malformed", true)
+			fallback.Children["raw"] = projected.Children["raw"]
+			projected = fallback
+		}
+		root.Children["nameConstraints"] = projected
+	} else if hasNameConstraints(cert) {
 		root.Children["nameConstraints"] = buildNameConstraints(cert)
 	}
 
@@ -149,6 +220,16 @@ func buildCertificate(cert *x509.Certificate) *node.Node {
 	}
 
 	return root
+}
+
+func mirrorGeneralNamesMalformed(extensions *node.Node, identifier string, projected *node.Node) {
+	if extensions == nil || projected == nil || projected.Children["malformed"] == nil {
+		return
+	}
+	extension := extensions.Children[identifier]
+	if extension != nil {
+		extension.Children["malformed"] = node.New("malformed", true)
+	}
 }
 
 func buildSignatureAlgorithm(cert *x509.Certificate) *node.Node {

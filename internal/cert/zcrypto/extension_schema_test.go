@@ -163,6 +163,28 @@ func TestParseCRLDPStrictReasonFlagsRFC5280BitMapping(t *testing.T) {
 	}
 }
 
+func TestParseCRLDPStrictAcceptsEmptyReasonFlagsBitString(t *testing.T) {
+	n, err := ParseCRLDPStrict(buildExtensionSchemaCRLDP([]byte{0x00}, false))
+	if err != nil {
+		t.Fatalf("ParseCRLDPStrict() error = %v", err)
+	}
+
+	point := requireExtensionSchemaChild(t,
+		requireExtensionSchemaChild(t, n, "distributionPoints"), "0")
+	reasons := requireExtensionSchemaChild(t, point, "reasons")
+	assertExtensionSchemaValue(t, reasons, "unusedBits", 0)
+	assertExtensionSchemaBytes(t, requireExtensionSchemaChild(t, reasons, "value").Value, nil)
+	for _, name := range []string{
+		"unused", "keyCompromise", "cACompromise", "affiliationChanged",
+		"superseded", "cessationOfOperation", "certificateHold",
+		"privilegeWithdrawn", "aACompromise",
+	} {
+		if _, exists := reasons.Children[name]; exists {
+			t.Fatalf("empty ReasonFlags unexpectedly set %s", name)
+		}
+	}
+}
+
 func buildExtensionSchemaAIA() []byte {
 	var builder cryptobyte.Builder
 	builder.AddASN1(cryptobyte_asn1.SEQUENCE, func(builder *cryptobyte.Builder) {

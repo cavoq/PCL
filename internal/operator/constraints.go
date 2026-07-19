@@ -1,6 +1,7 @@
 package operator
 
 import (
+	"github.com/cavoq/PCL/internal/cert"
 	"github.com/cavoq/PCL/internal/node"
 	"github.com/cavoq/PCL/internal/oid"
 )
@@ -10,53 +11,10 @@ type PathLenValid struct{}
 func (PathLenValid) Name() string { return "pathLenValid" }
 
 func (PathLenValid) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (bool, error) {
-	if ctx == nil || ctx.Cert == nil || ctx.Cert.Cert == nil {
+	if ctx == nil {
 		return false, nil
 	}
-
-	if ctx.Cert.Type == "root" {
-		return true, nil
-	}
-
-	position := ctx.Cert.Position
-	cert := ctx.Cert.Cert
-
-	caBelowCount := 0
-	for i := range position {
-		if i < len(ctx.Chain) && ctx.Chain[i] != nil && ctx.Chain[i].Cert != nil {
-			if ctx.Chain[i].Cert.IsCA {
-				caBelowCount++
-			}
-		}
-	}
-
-	for i := position + 1; i < len(ctx.Chain); i++ {
-		issuer := ctx.Chain[i]
-		if issuer == nil || issuer.Cert == nil {
-			continue
-		}
-
-		if issuer.Cert.MaxPathLen >= 0 || issuer.Cert.MaxPathLenZero {
-			maxPath := issuer.Cert.MaxPathLen
-			casBetween := 0
-			for j := 0; j < i; j++ {
-				if ctx.Chain[j] != nil && ctx.Chain[j].Cert != nil && ctx.Chain[j].Cert.IsCA {
-					casBetween++
-				}
-			}
-			if casBetween > maxPath {
-				return false, nil
-			}
-		}
-	}
-
-	if cert.IsCA && (cert.MaxPathLen >= 0 || cert.MaxPathLenZero) {
-		if caBelowCount > cert.MaxPathLen {
-			return false, nil
-		}
-	}
-
-	return true, nil
+	return cert.PathLenConstraintValid(ctx.Cert, ctx.Chain), nil
 }
 
 type ValidityPeriodDays struct{}
@@ -144,7 +102,16 @@ func (NoUnknownCriticalExtensions) Evaluate(n *node.Node, _ *EvaluationContext, 
 	case "certificate":
 		return noUnknownCriticalExtensions(n, oid.ExtensionInCertificate), nil
 	case "crl":
-		return noUnknownCriticalExtensions(n, oid.ExtensionInCRL), nil
+		if !noUnknownCriticalExtensions(n, oid.ExtensionInCRL) {
+			return false, nil
+		}
+		revokedCertificates, _ := n.Resolve("revokedCertificates")
+		for _, revokedCertificate := range node.CollectionElements(revokedCertificates) {
+			if !noUnknownCriticalExtensions(revokedCertificate, oid.ExtensionInCRLEntry) {
+				return false, nil
+			}
+		}
+		return true, nil
 	default:
 		return false, nil
 	}
@@ -154,6 +121,12 @@ func noUnknownCriticalExtensions(n *node.Node, location oid.ExtensionLocation) b
 	extsNode, _ := n.Resolve("extensions")
 	if extsNode == nil {
 		return true
+	}
+	if extsNode.Children["duplicateOIDs"] != nil {
+		// RFC 5280 permits at most one instance of each extension. Fail before
+		// criticality or registry checks so a duplicate cannot hide through the
+		// map-shaped projection.
+		return false
 	}
 
 	seen := make(map[*node.Node]struct{}, len(extsNode.Children))
@@ -172,8 +145,20 @@ func noUnknownCriticalExtensions(n *node.Node, location oid.ExtensionLocation) b
 		}
 
 		critical, ok := criticalNode.Value.(bool)
-		if !ok || !critical {
+		if !ok {
+			return false
+		}
+		if !critical {
 			continue
+		}
+		if _, malformed := extNode.Children["malformed"]; malformed {
+			return false
+		}
+		if unprocessed := extNode.Children["unprocessed"]; unprocessed != nil {
+			value, ok := unprocessed.Value.(bool)
+			if !ok || value {
+				return false
+			}
 		}
 
 		oidNode, _ := extNode.Resolve("oid")
@@ -184,7 +169,7 @@ func noUnknownCriticalExtensions(n *node.Node, location oid.ExtensionLocation) b
 		if !ok {
 			return false
 		}
-		if !oid.ExtensionKnownAt(oidValue, location) {
+		if !oid.ExtensionProcessableAt(oidValue, location) {
 			return false
 		}
 	}

@@ -57,7 +57,8 @@ func GetCertType(cert *x509.Certificate, _, _ int) string {
 		return ""
 	}
 
-	if cert.BasicConstraintsValid && cert.IsCA {
+	basicConstraints, valid := basicConstraintsProfileFacts(cert)
+	if valid && basicConstraints.CA {
 		if IsSelfSigned(cert) {
 			return "root"
 		}

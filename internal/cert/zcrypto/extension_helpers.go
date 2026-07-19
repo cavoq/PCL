@@ -15,6 +15,12 @@ func malformedExtensionNode(name string, empty bool) *node.Node {
 	return n
 }
 
+func malformedExtensionNodeWithRaw(name string, empty bool, raw []byte) *node.Node {
+	n := malformedExtensionNode(name, empty)
+	n.Children["raw"] = node.New("raw", append([]byte(nil), raw...))
+	return n
+}
+
 func isEmptySequence(der []byte) bool {
 	input := cryptobyte.String(der)
 	var sequence cryptobyte.String

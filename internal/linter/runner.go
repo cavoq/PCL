@@ -230,6 +230,7 @@ func processCertificates(cfg Config, policies []policy.Policy, reg *operator.Reg
 		CRLs:               crls,
 		OCSPs:              ocsps,
 		Chain:              chain,
+		ApplicationPurpose: cfg.ApplicationPurpose,
 		CRLResolveTimeout:  crlResolveTimeout(cfg),
 		CRLResolveMaxDepth: crlResolveMaxDepth(cfg),
 		CRLResolveWarn:     w,

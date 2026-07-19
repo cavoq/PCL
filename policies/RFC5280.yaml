@@ -168,7 +168,7 @@ rules:
   # -------------------------------------------------
 
   - id: no-unknown-critical-extensions
-    reference: RFC5280 6
+    reference: RFC5280 4.1.2.9, 6
     target: certificate
     operator: noUnknownCriticalExtensions
     severity: error
@@ -228,6 +228,24 @@ rules:
   # Key Usage (Section 4.2.1.3)
   # -------------------------------------------------
 
+  - id: key-usage-well-formed
+    reference: RFC5280 4.2.1.3
+    when:
+      target: certificate.extensions.keyUsage
+      operator: present
+    target: certificate.extensions.keyUsage.malformed
+    operator: absent
+    severity: error
+
+  - id: key-usage-dependencies-valid
+    reference: RFC5280 4.2.1.3
+    when:
+      target: certificate.extensions.keyUsage
+      operator: present
+    target: certificate
+    operator: keyUsageDependenciesValid
+    severity: error
+
   - id: key-usage-present
     reference: RFC5280 4.2.1.3
     target: certificate.extensions.keyUsage
@@ -279,8 +297,49 @@ rules:
 
 
   # -------------------------------------------------
+  # Certificate Policies (Section 4.2.1.4)
+  # -------------------------------------------------
+
+  - id: certificate-policies-well-formed
+    reference: RFC5280 4.2.1.4
+    when:
+      target: certificate.extensions.certificatePolicies
+      operator: present
+    target: certificate.extensions.certificatePolicies.malformed
+    operator: absent
+    severity: error
+
+
+  # -------------------------------------------------
   # Policy Mappings (Section 4.2.1.5)
   # -------------------------------------------------
+
+  - id: policy-mappings-well-formed
+    reference: RFC5280 4.2.1.5
+    when:
+      target: certificate.extensions.policyMappings
+      operator: present
+    target: certificate.extensions.policyMappings.malformed
+    operator: absent
+    severity: error
+
+  - id: policy-mappings-dependencies-valid
+    reference: RFC5280 4.2.1.5
+    when:
+      target: certificate.extensions.policyMappings
+      operator: present
+    target: certificate
+    operator: policyMappingsDependenciesValid
+    severity: error
+
+  - id: policy-mappings-issuer-policies-present
+    reference: RFC5280 4.2.1.5
+    when:
+      target: certificate.extensions.policyMappings
+      operator: present
+    target: certificate
+    operator: policyMappingsIssuerPoliciesPresent
+    severity: warning
 
   - id: policy-mappings-critical
     reference: RFC5280 4.2.1.5
@@ -370,6 +429,24 @@ rules:
   # Basic Constraints (Section 4.2.1.9)
   # -------------------------------------------------
 
+  - id: basic-constraints-well-formed
+    reference: RFC5280 4.2.1.9
+    when:
+      target: certificate.extensions.basicConstraints
+      operator: present
+    target: certificate.extensions.basicConstraints.malformed
+    operator: absent
+    severity: error
+
+  - id: basic-constraints-dependencies-valid
+    reference: RFC5280 4.2.1.9
+    when:
+      target: certificate.extensions.basicConstraints
+      operator: present
+    target: certificate
+    operator: basicConstraintsDependenciesValid
+    severity: error
+
   - id: basic-constraints-present
     reference: RFC5280 4.2.1.9
     target: certificate.basicConstraints
@@ -416,6 +493,33 @@ rules:
   # Name Constraints (Section 4.2.1.10)
   # -------------------------------------------------
 
+  - id: name-constraints-well-formed
+    reference: RFC5280 4.2.1.10
+    when:
+      target: certificate.extensions.nameConstraints
+      operator: present
+    target: certificate.extensions.nameConstraints.malformed
+    operator: absent
+    severity: error
+
+  - id: name-constraints-dependencies-valid
+    reference: RFC5280 4.2.1.10
+    when:
+      target: certificate.extensions.nameConstraints
+      operator: present
+    target: certificate
+    operator: nameConstraintsDependenciesValid
+    severity: error
+
+  - id: name-constraints-distances-valid
+    reference: RFC5280 4.2.1.10
+    when:
+      target: certificate.extensions.nameConstraints
+      operator: present
+    target: certificate
+    operator: nameConstraintsDistancesValid
+    severity: error
+
   - id: name-constraints-critical
     reference: RFC5280 4.2.1.10
     when:
@@ -449,6 +553,24 @@ rules:
   # Policy Constraints (Section 4.2.1.11)
   # -------------------------------------------------
 
+  - id: policy-constraints-well-formed
+    reference: RFC5280 4.2.1.11
+    when:
+      target: certificate.extensions.policyConstraints
+      operator: present
+    target: certificate.extensions.policyConstraints.malformed
+    operator: absent
+    severity: error
+
+  - id: policy-constraints-dependencies-valid
+    reference: RFC5280 4.2.1.11
+    when:
+      target: certificate.extensions.policyConstraints
+      operator: present
+    target: certificate
+    operator: policyConstraintsDependenciesValid
+    severity: error
+
   - id: policy-constraints-critical
     reference: RFC5280 4.2.1.11
     when:
@@ -461,8 +583,91 @@ rules:
 
 
   # -------------------------------------------------
+  # Extended Key Usage (Section 4.2.1.12)
+  # -------------------------------------------------
+
+  - id: extended-key-usage-well-formed
+    reference: RFC5280 4.2.1.12
+    when:
+      target: certificate.extensions.extKeyUsage
+      operator: present
+    target: certificate.extensions.extKeyUsage.malformed
+    operator: absent
+    severity: error
+
+  - id: extended-key-usage-allows-application-purpose
+    reference: RFC5280 4.2.1.12
+    when:
+      target: certificate.applicationPurpose
+      operator: present
+    target: certificate
+    operator: applicationPurposeValid
+    severity: error
+
+  - id: any-extended-key-usage-not-critical
+    reference: RFC5280 4.2.1.12
+    when:
+      target: certificate.extensions.extKeyUsage
+      operator: present
+    target: certificate
+    operator: anyExtendedKeyUsageNotCritical
+    severity: warning
+
+
+  # -------------------------------------------------
+  # CRL Distribution Points (Section 4.2.1.13)
+  # -------------------------------------------------
+
+  - id: crl-distribution-points-well-formed
+    reference: RFC5280 4.2.1.13
+    when:
+      target: certificate.extensions.cRLDistributionPoints
+      operator: present
+    target: certificate.extensions.cRLDistributionPoints.malformed
+    operator: absent
+    severity: error
+
+  - id: crl-distribution-points-dependencies-valid
+    reference: RFC5280 4.2.1.13
+    when:
+      target: certificate.extensions.cRLDistributionPoints
+      operator: present
+    target: certificate
+    operator: crlDistributionPointsDependenciesValid
+    severity: error
+
+  - id: crl-distribution-points-not-critical
+    reference: RFC5280 4.2.1.13
+    when:
+      target: certificate.extensions.cRLDistributionPoints
+      operator: present
+    target: certificate.extensions.cRLDistributionPoints.critical
+    operator: eq
+    operands: [false]
+    severity: warning
+
+
+  # -------------------------------------------------
   # Inhibit anyPolicy (Section 4.2.1.14)
   # -------------------------------------------------
+
+  - id: inhibit-any-policy-well-formed
+    reference: RFC5280 4.2.1.14
+    when:
+      target: certificate.extensions.inhibitAnyPolicy
+      operator: present
+    target: certificate.extensions.inhibitAnyPolicy.malformed
+    operator: absent
+    severity: error
+
+  - id: inhibit-any-policy-dependencies-valid
+    reference: RFC5280 4.2.1.14
+    when:
+      target: certificate.extensions.inhibitAnyPolicy
+      operator: present
+    target: certificate
+    operator: inhibitAnyPolicyDependenciesValid
+    severity: error
 
   - id: inhibit-any-policy-critical
     reference: RFC5280 4.2.1.14
@@ -652,10 +857,7 @@ rules:
 
   # No unknown critical CRL extensions (RFC 5280 5.2)
   - id: crl-no-unknown-critical-extensions
-    reference: RFC5280 5.2
-    when:
-      target: crl.extensions
-      operator: present
+    reference: RFC5280 5.2, 5.3
     target: crl
     operator: noUnknownCriticalExtensions
     severity: error

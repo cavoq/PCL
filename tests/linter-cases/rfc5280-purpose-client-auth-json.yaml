@@ -1,0 +1,29 @@
+name: rfc5280-purpose-client-auth-json
+policy: ../policies/RFC5280.yaml
+certs: certs/leaf.pem
+issuers:
+  - certs/intermediate.pem
+  - certs/root.pem
+application_purpose: clientAuth
+output: json
+verbosity: 2
+show_meta: true
+expected:
+  total_certs: 3
+  total_rules: 375
+  pass: 150
+  fail: 1
+  skip: 224
+  results:
+    - cert_type: leaf
+      policy: rfc5280
+      verdict: fail
+      rules: 125
+    - cert_type: intermediate
+      policy: rfc5280
+      verdict: pass
+      rules: 125
+    - cert_type: root
+      policy: rfc5280
+      verdict: pass
+      rules: 125

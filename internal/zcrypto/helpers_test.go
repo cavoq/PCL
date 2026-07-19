@@ -1,8 +1,10 @@
 package zcrypto
 
 import (
+	"reflect"
 	"testing"
 
+	internalnode "github.com/cavoq/PCL/internal/node"
 	"github.com/cavoq/PCL/internal/oid"
 	"github.com/zmap/zcrypto/encoding/asn1"
 	"github.com/zmap/zcrypto/x509/pkix"
@@ -199,6 +201,33 @@ func TestBuildExtensions_ExtensionStructure(t *testing.T) {
 		if _, ok := extNode.Children[child]; !ok {
 			t.Errorf("extension should have %q child", child)
 		}
+	}
+}
+
+func TestBuildExtensionsMarksDuplicateOIDsAndPreservesFirstInstance(t *testing.T) {
+	identifier := asn1.ObjectIdentifier{1, 2, 3, 4}
+	extensions := BuildExtensions([]pkix.Extension{
+		{Id: identifier, Critical: true, Value: []byte{0x01}},
+		{Id: identifier, Critical: false, Value: []byte{0x02}},
+	})
+
+	extension := extensions.Children[identifier.String()]
+	if extension == nil {
+		t.Fatal("first extension instance was not projected")
+	}
+	if critical := extension.Children["critical"].Value; critical != true {
+		t.Fatalf("critical = %v, want first instance value true", critical)
+	}
+	if value := extension.Children["value"].Value.([]byte); !reflect.DeepEqual(value, []byte{0x01}) {
+		t.Fatalf("value = %x, want first instance value 01", value)
+	}
+
+	duplicates := extensions.Children["duplicateOIDs"]
+	if duplicates == nil || len(internalnode.CollectionElements(duplicates)) != 1 {
+		t.Fatalf("duplicateOIDs = %#v, want one duplicate", duplicates)
+	}
+	if got := internalnode.CollectionElements(duplicates)[0].Value; got != identifier.String() {
+		t.Fatalf("duplicate OID = %v, want %s", got, identifier.String())
 	}
 }
 

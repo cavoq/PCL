@@ -35,19 +35,20 @@ func TestLinterRunCases(t *testing.T) {
 }
 
 type linterCase struct {
-	Name          string         `yaml:"name"`
-	Policy        string         `yaml:"policy"`
-	Certs         string         `yaml:"certs,omitempty"`
-	Issuers       []string       `yaml:"issuers,omitempty"`
-	CRL           string         `yaml:"crl,omitempty"`
-	OCSP          string         `yaml:"ocsp,omitempty"`
-	Output        string         `yaml:"output,omitempty"`
-	Verbosity     int            `yaml:"verbosity,omitempty"`
-	ShowMeta      bool           `yaml:"show_meta,omitempty"`
-	WantError     bool           `yaml:"want_error,omitempty"`
-	ErrorContains string         `yaml:"error_contains,omitempty"`
-	Contains      []string       `yaml:"contains,omitempty"`
-	Expected      linterExpected `yaml:"expected,omitempty"`
+	Name               string         `yaml:"name"`
+	Policy             string         `yaml:"policy"`
+	Certs              string         `yaml:"certs,omitempty"`
+	Issuers            []string       `yaml:"issuers,omitempty"`
+	CRL                string         `yaml:"crl,omitempty"`
+	OCSP               string         `yaml:"ocsp,omitempty"`
+	ApplicationPurpose string         `yaml:"application_purpose,omitempty"`
+	Output             string         `yaml:"output,omitempty"`
+	Verbosity          int            `yaml:"verbosity,omitempty"`
+	ShowMeta           bool           `yaml:"show_meta,omitempty"`
+	WantError          bool           `yaml:"want_error,omitempty"`
+	ErrorContains      string         `yaml:"error_contains,omitempty"`
+	Contains           []string       `yaml:"contains,omitempty"`
+	Expected           linterExpected `yaml:"expected,omitempty"`
 }
 
 type linterExpected struct {
@@ -86,10 +87,11 @@ func runLinterCase(t *testing.T, caseDir string, tc linterCase) {
 
 	testsDir := filepath.Dir(caseDir)
 	cfg := linter.Config{
-		PolicyPaths: []string{filepath.Join(testsDir, tc.Policy)},
-		OutputFmt:   tc.Output,
-		Verbosity:   tc.Verbosity,
-		ShowMeta:    tc.ShowMeta,
+		PolicyPaths:        []string{filepath.Join(testsDir, tc.Policy)},
+		OutputFmt:          tc.Output,
+		Verbosity:          tc.Verbosity,
+		ShowMeta:           tc.ShowMeta,
+		ApplicationPurpose: tc.ApplicationPurpose,
 	}
 	if tc.Certs != "" {
 		cfg.CertPath = filepath.Join(testsDir, tc.Certs)

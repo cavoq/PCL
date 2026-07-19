@@ -26,6 +26,10 @@ type Context struct {
 	OCSPs    []*ocsp.Info
 	Chain    []*cert.Info
 
+	// ApplicationPurpose is an optional friendly EKU name or dotted EKU OID
+	// projected into certificate trees and supplied to certificate operators.
+	ApplicationPurpose string
+
 	// CRL issuer discovery for isCACRL (optional). When set, PCL may fetch CA
 	// Issuers URLs from the chain to locate the CRL signing certificate.
 	CRLResolveTimeout  time.Duration
@@ -51,6 +55,7 @@ func Chain(ctx Context) []policy.Result {
 
 	for _, c := range ctx.Chain {
 		tree := certzcrypto.BuildTree(c.Cert)
+		projectApplicationPurpose(tree, ctx.ApplicationPurpose)
 
 		if c.Source.Format != "" && c.Source.Type != source.Local {
 			tree.Children["downloadFormat"] = node.New("downloadFormat", c.Source.Format)
@@ -67,6 +72,7 @@ func Chain(ctx Context) []policy.Result {
 		evalOpts := []operator.ContextOption{
 			operator.WithCRLs(ctx.CRLs),
 			operator.WithOCSPs(ctx.OCSPs),
+			operator.WithApplicationPurpose(ctx.ApplicationPurpose),
 		}
 		if embeddedCRL != nil {
 			evalOpts = append(evalOpts,
@@ -203,6 +209,8 @@ func ocspSigningCert(ctx Context, ocspInfo *ocsp.Info) []policy.Result {
 		ctx.CRLResolveWarn,
 	)
 
+	// A delegated OCSP signer is evaluated for its OCSP-signing role, not for
+	// the application purpose requested for the supplied certificate chain.
 	evalOpts := []operator.ContextOption{operator.WithOCSPs(ctx.OCSPs)}
 	evalCtx := operator.NewEvaluationContext(ocspSignerTree, ocspSignerInfo, signerChain, evalOpts...)
 
@@ -214,6 +222,13 @@ func ocspSigningCert(ctx Context, ocspInfo *ocsp.Info) []policy.Result {
 	}
 
 	return results
+}
+
+func projectApplicationPurpose(tree *node.Node, purpose string) {
+	if tree == nil || purpose == "" {
+		return
+	}
+	tree.Children["applicationPurpose"] = node.New("applicationPurpose", purpose)
 }
 
 func issuerCertsForCRL(ctx Context, revocationList *x509.RevocationList) []*x509.Certificate {

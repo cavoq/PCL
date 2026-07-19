@@ -22,6 +22,7 @@ import (
 	"github.com/cavoq/PCL/internal/cert"
 	certzcrypto "github.com/cavoq/PCL/internal/cert/zcrypto"
 	"github.com/cavoq/PCL/internal/crl"
+	"github.com/cavoq/PCL/internal/node"
 	"github.com/cavoq/PCL/internal/ocsp"
 	"github.com/cavoq/PCL/internal/oid"
 	"github.com/cavoq/PCL/internal/operator"
@@ -50,17 +51,18 @@ func TestIntegrationPolicies(t *testing.T) {
 }
 
 type testCase struct {
-	Name             string            `yaml:"name"`
-	Policy           string            `yaml:"policy"`
-	Fixture          string            `yaml:"fixture,omitempty"`
-	Rules            []string          `yaml:"rules,omitempty"`
-	Certs            string            `yaml:"certs"`
-	Issuers          []string          `yaml:"issuers,omitempty"`
-	CRL              string            `yaml:"crl,omitempty"`
-	OCSP             string            `yaml:"ocsp,omitempty"`
-	EvalTime         string            `yaml:"eval_time,omitempty"`
-	WantCRLLoadError bool              `yaml:"want_crl_load_error,omitempty"`
-	Expected         map[string]counts `yaml:"expected"`
+	Name               string            `yaml:"name"`
+	Policy             string            `yaml:"policy"`
+	Fixture            string            `yaml:"fixture,omitempty"`
+	Rules              []string          `yaml:"rules,omitempty"`
+	Certs              string            `yaml:"certs"`
+	Issuers            []string          `yaml:"issuers,omitempty"`
+	CRL                string            `yaml:"crl,omitempty"`
+	OCSP               string            `yaml:"ocsp,omitempty"`
+	ApplicationPurpose string            `yaml:"application_purpose,omitempty"`
+	EvalTime           string            `yaml:"eval_time,omitempty"`
+	WantCRLLoadError   bool              `yaml:"want_crl_load_error,omitempty"`
+	Expected           map[string]counts `yaml:"expected"`
 }
 
 type counts struct {
@@ -138,6 +140,9 @@ func runCase(t *testing.T, caseDir string, tc testCase) {
 
 	results := make([]policy.Result, 0, len(chain))
 	ctxOpts := make([]operator.ContextOption, 0)
+	if tc.ApplicationPurpose != "" {
+		ctxOpts = append(ctxOpts, operator.WithApplicationPurpose(tc.ApplicationPurpose))
+	}
 
 	// Load CRLs once
 	var crlInfos []*crl.Info
@@ -176,6 +181,12 @@ func runCase(t *testing.T, caseDir string, tc testCase) {
 
 	for _, c := range chain {
 		tree := certzcrypto.BuildTree(c.Cert)
+		if tc.ApplicationPurpose != "" {
+			tree.Children["applicationPurpose"] = node.New(
+				"applicationPurpose",
+				tc.ApplicationPurpose,
+			)
+		}
 
 		if embeddedCRL != nil {
 			crlNode := crl.BuildTreeWithChain(embeddedCRL.CRL, embeddedCRLIssuers)
@@ -299,6 +310,27 @@ func materializeCaseFixture(t *testing.T, tc testCase) testCase {
 		tc.Certs = writePEMFixture(t, dir, "issuer.pem", "CERTIFICATE", issuerDER)
 		crlDER := makeIntegrationCRL(t, issuer, key)
 		tc.CRL = writePEMFixture(t, dir, "list.pem", "X509 CRL", replaceOuterSignatureAlgorithm(t, crlDER))
+	case "crl-entry-critical-extension":
+		key, issuer, issuerDER := makeIntegrationCertificate(t, nil)
+		tc.Certs = writePEMFixture(t, dir, "issuer.pem", "CERTIFICATE", issuerDER)
+		crlDER, err := cryptox509.CreateRevocationList(rand.Reader, &cryptox509.RevocationList{
+			Number:     big.NewInt(1),
+			ThisUpdate: time.Date(2026, 7, 18, 11, 0, 0, 0, time.UTC),
+			NextUpdate: time.Date(2026, 7, 19, 11, 0, 0, 0, time.UTC),
+			RevokedCertificateEntries: []cryptox509.RevocationListEntry{{
+				SerialNumber:   big.NewInt(2),
+				RevocationTime: time.Date(2026, 7, 18, 12, 0, 0, 0, time.UTC),
+				ExtraExtensions: []cryptopkix.Extension{{
+					Id:       stdasn1.ObjectIdentifier{1, 2, 3, 4, 5},
+					Critical: true,
+					Value:    []byte{0x05, 0x00},
+				}},
+			}},
+		}, issuer, key)
+		if err != nil {
+			t.Fatalf("create CRL with critical entry extension: %v", err)
+		}
+		tc.CRL = writePEMFixture(t, dir, "list.pem", "X509 CRL", crlDER)
 	case "certificate-empty-key-usage":
 		_, _, der := makeIntegrationCertificate(t, func(template *cryptox509.Certificate) {
 			template.KeyUsage = 0

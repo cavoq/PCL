@@ -4,7 +4,9 @@ import (
 	"net"
 	"testing"
 
+	zasn1 "github.com/zmap/zcrypto/encoding/asn1"
 	"github.com/zmap/zcrypto/x509"
+	"github.com/zmap/zcrypto/x509/pkix"
 
 	"github.com/cavoq/PCL/internal/cert"
 )
@@ -150,6 +152,9 @@ func TestNameConstraintsValidEmailPermitted(t *testing.T) {
 	op := NameConstraintsValid{}
 	leafCert := &x509.Certificate{
 		EmailAddresses: []string{"user@example.com"},
+		Extensions: []pkix.Extension{{
+			Id: zasn1.ObjectIdentifier{2, 5, 29, 17},
+		}},
 	}
 	caCert := &x509.Certificate{
 		PermittedEmailAddresses: []x509.GeneralSubtreeString{
@@ -177,6 +182,9 @@ func TestNameConstraintsValidEmailNotPermitted(t *testing.T) {
 	op := NameConstraintsValid{}
 	leafCert := &x509.Certificate{
 		EmailAddresses: []string{"user@other.com"},
+		Extensions: []pkix.Extension{{
+			Id: zasn1.ObjectIdentifier{2, 5, 29, 17},
+		}},
 	}
 	caCert := &x509.Certificate{
 		PermittedEmailAddresses: []x509.GeneralSubtreeString{
@@ -412,27 +420,5 @@ func TestNameConstraintsIntersectionPass(t *testing.T) {
 	}
 	if !got {
 		t.Error("name within both permitted sets should pass (intersection semantics)")
-	}
-}
-
-func TestMatchesDNS(t *testing.T) {
-	tests := []struct {
-		name       string
-		constraint string
-		want       bool
-	}{
-		{"example.com", ".example.com", false},
-		{"foo.example.com", ".example.com", true},
-		{"example.com", "example.com", true},
-		{"foo.example.com", "example.com", true},
-		{"other.com", ".example.com", false},
-		{"foo.bar.example.com", ".example.com", true},
-	}
-
-	for _, tt := range tests {
-		got := matchesDNS(tt.name, tt.constraint)
-		if got != tt.want {
-			t.Errorf("matchesDNS(%q, %q) = %v, want %v", tt.name, tt.constraint, got, tt.want)
-		}
 	}
 }

@@ -19,14 +19,33 @@ var (
 )
 
 func buildCertificatePolicyFixture(addQualifiers func(*cryptobyte.Builder)) []byte {
+	return buildCertificatePolicyFixtureForOID(testDVPolicyOID, addQualifiers)
+}
+
+func buildCertificatePolicyFixtureForOID(
+	policyOID stdasn1.ObjectIdentifier,
+	addQualifiers func(*cryptobyte.Builder),
+) []byte {
 	var builder cryptobyte.Builder
 	builder.AddASN1(cryptobyte_asn1.SEQUENCE, func(builder *cryptobyte.Builder) {
 		builder.AddASN1(cryptobyte_asn1.SEQUENCE, func(builder *cryptobyte.Builder) {
-			builder.AddASN1ObjectIdentifier(testDVPolicyOID)
+			builder.AddASN1ObjectIdentifier(policyOID)
 			if addQualifiers != nil {
 				builder.AddASN1(cryptobyte_asn1.SEQUENCE, addQualifiers)
 			}
 		})
+	})
+	return builder.BytesOrPanic()
+}
+
+func buildCertificatePoliciesWithIdentifiers(identifiers ...stdasn1.ObjectIdentifier) []byte {
+	var builder cryptobyte.Builder
+	builder.AddASN1(cryptobyte_asn1.SEQUENCE, func(policies *cryptobyte.Builder) {
+		for _, identifier := range identifiers {
+			policies.AddASN1(cryptobyte_asn1.SEQUENCE, func(policy *cryptobyte.Builder) {
+				policy.AddASN1ObjectIdentifier(identifier)
+			})
+		}
 	})
 	return builder.BytesOrPanic()
 }
@@ -86,9 +105,15 @@ func TestCertificatePoliciesDetailedNodeSchema(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParseCertPoliciesStrict: %v", err)
 	}
+	if raw, ok := root.Children["raw"].Value.([]byte); !ok || !bytes.Equal(raw, der) {
+		t.Fatalf("CertificatePolicies raw = %#v, want %x", root.Children["raw"], der)
+	}
 	policy := requirePolicyChild(t, requirePolicyChild(t, root, "policyInformations"), "0")
 	if root.Children[oid.CABFDomainValidatedPolicy] != policy || root.Children["dvPolicy"] != policy {
 		t.Fatal("policy OID and friendly-name aliases do not share the indexed policy node")
+	}
+	if unprocessed := root.Children["unprocessed"]; unprocessed == nil || unprocessed.Value != true {
+		t.Fatal("unknown policy qualifier did not mark CertificatePolicies unprocessed")
 	}
 	if got := requirePolicyChild(t, policy, "policyIdentifier").Value; got != oid.CABFDomainValidatedPolicy {
 		t.Errorf("policyIdentifier = %v, want %s", got, oid.CABFDomainValidatedPolicy)
@@ -147,6 +172,10 @@ func TestCertificatePoliciesDetailedNodeSchema(t *testing.T) {
 
 func TestCertificatePoliciesStrictRejectsMalformedQualifiers(t *testing.T) {
 	tests := map[string][]byte{
+		"duplicate policy identifier": buildCertificatePoliciesWithIdentifiers(
+			testDVPolicyOID,
+			testDVPolicyOID,
+		),
 		"empty qualifiers": buildCertificatePolicyFixture(func(*cryptobyte.Builder) {}),
 		"CPS wrong tag": buildCertificatePolicyFixture(func(builder *cryptobyte.Builder) {
 			addPolicyQualifierFixture(builder, testCPSOID, func(builder *cryptobyte.Builder) {
@@ -180,6 +209,14 @@ func TestCertificatePoliciesStrictRejectsMalformedQualifiers(t *testing.T) {
 				})
 			})
 		}),
+		"unknown qualifier on anyPolicy": buildCertificatePolicyFixtureForOID(
+			stdasn1.ObjectIdentifier{2, 5, 29, 32, 0},
+			func(builder *cryptobyte.Builder) {
+				addPolicyQualifierFixture(builder, testUnknownQualifierOID, func(builder *cryptobyte.Builder) {
+					builder.AddASN1NULL()
+				})
+			},
+		),
 	}
 
 	for name, der := range tests {
@@ -201,5 +238,26 @@ func TestCertificatePoliciesCompatibilityMarksEmptySequence(t *testing.T) {
 	if requirePolicyChild(t, parsed, "malformed").Value != true ||
 		requirePolicyChild(t, parsed, "empty").Value != true {
 		t.Errorf("empty CertificatePolicies compatibility schema = %#v", parsed.Children)
+	}
+}
+
+func TestDecodeCertificatePolicyIdentifiersStrict(t *testing.T) {
+	der := buildCertificatePolicyFixture(nil)
+	parsed, err := ParseCertPoliciesStrict(der)
+	if err != nil {
+		t.Fatalf("ParseCertPoliciesStrict() error = %v", err)
+	}
+	if parsed.Children["unprocessed"] != nil {
+		t.Fatal("known CertificatePolicies content was marked unprocessed")
+	}
+	identifiers, err := DecodeCertificatePolicyIdentifiersStrict(der)
+	if err != nil {
+		t.Fatalf("DecodeCertificatePolicyIdentifiersStrict() error = %v", err)
+	}
+	if len(identifiers) != 1 || identifiers[0] != oid.CABFDomainValidatedPolicy {
+		t.Fatalf("identifiers = %#v, want [%s]", identifiers, oid.CABFDomainValidatedPolicy)
+	}
+	if _, err := DecodeCertificatePolicyIdentifiersStrict([]byte{0x30, 0x00}); err == nil {
+		t.Fatal("empty CertificatePolicies was accepted")
 	}
 }

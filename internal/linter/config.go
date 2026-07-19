@@ -23,6 +23,11 @@ type Config struct {
 	ShowMeta    bool
 	Diagnostics io.Writer // Optional warning/debug stream, separate from formatted results.
 
+	// ApplicationPurpose is the explicit RFC 5280 extended-key-usage purpose
+	// used while evaluating certificate profile semantics. It may be a stable
+	// friendly name (for example, "serverAuth") or a dotted object identifier.
+	ApplicationPurpose string
+
 	// Auto-validate mode options
 	AutoValidate  bool // Enable automatic PKI resource fetching (OCSP, CRL, chain climbing)
 	NoAutoChain   bool // Disable chain climbing via CA Issuers URLs

@@ -42,17 +42,59 @@ func assertPathValue(t *testing.T, root *node.Node, path string, want any) {
 func TestBuilder_ProjectsMalformedDecodedExtensions(t *testing.T) {
 	cert := &x509.Certificate{Extensions: []pkix.Extension{
 		{Id: zasn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 1, 1}, Value: []byte{0x30, 0x00}},
+		{Id: zasn1.ObjectIdentifier{2, 5, 29, 15}, Value: []byte{0x05, 0x00}},
+		{Id: zasn1.ObjectIdentifier{2, 5, 29, 17}, Value: []byte{0x30, 0x00}},
+		{Id: zasn1.ObjectIdentifier{2, 5, 29, 18}, Value: []byte{0x30, 0x00}},
+		{Id: zasn1.ObjectIdentifier{2, 5, 29, 19}, Value: []byte{0x05, 0x00}},
+		{Id: zasn1.ObjectIdentifier{2, 5, 29, 30}, Value: []byte{0x30, 0x00}},
 		{Id: zasn1.ObjectIdentifier{2, 5, 29, 31}, Value: []byte{0x30, 0x00}},
 		{Id: zasn1.ObjectIdentifier{2, 5, 29, 32}, Value: []byte{0x30, 0x00}},
+		{Id: zasn1.ObjectIdentifier{2, 5, 29, 33}, Value: []byte{0x30, 0x00}},
+		{Id: zasn1.ObjectIdentifier{2, 5, 29, 36}, Value: []byte{0x30, 0x00}},
+		{Id: zasn1.ObjectIdentifier{2, 5, 29, 37}, Value: []byte{0x30, 0x00}},
+		{Id: zasn1.ObjectIdentifier{2, 5, 29, 54}, Value: []byte{0x05, 0x00}},
 	}}
 
 	tree := BuildTree(cert)
 	for _, path := range []string{
 		"certificate.extensions.1.3.6.1.5.5.7.1.1.malformed",
+		"certificate.extensions.2.5.29.15.malformed",
+		"certificate.extensions.2.5.29.17.malformed",
+		"certificate.extensions.2.5.29.18.malformed",
+		"certificate.extensions.2.5.29.19.malformed",
+		"certificate.extensions.2.5.29.30.malformed",
 		"certificate.extensions.2.5.29.31.malformed",
 		"certificate.extensions.2.5.29.32.malformed",
+		"certificate.extensions.2.5.29.33.malformed",
+		"certificate.extensions.2.5.29.36.malformed",
+		"certificate.extensions.2.5.29.37.malformed",
+		"certificate.extensions.2.5.29.54.malformed",
+		"certificate.keyUsage.malformed",
+		"certificate.subjectAltName.malformed",
+		"certificate.issuerAltName.malformed",
+		"certificate.basicConstraints.malformed",
+		"certificate.nameConstraints.malformed",
+		"certificate.policyMappings.malformed",
+		"certificate.policyConstraints.malformed",
+		"certificate.extKeyUsage.malformed",
+		"certificate.inhibitAnyPolicy.malformed",
 	} {
 		assertPathValue(t, tree, path, true)
+	}
+}
+
+func TestBuilder_OmitsAbsentProfileExtensionNodes(t *testing.T) {
+	tree := BuildTree(&x509.Certificate{})
+	for _, path := range []string{
+		"certificate.keyUsage",
+		"certificate.basicConstraints",
+		"certificate.extKeyUsage",
+		"certificate.nameConstraints",
+		"certificate.policyMappings",
+		"certificate.policyConstraints",
+		"certificate.inhibitAnyPolicy",
+	} {
+		assertPathNotExists(t, tree, path)
 	}
 }
 
@@ -325,10 +367,10 @@ func TestBuilder_SubjectAltName(t *testing.T) {
 }
 
 func TestBuilder_SubjectAndIssuerAltNamesUseRawGeneralNameEntries(t *testing.T) {
-	nonASCIIEmail := []byte{'u', 's', 'e', 'r', 0xe9, '@', 'e', 'x', 'a', 'm', 'p', 'l', 'e'}
+	email := []byte("user@example.test")
 	san := buildTestGeneralNames([]testGeneralName{
 		{tag: 2, value: []byte("first.example.test")},
-		{tag: 1, value: nonASCIIEmail},
+		{tag: 1, value: email},
 		{tag: 2, value: []byte("second.example.test")},
 		{tag: 6, value: []byte("https://example.test/path")},
 	})
@@ -351,11 +393,11 @@ func TestBuilder_SubjectAndIssuerAltNamesUseRawGeneralNameEntries(t *testing.T) 
 	assertPathValue(t, root, "certificate.subjectAltName.dNSName.1.tag", 2)
 	assertPathValue(t, root, "certificate.subjectAltName.uniformResourceIdentifier.0", "https://example.test/path")
 	assertPathValue(t, root, "certificate.subjectAltName.entries.1.type", "rfc822Name")
-	assertPathValue(t, root, "certificate.subjectAltName.rfc822Name.0", string(nonASCIIEmail))
+	assertPathValue(t, root, "certificate.subjectAltName.rfc822Name.0", string(email))
 
 	emailRawValue, ok := root.Resolve("certificate.subjectAltName.rfc822Name.0.rawValue")
-	if !ok || !bytes.Equal(emailRawValue.Value.([]byte), nonASCIIEmail) {
-		t.Fatalf("rfc822Name rawValue = %#v, want %x", emailRawValue, nonASCIIEmail)
+	if !ok || !bytes.Equal(emailRawValue.Value.([]byte), email) {
+		t.Fatalf("rfc822Name rawValue = %#v, want %x", emailRawValue, email)
 	}
 	dnsRaw, ok := root.Resolve("certificate.subjectAltName.dNSName.1.raw")
 	if !ok || !bytes.Equal(dnsRaw.Value.([]byte), append(
@@ -641,6 +683,21 @@ func TestBuilder_AIAStructure(t *testing.T) {
 	if ok {
 		t.Logf("containsCaIssuers: %v", hasCaIssuers.Value)
 	}
+}
+
+func TestBuilderDuplicateExtensionsPreserveFirstParsedInstance(t *testing.T) {
+	identifier := zasn1.ObjectIdentifier{2, 5, 29, 15}
+	root := BuildTree(&x509.Certificate{Extensions: []pkix.Extension{
+		{Id: identifier, Critical: true, Value: []byte{0x03, 0x02, 0x07, 0x80}},
+		{Id: identifier, Critical: false, Value: []byte{0x03, 0x02, 0x05, 0x20}},
+	}})
+
+	assertPathExists(t, root, "certificate.extensions.duplicateOIDs.0")
+	assertPathValue(t, root, "certificate.extensions.keyUsage.critical", true)
+	assertPathValue(t, root, "certificate.extensions.keyUsage.digitalSignature", true)
+	assertPathValue(t, root, "certificate.extensions.keyUsage.keyEncipherment", false)
+	assertPathValue(t, root, "certificate.keyUsage.digitalSignature", true)
+	assertPathValue(t, root, "certificate.keyUsage.keyEncipherment", false)
 }
 
 func TestBuilder_CRLDPStructure(t *testing.T) {

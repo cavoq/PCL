@@ -5,6 +5,7 @@ This document provides a comprehensive guide for writing policy rules in PCL (Po
 ## Table of Contents
 
 - [Overview](#overview)
+- [Application Purpose Input](#application-purpose-input)
 - [Policy File Structure](#policy-file-structure)
 - [Rule Structure](#rule-structure)
 - [Target Paths](#target-paths)
@@ -13,6 +14,7 @@ This document provides a comprehensive guide for writing policy rules in PCL (Po
 - [Certificate Type Filtering](#certificate-type-filtering)
 - [Conditional Rules (when)](#conditional-rules-when)
 - [Best Practices](#best-practices)
+- [P2 Migration Notes](#p2-migration-notes)
 - [Examples](#examples)
 
 ---
@@ -37,6 +39,25 @@ for exact scope. `RFC6960.yaml` is a certificate-evidence policy: it runs for
 leaf certificates and fails closed unless a valid, matching, good OCSP
 response is supplied. Additional policies can be authored with the same
 schema.
+
+## Application Purpose Input
+
+Pass `--purpose <name-or-oid>` to evaluate a chain for one application
+purpose. Supported friendly names are `serverAuth`, `clientAuth`,
+`codeSigning`, `emailProtection`, `timeStamping`, and `ocspSigning`. Canonical
+dotted EKU OIDs, including private OIDs, are also accepted. The wildcard values
+`any`, `anyExtendedKeyUsage`, and `2.5.29.37.0` are not application purposes
+and are rejected.
+
+The value is projected as `certificate.applicationPurpose` and supplied to
+domain-backed operators. In the shipped policy,
+`extended-key-usage-allows-application-purpose` runs only when this node is
+present. Omitting `--purpose` skips that conditional rule. An invalid friendly
+name or a purpose disallowed by EKU and compatible end-entity Key Usage fails
+it. A private EKU OID can identify a purpose, but when an end-entity
+certificate has a Key Usage extension the check fails closed because RFC 5280
+defines no Key Usage mapping for private purposes. This is a bounded profile
+check, not a trust-anchor or complete RFC 5280 Section 6 input.
 
 ---
 
@@ -193,7 +214,8 @@ These guarantees are lossless only when raw Name DER is available. Synthetic
 structure, but report `encodingName: unknown`, tag/encoding `0`, and empty raw
 fields. Malformed raw Names retain `raw` plus `malformed: true` and do not
 silently substitute lossy attribute collections. This is the P1.1 Name
-boundary; Name Constraints and relative CRL names remain P2 work. Attribute
+boundary. P2 reuses it for Name Constraints and relative CRL distribution-
+point names; complete Section 7 comparison remains P4 work. Attribute
 values with unknown tags remain opaque raw bytes; validating a locally defined
 attribute's syntax belongs to the policy or domain that defines that OID.
 
@@ -209,6 +231,9 @@ certificate.extensions.2.5.29.31        # cRLDistributionPoints
 certificate.extensions.2.5.29.17        # subjectAltName
 certificate.extensions.2.5.29.32        # certificatePolicies
 certificate.extensions.2.5.29.30        # nameConstraints
+certificate.extensions.2.5.29.33        # policyMappings
+certificate.extensions.2.5.29.36        # policyConstraints
+certificate.extensions.2.5.29.54        # inhibitAnyPolicy
 ```
 
 #### Common Extension Fields
@@ -216,7 +241,9 @@ certificate.extensions.2.5.29.30        # nameConstraints
 certificate.subjectKeyIdentifier        # SKI value ([]byte)
 certificate.authorityKeyIdentifier      # AKI value ([]byte)
 certificate.basicConstraints.cA         # cA boolean
+certificate.basicConstraints.cAPresent  # encoded BOOLEAN presence
 certificate.basicConstraints.pathLenConstraint  # Path length
+certificate.basicConstraints.pathLenConstraintPresent # encoded INTEGER presence
 certificate.keyUsage                    # KeyUsage node
 certificate.keyUsage.digitalSignature   # KeyUsage bit (boolean)
 certificate.keyUsage.keyCertSign        # KeyUsage bit (boolean)
@@ -228,6 +255,8 @@ certificate.extKeyUsage.codeSigning      # EKU presence (boolean)
 certificate.extKeyUsage.emailProtection  # EKU presence (boolean)
 certificate.extKeyUsage.timeStamping     # EKU presence (boolean)
 certificate.extKeyUsage.ocspSigning      # EKU presence (boolean)
+certificate.extKeyUsage.usages.0.oid      # every known/private KeyPurposeId
+certificate.extKeyUsage.unknown.0.oid     # private/unknown KeyPurposeId
 ```
 
 #### Certificate Policies Fields
@@ -267,7 +296,59 @@ certificate.extensions.authorityInfoAccess.containsCaIssuers  # CA Issuers metho
 certificate.extensions.cRLDistributionPoints           # CRL DP extension node
 certificate.extensions.cRLDistributionPoints.distributionPoints  # DistributionPoints array
 certificate.extensions.cRLDistributionPoints.distributionPoints.0.distributionPoint.fullName.generalNames.0.scheme  # URI scheme
+certificate.extensions.cRLDistributionPoints.distributionPoints.0.distributionPoint.nameRelativeToCRLIssuer.rdns # lossless RDN
+certificate.extensions.cRLDistributionPoints.distributionPoints.0.reasons.keyCompromise # ReasonFlags boolean
+certificate.extensions.cRLDistributionPoints.distributionPoints.0.cRLIssuer.entries # ordered GeneralNames
 ```
+
+#### P2 profile extension schemas
+
+Strictly decoded extensions retain raw DER and put `malformed: true` on the
+concrete `certificate.extensions.<oid-or-alias>` node when decoding fails.
+Presence booleans distinguish an omitted DEFAULT/OPTIONAL value from an
+encoded zero. A valid extension value that includes semantics outside PCL's
+processed subset has `unprocessed: true`; critical-extension handling rejects
+that value even though its DER remains available to policies.
+
+```text
+certificate.extensions.policyMappings
+├── raw
+├── count
+└── mappings.0
+    ├── issuerDomainPolicy
+    ├── subjectDomainPolicy
+    └── raw
+
+certificate.extensions.policyConstraints
+├── raw
+├── requireExplicitPolicyPresent
+├── requireExplicitPolicy        # only when present; has raw child
+├── inhibitPolicyMappingPresent
+└── inhibitPolicyMapping         # only when present; has raw child
+
+certificate.extensions.inhibitAnyPolicy
+├── skipCerts                    # non-negative INTEGER; decimal/fitsInt children
+└── raw
+
+certificate.extensions.nameConstraints
+├── raw
+├── permittedSubtrees.0
+└── excludedSubtrees.0
+    ├── base                     # canonical GeneralName
+    ├── value / type / tag / raw
+    ├── minimum / minimumPresent
+    └── maximum / maximumPresent
+```
+
+Every projected P2 counter that is present has `decimal` and `fitsInt`
+metadata. Its scalar remains an integer when representable; larger valid
+`(0..MAX)` values use the exact decimal string and remain well-formed.
+
+The root compatibility projections `certificate.basicConstraints`,
+`certificate.keyUsage`, `certificate.extKeyUsage`, and
+`certificate.nameConstraints` use the same strict facts. Policies should use
+the extension node's `malformed` child for well-formedness checks and the
+domain operators below for cross-extension dependencies.
 
 #### SCT (Signed Certificate Timestamps)
 ```
@@ -560,7 +641,15 @@ PCL's built-in operators are organized by category and registered in
 |----------|----------|-------------|
 | `isCritical` | None | Returns true if the extension is marked critical |
 | `notCritical` | None | Returns true if the extension is NOT marked critical |
-| `noUnknownCriticalExtensions` | None | Rejects critical OIDs not defined at that RFC 5280 object location; it does not prove that extension semantics are implemented |
+| `noUnknownCriticalExtensions` | None | Rejects duplicate extension OIDs; otherwise accepts a critical certificate extension only when registered as processable and its concrete node has neither a `malformed` nor `unprocessed` marker |
+
+The processed registry is distinct from the RFC extension identity catalog.
+Its conservative processed set covers certificate extensions only. A known but
+unprocessed OID or extension value and every critical CRL or CRL-entry
+extension fail closed until its semantics are implemented. OID and
+friendly-name paths alias the same node and are evaluated once. Repeated
+instances of one OID fail closed before criticality lookup. Adding an identity
+catalog entry does not authorize critical processing.
 
 **Examples:**
 ```yaml
@@ -619,6 +708,28 @@ Key Usage bits are ordinary boolean children. Express role-specific rules with
   certType: [root, intermediate]
 ```
 
+### P2 Certificate Profile Operators
+
+These no-operand operators are thin adapters over decisions owned by
+`internal/cert`.
+
+| Operator | Description |
+|----------|-------------|
+| `applicationPurposeValid` | Applies a concrete `--purpose` to EKU and compatible end-entity Key Usage; rejects anyExtendedKeyUsage requests and fails closed for private purposes when end-entity Key Usage is present |
+| `anyExtendedKeyUsageNotCritical` | Enforces non-critical anyExtendedKeyUsage |
+| `basicConstraintsDependenciesValid` | Requires pathLenConstraint to accompany CA Basic Constraints and keyCertSign |
+| `keyUsageDependenciesValid` | Enforces the keyCertSign => CA dependency; RFC 5280 leaves encipherOnly/decipherOnly meaning undefined when keyAgreement is absent rather than forbidding the bit combination |
+| `nameConstraintsDependenciesValid` | Restricts Name Constraints to CA certificates |
+| `nameConstraintsDistancesValid` | Requires GeneralSubtree minimum zero/default and absent maximum |
+| `crlDistributionPointsDependenciesValid` | Checks certificate-profile CRLDP dependencies without applying CRL scope |
+| `policyMappingsDependenciesValid` | Restricts mappings to CAs and rejects anyPolicy on either side |
+| `policyMappingsIssuerPoliciesPresent` | Requires issuerDomainPolicy values to occur in certificatePolicies |
+| `policyConstraintsDependenciesValid` | Restricts Policy Constraints to CA certificates |
+| `inhibitAnyPolicyDependenciesValid` | Restricts inhibitAnyPolicy to CA certificates |
+
+`pathLenValid` and `nameConstraintsValid` are bounded checks over the supplied
+ordered chain, not a complete Section 6 engine.
+
 ### 9. Certificate Chain Operators
 
 | Operator | Operands | Description |
@@ -627,7 +738,7 @@ Key Usage bits are ordinary boolean children. Express role-specific rules with
 | `signatureAlgorithmMatchesTBS` | None | Returns true if signatureAlgorithm matches tbsSignatureAlgorithm |
 | `issuedBy` | None | Returns true if certificate's issuer DN matches issuer's subject DN |
 | `akiMatchesSki` | None | Returns true if AKI matches issuer's SKI |
-| `pathLenValid` | None | Returns true if pathLenConstraint is valid for chain position |
+| `pathLenValid` | None | Counts non-self-issued intermediates below the current CA in the supplied leaf-to-root chain |
 | `serialNumberUnique` | None | Detects a duplicate issuer/serial pair within the supplied chain; it cannot prove CA-wide uniqueness |
 
 **Examples:**
@@ -738,8 +849,8 @@ inside `every` as well.
 
 | Operator | Operands | Description |
 |----------|----------|-------------|
-| `nameConstraintsValid` | None | Returns true if names are valid against chain's constraints |
-| `certificatePolicyValid` | [oid, ...] | Returns true if at least one acceptable policy OID is valid through the chain |
+| `nameConstraintsValid` | None | Applies supported DNS, email, URI, and IP constraints across the supplied chain; partial Section 6/7 behavior |
+| `certificatePolicyValid` | [oid, ...] | Compatibility operator; no active `RFC5280.yaml` rule claims the Section 6 policy state machine |
 
 ### 14. Component Operators (Multi-Valued Fields)
 
@@ -1017,6 +1128,30 @@ Use per-rule `certType` to avoid confusing SKIP messages:
 ```
 
 ---
+
+## P2 Migration Notes
+
+- `noUnknownCriticalExtensions` no longer treats a catalog-known OID as
+  processed. Custom policies may now report known-but-unprocessed or malformed
+  critical extensions that previously passed. Do not work around this with an
+  identity alias; implement strict parsing/domain handling before extending
+  the processed registry.
+- Use the canonical extension aliases `policyMappings`, `policyConstraints`,
+  `inhibitAnyPolicy`, `nameConstraints`, `cRLDistributionPoints`, `keyUsage`,
+  `basicConstraints`, and `extKeyUsage`. Check their `malformed` child before
+  consuming projected facts.
+- Presence is explicit for optional/default fields. In particular, use
+  `cAPresent`, `pathLenConstraintPresent`, `minimumPresent`,
+  `maximumPresent`, `requireExplicitPolicyPresent`, and
+  `inhibitPolicyMappingPresent`; do not infer absence from numeric zero.
+- `pathLenValid` now counts only non-self-issued intermediate certificates
+  below the current CA in the supplied leaf-to-root chain. It intentionally
+  does not construct or validate a path.
+- Purpose-aware policies should use `--purpose` plus
+  `applicationPurposeValid`. Supply a concrete application purpose, not `any`,
+  `anyExtendedKeyUsage`, or `2.5.29.37.0`; private OIDs fail closed when
+  end-entity Key Usage is present. Existing fixed-purpose `ekuContains` rules
+  remain available for local profiles.
 
 ## Examples
 

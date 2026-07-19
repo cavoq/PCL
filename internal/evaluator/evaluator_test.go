@@ -92,6 +92,55 @@ func TestContextDefaults(t *testing.T) {
 	}
 }
 
+func TestChainProjectsAndPropagatesApplicationPurpose(t *testing.T) {
+	certificate := &cert.Info{
+		Cert:     &x509.Certificate{},
+		Type:     "leaf",
+		Position: 0,
+	}
+	profile := policy.Policy{
+		ID: "application-purpose",
+		Rules: []rule.Rule{
+			{
+				ID:       "purpose-node",
+				Target:   "certificate.applicationPurpose",
+				Operator: "eq",
+				Operands: []any{"serverAuth"},
+				Severity: rule.SeverityError,
+			},
+			{
+				ID:       "purpose-semantics",
+				Target:   "certificate",
+				Operator: "applicationPurposeValid",
+				Severity: rule.SeverityError,
+			},
+		},
+	}
+
+	results := Chain(Context{
+		Policies:           []policy.Policy{profile},
+		Registry:           operator.DefaultRegistry(),
+		Chain:              []*cert.Info{certificate},
+		ApplicationPurpose: "serverAuth",
+	})
+	if len(results) != 1 || len(results[0].Results) != 2 {
+		t.Fatalf("results = %#v, want one policy result with two rules", results)
+	}
+	for _, result := range results[0].Results {
+		if result.Verdict != rule.VerdictPass {
+			t.Fatalf("rule %q verdict = %q, want pass", result.RuleID, result.Verdict)
+		}
+	}
+}
+
+func TestProjectApplicationPurposeOmitsAbsentInput(t *testing.T) {
+	tree := node.New("certificate", nil)
+	projectApplicationPurpose(tree, "")
+	if _, present := tree.Children["applicationPurpose"]; present {
+		t.Fatal("absent application purpose was projected")
+	}
+}
+
 func TestIssuerCertsForCRL_withResolveEnabled(t *testing.T) {
 	signer := &x509.Certificate{
 		Subject:      pkix.Name{CommonName: "CA"},

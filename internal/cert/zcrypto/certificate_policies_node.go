@@ -11,8 +11,14 @@ import (
 
 func buildCertificatePoliciesNode(decoded decodedCertificatePolicies) *node.Node {
 	root := node.New("certificatePolicies", nil)
+	root.Children["raw"] = node.New("raw", append([]byte(nil), decoded.RawDER...))
 	policyInformations := node.New("policyInformations", nil)
 	root.Children["policyInformations"] = policyInformations
+	if certificatePoliciesContainUnknownQualifier(decoded) {
+		// Unknown qualifiers remain available as raw representation facts, but
+		// PCL cannot claim to process them when CertificatePolicies is critical.
+		root.Children["unprocessed"] = node.New("unprocessed", true)
+	}
 
 	for policyIndex, policy := range decoded.Policies {
 		index := strconv.Itoa(policyIndex)
@@ -25,6 +31,17 @@ func buildCertificatePoliciesNode(decoded decodedCertificatePolicies) *node.Node
 		}
 	}
 	return root
+}
+
+func certificatePoliciesContainUnknownQualifier(decoded decodedCertificatePolicies) bool {
+	for _, policy := range decoded.Policies {
+		for _, qualifier := range policy.Qualifiers {
+			if qualifier.Kind == unknownPolicyQualifier {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func buildPolicyInformationNode(

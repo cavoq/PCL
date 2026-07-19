@@ -7,9 +7,126 @@ RFC-equivalent Section 6 certification-path or revocation validator.
 Implementation order, architectural ownership, and completion criteria are
 tracked in the [RFC 5280 conformance roadmap](../docs/RFC5280_ROADMAP.md).
 
-`Covered` means an active rule has executable positive and negative behavior.
-`Partial` means the rule checks only part of the normative requirement.
-Parser behavior is credited only where a dedicated malformed-DER test exists.
+`Covered` means the active rule's stated profile check has executable positive
+and negative behavior. `Partial` means the rule checks only part of the
+normative requirement, usually because complete P3 revocation or P4 path/name
+processing is outside the profile-linter boundary. `Not active` means there is
+no enabled `RFC5280.yaml` rule for the requirement. Parser behavior is credited
+only where a dedicated malformed-DER test exists.
+
+## Active rule classification
+
+This ledger is exhaustive for the rules currently enabled in
+[`RFC5280.yaml`](RFC5280.yaml). A grouped row gives every listed rule the same
+classification; supplemental checks can be executable while still `Partial`
+as RFC 5280 coverage.
+
+| Area | Classification | Active rule IDs |
+|------|----------------|-----------------|
+| TBSCertificate boundary | Covered | `tbs-certificate-metadata-well-formed` |
+| Version | Covered | `version-v3-when-extensions`, `version-v2-when-unique-id`, `version-v2-when-subject-unique-id` |
+| Serial number | Covered | `serial-number-present`, `serial-number-positive`, `serial-number-length` |
+| Signature AlgorithmIdentifier equality | Covered | `signature-algorithm-matches-tbs` |
+| Certificate signature against supplied issuer evidence | Partial | `signature-valid` |
+| Encoded certificate Names | Covered | `issuer-name-well-formed`, `subject-name-well-formed` |
+| Required certificate Names | Covered | `issuer-not-empty`, `subject-not-empty-for-ca` |
+| Root self-issuance heuristic | Partial | `issuer-matches-subject-for-root` |
+| Certificate validity | Covered | `not-expired`, `not-yet-valid`, `validity-order-correct` |
+| UniqueIdentifier profile | Covered | `issuer-unique-id-absent`, `subject-unique-id-absent` |
+| Certificate critical-extension processing | Partial | `no-unknown-critical-extensions` |
+| AKI profile | Covered | `authority-key-identifier-present`, `aki-not-critical` |
+| AKI/SKI relationship in the supplied chain | Partial | `aki-matches-ski` |
+| SKI profile | Covered | `subject-key-identifier-present`, `ski-not-critical` |
+| Key Usage syntax and profile semantics | Covered | `key-usage-well-formed`, `key-usage-dependencies-valid`, `key-usage-present`, `key-usage-has-at-least-one-bit`, `key-usage-critical-for-ca`, `ca-key-cert-sign`, `leaf-key-usage-valid` |
+| Certificate Policies structure | Covered | `certificate-policies-well-formed` |
+| Policy Mappings profile semantics | Covered | `policy-mappings-well-formed`, `policy-mappings-dependencies-valid`, `policy-mappings-issuer-policies-present`, `policy-mappings-critical` |
+| Subject Alternative Name structure/profile | Covered | `san-general-names-well-formed`, `san-required-if-empty-subject`, `san-critical-if-subject-empty` |
+| Issuer Alternative Name structure/profile | Covered | `ian-general-names-well-formed`, `ian-not-critical` |
+| Subject Directory Attributes criticality | Covered | `subject-directory-attributes-not-critical` |
+| Basic Constraints structure/profile | Covered | `basic-constraints-well-formed`, `basic-constraints-dependencies-valid`, `basic-constraints-present`, `basic-constraints-critical-for-ca`, `ca-basic-constraints`, `leaf-not-ca` |
+| Path-length counting over the supplied chain | Partial | `ca-path-len-valid` |
+| Name Constraints structure/profile | Covered | `name-constraints-well-formed`, `name-constraints-dependencies-valid`, `name-constraints-distances-valid`, `name-constraints-critical` |
+| Name Constraints matching | Partial | `name-constraints-valid` |
+| Policy Constraints profile semantics | Covered | `policy-constraints-well-formed`, `policy-constraints-dependencies-valid`, `policy-constraints-critical` |
+| Explicit application-purpose/EKU profile | Covered | `extended-key-usage-well-formed`, `extended-key-usage-allows-application-purpose`, `any-extended-key-usage-not-critical` |
+| CRL Distribution Points certificate profile | Covered | `crl-distribution-points-well-formed`, `crl-distribution-points-dependencies-valid`, `crl-distribution-points-not-critical` |
+| inhibitAnyPolicy profile semantics | Covered | `inhibit-any-policy-well-formed`, `inhibit-any-policy-dependencies-valid`, `inhibit-any-policy-critical` |
+| Freshest CRL criticality | Covered | `freshest-crl-not-critical` |
+| AIA criticality | Covered | `aia-not-critical` |
+| Downloaded caIssuers representation | Partial | `ca-issuers-der-format` |
+| SIA criticality | Covered | `sia-not-critical` |
+| Encoded CRL issuer Name | Covered | `crl-issuer-name-well-formed` |
+| CRL window, required nextUpdate, signature, and algorithms | Covered | `crl-valid`, `crl-next-update-present`, `crl-signed-by`, `crl-signature-algorithm-matches-tbs` |
+| Certificate revocation conclusion | Partial | `cert-not-revoked` |
+| CRL AKI and CRL Number profile | Covered | `crl-aki-not-critical`, `crl-authority-key-identifier-present`, `crl-number-not-critical`, `crl-number-present` |
+| Delta CRL/IDP criticality only | Covered | `crl-delta-indicator-critical`, `crl-idp-critical` |
+| CRL critical-extension processing | Partial | `crl-no-unknown-critical-extensions` |
+| Optional reasonCode recommendation | Partial | `crl-entries-have-reason` |
+| reasonCode value syntax | Covered | `crl-entry-reason-valid` |
+| Appendix A subject lengths | Partial | `subject-cn-max-length`, `subject-org-max-length`, `subject-ou-max-length`, `subject-locality-max-length`, `subject-state-max-length`, `subject-country-length`, `subject-country-min-length`, `subject-serial-number-max-length`, `subject-givenname-max-length`, `subject-surname-max-length` |
+| Subject email syntax | Partial | `subject-email-max-length`, `subject-email-format` |
+| GeneralName mailbox shape | Partial | `san-rfc822-name-format`, `ian-rfc822-name-format` |
+| Supplemental DNS/URI checks | Partial | `ian-dns-valid-label`, `san-uri-no-fragment`, `subject-dc-label-max-length` |
+| Validity encoding choice | Covered | `validity-notbefore-utctime-through-2049`, `validity-notbefore-generalizedtime-from-2050`, `validity-notafter-utctime-through-2049`, `validity-notafter-generalizedtime-from-2050` |
+| UTCTime wire requirements | Covered | `validity-utctime-has-seconds`, `validity-utctime-has-seconds-notafter`, `validity-utctime-has-zulu-notbefore`, `validity-utctime-has-zulu-notafter` |
+| GeneralizedTime wire requirements | Covered | `validity-generalizedtime-has-seconds-notbefore`, `validity-generalizedtime-has-seconds-notafter`, `validity-generalizedtime-has-zulu-notbefore`, `validity-generalizedtime-has-zulu-notafter`, `validity-generalizedtime-no-fraction`, `validity-generalizedtime-no-fraction-notafter` |
+| Subject attribute encoding | Partial | `subject-country-printable-string`, `subject-cn-valid-encoding` |
+| Leaf SAN IA5 repertoire | Partial | `san-dnsname-valid-ia5string`, `san-uri-valid-ia5string`, `san-email-valid-ia5string` |
+| IAN IA5 repertoire | Covered | `ian-dnsname-valid-ia5string`, `ian-uri-valid-ia5string`, `ian-email-valid-ia5string` |
+
+## Executable evidence
+
+- [`tests/vector_coverage_test.go`](../tests/vector_coverage_test.go) enforces
+  that every active rule appears on a classified line above and exercises
+  malformed critical-extension vectors.
+- [`tests/deterministic_pki_test.go`](../tests/deterministic_pki_test.go)
+  supplies deterministic application-purpose and path-length boundary vectors.
+- [`internal/cert/zcrypto/extension_parser_test.go`](../internal/cert/zcrypto/extension_parser_test.go),
+  [`key_extensions_test.go`](../internal/cert/zcrypto/key_extensions_test.go),
+  [`extension_schema_test.go`](../internal/cert/zcrypto/extension_schema_test.go),
+  and [`builder_test.go`](../internal/cert/zcrypto/builder_test.go) cover strict
+  DER rejection, presence-preserving node schemas, and concrete-node
+  `malformed` projection.
+- [`internal/cert/extension_dependencies_test.go`](../internal/cert/extension_dependencies_test.go),
+  [`purpose_test.go`](../internal/cert/purpose_test.go),
+  [`path_constraints_test.go`](../internal/cert/path_constraints_test.go), and
+  [`name_constraints_test.go`](../internal/cert/name_constraints_test.go) cover
+  the owning profile-domain decisions.
+- [`internal/oid/processed_extensions_test.go`](../internal/oid/processed_extensions_test.go)
+  and [`internal/operator/constraints_test.go`](../internal/operator/constraints_test.go)
+  lock the conservative certificate-only processed set,
+  known-but-unprocessed rejection, alias deduplication, duplicate-OID
+  rejection, and malformed critical-extension failure.
+- [`tests/integration_test.go`](../tests/integration_test.go) and
+  [`tests/linter_run_test.go`](../tests/linter_run_test.go) exercise policy and
+  CLI wiring. Existing operator owner tests cover comparison, date, encoding,
+  collection, chain, CRL, and signature behavior used by the remaining rows.
+
+## P2 boundary
+
+P2 completes the certificate-profile parsing and dependency layer, not RFC
+5280 Sections 6 or 7. `--purpose` supplies one concrete friendly EKU name or
+dotted OID; `any`, `anyExtendedKeyUsage`, and `2.5.29.37.0` are rejected, and a
+private OID fails closed when end-entity Key Usage is present. The active
+purpose rule is conditional and is skipped when the input is absent. Name
+Constraints matching is limited to the implemented DNS, email, URI, and IP
+forms. It implements the
+documented matching boundaries (including case-sensitive mailbox local parts
+and the subject-DN emailAddress fallback when SAN is absent), but complete
+Section 7 validation and normalization of constraint-base value forms remains
+P4.
+`pathLenConstraint` counts non-self-issued intermediates in an already ordered
+leaf-to-root chain. Policy extension counters and mappings are preserved and
+profile-checked but do not drive a policy state machine.
+
+The processed-extension registry is deliberately separate from the identity
+catalog and conservatively registers certificate extensions only. A critical
+certificate extension passes only when its OID is registered and its concrete
+extension node has neither a `malformed` nor `unprocessed` marker.
+Known-but-unprocessed OIDs and values and malformed critical certificate
+extensions fail closed; all critical CRL and CRL-entry extensions remain
+fail-closed pending P3 semantics. Repeated instances of one extension OID fail
+before criticality and registry lookup.
 
 ---
 
@@ -66,6 +183,11 @@ instead of silently disabling dependent rules.
 | Conforming CAs MUST NOT generate issuerUniqueID | MUST NOT | `issuer-unique-id-absent` |
 | Conforming CAs MUST NOT generate subjectUniqueID | MUST NOT | `subject-unique-id-absent` |
 
+### 4.1.2.9 Extensions
+| Requirement | Level | Rule |
+|-------------|-------|------|
+| A certificate MUST NOT include more than one instance of an extension OID | MUST NOT | `no-unknown-critical-extensions` |
+
 ---
 
 ## Distinguished Names and Appendix A Attribute Syntax
@@ -109,15 +231,25 @@ Section 7 internationalized-name comparison.
 ### 4.2.1.3 Key Usage
 | Requirement | Level | Rule |
 |-------------|-------|------|
+| BIT STRING is well-formed and uses only defined, canonical bits | MUST | `key-usage-well-formed` |
+| keyCertSign is asserted only by a CA certificate | MUST | `key-usage-dependencies-valid` |
 | CA signing certificates MUST include Key Usage | MUST | `key-usage-present` (the policy treats root/intermediate inputs as certificate-signing roles) |
 | When present, at least one bit MUST be set | MUST | `key-usage-has-at-least-one-bit` |
 | CA Key Usage SHOULD be critical | SHOULD | `key-usage-critical-for-ca` |
 | Certificate-signing keys MUST have keyCertSign | MUST | `ca-key-cert-sign` (root/intermediate role assumption) |
 | Non-CA certs MUST NOT have keyCertSign | MUST NOT | `leaf-key-usage-valid` |
 
+### 4.2.1.4 Certificate Policies
+| Requirement | Level | Rule |
+|-------------|-------|------|
+| CertificatePolicies is well-formed and non-empty, policyIdentifier values are unique, and anyPolicy uses only defined qualifiers | MUST | `certificate-policies-well-formed` |
+
 ### 4.2.1.5 Policy Mappings
 | Requirement | Level | Rule |
 |-------------|-------|------|
+| Structure is well-formed and non-empty | MUST | `policy-mappings-well-formed` |
+| CA-only and neither mapping side is anyPolicy | MUST | `policy-mappings-dependencies-valid` |
+| issuerDomainPolicy also appears in certificatePolicies | SHOULD | `policy-mappings-issuer-policies-present` |
 | Policy Mappings SHOULD be critical | SHOULD | `policy-mappings-critical` |
 
 ### 4.2.1.6 Subject Alternative Name
@@ -147,35 +279,48 @@ Section 7 internationalized-name comparison.
 ### 4.2.1.9 Basic Constraints
 | Requirement | Level | Rule |
 |-------------|-------|------|
+| Structure is well-formed and preserves DEFAULT/OPTIONAL presence | MUST | `basic-constraints-well-formed` |
+| pathLenConstraint dependencies hold | MUST | `basic-constraints-dependencies-valid` |
 | MUST be in CA certificates | MUST | `basic-constraints-present` |
 | MUST be critical in CA certs | MUST | `basic-constraints-critical-for-ca` |
 | cA MUST be TRUE for CA certs | MUST | `ca-basic-constraints` |
-| pathLenConstraint enforced | MUST | Partial: `ca-path-len-valid` (complete structures/dependencies remain P2) |
+| pathLenConstraint enforced | MUST | Partial: `ca-path-len-valid` counts non-self-issued intermediates in the supplied ordered chain; complete Section 6 processing remains P4 |
 
 ### 4.2.1.10 Name Constraints
 | Requirement | Level | Rule |
 |-------------|-------|------|
+| Structure and all GeneralSubtrees are well-formed | MUST | `name-constraints-well-formed` |
+| Extension appears only in CA certificates | MUST | `name-constraints-dependencies-valid` |
+| minimum is zero/default and maximum is absent | MUST | `name-constraints-distances-valid` |
 | MUST be critical | MUST | `name-constraints-critical` |
-| MUST be enforced in path validation | MUST | `name-constraints-valid` (partial: not a complete §6 implementation) |
+| MUST be enforced in path validation | MUST | `name-constraints-valid` (partial: supported DNS/email/URI/IP matching only; unsupported name forms mark the critical value unprocessed; constraint-base value-form validation and complete §§6/7 processing remain P4) |
 
 ### 4.2.1.11 Policy Constraints
 | Requirement | Level | Rule |
 |-------------|-------|------|
+| Structure is non-empty, ordered, and contains non-negative counters | MUST | `policy-constraints-well-formed` |
+| Extension appears only in CA certificates | MUST | `policy-constraints-dependencies-valid` |
 | MUST be critical | MUST | `policy-constraints-critical` |
 
 ### 4.2.1.12 Extended Key Usage
 | Requirement | Level | Rule |
 |-------------|-------|------|
-| Certificate used only for indicated purposes | MUST | Not currently enforced by `RFC5280.yaml` |
+| Structure is well-formed, non-empty, and preserves unknown OIDs | MUST | `extended-key-usage-well-formed` |
+| Certificate permits the explicitly supplied application purpose | MUST | `extended-key-usage-allows-application-purpose`; conditional on `--purpose`; rejects `any`, `anyExtendedKeyUsage`, and `2.5.29.37.0`, and fails closed for private purposes when end-entity Key Usage is present |
+| anyExtendedKeyUsage SHOULD NOT be critical | SHOULD NOT | `any-extended-key-usage-not-critical` |
 
 ### 4.2.1.13 CRL Distribution Points
 | Requirement | Level | Rule |
 |-------------|-------|------|
-| SHOULD be non-critical | SHOULD | (not enforced) |
+| Structure, names, and reason flags are well-formed | MUST | `crl-distribution-points-well-formed` |
+| Profile dependencies hold without applying CRL scope | MUST | `crl-distribution-points-dependencies-valid` |
+| SHOULD be non-critical | SHOULD | `crl-distribution-points-not-critical` |
 
 ### 4.2.1.14 Inhibit anyPolicy
 | Requirement | Level | Rule |
 |-------------|-------|------|
+| SkipCerts is a well-formed non-negative INTEGER | MUST | `inhibit-any-policy-well-formed` |
+| Extension appears only in CA certificates | MUST | `inhibit-any-policy-dependencies-valid` |
 | MUST be critical | MUST | `inhibit-any-policy-critical` |
 
 ### 4.2.1.15 Freshest CRL
@@ -199,8 +344,8 @@ Section 7 internationalized-name comparison.
 ## Path Validation (Section 6)
 
 The following are independent lint checks, not an implementation of the RFC
-5280 Section 6 state machine. PCL currently has no explicit trust-anchor,
-initial-policy-set, policy-inhibition, or application-purpose inputs.
+5280 Section 6 state machine. PCL has an explicit application-purpose input,
+but no explicit trust-anchor, initial-policy-set, or policy-inhibition state.
 
 | Requirement | Status | Rule |
 |-------------|--------|------|
@@ -210,7 +355,7 @@ initial-policy-set, policy-inhibition, or application-purpose inputs.
 | Path length constraints | Partial | `ca-path-len-valid` |
 | Name constraints processing | Partial | `name-constraints-valid` |
 | Policy processing | Not active | `certificatePolicyValid` operator exists, but the policy rule is disabled |
-| Unknown critical extensions rejection | Partial | `no-unknown-critical-extensions` |
+| Unknown/unprocessed critical extensions rejection | Partial | `no-unknown-critical-extensions`; exact processed set and malformed or explicitly unprocessed values are fail-closed, but full Section 6 extension effects remain P4 |
 
 ---
 
@@ -234,13 +379,14 @@ initial-policy-set, policy-inhibition, or application-purpose inputs.
 | CRL Number MUST be present | MUST | `crl-number-present` |
 | Delta CRL Indicator MUST be critical | MUST | `crl-delta-indicator-critical` |
 | IDP MUST be critical | MUST | `crl-idp-critical` |
-| Reject critical CRL extension OIDs not defined for CRLs by RFC 5280 | Partial | `crl-no-unknown-critical-extensions` (catalog identity is not processed-value support) |
+| Reject critical CRL extensions while no CRL extension is registered as processed | Partial | `crl-no-unknown-critical-extensions`; all critical CRL extensions fail closed pending P3 IDP/delta/scope semantics |
 
 ### CRL Entry Extensions
 | Requirement | Status | Rule |
 |-------------|--------|------|
 | Prefer informative reasonCode values on revoked entries | Supplemental warning (reasonCode is optional) | `crl-entries-have-reason` |
 | Accept defined reasonCode values 0-10 except unused value 7 | Partial syntax check | `crl-entry-reason-valid` |
+| Reject critical CRL-entry extensions while none is registered as processed | Partial | `crl-no-unknown-critical-extensions`; entry critical-extension semantics remain P3 |
 
 ---
 

@@ -11,7 +11,7 @@ import (
 func TestParseGeneralNamesPreservesEntriesAndOwnsRawBytes(t *testing.T) {
 	values := []testGeneralName{
 		{tag: 2, value: []byte("first.example.test")},
-		{tag: 1, value: []byte{'u', 's', 'e', 'r', 0xe9, '@', 'e', 'x', 'a', 'm', 'p', 'l', 'e'}},
+		{tag: 1, value: []byte("user@example.test")},
 		{tag: 2, value: []byte("second.example.test")},
 		{tag: 6, value: []byte("https://example.test/path")},
 	}
@@ -92,6 +92,9 @@ func TestParseGeneralNamesRejectsInvalidNames(t *testing.T) {
 		{name: "unknown choice", value: []byte{0x30, 0x02, 0x89, 0x00}},
 		{name: "wrong class", value: []byte{0x30, 0x03, 0x02, 0x01, 0x01}},
 		{name: "empty DNS name", value: []byte{0x30, 0x02, 0x82, 0x00}},
+		{name: "non-IA5 email", value: buildTestGeneralNames([]testGeneralName{{tag: 1, value: []byte{0xff}}})},
+		{name: "non-IA5 DNS name", value: buildTestGeneralNames([]testGeneralName{{tag: 2, value: []byte{0xff}}})},
+		{name: "non-IA5 URI", value: buildTestGeneralNames([]testGeneralName{{tag: 6, value: []byte{0xff}}})},
 		{name: "empty x400 address", value: []byte{0x30, 0x02, 0xa3, 0x00}},
 		{name: "invalid IP length", value: []byte{0x30, 0x05, 0x87, 0x03, 0x01, 0x02, 0x03}},
 		{

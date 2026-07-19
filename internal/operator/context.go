@@ -19,6 +19,10 @@ type EvaluationContext struct {
 	CurrentCRL *crl.Info
 	CRLIssuers []*x509.Certificate
 	OCSPs      []*ocsp.Info
+
+	// ApplicationPurpose is an optional friendly EKU name or dotted EKU OID
+	// supplied by the caller for certificate-purpose evaluation.
+	ApplicationPurpose string
 }
 
 func (ctx *EvaluationContext) HasCert() bool {
@@ -88,6 +92,12 @@ func (ctx *EvaluationContext) CRLIssuerPool() []*x509.Certificate {
 func WithOCSPs(ocsps []*ocsp.Info) ContextOption {
 	return func(ctx *EvaluationContext) {
 		ctx.OCSPs = ocsps
+	}
+}
+
+func WithApplicationPurpose(purpose string) ContextOption {
+	return func(ctx *EvaluationContext) {
+		ctx.ApplicationPurpose = purpose
 	}
 }
 

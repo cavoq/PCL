@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Breaking Changes
+- `noUnknownCriticalExtensions` now uses an explicit, conservative
+  certificate-only processed-extension registry. A catalog-known but
+  unprocessed OID or value, non-certificate, P3-only, or malformed critical
+  extension now fails closed, and repeated instances of an extension OID fail
+  before criticality lookup.
+- Strict P2 extension nodes distinguish omitted DEFAULT/OPTIONAL fields from
+  encoded zero values with `*Present` facts. Custom policies that inferred
+  absence from zero should migrate to those presence nodes.
 - Removed the lossy root-level `certificate.ocspURL`, `certificate.caIssuersURL`, `certificate.cRLDistributionPoints`, and `certificate.certificatePolicies` projections. Use `certificate.extensions.authorityInfoAccess.accessDescriptions.*.accessLocation.value` (or its `containsOCSP` / `containsCaIssuers` facts), `certificate.extensions.cRLDistributionPoints.distributionPoints.*.distributionPoint.fullName.generalNames.*.value`, and `certificate.extensions.certificatePolicies.<policy OID>` respectively.
 - Removed `certificate.subjectEmpty`; use `isEmpty` on `certificate.subject`. Validity endpoint `format` is now `rawValue`, while `isUTC` is represented by `encoding == 23` (`24` denotes GeneralizedTime).
 - Removed the `utctimeHasZulu`, `utctimeHasSeconds`, `generalizedTimeHasZulu`, `generalizedTimeNoFraction`, `isUTCTime`, `isGeneralizedTime`, `noUniqueIdentifiers`, `keyUsageCA`, `keyUsageLeaf`, `sanRequiredIfEmptySubject`, and `componentTLDRegistered` operators. Compose the projected fields with `when`, `every`, and generic comparison/presence operators.
@@ -16,6 +24,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - DN attribute aliases are now collections of occurrence nodes rather than first-value scalars, and string length operators count Unicode code points rather than UTF-8 bytes. Custom policies must use `every` for all DN occurrences and review non-ASCII length expectations.
 
 ### Added
+- `--purpose` application-purpose input and the
+  `applicationPurposeValid` RFC 5280 profile rule for EKU plus compatible
+  end-entity Key Usage; concrete friendly EKU names and dotted OIDs are
+  matched exactly from extension DER, `any`, `anyExtendedKeyUsage`, and
+  `2.5.29.37.0` are rejected, and
+  private purposes fail closed when end-entity Key Usage is present because no
+  RFC mapping exists
+- Strict, lossless parsers and node schemas for Key Usage, Basic Constraints,
+  Extended Key Usage, Certificate Policies, Name Constraints, Policy Mappings,
+  Policy Constraints, `inhibitAnyPolicy`, and complete CRL Distribution Point
+  structures
+- Exact decimal and native-range metadata for unbounded extension counters, so
+  large valid `(0..MAX)` INTEGER values remain well-formed
+- Domain-owned P2 dependency operators for Basic Constraints/Key Usage, Name
+  Constraints distances, CRL Distribution Points, Policy Mappings, Policy
+  Constraints, and `inhibitAnyPolicy`
+- A processed-extension registry separate from the RFC extension identity
+  catalog, with a conservative certificate-only processed set and stable-set
+  tests; critical CRL and CRL-entry extensions fail closed pending P3
+- Deterministic P2 purpose/path vectors, malformed-DER vectors, and an
+  executable invariant that every active RFC 5280 rule is classified in the
+  coverage matrix
 - Lossless X.501 Name projection for certificate subjects and issuers, CRL issuers, and raw `directoryName` values in SAN, IAN, AIA, and CRL distribution-point GeneralNames, including RDN grouping, duplicate attributes, raw DER, and ASN.1 value tags
 - Canonical collection iteration that keeps indexed values ordered while excluding metadata and compatibility aliases
 - Lossless TBSCertificate metadata for encoded serial numbers, validity time formats, and issuer/subject UniqueIdentifiers
@@ -24,6 +54,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Integration wiring for the opt-in RFC 6960 bundle, which requires valid, matching, good OCSP evidence for leaf certificates
 
 ### Changed
+- RFC 5280 roadmap P2 is complete as bounded certificate-profile semantics;
+  CRL scope/delta/indirect processing remains P3 and complete Sections 6/7
+  validation remains P4
+- `pathLenValid` counts non-self-issued intermediates below the current CA in
+  the supplied leaf-to-root chain
+- Name Constraints apply supported DNS, email, URI, and IP forms while
+  constraining a subject-DN emailAddress when SAN is absent and remaining
+  explicitly partial relative to the Sections 6/7 state machine
 - RFC 5280 distinguished-name rules now evaluate every attribute occurrence and use actual wire tags for encoding checks
 - SAN and IAN GeneralNames are projected from raw entries with their scalar value, tag, raw DER, and raw content
 - Remaining multi-valued RFC 5280 rules compose scalar operators through `every`

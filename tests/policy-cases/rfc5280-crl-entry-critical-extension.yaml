@@ -1,0 +1,10 @@
+name: rfc5280-crl-entry-critical-extension
+policy: ../policies/RFC5280.yaml
+fixture: crl-entry-critical-extension
+rules:
+  - crl-no-unknown-critical-extensions
+expected:
+  crl:
+    pass: 0
+    fail: 1
+    skip: 0

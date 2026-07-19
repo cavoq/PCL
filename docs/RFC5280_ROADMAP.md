@@ -74,8 +74,8 @@ Completed work units:
   projection. It preserves RDN grouping and order, duplicate and previously
   missing attributes, raw DER, and actual ASN.1 value tags. DN rules iterate
   every occurrence through the canonical collection contract documented in
-  the policy-writing guide. Name Constraints and relative CRL names remain in
-  the P2 extension-semantics work.
+  the policy-writing guide. P2 subsequently added strict Name Constraints and
+  relative CRL distribution-point name structures on that representation.
 - **P1.2 — Raw TBSCertificate metadata (Done):** one certificate adapter
   preserves the encoded serial-number octets, both validity encodings, and
   exact issuer/subject UniqueIdentifier presence and bit metadata. Time and
@@ -89,8 +89,8 @@ Completed work units:
   their documented behavior until a separately scoped migration.
 - **P1.4 — Extension identity catalog (Done):** RFC 5280 extension OIDs,
   stable aliases, and certificate/CRL/entry locations have one catalog in
-  `internal/oid`. Format adapters still own decoded extension values; the P2
-  processed-extension registry remains separate work.
+  `internal/oid`. Format adapters still own decoded extension values. P2 added
+  a separate, location-specific registry for extensions PCL can process.
 - **P1.5 — Policy integrity (Done):** RFC 6960 and local-profile rules ship as
   separate policies. All shipped policies are schema-checked, and a small
   scope-purity invariant prevents RFC 6960 or `LOCAL-*` rules from returning
@@ -103,29 +103,56 @@ not maintain an exhaustive one-fixture-per-rule wiring manifest.
 
 ## P2 — Certificate and extension profile semantics
 
-**Status: Planned**
+**Status: Done**
 
-- Evaluate Extended Key Usage against an explicit application-purpose input.
-- Complete the structures and dependencies for CRL Distribution Points,
-  policy mappings, policy constraints, `inhibitAnyPolicy`, Name Constraints,
-  Basic Constraints, Key Usage, and `pathLenConstraint`.
-- Replace "known OID" critical-extension handling with an explicit registry
-  of extensions the implementation can actually process.
-- Add malformed-DER fixtures for every claim that relies on parser behavior.
-- Keep semantic decisions in domain packages; YAML selects and reports their
-  outcomes.
+Completed work units:
 
-Exit criteria: the coverage matrix classifies every active profile claim as
-Covered, Partial, or Not active and links that classification to executable
-evidence.
+- Extended Key Usage is strictly decoded and evaluated against the explicit
+  `--purpose` input (a supported friendly name or dotted OID), together with
+  compatible end-entity Key Usage. Dotted identifiers are matched exactly
+  from extension DER, including usages recognized by the certificate library
+  but outside PCL's friendly-name catalog. With no purpose input, the
+  conditional purpose rule is skipped.
+- Strict, presence-preserving projections cover Key Usage, Basic Constraints,
+  Extended Key Usage, CRL Distribution Points, Name Constraints, Policy
+  Mappings, Policy Constraints, and `inhibitAnyPolicy`. Malformed DER is
+  surfaced on the concrete extension node and cannot satisfy critical-
+  extension processing.
+- Domain predicates own the bounded certificate-profile dependencies: CA-only
+  extensions, Key Usage/Basic Constraints relationships, GeneralSubtree
+  distances, CRL distribution-point structural dependencies, policy-mapping
+  restrictions, and `pathLenConstraint` counting over an already ordered
+  chain.
+- `noUnknownCriticalExtensions` now uses a location-specific processed-
+  extension registry, distinct from the RFC identity catalog. Known but
+  unprocessed, wrong-location, malformed, and P3-only critical extensions
+  fail closed; OID/friendly-name aliases are deduplicated, and repeated OID
+  instances fail before criticality lookup.
+- Deterministic purpose/path vectors, strict-parser malformed-DER vectors,
+  owner tests, and a coverage invariant provide executable evidence for every
+  active `RFC5280.yaml` rule.
+
+This is deliberately bounded profile semantics. Name Constraints cover the
+implemented DNS, email, URI, and IP matching forms, including the required
+subject-DN emailAddress fallback when SAN is absent, but do not claim complete
+constraint-base value-form validation or the Section 6/7 state machine. Path
+length relies on the supplied leaf-to-root order and exact-name self-issued
+detection. Policy counters and mappings are decoded and checked for profile
+dependencies but do not run the Section 6 policy state machine.
+CRL distribution-point decoding does not apply CRL scope, reasons, indirect
+CRLs, or deltas. Those remain P3/P4 work.
+
+Exit evidence is indexed in the coverage matrix, which classifies every active
+rule as Covered, Partial, or Not active and links the parser, domain,
+integration, deterministic-vector, and coverage-invariant tests.
 
 ## P3 — Revocation processing
 
-**Status: Planned**
+**Status: Next**
 
 - Implement CRL Distribution Point and Issuing Distribution Point scope,
   reason masks, indirect CRLs and `certificateIssuer`, delta/base CRL
-  combination, Freshest CRL, and entry critical-extension handling.
+  combination, Freshest CRL, and processed CRL-entry extension semantics.
 - Implement the RFC 5280 Section 6.3 revocation-processing semantics while
   retaining Unknown unless accepted evidence proves Good or Revoked.
 - Keep retrieval and caching in acquisition/orchestration packages and keep

@@ -11,6 +11,7 @@ import (
 
 type decodedCertificatePolicies struct {
 	Policies []decodedPolicyInformation
+	RawDER   []byte
 }
 
 type decodedPolicyInformation struct {
@@ -59,12 +60,32 @@ func decodeCertificatePolicies(extValue []byte) (decodedCertificatePolicies, err
 		return decodedCertificatePolicies{}, fmt.Errorf("CertificatePolicies must not be empty")
 	}
 
-	decoded := decodedCertificatePolicies{}
+	decoded := decodedCertificatePolicies{RawDER: append([]byte(nil), extValue...)}
+	seenPolicyIdentifiers := make(map[string]struct{})
 	for policyIndex := 0; !encodedPolicies.Empty(); policyIndex++ {
 		policy, err := decodePolicyInformation(&encodedPolicies, policyIndex)
 		if err != nil {
 			return decodedCertificatePolicies{}, err
 		}
+		if _, duplicate := seenPolicyIdentifiers[policy.OID]; duplicate {
+			return decodedCertificatePolicies{}, fmt.Errorf(
+				"duplicate policyIdentifier %s in PolicyInformation %d",
+				policy.OID,
+				policyIndex,
+			)
+		}
+		if policy.OID == oid.AnyPolicy {
+			for _, qualifier := range policy.Qualifiers {
+				if qualifier.Kind == unknownPolicyQualifier {
+					return decodedCertificatePolicies{}, fmt.Errorf(
+						"unsupported qualifier %s on anyPolicy in PolicyInformation %d",
+						qualifier.OID,
+						policyIndex,
+					)
+				}
+			}
+		}
+		seenPolicyIdentifiers[policy.OID] = struct{}{}
 		decoded.Policies = append(decoded.Policies, policy)
 	}
 	return decoded, nil

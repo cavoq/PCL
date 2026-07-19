@@ -60,9 +60,21 @@ func BuildStandardExtensions(extensions []stdpkix.Extension) *node.Node {
 
 func buildExtensions(extensions []extensionFacts) *node.Node {
 	n := node.New("extensions", nil)
+	seenOIDs := make(map[string]struct{}, len(extensions))
 
 	for _, ext := range extensions {
 		oidStr := ext.oid
+		if _, duplicate := seenOIDs[oidStr]; duplicate {
+			duplicates := n.Children["duplicateOIDs"]
+			if duplicates == nil {
+				duplicates = node.New("duplicateOIDs", nil)
+				n.Children["duplicateOIDs"] = duplicates
+			}
+			duplicates.AddElement(node.New("oid", oidStr))
+			continue
+		}
+		seenOIDs[oidStr] = struct{}{}
+
 		extNode := node.New(oidStr, nil)
 		extNode.Children["oid"] = node.New("oid", oidStr)
 		extNode.Children["critical"] = node.New("critical", ext.critical)

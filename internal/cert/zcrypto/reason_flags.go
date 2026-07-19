@@ -36,6 +36,15 @@ type decodedReasonFlags struct {
 var errInvalidReasonFlags = errors.New("invalid ReasonFlags BIT STRING")
 
 func decodeReasonFlags(encoded []byte) (decodedReasonFlags, error) {
+	if len(encoded) == 1 {
+		if encoded[0] != 0 {
+			return decodedReasonFlags{}, errInvalidReasonFlags
+		}
+		return decodedReasonFlags{
+			Raw:        append([]byte(nil), encoded...),
+			UnusedBits: 0,
+		}, nil
+	}
 	if len(encoded) < 2 || encoded[0] > 7 || encoded[len(encoded)-1]&byte((1<<encoded[0])-1) != 0 {
 		return decodedReasonFlags{}, errInvalidReasonFlags
 	}
@@ -43,6 +52,11 @@ func decodeReasonFlags(encoded []byte) (decodedReasonFlags, error) {
 	unusedBits := int(encoded[0])
 	value := append([]byte(nil), encoded[1:]...)
 	bitLength := len(value)*8 - unusedBits
+	if bitLength > 9 || !reasonFlagSet(value, bitLength-1) {
+		// ReasonFlags is a named-bit list. DER omits trailing zero bits, and
+		// RFC 5280 defines no bits after aACompromise (bit 8).
+		return decodedReasonFlags{}, errInvalidReasonFlags
+	}
 
 	decoded := decodedReasonFlags{
 		Raw:        append([]byte(nil), encoded...),

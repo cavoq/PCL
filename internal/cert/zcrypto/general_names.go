@@ -62,6 +62,13 @@ func generalNameType(tag int) string {
 }
 
 func readGeneralName(input *cryptobyte.String) (parsedGeneralName, error) {
+	return readGeneralNameWithValidation(input, validateGeneralName)
+}
+
+func readGeneralNameWithValidation(
+	input *cryptobyte.String,
+	validate func(cryptobyte_asn1.Tag, cryptobyte.String, cryptobyte.String) error,
+) (parsedGeneralName, error) {
 	var encoded cryptobyte.String
 	var tag cryptobyte_asn1.Tag
 	if !input.ReadAnyASN1Element(&encoded, &tag) {
@@ -74,7 +81,7 @@ func readGeneralName(input *cryptobyte.String) (parsedGeneralName, error) {
 	if !element.ReadAnyASN1(&content, &parsedTag) || !element.Empty() || parsedTag != tag {
 		return parsedGeneralName{}, fmt.Errorf("failed to decode GeneralName")
 	}
-	if err := validateGeneralName(tag, encoded, content); err != nil {
+	if err := validate(tag, encoded, content); err != nil {
 		return parsedGeneralName{}, err
 	}
 
@@ -272,6 +279,23 @@ func validateGeneralName(
 	encoded cryptobyte.String,
 	content cryptobyte.String,
 ) error {
+	return validateGeneralNameWithIPLengths(tag, encoded, content, 4, 16)
+}
+
+func validateNameConstraintGeneralName(
+	tag cryptobyte_asn1.Tag,
+	encoded cryptobyte.String,
+	content cryptobyte.String,
+) error {
+	return validateGeneralNameWithIPLengths(tag, encoded, content, 8, 32)
+}
+
+func validateGeneralNameWithIPLengths(
+	tag cryptobyte_asn1.Tag,
+	encoded cryptobyte.String,
+	content cryptobyte.String,
+	ipLengths ...int,
+) error {
 	tagValue := int(tag)
 	if tagValue&0xc0 != 0x80 || tagValue&0x1f > 8 {
 		return fmt.Errorf("invalid GeneralName tag %d", tagValue)
@@ -292,6 +316,12 @@ func validateGeneralName(
 		if _, _, err := decodeOtherName(content); err != nil {
 			return fmt.Errorf("invalid otherName")
 		}
+	case 1, 2, 6: // rfc822Name, dNSName, and URI are IA5String values
+		for _, octet := range content {
+			if octet > 0x7f {
+				return fmt.Errorf("GeneralName tag %d contains a non-IA5 octet", tagNumber)
+			}
+		}
 	case 3: // x400Address: implicit ORAddress, whose first component is a SEQUENCE
 		value := cryptobyte.String(content)
 		var builtIn cryptobyte.String
@@ -308,8 +338,21 @@ func validateGeneralName(
 			return fmt.Errorf("invalid ediPartyName")
 		}
 	case 7:
-		if len(content) != 4 && len(content) != 16 {
+		validLength := false
+		for _, length := range ipLengths {
+			if len(content) == length {
+				validLength = true
+				break
+			}
+		}
+		if !validLength {
 			return fmt.Errorf("invalid iPAddress length %d", len(content))
+		}
+		if len(content) == 8 || len(content) == 32 {
+			half := len(content) / 2
+			if _, bits := net.IPMask(content[half:]).Size(); bits == 0 {
+				return fmt.Errorf("invalid iPAddress constraint mask")
+			}
 		}
 	case 8:
 		if _, err := decodeRegisteredID(encoded); err != nil {

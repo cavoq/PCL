@@ -55,6 +55,7 @@ func newRootCmd(opts *linter.Config) *cobra.Command {
 	root.Flags().StringVar(&opts.OutputFmt, "output", "text", "Output format: text, json, or yaml")
 	root.Flags().CountVarP(&opts.Verbosity, "verbose", "v", "Increase output detail: -v shows passed, -vv includes skipped")
 	root.Flags().BoolVar(&opts.ShowMeta, "show-meta", true, "Show lint meta information")
+	root.Flags().StringVar(&opts.ApplicationPurpose, "purpose", "", "Application purpose for RFC 5280 EKU evaluation (friendly name or OID)")
 
 	// Auto-validate mode flags
 	root.Flags().BoolVar(&opts.AutoValidate, "auto-validate", false, "Enable automatic PKI resource fetching (OCSP, CRL, chain climbing)")
