@@ -259,7 +259,7 @@ func decodeDistributionPointName(
 			index,
 		)
 	}
-	element := cryptobyte.String(raw)
+	element := raw
 	var value cryptobyte.String
 	var parsedTag cryptobyte_asn1.Tag
 	if !element.ReadAnyASN1(&value, &parsedTag) || !element.Empty() || parsedTag != tag {

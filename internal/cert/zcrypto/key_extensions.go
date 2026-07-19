@@ -280,7 +280,7 @@ func decodeExtendedKeyUsage(extValue []byte) (decodedExtendedKeyUsage, error) {
 		if !sequence.ReadASN1Element(&encoded, cryptobyte_asn1.OBJECT_IDENTIFIER) {
 			return decodedExtendedKeyUsage{}, fmt.Errorf("invalid KeyPurposeId %d", index)
 		}
-		value := cryptobyte.String(encoded)
+		value := encoded
 		var identifier stdasn1.ObjectIdentifier
 		if !value.ReadASN1ObjectIdentifier(&identifier) || !value.Empty() {
 			return decodedExtendedKeyUsage{}, fmt.Errorf("invalid KeyPurposeId %d", index)

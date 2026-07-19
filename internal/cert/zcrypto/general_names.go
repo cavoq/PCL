@@ -75,7 +75,7 @@ func readGeneralNameWithValidation(
 		return parsedGeneralName{}, fmt.Errorf("failed to read GeneralName")
 	}
 
-	element := cryptobyte.String(encoded)
+	element := encoded
 	var content cryptobyte.String
 	var parsedTag cryptobyte_asn1.Tag
 	if !element.ReadAnyASN1(&content, &parsedTag) || !element.Empty() || parsedTag != tag {
@@ -164,8 +164,10 @@ func buildParsedGeneralName(name string, value parsedGeneralName) *node.Node {
 			n.Children["partyName"] = buildDirectoryStringNode("partyName", ediPartyName.PartyName)
 		}
 	case 6:
-		if scheme, _, ok := strings.Cut(scalar.(string), ":"); ok {
-			n.Children["scheme"] = node.New("scheme", scheme)
+		if uri, ok := scalar.(string); ok {
+			if separator := strings.IndexByte(uri, ':'); separator >= 0 {
+				n.Children["scheme"] = node.New("scheme", uri[:separator])
+			}
 		}
 	}
 
@@ -323,7 +325,7 @@ func validateGeneralNameWithIPLengths(
 			}
 		}
 	case 3: // x400Address: implicit ORAddress, whose first component is a SEQUENCE
-		value := cryptobyte.String(content)
+		value := content
 		var builtIn cryptobyte.String
 		if !value.ReadASN1(&builtIn, cryptobyte_asn1.SEQUENCE) || (builtIn.Empty() && value.Empty()) {
 			return fmt.Errorf("invalid x400Address")
@@ -372,7 +374,7 @@ func decodeOtherName(content []byte) (string, []byte, error) {
 		!value.Empty() || otherValue.Empty() {
 		return "", nil, fmt.Errorf("invalid otherName")
 	}
-	inner := cryptobyte.String(otherValue)
+	inner := otherValue
 	var innerDER cryptobyte.String
 	var innerTag cryptobyte_asn1.Tag
 	if !inner.ReadAnyASN1Element(&innerDER, &innerTag) || !inner.Empty() {
@@ -435,7 +437,7 @@ func readExplicitDirectoryString(
 	if !explicit.ReadAnyASN1Element(&rawDER, &stringTag) || !explicit.Empty() {
 		return parsedDirectoryString{}, false, fmt.Errorf("invalid %s DirectoryString", field)
 	}
-	element := cryptobyte.String(rawDER)
+	element := rawDER
 	var rawValue cryptobyte.String
 	var parsedTag cryptobyte_asn1.Tag
 	if !element.ReadAnyASN1(&rawValue, &parsedTag) || !element.Empty() || parsedTag != stringTag {

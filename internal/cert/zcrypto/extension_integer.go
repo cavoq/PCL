@@ -63,7 +63,7 @@ func readImplicitNonNegativeInteger(
 		return NonNegativeIntegerValue{}, nil, fmt.Errorf("invalid implicitly tagged INTEGER")
 	}
 
-	encoded := cryptobyte.String(element)
+	encoded := element
 	var content cryptobyte.String
 	if !encoded.ReadASN1(&content, tag) || !encoded.Empty() {
 		return NonNegativeIntegerValue{}, nil, fmt.Errorf("invalid implicitly tagged INTEGER")

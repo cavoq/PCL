@@ -115,7 +115,7 @@ func readIntegerMetadata(input *cryptobyte.String, field string) (integerMetadat
 		return integerMetadata{}, fmt.Errorf("failed to read %s", field)
 	}
 
-	element := cryptobyte.String(rawDER)
+	element := rawDER
 	var value cryptobyte.String
 	if !element.ReadASN1(&value, cryptobyte_asn1.INTEGER) || !element.Empty() || value.Empty() {
 		return integerMetadata{}, fmt.Errorf("invalid %s", field)

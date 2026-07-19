@@ -35,8 +35,13 @@ func PathLenConstraintValid(current *Info, chain []*Info) bool {
 	}
 
 	nonSelfIssuedIntermediates := 0
-	for index := 1; index < position; index++ {
-		candidate := chain[index]
+	for index, candidate := range chain {
+		if index == 0 {
+			continue
+		}
+		if index >= position {
+			break
+		}
 		if candidate == nil || candidate.Cert == nil {
 			return false
 		}

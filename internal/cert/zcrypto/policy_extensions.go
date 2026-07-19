@@ -52,7 +52,7 @@ func DecodePolicyMappingsStrict(extValue []byte) ([]PolicyMapping, error) {
 		if !sequence.ReadASN1Element(&encodedMapping, cryptobyte_asn1.SEQUENCE) {
 			return nil, fmt.Errorf("invalid PolicyMapping %d", index)
 		}
-		mapping := cryptobyte.String(encodedMapping)
+		mapping := encodedMapping
 		var fields cryptobyte.String
 		if !mapping.ReadASN1(&fields, cryptobyte_asn1.SEQUENCE) || !mapping.Empty() {
 			return nil, fmt.Errorf("invalid PolicyMapping %d", index)

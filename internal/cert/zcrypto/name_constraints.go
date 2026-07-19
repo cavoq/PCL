@@ -175,7 +175,7 @@ func decodeGeneralSubtree(
 	index int,
 	field string,
 ) (decodedGeneralSubtree, error) {
-	input := cryptobyte.String(encoded)
+	input := encoded
 	var sequence cryptobyte.String
 	if !input.ReadASN1(&sequence, cryptobyte_asn1.SEQUENCE) || !input.Empty() {
 		return decodedGeneralSubtree{}, fmt.Errorf("invalid GeneralSubtree %d in %s", index, field)

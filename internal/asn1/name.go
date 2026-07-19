@@ -71,7 +71,7 @@ func ParseDistinguishedNameStrict(der []byte) (DistinguishedName, error) {
 
 func parseRelativeDistinguishedName(der cryptobyte.String, rdnIndex int) (RelativeDistinguishedName, error) {
 	result := RelativeDistinguishedName{RawDER: cloneNameBytes(der)}
-	input := cryptobyte.String(der)
+	input := der
 
 	var attributes cryptobyte.String
 	if !input.ReadASN1(&attributes, cryptobyte_asn1.SET) || !input.Empty() {
@@ -106,7 +106,7 @@ func parseRelativeDistinguishedName(der cryptobyte.String, rdnIndex int) (Relati
 
 func parseNameAttribute(der cryptobyte.String, rdnIndex, attributeIndex int) (NameAttribute, error) {
 	result := NameAttribute{RawDER: cloneNameBytes(der)}
-	input := cryptobyte.String(der)
+	input := der
 
 	var attribute cryptobyte.String
 	if !input.ReadASN1(&attribute, cryptobyte_asn1.SEQUENCE) || !input.Empty() {
@@ -128,7 +128,7 @@ func parseNameAttribute(der cryptobyte.String, rdnIndex, attributeIndex int) (Na
 		return result, fmt.Errorf("trailing fields in attribute %d of relative distinguished name %d", attributeIndex, rdnIndex)
 	}
 
-	valueInput := cryptobyte.String(valueDER)
+	valueInput := valueDER
 	var value cryptobyte.String
 	var parsedTag cryptobyte_asn1.Tag
 	if !valueInput.ReadAnyASN1(&value, &parsedTag) || !valueInput.Empty() || parsedTag != tag {

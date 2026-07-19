@@ -78,14 +78,14 @@ func ParseAlgorithmIDParamsStrict(derBytes []byte) (ParamsState, error) {
 
 	switch paramsTag {
 	case cryptobyte_asn1.NULL:
-		value := cryptobyte.String(params)
+		value := params
 		var nullValue cryptobyte.String
 		if !value.ReadASN1(&nullValue, cryptobyte_asn1.NULL) || !value.Empty() || !nullValue.Empty() {
 			return result, fmt.Errorf("invalid NULL algorithm parameters")
 		}
 		result.IsNull = true
 	case cryptobyte_asn1.OBJECT_IDENTIFIER:
-		value := cryptobyte.String(params)
+		value := params
 		var namedCurve stdasn1.ObjectIdentifier
 		if !value.ReadASN1ObjectIdentifier(&namedCurve) || !value.Empty() {
 			return result, fmt.Errorf("invalid object identifier algorithm parameters")
