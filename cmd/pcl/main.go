@@ -11,7 +11,7 @@ import (
 	"github.com/cavoq/PCL/internal/linter"
 )
 
-var version = "dev"
+var version = "3.0.0"
 
 func newRootCmd(opts *linter.Config) *cobra.Command {
 	root := &cobra.Command{

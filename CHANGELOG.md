@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-07-19
+
 ### Breaking Changes
 - `noUnknownCriticalExtensions` now uses an explicit, conservative
   certificate-only processed-extension registry. A catalog-known but
@@ -141,7 +143,8 @@ Review any policies using `isNull` or absent-field checks against the updated no
 
 - See git history for earlier changes
 
-[Unreleased]: https://github.com/cavoq/PCL/compare/v2.1.0...HEAD
+[Unreleased]: https://github.com/cavoq/PCL/compare/v3.0.0...HEAD
+[3.0.0]: https://github.com/cavoq/PCL/compare/v2.1.0...v3.0.0
 [2.1.0]: https://github.com/cavoq/PCL/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/cavoq/PCL/compare/v1.1.1...v2.0.0
 [1.1.1]: https://github.com/cavoq/PCL/compare/v1.1.0...v1.1.1
