@@ -1,0 +1,270 @@
+package zcrypto
+
+import (
+	"net"
+	"strconv"
+	"strings"
+
+	"github.com/cavoq/PCL/internal/node"
+	"github.com/cavoq/PCL/internal/oid"
+	"github.com/cavoq/PCL/internal/x509ext"
+	nameprojector "github.com/cavoq/PCL/internal/zcrypto"
+	"github.com/zmap/zcrypto/x509/pkix"
+	"golang.org/x/crypto/cryptobyte"
+	cryptobyte_asn1 "golang.org/x/crypto/cryptobyte/asn1"
+)
+
+func projectCRLExtension(extension pkix.Extension) (*node.Node, error) {
+	switch extension.Id.String() {
+	case oid.AuthorityKeyIdentifier:
+		facts, err := decodeAuthorityKeyIdentifierExtension(extension)
+		if err != nil {
+			return nil, err
+		}
+		return projectAuthorityKeyIdentifier(facts), nil
+	case oid.CRLNumber:
+		facts, err := decodeIntegerExtension(extension)
+		if err != nil {
+			return nil, err
+		}
+		return projectIntegerExtension("cRLNumber", facts), nil
+	case oid.DeltaCRLIndicator:
+		facts, err := decodeIntegerExtension(extension)
+		if err != nil {
+			return nil, err
+		}
+		return projectIntegerExtension("deltaCRLIndicator", facts), nil
+	case oid.IssuingDistributionPoint:
+		facts, err := decodeIssuingDistributionPointExtension(extension)
+		if err != nil {
+			return nil, err
+		}
+		return projectIssuingDistributionPoint(facts), nil
+	case oid.FreshestCRL:
+		facts, err := decodeDistributionPointsExtension(extension)
+		if err != nil {
+			return nil, err
+		}
+		return projectDistributionPoints("freshestCRL", facts.RawDER, facts.Points), nil
+	default:
+		return nil, nil
+	}
+}
+
+func projectEntryExtension(extension pkix.Extension) (*node.Node, error) {
+	switch extension.Id.String() {
+	case oid.CRLReason:
+		facts, err := decodeReasonCodeExtension(extension)
+		if err != nil {
+			return nil, err
+		}
+		n := node.New("cRLReason", int(facts.Value))
+		n.Children["raw"] = node.New("raw", append([]byte(nil), facts.RawDER...))
+		n.Children["value"] = node.New("value", int(facts.Value))
+		return n, nil
+	case oid.InvalidityDate:
+		facts, err := decodeInvalidityDateExtension(extension)
+		if err != nil {
+			return nil, err
+		}
+		n := node.New("invalidityDate", facts.Value)
+		n.Children["raw"] = node.New("raw", append([]byte(nil), facts.RawDER...))
+		n.Children["value"] = node.New("value", facts.Value)
+		n.Children["rawValue"] = node.New("rawValue", facts.Encoding.RawValue)
+		n.Children["encoding"] = node.New("encoding", facts.Encoding.Tag)
+		n.Children["hasSeconds"] = node.New("hasSeconds", facts.Encoding.HasSeconds)
+		n.Children["hasFraction"] = node.New("hasFraction", facts.Encoding.HasFraction)
+		n.Children["hasZulu"] = node.New("hasZulu", facts.Encoding.HasZulu)
+		return n, nil
+	case oid.CertificateIssuer:
+		facts, err := decodeCertificateIssuerExtension(extension)
+		if err != nil {
+			return nil, err
+		}
+		n := node.New("certificateIssuer", len(facts.Names))
+		n.Children["raw"] = node.New("raw", append([]byte(nil), facts.RawDER...))
+		entries := node.New("entries", nil)
+		addGeneralNames(entries, facts.Names)
+		n.Children["entries"] = entries
+		n.Children["count"] = node.New("count", len(facts.Names))
+		return n, nil
+	default:
+		return nil, nil
+	}
+}
+
+func projectAuthorityKeyIdentifier(facts *AuthorityKeyIdentifierFacts) *node.Node {
+	n := node.New("authorityKeyIdentifier", nil)
+	n.Children["raw"] = node.New("raw", append([]byte(nil), facts.RawDER...))
+	if facts.KeyIdentifier != nil {
+		n.Children["keyIdentifier"] = node.New(
+			"keyIdentifier",
+			append([]byte(nil), facts.KeyIdentifier...),
+		)
+	}
+	if facts.AuthorityIssuer != nil {
+		issuer := node.New("authorityCertIssuer", nil)
+		addGeneralNames(issuer, facts.AuthorityIssuer)
+		issuer.Children["count"] = node.New("count", len(facts.AuthorityIssuer))
+		n.Children["authorityCertIssuer"] = issuer
+	}
+	if facts.SerialNumber != nil {
+		serial := node.New("authorityCertSerialNumber", facts.SerialNumber.Scalar())
+		serial.Children["decimal"] = node.New("decimal", facts.SerialNumber.Decimal)
+		serial.Children["fitsInt"] = node.New("fitsInt", facts.SerialNumber.FitsInt)
+		n.Children["authorityCertSerialNumber"] = serial
+	}
+	return n
+}
+
+func projectIntegerExtension(name string, facts *IntegerExtensionFacts) *node.Node {
+	n := node.New(name, facts.Value.Scalar())
+	n.Children["raw"] = node.New("raw", append([]byte(nil), facts.RawDER...))
+	n.Children["value"] = node.New("value", facts.Value.Scalar())
+	n.Children["decimal"] = node.New("decimal", facts.Value.Decimal)
+	n.Children["fitsInt"] = node.New("fitsInt", facts.Value.FitsInt)
+	n.Children["contentLength"] = node.New("contentLength", len(facts.Value.Content))
+	return n
+}
+
+func projectIssuingDistributionPoint(facts *IssuingDistributionPointFacts) *node.Node {
+	n := node.New("issuingDistributionPoint", nil)
+	n.Children["raw"] = node.New("raw", append([]byte(nil), facts.RawDER...))
+	if facts.DistributionPoint != nil {
+		n.Children["distributionPoint"] = projectDistributionPointName(facts.DistributionPoint)
+	}
+	n.Children["onlyContainsUserCerts"] = node.New("onlyContainsUserCerts", facts.OnlyContainsUserCerts)
+	n.Children["onlyContainsCACerts"] = node.New("onlyContainsCACerts", facts.OnlyContainsCACerts)
+	n.Children["indirectCRL"] = node.New("indirectCRL", facts.IndirectCRL)
+	n.Children["onlyContainsAttributeCerts"] = node.New(
+		"onlyContainsAttributeCerts",
+		facts.OnlyContainsAttributeCerts,
+	)
+	if facts.OnlySomeReasons != nil {
+		n.Children["onlySomeReasons"] = projectReasonFlags("onlySomeReasons", facts.OnlySomeReasons)
+	}
+	return n
+}
+
+func projectDistributionPoints(name string, raw []byte, points []x509ext.DistributionPoint) *node.Node {
+	n := node.New(name, nil)
+	n.Children["raw"] = node.New("raw", append([]byte(nil), raw...))
+	n.Children["count"] = node.New("count", len(points))
+	n.Children["empty"] = node.New("empty", false)
+	collection := node.New("distributionPoints", nil)
+	n.Children["distributionPoints"] = collection
+	for index, point := range points {
+		key := strconv.Itoa(index)
+		pointNode := node.New(key, nil)
+		pointNode.Children["raw"] = node.New("raw", append([]byte(nil), point.RawDER...))
+		if point.Name != nil {
+			pointNode.Children["distributionPoint"] = projectDistributionPointName(point.Name)
+		}
+		if point.Reasons != nil {
+			pointNode.Children["reasons"] = projectReasonFlags("reasons", point.Reasons)
+		}
+		if point.CRLIssuer != nil {
+			issuer := node.New("cRLIssuer", nil)
+			addGeneralNames(issuer, point.CRLIssuer)
+			issuer.Children["count"] = node.New("count", len(point.CRLIssuer))
+			pointNode.Children["cRLIssuer"] = issuer
+		}
+		collection.Children[key] = pointNode
+	}
+	return n
+}
+
+func projectDistributionPointName(name *x509ext.DistributionPointName) *node.Node {
+	n := node.New("distributionPoint", nil)
+	if name == nil {
+		return n
+	}
+	switch name.Kind {
+	case x509ext.DistributionPointNameFullName:
+		fullName := node.New("fullName", nil)
+		generalNames := node.New("generalNames", nil)
+		addGeneralNames(generalNames, name.FullName)
+		fullName.Children["generalNames"] = generalNames
+		fullName.Children["count"] = node.New("count", len(name.FullName))
+		n.Children["fullName"] = fullName
+	case x509ext.DistributionPointNameRelative:
+		nameDER, err := relativeRDNName(name.RelativeRDN)
+		if err != nil {
+			return n
+		}
+		relative := nameprojector.BuildRawName("nameRelativeToCRLIssuer", nameDER)
+		relative.Children["raw"] = node.New("raw", append([]byte(nil), name.RelativeRDN...))
+		relative.Children["encoded"] = node.New("encoded", append([]byte(nil), name.RawDER...))
+		n.Children["nameRelativeToCRLIssuer"] = relative
+	}
+	return n
+}
+
+func relativeRDNName(rdn []byte) ([]byte, error) {
+	var builder cryptobyte.Builder
+	builder.AddASN1(cryptobyte_asn1.SEQUENCE, func(builder *cryptobyte.Builder) {
+		builder.AddBytes(rdn)
+	})
+	return builder.Bytes()
+}
+
+func projectReasonFlags(name string, reasons *x509ext.ReasonFlags) *node.Node {
+	n := node.New(name, uint16(reasons.Mask))
+	n.Children["raw"] = node.New("raw", append([]byte(nil), reasons.RawDER...))
+	n.Children["value"] = node.New("value", append([]byte(nil), reasons.Value...))
+	n.Children["unusedBits"] = node.New("unusedBits", reasons.UnusedBits)
+	for _, descriptor := range x509ext.ReasonFlagDescriptors() {
+		n.Children[descriptor.CanonicalName] = node.New(
+			descriptor.CanonicalName,
+			reasons.Mask&descriptor.Mask != 0,
+		)
+	}
+	return n
+}
+
+func addGeneralNames(parent *node.Node, names []x509ext.GeneralName) {
+	for index, name := range names {
+		key := strconv.Itoa(index)
+		parent.Children[key] = projectGeneralName(key, name)
+	}
+}
+
+func projectGeneralName(name string, value x509ext.GeneralName) *node.Node {
+	var scalar any = append([]byte(nil), value.RawValue...)
+	switch value.Tag {
+	case 1, 2, 6:
+		scalar = string(value.RawValue)
+	case 4:
+		directoryName := nameprojector.BuildRawName("directoryName", value.RawValue)
+		scalar = directoryName.Value
+	case 7:
+		scalar = net.IP(value.RawValue).String()
+	case 8:
+		if identifier, err := x509ext.DecodeRegisteredID(value.RawDER); err == nil {
+			scalar = identifier
+		}
+	}
+	n := node.New(name, cloneScalar(scalar))
+	n.Children["value"] = node.New("value", cloneScalar(scalar))
+	n.Children["type"] = node.New("type", x509ext.GeneralNameType(value.Tag))
+	n.Children["tag"] = node.New("tag", value.Tag)
+	n.Children["raw"] = node.New("raw", append([]byte(nil), value.RawDER...))
+	n.Children["rawValue"] = node.New("rawValue", append([]byte(nil), value.RawValue...))
+	if value.Tag == 4 {
+		n.Children["directoryName"] = nameprojector.BuildRawName("directoryName", value.RawValue)
+	}
+	if value.Tag == 6 {
+		uri := string(value.RawValue)
+		if separator := strings.IndexByte(uri, ':'); separator >= 0 {
+			n.Children["scheme"] = node.New("scheme", uri[:separator])
+		}
+	}
+	return n
+}
+
+func cloneScalar(value any) any {
+	if bytes, ok := value.([]byte); ok {
+		return append([]byte(nil), bytes...)
+	}
+	return value
+}

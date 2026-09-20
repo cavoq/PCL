@@ -29,6 +29,7 @@ var certificateExtensionParsers = map[string]extensionNodeParser{
 	oid.BasicConstraints:      ParseBasicConstraintsStrict,
 	oid.NameConstraints:       ParseNameConstraintsStrict,
 	oid.CRLDistributionPoints: ParseCRLDPStrict,
+	oid.FreshestCRL:           ParseFreshestCRLStrict,
 	oid.CertificatePolicies:   ParseCertPoliciesStrict,
 	oid.PolicyMappings:        ParsePolicyMappingsStrict,
 	oid.PolicyConstraints:     ParsePolicyConstraintsStrict,

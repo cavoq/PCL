@@ -11,14 +11,22 @@ import (
 )
 
 type EvaluationContext struct {
-	Root       *node.Node
-	Now        time.Time
-	Cert       *cert.Info
-	Chain      []*cert.Info
-	CRLs       []*crl.Info
-	CurrentCRL *crl.Info
-	CRLIssuers []*x509.Certificate
-	OCSPs      []*ocsp.Info
+	Root  *node.Node
+	Now   time.Time
+	Cert  *cert.Info
+	Chain []*cert.Info
+	CRLs  []*crl.Info
+	// CRLAssessment is the single domain decision projected for Cert. Keeping
+	// it on the evaluation context lets policy adapters consume the same
+	// assessment without rerunning revocation processing.
+	CRLAssessment *crl.Assessment
+	CurrentCRL    *crl.Info
+	CRLIssuers    []*x509.Certificate
+	OCSPs         []*ocsp.Info
+	// OCSPAssessment is the target-scoped domain decision shared by every OCSP
+	// policy adapter for Cert. A non-nil pointer is authoritative even when the
+	// assessment contains no applicable evidence.
+	OCSPAssessment *ocsp.Assessment
 
 	// ApplicationPurpose is an optional friendly EKU name or dotted EKU OID
 	// supplied by the caller for certificate-purpose evaluation.
@@ -63,6 +71,20 @@ func WithCurrentCRL(current *crl.Info) ContextOption {
 	}
 }
 
+func WithCRLAssessment(assessment *crl.Assessment) ContextOption {
+	return func(ctx *EvaluationContext) {
+		ctx.CRLAssessment = assessment
+	}
+}
+
+func WithEvaluationTime(now time.Time) ContextOption {
+	return func(ctx *EvaluationContext) {
+		if !now.IsZero() {
+			ctx.Now = now
+		}
+	}
+}
+
 func (ctx *EvaluationContext) ProfileCRLs() []*crl.Info {
 	if ctx == nil {
 		return nil
@@ -92,6 +114,12 @@ func (ctx *EvaluationContext) CRLIssuerPool() []*x509.Certificate {
 func WithOCSPs(ocsps []*ocsp.Info) ContextOption {
 	return func(ctx *EvaluationContext) {
 		ctx.OCSPs = ocsps
+	}
+}
+
+func WithOCSPAssessment(assessment *ocsp.Assessment) ContextOption {
+	return func(ctx *EvaluationContext) {
+		ctx.OCSPAssessment = assessment
 	}
 }
 

@@ -80,6 +80,16 @@ func TestNewEvaluationContext_WithOCSPs(t *testing.T) {
 	}
 }
 
+func TestNewEvaluationContext_WithOCSPAssessmentPreservesPointer(t *testing.T) {
+	assessment := &ocsp.Assessment{}
+
+	ctx := NewEvaluationContext(nil, nil, nil, WithOCSPAssessment(assessment))
+
+	if ctx.OCSPAssessment != assessment {
+		t.Fatal("OCSPAssessment should preserve the supplied pointer")
+	}
+}
+
 func TestNewEvaluationContext_MultipleOptions(t *testing.T) {
 	root := node.New("root", nil)
 	certInfo := &cert.Info{Type: "leaf"}

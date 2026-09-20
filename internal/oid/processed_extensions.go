@@ -15,8 +15,7 @@ type processedExtensionDefinition struct {
 // It does not claim that future Section 6 path effects are implemented.
 var processedExtensionRegistry = []processedExtensionDefinition{
 	// Certificate extensions with strict profile-facing parsing/projection and
-	// an explicit malformed marker. CRL and CRL-entry extensions remain absent
-	// until P3 owns their critical-extension processing.
+	// an explicit malformed marker.
 	{KeyUsage, ExtensionInCertificate},
 	{SubjectAlternativeName, ExtensionInCertificate},
 	{IssuerAlternativeName, ExtensionInCertificate},
@@ -29,6 +28,19 @@ var processedExtensionRegistry = []processedExtensionDefinition{
 	{ExtendedKeyUsage, ExtensionInCertificate},
 	{InhibitAnyPolicy, ExtensionInCertificate},
 	{AuthorityInfoAccess, ExtensionInCertificate},
+	{FreshestCRL, ExtensionInCertificate},
+
+	// P3 CRL extensions with strict typed decoding and domain consumers.
+	{AuthorityKeyIdentifier, ExtensionInCRL},
+	{CRLNumber, ExtensionInCRL},
+	{DeltaCRLIndicator, ExtensionInCRL},
+	{IssuingDistributionPoint, ExtensionInCRL},
+	{FreshestCRL, ExtensionInCRL},
+
+	// P3 CRL-entry extensions with strict typed decoding.
+	{CRLReason, ExtensionInCRLEntry},
+	{InvalidityDate, ExtensionInCRLEntry},
+	{CertificateIssuer, ExtensionInCRLEntry},
 }
 
 var processedExtensionsByLocation = indexProcessedExtensions(processedExtensionRegistry)

@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/zmap/zcrypto/x509"
+	"github.com/zmap/zcrypto/x509/pkix"
 
 	internalasn1 "github.com/cavoq/PCL/internal/asn1"
 	"github.com/cavoq/PCL/internal/node"
@@ -37,20 +38,22 @@ func buildCRL(crl *x509.RevocationList) *node.Node {
 	root.Children["signatureAlgorithm"] = buildSignatureAlgorithm(crl)
 	root.Children["tbsSignatureAlgorithm"] = buildTBSSignatureAlgorithm(crl)
 
-	if crl.Number != nil {
-		root.Children["crlNumber"] = node.New("crlNumber", crl.Number.String())
-	}
-
-	if keyIdentifier := AuthorityKeyIdentifier(crl); len(keyIdentifier) > 0 {
-		root.Children["authorityKeyIdentifier"] = node.New("authorityKeyIdentifier", keyIdentifier)
-	}
-
 	if len(crl.RevokedCertificates) > 0 {
 		root.Children["revokedCertificates"] = buildRevokedCertificates(crl.RevokedCertificates)
 	}
 
 	if len(crl.Extensions) > 0 {
 		root.Children["extensions"] = zcrypto.BuildExtensions(crl.Extensions)
+		projectCRLExtensions(root, crl.Extensions)
+	} else {
+		// Preserve compatibility for manually constructed values that contain
+		// semantic fields but no raw extension list.
+		if crl.Number != nil {
+			root.Children["crlNumber"] = node.New("crlNumber", crl.Number.String())
+		}
+		if keyIdentifier := AuthorityKeyIdentifier(crl); len(keyIdentifier) > 0 {
+			root.Children["authorityKeyIdentifier"] = node.New("authorityKeyIdentifier", keyIdentifier)
+		}
 	}
 
 	if len(crl.Signature) > 0 {
@@ -58,6 +61,65 @@ func buildCRL(crl *x509.RevocationList) *node.Node {
 	}
 
 	return root
+}
+
+func projectCRLExtensions(root *node.Node, extensions []pkix.Extension) {
+	extensionsNode := root.Children["extensions"]
+	seen := make(map[string]struct{}, len(extensions))
+	for _, extension := range extensions {
+		identifier := extension.Id.String()
+		if _, duplicate := seen[identifier]; duplicate {
+			continue
+		}
+		seen[identifier] = struct{}{}
+		projected, err := projectCRLExtension(extension)
+		if projected == nil && err == nil {
+			continue
+		}
+		extensionNode := extensionsNode.Children[identifier]
+		if err != nil {
+			extensionNode.Children["malformed"] = node.New("malformed", true)
+			continue
+		}
+		graftProjection(extensionNode, projected)
+
+		switch identifier {
+		case oid.AuthorityKeyIdentifier:
+			if keyIdentifier := projected.Children["keyIdentifier"]; keyIdentifier != nil {
+				if value, ok := keyIdentifier.Value.([]byte); ok {
+					root.Children["authorityKeyIdentifier"] = node.New(
+						"authorityKeyIdentifier",
+						append([]byte(nil), value...),
+					)
+				}
+			}
+		case oid.CRLNumber:
+			// Preserve the established root scalar (decimal string) while the
+			// extension node exposes the lossless typed integer metadata.
+			decimal := projected.Children["decimal"]
+			if decimal != nil {
+				root.Children["crlNumber"] = node.New("crlNumber", decimal.Value)
+			}
+		case oid.DeltaCRLIndicator:
+			root.Children["deltaCRLIndicator"] = projected
+		case oid.IssuingDistributionPoint:
+			root.Children["issuingDistributionPoint"] = projected
+		case oid.FreshestCRL:
+			root.Children["freshestCRL"] = projected
+		}
+	}
+}
+
+func graftProjection(extension, projected *node.Node) {
+	if extension == nil || projected == nil {
+		return
+	}
+	if rawValue := extension.Children["value"]; rawValue != nil {
+		extension.Children["rawValue"] = node.New("rawValue", rawValue.Value)
+	}
+	for name, child := range projected.Children {
+		extension.Children[name] = child
+	}
 }
 
 func buildSignatureAlgorithm(crl *x509.RevocationList) *node.Node {
@@ -75,6 +137,9 @@ func buildRevokedCertificates(revoked []x509.RevokedCertificate) *node.Node {
 
 	for i, rc := range revoked {
 		rcNode := node.New(fmt.Sprintf("%d", i), nil)
+		if len(rc.Raw) > 0 {
+			rcNode.Children["raw"] = node.New("raw", append([]byte(nil), rc.Raw...))
+		}
 		if rc.SerialNumber != nil {
 			rcNode.Children["serialNumber"] = node.New("serialNumber", rc.SerialNumber.String())
 		}
@@ -82,11 +147,23 @@ func buildRevokedCertificates(revoked []x509.RevokedCertificate) *node.Node {
 
 		if len(rc.Extensions) > 0 {
 			extsNode := zcrypto.BuildExtensions(rc.Extensions)
-			if rc.ReasonCode != nil {
-				if reasonNode, ok := extsNode.Children[oid.CRLReason]; ok {
-					reasonNode.Children["rawValue"] = node.New("rawValue", reasonNode.Children["value"].Value)
-					reasonNode.Children["value"] = node.New("value", *rc.ReasonCode)
+			seen := make(map[string]struct{}, len(rc.Extensions))
+			for _, extension := range rc.Extensions {
+				identifier := extension.Id.String()
+				if _, duplicate := seen[identifier]; duplicate {
+					continue
 				}
+				seen[identifier] = struct{}{}
+				projected, err := projectEntryExtension(extension)
+				if projected == nil && err == nil {
+					continue
+				}
+				extensionNode := extsNode.Children[identifier]
+				if err != nil {
+					extensionNode.Children["malformed"] = node.New("malformed", true)
+					continue
+				}
+				graftProjection(extensionNode, projected)
 			}
 			rcNode.Children["extensions"] = extsNode
 		}

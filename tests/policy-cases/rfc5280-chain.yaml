@@ -9,12 +9,12 @@ expected:
   leaf:
     pass: 51
     fail: 0
-    skip: 74
+    skip: 88
   intermediate:
     pass: 53
     fail: 0
-    skip: 72
+    skip: 86
   root:
     pass: 44
     fail: 0
-    skip: 81
+    skip: 95

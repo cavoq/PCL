@@ -188,7 +188,7 @@ func projectPolicyConstraints(decoded PolicyConstraints) *node.Node {
 			Decimal: decoded.RequireExplicitPolicyDecimal,
 			FitsInt: decoded.RequireExplicitPolicyFitsInt,
 		}
-		value := node.New("requireExplicitPolicy", integerValueScalar(integer))
+		value := node.New("requireExplicitPolicy", integer.Scalar())
 		value.Children["raw"] = node.New(
 			"raw",
 			append([]byte(nil), decoded.RequireExplicitPolicyRaw...),
@@ -203,7 +203,7 @@ func projectPolicyConstraints(decoded PolicyConstraints) *node.Node {
 			Decimal: decoded.InhibitPolicyMappingDecimal,
 			FitsInt: decoded.InhibitPolicyMappingFitsInt,
 		}
-		value := node.New("inhibitPolicyMapping", integerValueScalar(integer))
+		value := node.New("inhibitPolicyMapping", integer.Scalar())
 		value.Children["raw"] = node.New(
 			"raw",
 			append([]byte(nil), decoded.InhibitPolicyMappingRaw...),
@@ -228,8 +228,8 @@ func ParseInhibitAnyPolicyStrict(extValue []byte) (*node.Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	n := node.New("inhibitAnyPolicy", integerValueScalar(skipCerts))
-	skipCertsNode := node.New("skipCerts", integerValueScalar(skipCerts))
+	n := node.New("inhibitAnyPolicy", skipCerts.Scalar())
+	skipCertsNode := node.New("skipCerts", skipCerts.Scalar())
 	skipCertsNode.Children["decimal"] = node.New("decimal", skipCerts.Decimal)
 	skipCertsNode.Children["fitsInt"] = node.New("fitsInt", skipCerts.FitsInt)
 	n.Children["skipCerts"] = skipCertsNode

@@ -15,15 +15,15 @@ func TestExtensionProcessableAtIsLocationSpecific(t *testing.T) {
 	}{
 		{name: "certificate key usage", identifier: KeyUsage, location: ExtensionInCertificate, want: true},
 		{name: "certificate key usage at CRL", identifier: KeyUsage, location: ExtensionInCRL},
-		{name: "CRL number deferred to P3", identifier: CRLNumber, location: ExtensionInCRL},
+		{name: "CRL number", identifier: CRLNumber, location: ExtensionInCRL, want: true},
 		{name: "CRL number at certificate", identifier: CRLNumber, location: ExtensionInCertificate},
-		{name: "entry reason deferred to P3", identifier: CRLReason, location: ExtensionInCRLEntry},
+		{name: "entry reason", identifier: CRLReason, location: ExtensionInCRLEntry, want: true},
 		{name: "entry reason at CRL", identifier: CRLReason, location: ExtensionInCRL},
 		{name: "newly processed certificate extension", identifier: PolicyMappings, location: ExtensionInCertificate, want: true},
 		{name: "certificate AKI lacks strict malformed projection", identifier: AuthorityKeyIdentifier, location: ExtensionInCertificate},
 		{name: "certificate SKI lacks strict malformed projection", identifier: SubjectKeyIdentifier, location: ExtensionInCertificate},
 		{name: "known but unprocessed certificate extension", identifier: PrivateKeyUsagePeriod, location: ExtensionInCertificate},
-		{name: "known but P3-only CRL extension", identifier: IssuingDistributionPoint, location: ExtensionInCRL},
+		{name: "processed IDP CRL extension", identifier: IssuingDistributionPoint, location: ExtensionInCRL, want: true},
 		{name: "unknown extension", identifier: "1.2.3.4", location: ExtensionInCertificate},
 		{
 			name:       "combined locations do not broaden support",
@@ -72,6 +72,7 @@ func TestProcessedExtensionRegistryStableSets(t *testing.T) {
 			CertificatePolicies,
 			CRLDistributionPoints,
 			ExtendedKeyUsage,
+			FreshestCRL,
 			InhibitAnyPolicy,
 			IssuerAlternativeName,
 			KeyUsage,
@@ -79,6 +80,18 @@ func TestProcessedExtensionRegistryStableSets(t *testing.T) {
 			PolicyConstraints,
 			PolicyMappings,
 			SubjectAlternativeName,
+		},
+		ExtensionInCRL: {
+			AuthorityKeyIdentifier,
+			CRLNumber,
+			DeltaCRLIndicator,
+			FreshestCRL,
+			IssuingDistributionPoint,
+		},
+		ExtensionInCRLEntry: {
+			CertificateIssuer,
+			CRLReason,
+			InvalidityDate,
 		},
 	}
 

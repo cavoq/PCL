@@ -211,7 +211,7 @@ func projectBasicConstraints(decoded decodedBasicConstraints) *node.Node {
 	if decoded.PathLenConstraintPresent {
 		pathLen := node.New(
 			"pathLenConstraint",
-			integerValueScalar(decoded.PathLenConstraint),
+			decoded.PathLenConstraint.Scalar(),
 		)
 		pathLen.Children["decimal"] = node.New("decimal", decoded.PathLenConstraint.Decimal)
 		pathLen.Children["fitsInt"] = node.New("fitsInt", decoded.PathLenConstraint.FitsInt)

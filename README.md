@@ -38,7 +38,11 @@ pcl --policy <path> --cert leaf.pem --auto-validate
 This mode:
 - **Chain Climbing**: Recursively fetches issuer certificates via CA Issuers URLs
 - **PKCS#7 Support**: Parses `.p7c` certificate bundles per RFC 5280/5652
-- **Auto OCSP/CRL**: Fetches revocation information from AIA extensions
+- **Auto OCSP/CRL**: Fetches OCSP from AIA and bounded DER CRLs over HTTP(S)
+  from certificate CRL Distribution Points and Freshest CRL locations, then
+  follows Freshest CRL locations on complete CRLs. CRL retrieval uses
+  `--cert-url-timeout` (10 seconds by default); automatic CRL retrieval does
+  not accept PEM.
 - **Issuer Matching**: Handles multi-certificate bundles by matching Issuer DN and AKI-SKI
 
 Options for granular control:
@@ -239,12 +243,13 @@ These are lint policies, not claims that PCL implements every state machine in
 the named standard. See the coverage matrices and conformance roadmap for the
 exact scope.
 
-RFC 5280 P2 certificate-profile semantics are complete: strict extension
-parsing, dependency checks, explicit application purpose, bounded path-length
-and supported-name constraints, and fail-closed processed-extension handling.
-CRL scope/reasons/deltas remain P3, while full Sections 6 and 7 path/policy/name
-processing remains P4. See the [coverage matrix](policies/RFC5280-COVERAGE.md)
-and [roadmap](docs/RFC5280_ROADMAP.md).
+RFC 5280 P3 revocation processing is complete within its documented boundary:
+strict extension parsing, scoped complete and delta CRLs, indirect issuer
+inheritance, reason coverage, explicit Good/Revoked/Unknown status, and bounded
+CRLDP/Freshest acquisition. Full Sections 6 and 7 path, policy, signer-path,
+and name processing remains P4. See the
+[coverage matrix](policies/RFC5280-COVERAGE.md) and
+[roadmap](docs/RFC5280_ROADMAP.md).
 
 Load independent bundles together by repeating `--policy`, for example
 `--policy policies/RFC5280.yaml --policy policies/RFC6960.yaml`.
@@ -315,7 +320,7 @@ Related profiles used by selected rules and acquisition features include:
 | Operator | Description |
 |----------|-------------|
 | `isCritical`, `notCritical` | Extension criticality check |
-| `noUnknownCriticalExtensions` | Extension OIDs must be unique; critical certificate extensions must be in the conservative processed set and not malformed; critical non-certificate extensions fail closed |
+| `noUnknownCriticalExtensions` | Extension OIDs must be unique; a critical extension must be processable at its exact certificate, CRL, or CRL-entry location and its decoded node must not be malformed or unprocessed |
 
 ### Certificate Chain Operators
 
@@ -338,7 +343,7 @@ Related profiles used by selected rules and acquisition features include:
 | `anyExtendedKeyUsageNotCritical` | Rejects critical EKU when it asserts anyExtendedKeyUsage |
 | `basicConstraintsDependenciesValid`, `keyUsageDependenciesValid` | Basic Constraints/Key Usage profile dependencies, including keyCertSign => CA |
 | `nameConstraintsDependenciesValid`, `nameConstraintsDistancesValid` | CA-only and GeneralSubtree distance requirements |
-| `crlDistributionPointsDependenciesValid` | CRLDP profile dependencies without P3 CRL scope processing |
+| `crlDistributionPointsDependenciesValid` | CRLDP structural dependencies; P3 status scope remains domain-owned |
 | `policyMappingsDependenciesValid`, `policyMappingsIssuerPoliciesPresent` | Policy Mapping profile restrictions |
 | `policyConstraintsDependenciesValid`, `inhibitAnyPolicyDependenciesValid` | CA-only policy-extension restrictions |
 
@@ -545,6 +550,12 @@ certificate
 │   ├── dNSName
 │   ├── iPAddress
 │   └── ...
+├── revocation             # Present when CRL checking was requested
+│   ├── status             # good, revoked, or unknown
+│   ├── evidenceCount
+│   ├── coveredReasons     # RFC 5280 reason-mask coverage
+│   ├── reasonCode         # Present when revoked
+│   └── revocationTime     # Present when revoked
 ├── signedCertificateTimestamps  # SCT list
 └── ...                    # AIA, CRLDP, policies, and constraints decode under extensions
 ```
@@ -563,29 +574,44 @@ misreported as malformed. CRLDP supports both full GeneralNames and a lossless
 for canonical paths.
 
 The extension identity catalog and processed-extension registry are separate.
-The processed set is conservatively certificate-only. Known-but-unprocessed,
-non-certificate, P3-only, or malformed critical extensions fail
-`noUnknownCriticalExtensions`. Duplicate extension OIDs also fail before
-criticality is considered; non-critical unique extensions remain available to
-ordinary profile rules.
+Processing authorization is location-specific: PCL registers only strictly
+decoded certificate, CRL, and CRL-entry extensions whose supported semantics
+are implemented. Known-but-unprocessed, wrong-location, malformed, or
+partially unprocessed critical extensions fail `noUnknownCriticalExtensions`.
+Duplicate extension OIDs also fail before criticality is considered;
+non-critical unique extensions remain available to ordinary profile rules.
 
 ### CRL Node Tree
 
 ```
 crl
 ├── signatureAlgorithm     # Same as certificate
+├── tbsSignatureAlgorithm
 ├── issuer                 # Same as certificate
 ├── thisUpdate             # time.Time
 ├── nextUpdate             # time.Time
 ├── isCACRL                # Boolean: CA signer or >10-day profile inference
+├── authorityKeyIdentifier # Key identifier bytes
+├── crlNumber              # Exact decimal string
+├── deltaCRLIndicator      # Base CRL number plus decimal/fitsInt metadata
+├── issuingDistributionPoint
+│   ├── distributionPoint
+│   ├── onlyContainsUserCerts / onlyContainsCACerts
+│   ├── onlySomeReasons
+│   ├── indirectCRL
+│   └── onlyContainsAttributeCerts
+├── freshestCRL
+│   └── distributionPoints # Canonical full/relative names and GeneralNames
 ├── revokedCertificates
 │   ├── <serial>           # Each revoked cert
 │   │   ├── serialNumber
 │   │   ├── revocationDate
 │   │   └── extensions
-│   │       └── 2.5.29.21  # reasonCode; decoded integer is under value
+│   │       ├── cRLReason
+│   │       ├── invalidityDate
+│   │       └── certificateIssuer
 └── extensions
-    └── ...
+    └── <oid-or-alias>     # raw/critical plus strict P3 projections
 ```
 
 **CRL type detection (`isCACRL`):** True when a verified or identity-matched
@@ -612,11 +638,11 @@ ocsp
 └── responderID            # Responder identification
 ```
 
-## P2 Migration Notes
+## P2/P3 Migration Notes
 
 - Custom policies relying on catalog membership for critical-extension
-  acceptance may now fail closed; only the conservative certificate processed
-  set authorizes a critical extension.
+  acceptance may now fail closed; only strict processing registered for the
+  extension's exact certificate, CRL, or CRL-entry location authorizes it.
 - Test optional/default extension fields through their `*Present` nodes rather
   than treating zero as absence, and check the concrete extension's
   `malformed` child before consuming decoded values.

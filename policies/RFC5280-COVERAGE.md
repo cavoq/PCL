@@ -2,15 +2,17 @@
 
 This document tracks the RFC 5280 requirements implemented by PCL's profile
 policy. The policy is a certificate and CRL **linter**; it is not an
-RFC-equivalent Section 6 certification-path or revocation validator.
+RFC-equivalent Section 6 certification-path validator. Its P3 CRL assessment
+is deterministic and fail-closed, but remains partial until P4 supplies
+same-trust-anchor signer paths and Section 7 name equivalence.
 
 Implementation order, architectural ownership, and completion criteria are
 tracked in the [RFC 5280 conformance roadmap](../docs/RFC5280_ROADMAP.md).
 
 `Covered` means the active rule's stated profile check has executable positive
 and negative behavior. `Partial` means the rule checks only part of the
-normative requirement, usually because complete P3 revocation or P4 path/name
-processing is outside the profile-linter boundary. `Not active` means there is
+normative requirement, usually because complete P4 path/name processing is
+outside the profile-linter boundary. `Not active` means there is
 no enabled `RFC5280.yaml` rule for the requirement. Parser behavior is credited
 only where a dedicated malformed-DER test exists.
 
@@ -51,18 +53,18 @@ as RFC 5280 coverage.
 | Explicit application-purpose/EKU profile | Covered | `extended-key-usage-well-formed`, `extended-key-usage-allows-application-purpose`, `any-extended-key-usage-not-critical` |
 | CRL Distribution Points certificate profile | Covered | `crl-distribution-points-well-formed`, `crl-distribution-points-dependencies-valid`, `crl-distribution-points-not-critical` |
 | inhibitAnyPolicy profile semantics | Covered | `inhibit-any-policy-well-formed`, `inhibit-any-policy-dependencies-valid`, `inhibit-any-policy-critical` |
-| Freshest CRL criticality | Covered | `freshest-crl-not-critical` |
+| Freshest CRL certificate structure/criticality | Covered | `freshest-crl-well-formed`, `freshest-crl-not-critical` |
 | AIA criticality | Covered | `aia-not-critical` |
 | Downloaded caIssuers representation | Partial | `ca-issuers-der-format` |
 | SIA criticality | Covered | `sia-not-critical` |
 | Encoded CRL issuer Name | Covered | `crl-issuer-name-well-formed` |
 | CRL window, required nextUpdate, signature, and algorithms | Covered | `crl-valid`, `crl-next-update-present`, `crl-signed-by`, `crl-signature-algorithm-matches-tbs` |
-| Certificate revocation conclusion | Partial | `cert-not-revoked` |
-| CRL AKI and CRL Number profile | Covered | `crl-aki-not-critical`, `crl-authority-key-identifier-present`, `crl-number-not-critical`, `crl-number-present` |
-| Delta CRL/IDP criticality only | Covered | `crl-delta-indicator-critical`, `crl-idp-critical` |
-| CRL critical-extension processing | Partial | `crl-no-unknown-critical-extensions` |
-| Optional reasonCode recommendation | Partial | `crl-entries-have-reason` |
-| reasonCode value syntax | Covered | `crl-entry-reason-valid` |
+| Certificate revocation conclusion | Partial | `cert-revocation-status-known`, `cert-not-revoked` |
+| CRL AKI and CRL Number profile | Covered | `crl-aki-well-formed`, `crl-aki-not-critical`, `crl-authority-key-identifier-present`, `crl-number-well-formed`, `crl-number-not-critical`, `crl-number-present` |
+| Delta CRL and IDP structure/profile | Covered | `crl-delta-indicator-well-formed`, `crl-delta-indicator-critical`, `crl-idp-well-formed`, `crl-idp-critical`, `crl-idp-excludes-attribute-certificates` |
+| CRL Freshest structure/profile | Covered | `crl-freshest-well-formed`, `crl-freshest-not-critical`, `crl-delta-omits-freshest` |
+| CRL critical-extension processing | Covered | `crl-no-unknown-critical-extensions` |
+| CRL-entry extension structure/criticality | Covered | `crl-entry-reason-valid`, `crl-entry-reason-not-critical`, `crl-entry-invalidity-date-well-formed`, `crl-entry-invalidity-date-not-critical`, `crl-entry-certificate-issuer-well-formed`, `crl-entry-certificate-issuer-critical` |
 | Appendix A subject lengths | Partial | `subject-cn-max-length`, `subject-org-max-length`, `subject-ou-max-length`, `subject-locality-max-length`, `subject-state-max-length`, `subject-country-length`, `subject-country-min-length`, `subject-serial-number-max-length`, `subject-givenname-max-length`, `subject-surname-max-length` |
 | Subject email syntax | Partial | `subject-email-max-length`, `subject-email-format` |
 | GeneralName mailbox shape | Partial | `san-rfc822-name-format`, `ian-rfc822-name-format` |
@@ -94,18 +96,26 @@ as RFC 5280 coverage.
   the owning profile-domain decisions.
 - [`internal/oid/processed_extensions_test.go`](../internal/oid/processed_extensions_test.go)
   and [`internal/operator/constraints_test.go`](../internal/operator/constraints_test.go)
-  lock the conservative certificate-only processed set,
+  lock the conservative location-specific processed set,
   known-but-unprocessed rejection, alias deduplication, duplicate-OID
   rejection, and malformed critical-extension failure.
+- [`internal/x509ext/x509ext_test.go`](../internal/x509ext/x509ext_test.go) and
+  [`internal/crl/zcrypto/extensions_test.go`](../internal/crl/zcrypto/extensions_test.go)
+  cover the shared strict distribution-point, IDP, integer, Freshest CRL, and
+  entry extension representations.
+- [`internal/crl/status_assessment_test.go`](../internal/crl/status_assessment_test.go) covers the
+  deterministic complete, scoped, reason-partitioned, indirect, and delta CRL
+  decisions. [`internal/crl/acquisition_test.go`](../internal/crl/acquisition_test.go)
+  covers cached, bounded, two-stage network acquisition.
 - [`tests/integration_test.go`](../tests/integration_test.go) and
   [`tests/linter_run_test.go`](../tests/linter_run_test.go) exercise policy and
   CLI wiring. Existing operator owner tests cover comparison, date, encoding,
   collection, chain, CRL, and signature behavior used by the remaining rows.
 
-## P2 boundary
+## P3 boundary
 
-P2 completes the certificate-profile parsing and dependency layer, not RFC
-5280 Sections 6 or 7. `--purpose` supplies one concrete friendly EKU name or
+P3 adds deterministic RFC 5280 Section 6.3 CRL processing without claiming the
+complete Sections 6 or 7 path/name engines. `--purpose` supplies one concrete friendly EKU name or
 dotted OID; `any`, `anyExtendedKeyUsage`, and `2.5.29.37.0` are rejected, and a
 private OID fails closed when end-entity Key Usage is present. The active
 purpose rule is conditional and is skipped when the input is absent. Name
@@ -120,13 +130,20 @@ leaf-to-root chain. Policy extension counters and mappings are preserved and
 profile-checked but do not drive a policy state machine.
 
 The processed-extension registry is deliberately separate from the identity
-catalog and conservatively registers certificate extensions only. A critical
-certificate extension passes only when its OID is registered and its concrete
-extension node has neither a `malformed` nor `unprocessed` marker.
-Known-but-unprocessed OIDs and values and malformed critical certificate
-extensions fail closed; all critical CRL and CRL-entry extensions remain
-fail-closed pending P3 semantics. Repeated instances of one extension OID fail
-before criticality and registry lookup.
+catalog and registers support at one exact signed-object location. A critical
+extension passes only when its OID is registered there and its concrete node
+has neither a `malformed` nor `unprocessed` marker. P3 registers the CRL and
+entry extensions that its strict decoder and assessment actually consume;
+known-but-unprocessed, wrong-location, malformed, duplicated, and unknown
+critical extensions still fail closed.
+
+CRL assessment checks exact distribution-point/issuer encodings, reason-mask
+coverage, indirect entry issuer inheritance, compatible complete/delta pairs,
+signatures, AKI, and `cRLSign` when Key Usage is present. It returns Good only
+for full accepted reason coverage, Revoked only from an accepted matching
+entry, and Unknown otherwise. Certification-path validation for a CRL signer
+to the target path's trust anchor, CRL-signer revocation, attribute
+certificates, and Section 7-equivalent name comparison remain P4 boundaries.
 
 ---
 
@@ -326,6 +343,7 @@ Section 7 internationalized-name comparison.
 ### 4.2.1.15 Freshest CRL
 | Requirement | Level | Rule |
 |-------------|-------|------|
+| Distribution-point structure is well-formed | MUST | `freshest-crl-well-formed` |
 | MUST NOT be critical | MUST NOT | `freshest-crl-not-critical` |
 
 ### 4.2.2.1 Authority Information Access
@@ -343,9 +361,11 @@ Section 7 internationalized-name comparison.
 
 ## Path Validation (Section 6)
 
-The following are independent lint checks, not an implementation of the RFC
-5280 Section 6 state machine. PCL has an explicit application-purpose input,
-but no explicit trust-anchor, initial-policy-set, or policy-inhibition state.
+PCL implements the bounded CRL assessment described under Section 6.3 below.
+The remaining checks are independent profile checks, not the complete RFC
+5280 Section 6 certification-path state machine. PCL has an explicit
+application-purpose input, but no explicit trust-anchor, initial-policy-set,
+or policy-inhibition state.
 
 | Requirement | Status | Rule |
 |-------------|--------|------|
@@ -368,25 +388,27 @@ but no explicit trust-anchor, initial-policy-set, or policy-inhibition state.
 | Inner and outer signature algorithms match | MUST | `crl-signature-algorithm-matches-tbs` |
 | thisUpdate not in future | MUST | `crl-valid` |
 | nextUpdate present and current | MUST | `crl-next-update-present`, `crl-valid` |
-| Certificate revocation status | Partial | `cert-not-revoked` (absent CRL input is N/A; supplied but unverified, stale, unrelated, delta, or scoped data remains unknown and fails the operator) |
+| Certificate revocation status | Partial | `cert-revocation-status-known`, `cert-not-revoked`; complete, scoped, reason-partitioned, indirect, and delta evidence is processed, while insufficient evidence is explicitly Unknown. CRL-signer trust-path validation and Section 7 name equivalence remain P4. |
 
 ### CRL Extensions
 | Requirement | Level | Rule |
 |-------------|-------|------|
-| AKI MUST NOT be critical | MUST NOT | `crl-aki-not-critical` |
+| AKI is well-formed and MUST NOT be critical | MUST | `crl-aki-well-formed`, `crl-aki-not-critical` |
 | AKI keyIdentifier MUST be present | MUST | `crl-authority-key-identifier-present` |
-| CRL Number MUST NOT be critical | MUST NOT | `crl-number-not-critical` |
+| CRL Number is a well-formed non-negative INTEGER and MUST NOT be critical | MUST | `crl-number-well-formed`, `crl-number-not-critical` |
 | CRL Number MUST be present | MUST | `crl-number-present` |
-| Delta CRL Indicator MUST be critical | MUST | `crl-delta-indicator-critical` |
-| IDP MUST be critical | MUST | `crl-idp-critical` |
-| Reject critical CRL extensions while no CRL extension is registered as processed | Partial | `crl-no-unknown-critical-extensions`; all critical CRL extensions fail closed pending P3 IDP/delta/scope semantics |
+| Delta CRL Indicator is well-formed and MUST be critical | MUST | `crl-delta-indicator-well-formed`, `crl-delta-indicator-critical` |
+| IDP is well-formed, MUST be critical, and excludes attribute-certificate scope | MUST | `crl-idp-well-formed`, `crl-idp-critical`, `crl-idp-excludes-attribute-certificates` |
+| CRL Freshest is well-formed, MUST NOT be critical, and MUST be absent from delta CRLs | MUST | `crl-freshest-well-formed`, `crl-freshest-not-critical`, `crl-delta-omits-freshest` |
+| Reject unknown, malformed, duplicated, or unprocessed critical CRL extensions | MUST | `crl-no-unknown-critical-extensions`; the location-specific P3 processed set includes only extensions decoded and consumed by CRL assessment |
 
 ### CRL Entry Extensions
 | Requirement | Status | Rule |
 |-------------|--------|------|
-| Prefer informative reasonCode values on revoked entries | Supplemental warning (reasonCode is optional) | `crl-entries-have-reason` |
-| Accept defined reasonCode values 0-10 except unused value 7 | Partial syntax check | `crl-entry-reason-valid` |
-| Reject critical CRL-entry extensions while none is registered as processed | Partial | `crl-no-unknown-critical-extensions`; entry critical-extension semantics remain P3 |
+| reasonCode is a canonical defined ENUMERATED and non-critical | Covered | `crl-entry-reason-valid`, `crl-entry-reason-not-critical` |
+| invalidityDate is a conforming GeneralizedTime and non-critical | Covered | `crl-entry-invalidity-date-well-formed`, `crl-entry-invalidity-date-not-critical` |
+| certificateIssuer is a non-empty GeneralNames value and critical | Covered | `crl-entry-certificate-issuer-well-formed`, `crl-entry-certificate-issuer-critical` |
+| Reject unknown, malformed, duplicated, or unprocessed critical entry extensions | Covered | `crl-no-unknown-critical-extensions`; any unsupported critical entry poisons the CRL for status use |
 
 ---
 

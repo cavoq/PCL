@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/zmap/zcrypto/x509"
+
 	"github.com/cavoq/PCL/internal/cert"
 	"github.com/cavoq/PCL/internal/ocsp"
 )
@@ -48,24 +50,7 @@ func TestOCSPOperatorsUseAcceptedEvidence(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := loadOCSPOperatorContext(t, test.responseFile, test.afterNextUpdate)
-
-			valid, err := (OCSPValid{}).Evaluate(nil, ctx, nil)
-			if err != nil {
-				t.Fatalf("ocspValid: %v", err)
-			}
-			notRevoked, err := (NotRevokedOCSP{}).Evaluate(nil, ctx, nil)
-			if err != nil {
-				t.Fatalf("notRevokedOCSP: %v", err)
-			}
-			good, err := (OCSPGood{}).Evaluate(nil, ctx, nil)
-			if err != nil {
-				t.Fatalf("ocspGood: %v", err)
-			}
-
-			if valid != test.wantValid || notRevoked != test.wantNotRevoked || good != test.wantGood {
-				t.Fatalf("results = (valid=%v, notRevoked=%v, good=%v), want (%v, %v, %v)",
-					valid, notRevoked, good, test.wantValid, test.wantNotRevoked, test.wantGood)
-			}
+			assertOCSPOperatorResults(t, ctx, test.wantValid, test.wantNotRevoked, test.wantGood)
 		})
 	}
 }
@@ -81,6 +66,80 @@ func TestOCSPOperatorsFailClosedWithoutIssuer(t *testing.T) {
 		}
 		if got {
 			t.Fatalf("%s accepted evidence without its issuer", operator.Name())
+		}
+	}
+}
+
+func TestOCSPOperatorsUseCachedAssessment(t *testing.T) {
+	acceptedGood := acceptedOCSPAssessment(ocsp.StatusGood)
+	acceptedRevoked := acceptedOCSPAssessment(ocsp.StatusRevoked)
+
+	t.Run("cached good without raw evidence", func(t *testing.T) {
+		ctx := &EvaluationContext{
+			Cert:           &cert.Info{Cert: &x509.Certificate{}},
+			OCSPAssessment: &acceptedGood,
+		}
+		assertOCSPOperatorResults(t, ctx, true, true, true)
+	})
+
+	t.Run("cached revoked overrides raw good evidence", func(t *testing.T) {
+		ctx := loadOCSPOperatorContext(t, "good-leaf.ocsp", false)
+		ctx.OCSPAssessment = &acceptedRevoked
+		assertOCSPOperatorResults(t, ctx, true, false, false)
+	})
+}
+
+func TestOCSPOperatorsTreatEmptyCachedAssessmentAsAuthoritative(t *testing.T) {
+	ctx := loadOCSPOperatorContext(t, "good-leaf.ocsp", false)
+	ctx.OCSPAssessment = &ocsp.Assessment{}
+
+	assertOCSPOperatorResults(t, ctx, false, false, false)
+}
+
+func TestOCSPOperatorsFailClosedWithoutTargetDespiteCachedAssessment(t *testing.T) {
+	acceptedGood := acceptedOCSPAssessment(ocsp.StatusGood)
+	ctx := &EvaluationContext{OCSPAssessment: &acceptedGood}
+
+	assertOCSPOperatorResults(t, ctx, false, false, false)
+}
+
+func TestOCSPOperatorsFallBackToRawEvidenceWithoutCachedAssessment(t *testing.T) {
+	ctx := loadOCSPOperatorContext(t, "good-leaf.ocsp", false)
+	if ctx.OCSPAssessment != nil {
+		t.Fatal("fixture unexpectedly supplied a cached assessment")
+	}
+
+	assertOCSPOperatorResults(t, ctx, true, true, true)
+}
+
+func acceptedOCSPAssessment(status ocsp.Status) ocsp.Assessment {
+	return ocsp.Assessment{Evidence: []ocsp.Evidence{{
+		Status:         status,
+		Applicable:     true,
+		Current:        true,
+		IssuerMatched:  true,
+		SignatureValid: true,
+	}}}
+}
+
+func assertOCSPOperatorResults(t *testing.T, ctx *EvaluationContext, wantValid, wantNotRevoked, wantGood bool) {
+	t.Helper()
+
+	tests := []struct {
+		operator Operator
+		want     bool
+	}{
+		{operator: OCSPValid{}, want: wantValid},
+		{operator: NotRevokedOCSP{}, want: wantNotRevoked},
+		{operator: OCSPGood{}, want: wantGood},
+	}
+	for _, test := range tests {
+		got, err := test.operator.Evaluate(nil, ctx, nil)
+		if err != nil {
+			t.Fatalf("%s: %v", test.operator.Name(), err)
+		}
+		if got != test.want {
+			t.Errorf("%s = %v, want %v", test.operator.Name(), got, test.want)
 		}
 	}
 }

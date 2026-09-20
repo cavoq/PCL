@@ -382,6 +382,36 @@ func TestNotRevokedNoCRLs(t *testing.T) {
 	}
 }
 
+func TestNotRevokedUsesDomainAssessmentWithoutReprocessing(t *testing.T) {
+	certificate := &cert.Info{Cert: &x509.Certificate{SerialNumber: big.NewInt(123)}}
+	good := crl.Assessment{CoveredReasons: crl.AllReasons}
+	revoked := crl.Assessment{Revocation: &crl.Revocation{ReasonCode: 1}}
+
+	for _, test := range []struct {
+		name       string
+		assessment *crl.Assessment
+		want       bool
+	}{
+		{name: "good", assessment: &good, want: true},
+		{name: "revoked", assessment: &revoked},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			got, err := (NotRevoked{}).Evaluate(nil, &EvaluationContext{
+				Cert: certificate,
+				// No CRLs or issuer pool are supplied. A pass here can only come
+				// from reusing the domain assessment selected by the evaluator.
+				CRLAssessment: test.assessment,
+			}, nil)
+			if err != nil {
+				t.Fatalf("NotRevoked: %v", err)
+			}
+			if got != test.want {
+				t.Fatalf("NotRevoked = %v, want %v", got, test.want)
+			}
+		})
+	}
+}
+
 func TestNotRevokedCertNotInCRL(t *testing.T) {
 	op := NotRevoked{}
 	revocationList, _, issuer := signedCRLWithCA(t)

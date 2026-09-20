@@ -17,17 +17,17 @@ import (
 	"github.com/cavoq/PCL/internal/operator"
 	"github.com/cavoq/PCL/internal/policy"
 	"github.com/cavoq/PCL/internal/rule"
-	stdocsp "golang.org/x/crypto/ocsp"
 	zx509 "github.com/zmap/zcrypto/x509"
+	stdocsp "golang.org/x/crypto/ocsp"
 )
 
-func TestOCSP_skipsNilResponse(t *testing.T) {
+func TestOCSP_skipsNilInfoAndResponse(t *testing.T) {
 	ctx := Context{
 		Registry: operator.DefaultRegistry(),
-		OCSPs:    []*ocsp.Info{{Response: nil, FilePath: "empty.ocsp"}},
+		OCSPs:    []*ocsp.Info{nil, {Response: nil, FilePath: "empty.ocsp"}},
 	}
 	if len(OCSP(ctx)) != 0 {
-		t.Fatal("nil OCSP response should produce no results")
+		t.Fatal("nil OCSP info and response should produce no results")
 	}
 }
 
@@ -36,7 +36,7 @@ func TestOcspSigningCert_invalidEmbeddedCert(t *testing.T) {
 	results := ocspSigningCert(ctx, &ocsp.Info{
 		Response: &stdocsp.Response{Certificate: &cryptox509.Certificate{}},
 		FilePath: "bad.ocsp",
-	})
+	}, time.Now())
 	if len(results) != 0 {
 		t.Fatalf("invalid embedded cert should yield no results, got %d", len(results))
 	}

@@ -279,7 +279,7 @@ func TestAppendUniqueCandidates_stopWhen(t *testing.T) {
 		Subject:      zpkix.Name{CommonName: "Other"},
 		SerialNumber: big.NewInt(43),
 	}
-	seen := map[string]bool{"1": true}
+	seen := NewCertificateSet(&zx509.Certificate{SerialNumber: big.NewInt(1)})
 
 	added, stop := appendUniqueCandidates(seen, nil, []*zx509.Certificate{
 		{SerialNumber: big.NewInt(1)},
@@ -291,30 +291,30 @@ func TestAppendUniqueCandidates_stopWhen(t *testing.T) {
 	if !stop || len(added) != 1 || added[0] != target {
 		t.Fatalf("appendUniqueCandidates() = (%v, %v), want ([target], true)", added, stop)
 	}
-	if !seen["42"] || seen["43"] {
-		t.Fatalf("seen after stop = %v, want only target serial recorded", seen)
+	if !seen.Contains(target) || seen.Contains(other) {
+		t.Fatal("seen set should record the target but not candidates after it")
 	}
 }
 
-func TestMarkSerialSeen(t *testing.T) {
-	seen := map[string]bool{}
-	cert := &zx509.Certificate{SerialNumber: big.NewInt(7)}
-	if markSerialSeen(seen, cert) {
-		t.Fatal("first mark should not be duplicate")
+func TestAppendUniqueCandidates_keepsSameSerialFromDifferentIssuers(t *testing.T) {
+	first := &zx509.Certificate{
+		Issuer:                  zpkix.Name{CommonName: "Issuer A"},
+		SerialNumber:            big.NewInt(7),
+		RawSubjectPublicKeyInfo: []byte{0x30, 0x01},
 	}
-	if !markSerialSeen(seen, cert) {
-		t.Fatal("second mark should be duplicate")
+	second := &zx509.Certificate{
+		Issuer:                  zpkix.Name{CommonName: "Issuer B"},
+		SerialNumber:            big.NewInt(7),
+		RawSubjectPublicKeyInfo: []byte{0x30, 0x01},
 	}
-}
-
-func TestMarkSerialSeen_nilCert(t *testing.T) {
-	if markSerialSeen(map[string]bool{}, nil) {
-		t.Fatal("nil cert should not count as duplicate")
+	added, stop := appendUniqueCandidates(NewCertificateSet(), nil, []*zx509.Certificate{first, second}, nil)
+	if stop || len(added) != 2 || added[0] != first || added[1] != second {
+		t.Fatalf("appendUniqueCandidates() = (%v, %v), want both issuer-scoped serials", added, stop)
 	}
 }
 
 func TestAppendUniqueCandidates_skipsInvalidCandidates(t *testing.T) {
-	seen := map[string]bool{}
+	seen := NewCertificateSet()
 	added, stop := appendUniqueCandidates(seen, nil, []*zx509.Certificate{
 		nil,
 		{Subject: zpkix.Name{CommonName: "no-serial"}},

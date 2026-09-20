@@ -22,16 +22,11 @@ func AuthorityKeyIdentifier(crl *x509.RevocationList) []byte {
 		if extension.Id.String() != oid.AuthorityKeyIdentifier {
 			continue
 		}
-		input := cryptobyte.String(extension.Value)
-		var sequence cryptobyte.String
-		if !input.ReadASN1(&sequence, cryptobyte_asn1.SEQUENCE) || !input.Empty() {
+		facts, err := decodeAuthorityKeyIdentifierExtension(extension)
+		if err != nil {
 			return nil
 		}
-		var keyIdentifier cryptobyte.String
-		if !sequence.ReadASN1(&keyIdentifier, cryptobyte_asn1.Tag(0).ContextSpecific()) {
-			return nil
-		}
-		return append([]byte(nil), keyIdentifier...)
+		return append([]byte(nil), facts.KeyIdentifier...)
 	}
 
 	// Manually constructed RevocationList values used by callers may already

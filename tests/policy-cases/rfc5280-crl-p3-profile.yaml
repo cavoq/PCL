@@ -1,0 +1,11 @@
+name: rfc5280-crl-p3-profile
+policy: ../policies/RFC5280.yaml
+fixture: crl-invalid-p3-profile
+rules:
+  - crl-idp-excludes-attribute-certificates
+  - crl-delta-omits-freshest
+expected:
+  crl:
+    pass: 0
+    fail: 2
+    skip: 0

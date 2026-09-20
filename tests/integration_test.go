@@ -15,14 +15,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zmap/zcrypto/x509"
 	"gopkg.in/yaml.v3"
 
 	derasn1 "github.com/cavoq/PCL/internal/asn1"
 	"github.com/cavoq/PCL/internal/cert"
-	certzcrypto "github.com/cavoq/PCL/internal/cert/zcrypto"
 	"github.com/cavoq/PCL/internal/crl"
-	"github.com/cavoq/PCL/internal/node"
+	"github.com/cavoq/PCL/internal/evaluator"
 	"github.com/cavoq/PCL/internal/ocsp"
 	"github.com/cavoq/PCL/internal/oid"
 	"github.com/cavoq/PCL/internal/operator"
@@ -138,12 +136,6 @@ func runCase(t *testing.T, caseDir string, tc testCase) {
 		t.Fatalf("unexpected chain error: %v", err)
 	}
 
-	results := make([]policy.Result, 0, len(chain))
-	ctxOpts := make([]operator.ContextOption, 0)
-	if tc.ApplicationPurpose != "" {
-		ctxOpts = append(ctxOpts, operator.WithApplicationPurpose(tc.ApplicationPurpose))
-	}
-
 	// Load CRLs once
 	var crlInfos []*crl.Info
 	if crlPath != "" {
@@ -157,80 +149,31 @@ func runCase(t *testing.T, caseDir string, tc testCase) {
 		if tc.WantCRLLoadError {
 			t.Fatal("expected generated CRL to be rejected during loading")
 		}
-		ctxOpts = append(ctxOpts, operator.WithCRLs(crlInfos))
 	}
 
 	// Load OCSP once
+	var ocspInfos []*ocsp.Info
 	if ocspPath != "" {
 		ocsps, err := ocsp.GetOCSPs(ocspPath)
 		if err != nil {
 			t.Fatalf("unexpected OCSP load error: %v", err)
 		}
-		ctxOpts = append(ctxOpts, operator.WithOCSPs(ocsps))
+		ocspInfos = ocsps
 	}
 
-	var embeddedCRL *crl.Info
-	var embeddedCRLIssuers []*x509.Certificate
-	for _, crlInfo := range crlInfos {
-		if crlInfo != nil && crlInfo.CRL != nil {
-			embeddedCRL = crlInfo
-			embeddedCRLIssuers = cert.CertsFromInfos(chain)
-			break
-		}
-	}
-
-	for _, c := range chain {
-		tree := certzcrypto.BuildTree(c.Cert)
-		if tc.ApplicationPurpose != "" {
-			tree.Children["applicationPurpose"] = node.New(
-				"applicationPurpose",
-				tc.ApplicationPurpose,
-			)
-		}
-
-		if embeddedCRL != nil {
-			crlNode := crl.BuildTreeWithChain(embeddedCRL.CRL, embeddedCRLIssuers)
-			if crlNode != nil {
-				tree.Children["crl"] = crlNode
-			}
-		}
-
-		certOpts := append([]operator.ContextOption(nil), ctxOpts...)
-		if embeddedCRL != nil {
-			certOpts = append(certOpts,
-				operator.WithCurrentCRL(embeddedCRL),
-				operator.WithCRLIssuers(embeddedCRLIssuers),
-			)
-		}
-		ctx := operator.NewEvaluationContext(tree, c, chain, certOpts...)
-		if !evalTime.IsZero() {
-			ctx.Now = evalTime
-		}
-		for _, candidate := range policy.ByCertificate([]policy.Policy{p}, c.Cert) {
-			results = append(results, policy.Evaluate(candidate, tree, reg, ctx))
-		}
-	}
-
-	for _, crlInfo := range crlInfos {
-		if crlInfo == nil || crlInfo.CRL == nil {
-			continue
-		}
-		issuerPool := cert.CertsFromInfos(chain)
-		tree := crl.BuildTreeWithChain(crlInfo.CRL, issuerPool)
-		ctx := operator.NewEvaluationContext(
-			tree,
-			&cert.Info{Type: "crl", FilePath: crlInfo.FilePath, Source: crlInfo.Source},
-			chain,
-			operator.WithCRLs(crlInfos),
-			operator.WithCurrentCRL(crlInfo),
-			operator.WithCRLIssuers(issuerPool),
-		)
-		if !evalTime.IsZero() {
-			ctx.Now = evalTime
-		}
-		for _, candidate := range policy.ByCRL([]policy.Policy{p}, crlInfo.CRL) {
-			results = append(results, policy.Evaluate(candidate, tree, reg, ctx))
-		}
+	evalCtx := evaluator.PrepareCRLIssuers(evaluator.Context{
+		Policies:            []policy.Policy{p},
+		Registry:            reg,
+		CRLs:                crlInfos,
+		OCSPs:               ocspInfos,
+		Chain:               chain,
+		RevocationRequested: crlPath != "",
+		ValidationTime:      evalTime,
+		ApplicationPurpose:  tc.ApplicationPurpose,
+	})
+	results := evaluator.Chain(evalCtx)
+	if len(crlInfos) > 0 {
+		results = append(results, evaluator.CRL(evalCtx)...)
 	}
 
 	if len(results) != len(tc.Expected) {
@@ -244,9 +187,25 @@ func runCase(t *testing.T, caseDir string, tc testCase) {
 			t.Fatalf("unexpected cert type %q", res.CertType)
 		}
 		if counts != want {
-			t.Fatalf("cert %s: expected %+v, got %+v", res.CertType, want, counts)
+			t.Errorf(
+				"cert %s: expected %+v, got %+v (failed rules: %v)",
+				res.CertType,
+				want,
+				counts,
+				failedRuleIDs(res.Results),
+			)
 		}
 	}
+}
+
+func failedRuleIDs(results []rule.Result) []string {
+	var identifiers []string
+	for _, result := range results {
+		if result.Verdict == rule.VerdictFail {
+			identifiers = append(identifiers, result.RuleID)
+		}
+	}
+	return identifiers
 }
 
 func countVerdicts(results []rule.Result) counts {
@@ -302,6 +261,82 @@ func materializeCaseFixture(t *testing.T, tc testCase) testCase {
 	dir := t.TempDir()
 
 	switch tc.Fixture {
+	case "crl-invalid-p3-profile":
+		key, issuer, issuerDER := makeIntegrationCertificate(t, nil)
+		tc.Certs = writePEMFixture(t, dir, "issuer.pem", "CERTIFICATE", issuerDER)
+		freshest := []byte{
+			0x30, 0x10, 0x30, 0x0e, 0xa0, 0x0c, 0xa0, 0x0a,
+			0x86, 0x08, 'h', 't', 't', 'p', ':', '/', '/', 'a',
+		}
+		crlDER, err := cryptox509.CreateRevocationList(rand.Reader, &cryptox509.RevocationList{
+			Number:     big.NewInt(1),
+			ThisUpdate: time.Date(2026, 8, 14, 11, 0, 0, 0, time.UTC),
+			NextUpdate: time.Date(2026, 8, 14, 13, 0, 0, 0, time.UTC),
+			ExtraExtensions: []cryptopkix.Extension{
+				{
+					Id:       stdasn1.ObjectIdentifier{2, 5, 29, 27},
+					Critical: true,
+					Value:    []byte{0x02, 0x01, 0x00},
+				},
+				{
+					Id:       stdasn1.ObjectIdentifier{2, 5, 29, 28},
+					Critical: true,
+					Value:    []byte{0x30, 0x03, 0x85, 0x01, 0xff},
+				},
+				{
+					Id:    stdasn1.ObjectIdentifier{2, 5, 29, 46},
+					Value: freshest,
+				},
+			},
+		}, issuer, key)
+		if err != nil {
+			t.Fatalf("create invalid P3 profile CRL: %v", err)
+		}
+		tc.CRL = writePEMFixture(t, dir, "list.pem", "X509 CRL", crlDER)
+	case "valid-revoked-certificate":
+		now := time.Date(2026, 8, 14, 12, 0, 0, 0, time.UTC)
+		issuerKey, issuer, issuerDER := makeIntegrationCertificate(t, func(template *cryptox509.Certificate) {
+			template.NotBefore = now.Add(-24 * time.Hour)
+			template.NotAfter = now.Add(365 * 24 * time.Hour)
+		})
+		leafKey, err := rsa.GenerateKey(rand.Reader, 1024)
+		if err != nil {
+			t.Fatalf("generate revoked leaf key: %v", err)
+		}
+		leafTemplate := &cryptox509.Certificate{
+			SerialNumber:          big.NewInt(2),
+			Subject:               cryptopkix.Name{CommonName: "revoked integration leaf"},
+			NotBefore:             now.Add(-time.Hour),
+			NotAfter:              now.Add(24 * time.Hour),
+			KeyUsage:              cryptox509.KeyUsageDigitalSignature,
+			BasicConstraintsValid: true,
+		}
+		leafDER, err := cryptox509.CreateCertificate(
+			rand.Reader,
+			leafTemplate,
+			issuer,
+			&leafKey.PublicKey,
+			issuerKey,
+		)
+		if err != nil {
+			t.Fatalf("create revoked leaf: %v", err)
+		}
+		crlDER, err := cryptox509.CreateRevocationList(rand.Reader, &cryptox509.RevocationList{
+			Number:     big.NewInt(1),
+			ThisUpdate: now.Add(-time.Hour),
+			NextUpdate: now.Add(time.Hour),
+			RevokedCertificateEntries: []cryptox509.RevocationListEntry{{
+				SerialNumber:   leafTemplate.SerialNumber,
+				RevocationTime: now.Add(-30 * time.Minute),
+			}},
+		}, issuer, issuerKey)
+		if err != nil {
+			t.Fatalf("create valid revocation list: %v", err)
+		}
+		tc.Certs = writePEMFixture(t, dir, "leaf.pem", "CERTIFICATE", leafDER)
+		tc.Issuers = []string{writePEMFixture(t, dir, "issuer.pem", "CERTIFICATE", issuerDER)}
+		tc.CRL = writePEMFixture(t, dir, "list.pem", "X509 CRL", crlDER)
+		tc.EvalTime = now.Format(time.RFC3339)
 	case "certificate-algorithm-mismatch":
 		_, _, der := makeIntegrationCertificate(t, nil)
 		tc.Certs = writePEMFixture(t, dir, "certificate.pem", "CERTIFICATE", replaceOuterSignatureAlgorithm(t, der))

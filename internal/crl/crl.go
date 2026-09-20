@@ -7,7 +7,6 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 	"time"
 
@@ -25,6 +24,10 @@ type Info struct {
 	Hash     string
 	Source   source.Info
 	Format   source.Format
+	// Origins contains every acquisition URL known to have returned this CRL.
+	// It is empty for local inputs. FetchSession snapshots preserve all origins
+	// known when that result is returned.
+	Origins []string
 }
 
 func ParseCRL(data []byte) (*x509.RevocationList, error) {
@@ -73,11 +76,10 @@ func GetCRLs(path string) ([]*Info, error) {
 			continue
 		}
 
-		hash := sha256.Sum256(crl.Raw)
 		infos = append(infos, &Info{
 			CRL:      crl,
 			FilePath: file,
-			Hash:     hex.EncodeToString(hash[:]),
+			Hash:     crlHash(crl),
 			Source:   source.Info{Type: source.Local, Format: format},
 			Format:   format,
 		})
@@ -90,78 +92,22 @@ func GetCRLs(path string) ([]*Info, error) {
 	return infos, nil
 }
 
+func crlHash(revocationList *x509.RevocationList) string {
+	if revocationList == nil {
+		return ""
+	}
+	hash := sha256.Sum256(revocationList.Raw)
+	return hex.EncodeToString(hash[:])
+}
+
 func FetchCRL(url string, timeout time.Duration) (*Info, error) {
-	if url == "" {
-		return nil, fmt.Errorf("CRL URL is required")
-	}
-
-	client := &http.Client{Timeout: timeout}
-	resp, err := client.Get(url)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch CRL from %s: %w", url, err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("CRL server returned status %d", resp.StatusCode)
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read CRL response: %w", err)
-	}
-
-	crl, format, err := parseCRL(body)
-	if err != nil {
-		return nil, err
-	}
-
-	hash := sha256.Sum256(crl.Raw)
-	return &Info{
-		CRL:      crl,
-		FilePath: url,
-		Hash:     hex.EncodeToString(hash[:]),
-		Source:   source.Info{Type: source.Downloaded, URL: url, Format: format},
-		Format:   format,
-	}, nil
+	return newFetchSession(FetchConfig{Timeout: timeout}, true).Fetch(url)
 }
 
 func FetchCRLs(urls []string, timeout time.Duration) ([]*Info, []error) {
-	var results []*Info
-	var errs []error
-
-	for _, url := range urls {
-		result, err := FetchCRL(url, timeout)
-		if err != nil {
-			errs = append(errs, err)
-			continue
-		}
-		results = append(results, result)
-	}
-
-	return results, errs
+	return newFetchSession(FetchConfig{Timeout: timeout}, true).FetchAll(urls)
 }
 
 func FetchForChain(chain []*cert.Info, timeout time.Duration, w io.Writer) []*Info {
-	var results []*Info
-
-	for _, c := range chain {
-		if c.Cert == nil || len(c.Cert.CRLDistributionPoints) == 0 {
-			continue
-		}
-
-		for _, url := range c.Cert.CRLDistributionPoints {
-			fetchResult, err := FetchCRL(url, timeout)
-			if err != nil {
-				if w != nil {
-					_, _ = fmt.Fprintf(w, "Warning: failed to fetch CRL from %s: %v\n", url, err)
-				}
-				continue
-			}
-
-			results = append(results, fetchResult)
-		}
-	}
-
-	return results
+	return NewFetchSession(FetchConfig{Timeout: timeout}).FetchForChain(chain, w)
 }

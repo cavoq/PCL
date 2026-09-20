@@ -27,7 +27,9 @@ func TestClimbChainWithPool_usesPoolWhenNoCaIssuers(t *testing.T) {
 	notAfter := time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC)
 
 	parentStd := &x509.Certificate{
-		SerialNumber:          big.NewInt(1),
+		// Certificate serial numbers are issuer-scoped. Sharing the leaf's
+		// serial exercises identity-safe pool cycle detection.
+		SerialNumber:          big.NewInt(3),
 		Subject:               pkix.Name{CommonName: "Pool Parent CA"},
 		NotBefore:             notBefore,
 		NotAfter:              notAfter,

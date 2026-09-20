@@ -25,6 +25,17 @@ type Context struct {
 	CRLs     []*crl.Info
 	OCSPs    []*ocsp.Info
 	Chain    []*cert.Info
+	// RevocationRequested records that the caller requested CRL checking even
+	// when acquisition produced no usable lists. In that case the certificate
+	// receives an explicit Unknown assessment rather than silently skipping the
+	// revocation policy.
+	RevocationRequested bool
+	ValidationTime      time.Time
+	// CRLSignerAuthorizer lets a path engine require the CRL signer to chain
+	// to the target certificate's trust anchor. P3 leaves it nil; P4 can
+	// supply the path-owned decision without changing or duplicating CRL
+	// processing in the evaluator.
+	CRLSignerAuthorizer crl.SignerAuthorizer
 
 	// ApplicationPurpose is an optional friendly EKU name or dotted EKU OID
 	// projected into certificate trees and supplied to certificate operators.
@@ -42,18 +53,21 @@ type Context struct {
 func Chain(ctx Context) []policy.Result {
 	ctx = PrepareCRLIssuers(ctx)
 	var results []policy.Result
-	var embeddedCRL *crl.Info
-	var embeddedCRLIssuers []*x509.Certificate
-	for _, crlInfo := range ctx.CRLs {
-		if crlInfo != nil && crlInfo.CRL != nil {
-			embeddedCRL = crlInfo
-			embeddedCRLIssuers = ctx.crlIssuerPools[crlInfo]
-			break
-		}
-	}
+	now := evaluationTime(ctx.ValidationTime)
+	lists := revocationLists(ctx.CRLs)
 	allCRLIssuers := combinedCRLIssuerPool(ctx)
+	ocspIssuers := cert.CertsFromInfos(ctx.Chain)
+	catalog := crl.NewCatalog(lists, crl.RevocationContext{
+		Now:             now,
+		Issuers:         allCRLIssuers,
+		UseDeltas:       true,
+		AuthorizeSigner: ctx.CRLSignerAuthorizer,
+	})
 
 	for _, c := range ctx.Chain {
+		if c == nil || c.Cert == nil {
+			continue
+		}
 		tree := certzcrypto.BuildTree(c.Cert)
 		projectApplicationPurpose(tree, ctx.ApplicationPurpose)
 
@@ -62,23 +76,20 @@ func Chain(ctx Context) []policy.Result {
 			tree.Children["downloadURL"] = node.New("downloadURL", c.Source.URL)
 		}
 
-		if embeddedCRL != nil {
-			crlNode := crl.BuildTreeWithChain(embeddedCRL.CRL, embeddedCRLIssuers)
-			if crlNode != nil {
-				tree.Children["crl"] = crlNode
-			}
+		crlAssessment := catalog.AssessCertificate(c.Cert)
+		ocspAssessment := ocsp.AssessCertificate(c.Cert, ctx.OCSPs, ocspIssuers, now)
+		if ctx.RevocationRequested || len(lists) > 0 {
+			projectRevocationAssessment(tree, crlAssessment)
 		}
 
 		evalOpts := []operator.ContextOption{
 			operator.WithCRLs(ctx.CRLs),
+			operator.WithCRLAssessment(&crlAssessment),
 			operator.WithOCSPs(ctx.OCSPs),
+			operator.WithOCSPAssessment(&ocspAssessment),
 			operator.WithApplicationPurpose(ctx.ApplicationPurpose),
-		}
-		if embeddedCRL != nil {
-			evalOpts = append(evalOpts,
-				operator.WithCurrentCRL(embeddedCRL),
-				operator.WithCRLIssuers(allCRLIssuers),
-			)
+			operator.WithEvaluationTime(now),
+			operator.WithCRLIssuers(allCRLIssuers),
 		}
 		evalCtx := operator.NewEvaluationContext(tree, c, ctx.Chain, evalOpts...)
 
@@ -94,9 +105,11 @@ func Chain(ctx Context) []policy.Result {
 
 func OCSP(ctx Context) []policy.Result {
 	var results []policy.Result
+	now := evaluationTime(ctx.ValidationTime)
+	filteredPolicies := policy.ByInput(ctx.Policies, policy.InputOCSP)
 
 	for _, ocspInfo := range ctx.OCSPs {
-		if ocspInfo.Response == nil {
+		if ocspInfo == nil || ocspInfo.Response == nil {
 			continue
 		}
 
@@ -112,17 +125,19 @@ func OCSP(ctx Context) []policy.Result {
 		}
 
 		tree := ocspNode
-		evalOpts := []operator.ContextOption{operator.WithOCSPs(ctx.OCSPs)}
+		evalOpts := []operator.ContextOption{
+			operator.WithOCSPs(ctx.OCSPs),
+			operator.WithEvaluationTime(now),
+		}
 		evalCtx := operator.NewEvaluationContext(tree, ocspCertInfo, ctx.Chain, evalOpts...)
 
-		filteredPolicies := policy.ByInput(ctx.Policies, policy.InputOCSP)
 		for _, p := range filteredPolicies {
 			res := policy.Evaluate(p, tree, ctx.Registry, evalCtx)
 			results = append(results, res)
 		}
 
 		if ocspInfo.Response.Certificate != nil {
-			results = append(results, ocspSigningCert(ctx, ocspInfo)...)
+			results = append(results, ocspSigningCert(ctx, ocspInfo, now)...)
 		}
 	}
 
@@ -132,6 +147,7 @@ func OCSP(ctx Context) []policy.Result {
 func CRL(ctx Context) []policy.Result {
 	ctx = PrepareCRLIssuers(ctx)
 	var results []policy.Result
+	now := evaluationTime(ctx.ValidationTime)
 
 	for _, crlInfo := range ctx.CRLs {
 		if crlInfo == nil || crlInfo.CRL == nil {
@@ -156,6 +172,7 @@ func CRL(ctx Context) []policy.Result {
 			operator.WithCRLs(ctx.CRLs),
 			operator.WithCurrentCRL(crlInfo),
 			operator.WithCRLIssuers(issuerCerts),
+			operator.WithEvaluationTime(now),
 		}
 		evalCtx := operator.NewEvaluationContext(tree, crlCertInfo, ctx.Chain, evalOpts...)
 
@@ -186,7 +203,7 @@ func OCSPOnly(policies []policy.Policy, registry *operator.Registry, ocsps []*oc
 	})
 }
 
-func ocspSigningCert(ctx Context, ocspInfo *ocsp.Info) []policy.Result {
+func ocspSigningCert(ctx Context, ocspInfo *ocsp.Info, now time.Time) []policy.Result {
 	zcryptoSignerCert, err := zcrypto.FromStdCert(ocspInfo.Response.Certificate)
 	if err != nil || zcryptoSignerCert == nil {
 		return nil
@@ -208,10 +225,20 @@ func ocspSigningCert(ctx Context, ocspInfo *ocsp.Info) []policy.Result {
 		ctx.CRLResolveMaxDepth,
 		ctx.CRLResolveWarn,
 	)
+	ocspAssessment := ocsp.AssessCertificate(
+		zcryptoSignerCert,
+		ctx.OCSPs,
+		cert.CertsFromInfos(signerChain),
+		now,
+	)
 
 	// A delegated OCSP signer is evaluated for its OCSP-signing role, not for
 	// the application purpose requested for the supplied certificate chain.
-	evalOpts := []operator.ContextOption{operator.WithOCSPs(ctx.OCSPs)}
+	evalOpts := []operator.ContextOption{
+		operator.WithOCSPs(ctx.OCSPs),
+		operator.WithOCSPAssessment(&ocspAssessment),
+		operator.WithEvaluationTime(now),
+	}
 	evalCtx := operator.NewEvaluationContext(ocspSignerTree, ocspSignerInfo, signerChain, evalOpts...)
 
 	var results []policy.Result
@@ -229,6 +256,56 @@ func projectApplicationPurpose(tree *node.Node, purpose string) {
 		return
 	}
 	tree.Children["applicationPurpose"] = node.New("applicationPurpose", purpose)
+}
+
+func projectRevocationAssessment(tree *node.Node, assessment crl.Assessment) {
+	if tree == nil {
+		return
+	}
+
+	revocation := node.New("revocation", nil)
+	revocation.Children["status"] = node.New("status", revocationStatusName(assessment.Status()))
+	revocation.Children["evidenceCount"] = node.New("evidenceCount", len(assessment.Evidence))
+	revocation.Children["coveredReasons"] = node.New(
+		"coveredReasons",
+		int(assessment.CoveredReasons),
+	)
+	if assessment.Revocation != nil {
+		revocation.Children["reasonCode"] = node.New("reasonCode", assessment.Revocation.ReasonCode)
+		revocation.Children["revocationTime"] = node.New(
+			"revocationTime",
+			assessment.Revocation.RevocationTime,
+		)
+	}
+	tree.Children["revocation"] = revocation
+}
+
+func revocationStatusName(status crl.RevocationStatus) string {
+	switch status {
+	case crl.RevocationGood:
+		return "good"
+	case crl.RevocationRevoked:
+		return "revoked"
+	default:
+		return "unknown"
+	}
+}
+
+func revocationLists(infos []*crl.Info) []*x509.RevocationList {
+	lists := make([]*x509.RevocationList, 0, len(infos))
+	for _, info := range infos {
+		if info != nil && info.CRL != nil {
+			lists = append(lists, info.CRL)
+		}
+	}
+	return lists
+}
+
+func evaluationTime(configured time.Time) time.Time {
+	if !configured.IsZero() {
+		return configured
+	}
+	return time.Now()
 }
 
 func issuerCertsForCRL(ctx Context, revocationList *x509.RevocationList) []*x509.Certificate {

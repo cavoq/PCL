@@ -684,6 +684,15 @@ rules:
   # Freshest CRL (Section 4.2.1.15)
   # -------------------------------------------------
 
+  - id: freshest-crl-well-formed
+    reference: RFC5280 4.2.1.15
+    when:
+      target: certificate.extensions.2.5.29.46
+      operator: present
+    target: certificate.extensions.2.5.29.46.malformed
+    operator: absent
+    severity: error
+
   - id: freshest-crl-not-critical
     reference: RFC5280 4.2.1.15
     when:
@@ -788,13 +797,24 @@ rules:
     operator: signatureAlgorithmMatchesTBS
     severity: error
 
-  - id: cert-not-revoked
-    reference: RFC5280 5.1
+  - id: cert-revocation-status-known
+    reference: RFC5280 6.3
     when:
-      target: crl
+      target: certificate.revocation
       operator: present
-    target: certificate
-    operator: notRevoked
+    target: certificate.revocation.status
+    operator: neq
+    operands: [unknown]
+    severity: error
+
+  - id: cert-not-revoked
+    reference: RFC5280 6.3
+    when:
+      target: certificate.revocation
+      operator: present
+    target: certificate.revocation.status
+    operator: neq
+    operands: [revoked]
     severity: error
 
   - id: crl-aki-not-critical
@@ -805,6 +825,15 @@ rules:
     target: crl.extensions.2.5.29.35.critical
     operator: eq
     operands: [false]
+    severity: error
+
+  - id: crl-aki-well-formed
+    reference: RFC5280 5.2.1
+    when:
+      target: crl.extensions.2.5.29.35
+      operator: present
+    target: crl.extensions.2.5.29.35.malformed
+    operator: absent
     severity: error
 
   - id: crl-authority-key-identifier-present
@@ -826,6 +855,15 @@ rules:
     operands: [false]
     severity: error
 
+  - id: crl-number-well-formed
+    reference: RFC5280 5.2.3
+    when:
+      target: crl.extensions.2.5.29.20
+      operator: present
+    target: crl.extensions.2.5.29.20.malformed
+    operator: absent
+    severity: error
+
   - id: crl-number-present
     reference: RFC5280 5.2.3
     when:
@@ -845,6 +883,15 @@ rules:
     operands: [true]
     severity: error
 
+  - id: crl-delta-indicator-well-formed
+    reference: RFC5280 5.2.4
+    when:
+      target: crl.extensions.2.5.29.27
+      operator: present
+    target: crl.extensions.2.5.29.27.malformed
+    operator: absent
+    severity: error
+
   - id: crl-idp-critical
     reference: RFC5280 5.2
     when:
@@ -853,6 +900,53 @@ rules:
     target: crl.extensions.2.5.29.28.critical
     operator: eq
     operands: [true]
+    severity: error
+
+  - id: crl-idp-well-formed
+    reference: RFC5280 5.2.5
+    when:
+      target: crl.extensions.2.5.29.28
+      operator: present
+    target: crl.extensions.2.5.29.28.malformed
+    operator: absent
+    severity: error
+
+  - id: crl-idp-excludes-attribute-certificates
+    reference: RFC5280 5.2.5
+    when:
+      target: crl.extensions.2.5.29.28
+      operator: present
+    target: crl.issuingDistributionPoint.onlyContainsAttributeCerts
+    operator: eq
+    operands: [false]
+    severity: error
+
+  - id: crl-freshest-well-formed
+    reference: RFC5280 5.2.6
+    when:
+      target: crl.extensions.2.5.29.46
+      operator: present
+    target: crl.extensions.2.5.29.46.malformed
+    operator: absent
+    severity: error
+
+  - id: crl-freshest-not-critical
+    reference: RFC5280 5.2.6
+    when:
+      target: crl.extensions.2.5.29.46
+      operator: present
+    target: crl.extensions.2.5.29.46.critical
+    operator: eq
+    operands: [false]
+    severity: error
+
+  - id: crl-delta-omits-freshest
+    reference: RFC5280 5.2.6
+    when:
+      target: crl.deltaCRLIndicator
+      operator: present
+    target: crl.freshestCRL
+    operator: absent
     severity: error
 
   # No unknown critical CRL extensions (RFC 5280 5.2)
@@ -866,26 +960,8 @@ rules:
   # CRL Entry Extensions (Section 5.3)
   # -------------------------------------------------
 
-  # Per RFC 5280 5.3.1, reasonCode extension (OID 2.5.29.21) is OPTIONAL
-  # but recommended for better revocation information management.
-  # This rule checks that all revoked entries have reason codes.
-  - id: crl-entries-have-reason
-    reference: RFC5280 5.3.1
-    when:
-      target: crl.revokedCertificates
-      operator: present
-    target: crl.revokedCertificates
-    operator: every
-    operands:
-      - path: extensions.2.5.29.21
-        check: present
-    severity: warning
-
-  # Validate the reasonCode ENUMERATED values (0-10, except unused value 7).
-  # RFC 5280 encourages omitting the extension instead of encoding unspecified
-  # (0), but 0 remains a defined value and is not malformed.
-  # Valid: 0(unspecified), 1(keyCompromise), 2(cACompromise), 3(affiliationChanged), 4(superseded),
-  #        5(cessationOfOperation), 6(certHold), 8(removeFromCRL), 9(privilegeWithdrawn), 10(aACompromise)
+  # reasonCode is optional. Strict adapter parsing owns the canonical
+  # ENUMERATED validation so policy does not duplicate the value table.
   - id: crl-entry-reason-valid
     reference: RFC5280 5.3.1
     when:
@@ -894,9 +970,76 @@ rules:
     target: crl.revokedCertificates
     operator: every
     operands:
-      - path: extensions.2.5.29.21.value
-        check: in
-        values: [0, 1, 2, 3, 4, 5, 6, 8, 9, 10]
+      - path: extensions.2.5.29.21.malformed
+        check: absent
+        skipMissing: true
+    severity: error
+
+  - id: crl-entry-reason-not-critical
+    reference: RFC5280 5.3.1
+    when:
+      target: crl.revokedCertificates
+      operator: present
+    target: crl.revokedCertificates
+    operator: every
+    operands:
+      - path: extensions.2.5.29.21.critical
+        check: eq
+        values: [false]
+        skipMissing: true
+    severity: error
+
+  - id: crl-entry-invalidity-date-well-formed
+    reference: RFC5280 5.3.2
+    when:
+      target: crl.revokedCertificates
+      operator: present
+    target: crl.revokedCertificates
+    operator: every
+    operands:
+      - path: extensions.2.5.29.24.malformed
+        check: absent
+        skipMissing: true
+    severity: error
+
+  - id: crl-entry-invalidity-date-not-critical
+    reference: RFC5280 5.3.2
+    when:
+      target: crl.revokedCertificates
+      operator: present
+    target: crl.revokedCertificates
+    operator: every
+    operands:
+      - path: extensions.2.5.29.24.critical
+        check: eq
+        values: [false]
+        skipMissing: true
+    severity: error
+
+  - id: crl-entry-certificate-issuer-well-formed
+    reference: RFC5280 5.3.3
+    when:
+      target: crl.revokedCertificates
+      operator: present
+    target: crl.revokedCertificates
+    operator: every
+    operands:
+      - path: extensions.2.5.29.29.malformed
+        check: absent
+        skipMissing: true
+    severity: error
+
+  - id: crl-entry-certificate-issuer-critical
+    reference: RFC5280 5.3.3
+    when:
+      target: crl.revokedCertificates
+      operator: present
+    target: crl.revokedCertificates
+    operator: every
+    operands:
+      - path: extensions.2.5.29.29.critical
+        check: eq
+        values: [true]
         skipMissing: true
     severity: error
 

@@ -124,7 +124,7 @@ func ClimbChainWithPool(chain, pool []*Info, timeout time.Duration, maxDepth int
 		return chain
 	}
 
-	seen := serialSeenSet(CertsFromInfos(chain))
+	seen := NewCertificateSet(CertsFromInfos(chain)...)
 	result := append([]*Info(nil), chain...)
 
 	for depth := 0; depth < maxDepth; depth++ {
@@ -138,7 +138,7 @@ func ClimbChainWithPool(chain, pool []*Info, timeout time.Duration, maxDepth int
 			if parent == nil {
 				break
 			}
-			if markSerialSeen(seen, parent.Cert) {
+			if !seen.Add(parent.Cert) {
 				warnf(w, "Warning: circular certificate detected at %s\n", parent.FilePath)
 				break
 			}
@@ -157,7 +157,7 @@ func ClimbChainWithPool(chain, pool []*Info, timeout time.Duration, maxDepth int
 			break
 		}
 
-		if markSerialSeen(seen, issuerCert) {
+		if !seen.Add(issuerCert) {
 			warnf(w, "Warning: circular certificate detected at %s\n", url)
 			break
 		}
@@ -176,7 +176,7 @@ func ClimbChainWithPool(chain, pool []*Info, timeout time.Duration, maxDepth int
 	return result
 }
 
-func findSigningParentInPool(child *x509.Certificate, pool []*Info, seen map[string]bool) *Info {
+func findSigningParentInPool(child *x509.Certificate, pool []*Info, seen *CertificateSet) *Info {
 	if child == nil || len(child.Raw) == 0 {
 		return nil
 	}
@@ -187,7 +187,7 @@ func findSigningParentInPool(child *x509.Certificate, pool []*Info, seen map[str
 		if child.CheckSignatureFrom(info.Cert) != nil {
 			continue
 		}
-		if info.Cert.SerialNumber != nil && seen[info.Cert.SerialNumber.String()] {
+		if seen.Contains(info.Cert) {
 			continue
 		}
 		return &Info{

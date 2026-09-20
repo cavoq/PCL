@@ -19,14 +19,15 @@ type AIACollectConfig struct {
 }
 
 // CollectViaCAIssuers walks CA Issuers URLs from seed certificates and returns
-// the seed plus any newly discovered certificates (breadth-first, deduplicated by serial).
+// the seed plus any newly discovered certificates, breadth-first and
+// deduplicated by certificate identity.
 func CollectViaCAIssuers(seed []*x509.Certificate, cfg AIACollectConfig) []*x509.Certificate {
 	pool := append([]*x509.Certificate(nil), seed...)
 	if cfg.MaxDepth <= 0 || cfg.Timeout <= 0 {
 		return pool
 	}
 
-	seen := serialSeenSet(pool)
+	seen := NewCertificateSet(pool...)
 	frontier := append([]*x509.Certificate(nil), seed...)
 
 	for depth := 0; depth < cfg.MaxDepth; depth++ {
@@ -87,7 +88,7 @@ func FetchParentViaCAIssuers(child *x509.Certificate, timeout time.Duration, w i
 	return issuerCert, normalizeIssuerSourceInfo(issuerResult.Source), url, nil
 }
 
-func discoverViaCAIssuers(c *x509.Certificate, seen map[string]bool, cfg AIACollectConfig) ([]*x509.Certificate, bool) {
+func discoverViaCAIssuers(c *x509.Certificate, seen *CertificateSet, cfg AIACollectConfig) ([]*x509.Certificate, bool) {
 	if c == nil || len(c.IssuingCertificateURL) == 0 {
 		return nil, false
 	}
@@ -115,20 +116,15 @@ func discoverViaCAIssuers(c *x509.Certificate, seen map[string]bool, cfg AIAColl
 }
 
 func appendUniqueCandidates(
-	seen map[string]bool,
+	seen *CertificateSet,
 	into []*x509.Certificate,
 	candidates []*x509.Certificate,
 	stopWhen func(*x509.Certificate) bool,
 ) ([]*x509.Certificate, bool) {
 	for _, candidate := range candidates {
-		if candidate == nil || candidate.SerialNumber == nil {
+		if !seen.Add(candidate) {
 			continue
 		}
-		serial := candidate.SerialNumber.String()
-		if seen[serial] {
-			continue
-		}
-		seen[serial] = true
 		into = append(into, candidate)
 		if stopWhen != nil && stopWhen(candidate) {
 			return into, true
@@ -147,29 +143,6 @@ func normalizeIssuerSourceInfo(src source.Info) source.Info {
 		info.Description = "downloaded PEM"
 	}
 	return info
-}
-
-// markSerialSeen records cert in seen and reports whether the serial was already present.
-func markSerialSeen(seen map[string]bool, cert *x509.Certificate) bool {
-	if cert == nil || cert.SerialNumber == nil {
-		return false
-	}
-	serial := cert.SerialNumber.String()
-	if seen[serial] {
-		return true
-	}
-	seen[serial] = true
-	return false
-}
-
-func serialSeenSet(certs []*x509.Certificate) map[string]bool {
-	seen := make(map[string]bool)
-	for _, c := range certs {
-		if c != nil && c.SerialNumber != nil {
-			seen[c.SerialNumber.String()] = true
-		}
-	}
-	return seen
 }
 
 func warnPKCS7Bundle(w io.Writer, child *x509.Certificate, candidates []*x509.Certificate) {

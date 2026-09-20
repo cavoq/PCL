@@ -15,12 +15,14 @@ import (
 	"github.com/cavoq/PCL/internal/cert"
 	"github.com/cavoq/PCL/internal/crl"
 	"github.com/cavoq/PCL/internal/node"
+	"github.com/cavoq/PCL/internal/ocsp"
 	"github.com/cavoq/PCL/internal/operator"
 	"github.com/cavoq/PCL/internal/policy"
 	"github.com/cavoq/PCL/internal/rule"
 	"github.com/cavoq/PCL/internal/source"
 	"github.com/zmap/zcrypto/x509"
 	"github.com/zmap/zcrypto/x509/pkix"
+	stdocsp "golang.org/x/crypto/ocsp"
 )
 
 func TestChainWithEmptyChain(t *testing.T) {
@@ -138,6 +140,334 @@ func TestProjectApplicationPurposeOmitsAbsentInput(t *testing.T) {
 	projectApplicationPurpose(tree, "")
 	if _, present := tree.Children["applicationPurpose"]; present {
 		t.Fatal("absent application purpose was projected")
+	}
+}
+
+func TestChainProjectsExplicitUnknownRevocationWithoutAttachingACRL(t *testing.T) {
+	certificate := &cert.Info{
+		Cert:     &x509.Certificate{SerialNumber: big.NewInt(42)},
+		Type:     "leaf",
+		Position: 0,
+	}
+	profile := policy.Policy{
+		ID: "revocation-projection",
+		Rules: []rule.Rule{
+			{
+				ID:       "status",
+				Target:   "certificate.revocation.status",
+				Operator: "eq",
+				Operands: []any{"unknown"},
+				Severity: rule.SeverityError,
+			},
+			{
+				ID:       "covered-reasons",
+				Target:   "certificate.revocation.coveredReasons",
+				Operator: "eq",
+				Operands: []any{0},
+				Severity: rule.SeverityError,
+			},
+			{
+				ID:       "no-arbitrary-crl",
+				Target:   "certificate.crl",
+				Operator: "absent",
+				Severity: rule.SeverityError,
+			},
+		},
+	}
+
+	results := Chain(Context{
+		Policies:            []policy.Policy{profile},
+		Registry:            operator.DefaultRegistry(),
+		Chain:               []*cert.Info{certificate},
+		CRLs:                []*crl.Info{{CRL: &x509.RevocationList{}}},
+		RevocationRequested: true,
+		ValidationTime:      time.Date(2026, 8, 14, 12, 0, 0, 0, time.UTC),
+	})
+	if len(results) != 1 || len(results[0].Results) != 3 {
+		t.Fatalf("results = %#v, want one policy result with three rules", results)
+	}
+	for _, result := range results[0].Results {
+		if result.Verdict != rule.VerdictPass {
+			t.Fatalf("rule %q verdict = %q, want pass", result.RuleID, result.Verdict)
+		}
+	}
+}
+
+func TestChainOmitsRevocationWhenItWasNotRequested(t *testing.T) {
+	profile := policy.Policy{
+		ID: "revocation-absent",
+		Rules: []rule.Rule{{
+			ID:       "revocation-absent",
+			Target:   "certificate.revocation",
+			Operator: "absent",
+			Severity: rule.SeverityError,
+		}},
+	}
+	results := Chain(Context{
+		Policies: []policy.Policy{profile},
+		Registry: operator.DefaultRegistry(),
+		Chain: []*cert.Info{{
+			Cert: &x509.Certificate{SerialNumber: big.NewInt(42)}, Type: "leaf",
+		}},
+		ValidationTime: time.Date(2026, 8, 14, 12, 0, 0, 0, time.UTC),
+	})
+	if len(results) != 1 || results[0].Verdict != rule.VerdictPass {
+		t.Fatalf("results = %#v, want absent revocation to pass", results)
+	}
+}
+
+type evaluationTimeProbe struct{ expected time.Time }
+
+func (probe evaluationTimeProbe) Name() string { return "evaluationTimeProbe" }
+
+func (probe evaluationTimeProbe) Evaluate(
+	_ *node.Node,
+	ctx *operator.EvaluationContext,
+	_ []any,
+) (bool, error) {
+	return ctx != nil && ctx.Now.Equal(probe.expected), nil
+}
+
+func TestChainUsesConfiguredValidationTime(t *testing.T) {
+	expected := time.Date(2026, 8, 14, 12, 0, 0, 123, time.UTC)
+	registry := operator.NewRegistry()
+	registry.Register(evaluationTimeProbe{expected: expected})
+	profile := policy.Policy{
+		ID: "validation-time",
+		Rules: []rule.Rule{{
+			ID:       "validation-time",
+			Target:   "certificate",
+			Operator: "evaluationTimeProbe",
+			Severity: rule.SeverityError,
+		}},
+	}
+	results := Chain(Context{
+		Policies:       []policy.Policy{profile},
+		Registry:       registry,
+		Chain:          []*cert.Info{{Cert: &x509.Certificate{}, Type: "leaf"}},
+		ValidationTime: expected,
+	})
+	if len(results) != 1 || results[0].Verdict != rule.VerdictPass {
+		t.Fatalf("results = %#v, want configured time to reach operators", results)
+	}
+}
+
+func TestOCSPUsesConfiguredValidationTime(t *testing.T) {
+	expected := time.Date(2026, 8, 14, 12, 0, 0, 123, time.UTC)
+	registry := operator.NewRegistry()
+	registry.Register(evaluationTimeProbe{expected: expected})
+	profile := policy.Policy{
+		ID: "ocsp-validation-time",
+		Rules: []rule.Rule{{
+			ID:       "ocsp-validation-time",
+			Target:   "ocsp",
+			Operator: "evaluationTimeProbe",
+			Severity: rule.SeverityError,
+		}},
+	}
+	results := OCSP(Context{
+		Policies:       []policy.Policy{profile},
+		Registry:       registry,
+		OCSPs:          []*ocsp.Info{{Response: &stdocsp.Response{Status: stdocsp.Good}}},
+		ValidationTime: expected,
+	})
+	if len(results) != 1 || results[0].Verdict != rule.VerdictPass {
+		t.Fatalf("results = %#v, want configured time to reach OCSP operators", results)
+	}
+}
+
+type ocspAssessmentProbeState struct {
+	applicableSerial string
+	unrelatedSerial  string
+	evidence         *ocsp.Info
+	bySerial         map[string]*ocsp.Assessment
+}
+
+type ocspAssessmentProbe struct {
+	state *ocspAssessmentProbeState
+}
+
+func (ocspAssessmentProbe) Name() string { return "ocspAssessmentProbe" }
+
+func (probe ocspAssessmentProbe) Evaluate(
+	_ *node.Node,
+	ctx *operator.EvaluationContext,
+	_ []any,
+) (bool, error) {
+	if ctx == nil || ctx.Cert == nil || ctx.Cert.Cert == nil ||
+		ctx.Cert.Cert.SerialNumber == nil || ctx.OCSPAssessment == nil {
+		return false, nil
+	}
+
+	serial := ctx.Cert.Cert.SerialNumber.String()
+	probe.state.bySerial[serial] = ctx.OCSPAssessment
+	if len(ctx.OCSPAssessment.Evidence) != 1 ||
+		ctx.OCSPAssessment.Evidence[0].Info != probe.state.evidence {
+		return false, nil
+	}
+
+	evidence := ctx.OCSPAssessment.Evidence[0]
+	switch serial {
+	case probe.state.applicableSerial:
+		return evidence.Applicable && evidence.Valid() &&
+			ctx.OCSPAssessment.Status() == ocsp.StatusGood, nil
+	case probe.state.unrelatedSerial:
+		return !evidence.Applicable &&
+			ctx.OCSPAssessment.Status() == ocsp.StatusNotApplicable, nil
+	default:
+		return false, nil
+	}
+}
+
+func TestChainSuppliesTargetScopedOCSPAssessments(t *testing.T) {
+	leafCertificates, err := cert.LoadCertificates(
+		filepath.Join("..", "..", "tests", "certs", "ocsp-leaf.pem"),
+	)
+	if err != nil || len(leafCertificates) != 1 {
+		t.Fatalf("load OCSP leaf: certificates=%d err=%v", len(leafCertificates), err)
+	}
+	issuerCertificates, err := cert.LoadCertificates(
+		filepath.Join("..", "..", "tests", "certs", "ocsp-intermediate.pem"),
+	)
+	if err != nil || len(issuerCertificates) != 1 {
+		t.Fatalf("load OCSP issuer: certificates=%d err=%v", len(issuerCertificates), err)
+	}
+	responses, err := ocsp.GetOCSPs(
+		filepath.Join("..", "..", "tests", "ocsps", "good-leaf.ocsp"),
+	)
+	if err != nil || len(responses) != 1 || responses[0] == nil || responses[0].Response == nil {
+		t.Fatalf("load OCSP response: responses=%d err=%v", len(responses), err)
+	}
+
+	applicable := leafCertificates[0]
+	applicable.Type = "leaf"
+	unrelatedCertificate := *applicable.Cert
+	unrelatedCertificate.SerialNumber = new(big.Int).Add(applicable.Cert.SerialNumber, big.NewInt(1))
+	unrelated := &cert.Info{Cert: &unrelatedCertificate, Type: "leaf"}
+	issuerCertificates[0].Type = "intermediate"
+
+	state := &ocspAssessmentProbeState{
+		applicableSerial: applicable.Cert.SerialNumber.String(),
+		unrelatedSerial:  unrelated.Cert.SerialNumber.String(),
+		evidence:         responses[0],
+		bySerial:         make(map[string]*ocsp.Assessment, 2),
+	}
+	registry := operator.NewRegistry()
+	registry.Register(ocspAssessmentProbe{state: state})
+	profile := policy.Policy{
+		ID:       "prepared-ocsp-assessment",
+		CertType: []string{"leaf"},
+		Rules: []rule.Rule{{
+			ID:       "prepared-ocsp-assessment",
+			Target:   "certificate",
+			Operator: "ocspAssessmentProbe",
+			Severity: rule.SeverityError,
+		}},
+	}
+
+	results := Chain(Context{
+		Policies:       []policy.Policy{profile},
+		Registry:       registry,
+		OCSPs:          responses,
+		Chain:          []*cert.Info{applicable, unrelated, issuerCertificates[0]},
+		ValidationTime: responses[0].Response.ThisUpdate,
+	})
+	if len(results) != 2 {
+		t.Fatalf("results = %#v, want one result for each target leaf", results)
+	}
+	for _, result := range results {
+		if result.Verdict != rule.VerdictPass {
+			t.Fatalf("result = %#v, want prepared target-specific assessment to pass", result)
+		}
+	}
+
+	applicableAssessment := state.bySerial[state.applicableSerial]
+	unrelatedAssessment := state.bySerial[state.unrelatedSerial]
+	if applicableAssessment == nil || unrelatedAssessment == nil {
+		t.Fatalf("observed assessments = %#v, want both target serials", state.bySerial)
+	}
+	if applicableAssessment == unrelatedAssessment {
+		t.Fatal("Chain reused one OCSP assessment across distinct certificate targets")
+	}
+}
+
+func TestCRLUsesConfiguredValidationTime(t *testing.T) {
+	expected := time.Date(2026, 8, 14, 12, 0, 0, 123, time.UTC)
+	registry := operator.NewRegistry()
+	registry.Register(evaluationTimeProbe{expected: expected})
+	profile := policy.Policy{
+		ID: "crl-validation-time",
+		Rules: []rule.Rule{{
+			ID:       "crl-validation-time",
+			Target:   "crl",
+			Operator: "evaluationTimeProbe",
+			Severity: rule.SeverityError,
+		}},
+	}
+	results := CRL(Context{
+		Policies: []policy.Policy{profile},
+		Registry: registry,
+		CRLs: []*crl.Info{{CRL: &x509.RevocationList{
+			Issuer: pkix.Name{CommonName: "CRL CA"},
+		}}},
+		ValidationTime: expected,
+	})
+	if len(results) != 1 || results[0].Verdict != rule.VerdictPass {
+		t.Fatalf("results = %#v, want configured time to reach CRL operators", results)
+	}
+}
+
+func TestProjectRevocationAssessmentProjectsGoodAndRevokedFacts(t *testing.T) {
+	now := time.Date(2026, 8, 14, 12, 0, 0, 0, time.UTC)
+	tests := []struct {
+		name       string
+		assessment crl.Assessment
+		status     string
+		reason     any
+	}{
+		{
+			name: "good",
+			assessment: crl.Assessment{
+				CoveredReasons: crl.AllReasons,
+			},
+			status: "good",
+		},
+		{
+			name: "revoked",
+			assessment: crl.Assessment{
+				Revocation: &crl.Revocation{ReasonCode: 6, RevocationTime: now},
+			},
+			status: "revoked",
+			reason: 6,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			tree := node.New("certificate", nil)
+			projectRevocationAssessment(tree, test.assessment)
+			status, ok := tree.Resolve("revocation.status")
+			if !ok || status.Value != test.status {
+				t.Fatalf("status = %#v, want %q", status, test.status)
+			}
+			covered, ok := tree.Resolve("revocation.coveredReasons")
+			if !ok || covered.Value != int(test.assessment.CoveredReasons) {
+				t.Fatalf("coveredReasons = %#v", covered)
+			}
+			reason, present := tree.Resolve("revocation.reasonCode")
+			if test.reason == nil {
+				if present {
+					t.Fatalf("unexpected reasonCode = %#v", reason)
+				}
+				return
+			}
+			if !present || reason.Value != test.reason {
+				t.Fatalf("reasonCode = %#v, want %v", reason, test.reason)
+			}
+			projectedTime, ok := tree.Resolve("revocation.revocationTime")
+			if !ok || projectedTime.Value != now {
+				t.Fatalf("revocationTime = %#v, want %v", projectedTime, now)
+			}
+		})
 	}
 }
 

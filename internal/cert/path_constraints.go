@@ -87,8 +87,5 @@ func sameCertificateInfo(left, right *Info) bool {
 	if left == nil || right == nil || left.Cert == nil || right.Cert == nil {
 		return false
 	}
-	if left == right || left.Cert == right.Cert {
-		return true
-	}
-	return len(left.Cert.Raw) > 0 && bytes.Equal(left.Cert.Raw, right.Cert.Raw)
+	return left == right || SameCertificate(left.Cert, right.Cert)
 }

@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/cavoq/PCL/internal/x509ext"
 	"golang.org/x/crypto/cryptobyte"
 	cryptobyte_asn1 "golang.org/x/crypto/cryptobyte/asn1"
 )
@@ -54,7 +55,7 @@ func TestDecodeCRLDistributionPointsStrictExposesDependencyFacts(t *testing.T) {
 	if !point.DistributionPointPresent ||
 		point.DistributionPointNameKind != CRLDistributionPointNameFullName ||
 		!point.ReasonsPresent ||
-		!reflect.DeepEqual(point.ReasonBits, []int{1}) ||
+		point.ReasonMask != x509ext.ReasonKeyCompromise ||
 		!reflect.DeepEqual(point.FullNameGeneralNameTags, []int{6}) ||
 		!reflect.DeepEqual(point.CRLIssuerGeneralNameTags, []int{2, 4}) {
 		t.Fatalf("fullName facts = %#v", point)

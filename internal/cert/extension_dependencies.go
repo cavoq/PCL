@@ -5,6 +5,7 @@ import (
 
 	certzcrypto "github.com/cavoq/PCL/internal/cert/zcrypto"
 	"github.com/cavoq/PCL/internal/oid"
+	"github.com/cavoq/PCL/internal/x509ext"
 	"github.com/zmap/zcrypto/x509"
 )
 
@@ -110,11 +111,10 @@ func CRLDistributionPointsDependenciesValid(certificate *x509.Certificate) bool 
 		if !point.ReasonsPresent {
 			hasAllReasonsPoint = true
 		} else {
-			allReasons, invalid := reasonFlagsCoverAll(point.ReasonBits)
-			if invalid {
+			if point.ReasonMask&^x509ext.AllReasons != 0 {
 				return false
 			}
-			if allReasons {
+			if point.ReasonMask == x509ext.AllReasons {
 				hasAllReasonsPoint = true
 			}
 		}
@@ -125,18 +125,6 @@ func CRLDistributionPointsDependenciesValid(certificate *x509.Certificate) bool 
 		}
 	}
 	return hasAllReasonsPoint
-}
-
-func reasonFlagsCoverAll(bits []int) (all bool, invalid bool) {
-	var mask uint16
-	for _, bit := range bits {
-		if bit == 0 || bit < 0 || bit > 8 {
-			return false, true
-		}
-		mask |= 1 << bit
-	}
-	const allDefinedReasons = uint16(0x1fe) // bits 1 through 8
-	return mask == allDefinedReasons, false
 }
 
 // PolicyMappingsDependenciesValid checks that Policy Mappings occurs only in

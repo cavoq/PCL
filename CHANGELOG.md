@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.0.0] - 2026-09-20
+
+### Breaking Changes
+- Removed the arbitrary first-list `certificate.crl` projection. Certificate
+  evaluation now exposes one domain-owned `certificate.revocation` assessment
+  with an explicit `good`, `revoked`, or `unknown` status.
+- RFC 5280 revocation policy now reports indeterminate status separately from
+  a proven revocation. Custom policies should inspect
+  `certificate.revocation.status` instead of treating every non-Good result as
+  the same condition.
+
+### Added
+- Strict shared representations for CRL distribution points, Freshest CRL,
+  Issuing Distribution Point, CRL and delta numbers, and RFC 5280 CRL-entry
+  extensions, with exact location-specific critical-extension processing.
+- Deterministic RFC 5280 Section 6.3 CRL assessment covering scope and reason
+  accumulation, indirect CRLs, complete/delta combination, and
+  `removeFromCRL`, while preserving Unknown for insufficient evidence.
+- Evaluation-scoped CRL retrieval with bounded DER responses, cached failures,
+  URL and signed-object deduplication, retained origins, and two-stage
+  CRLDP/Freshest discovery.
+- Bidirectional policy-coverage validation that rejects missing, duplicate, or
+  stale rule classifications.
+
+### Changed
+- Automatic CRL acquisition is HTTP(S)-only and DER-only, uses the certificate
+  fetch timeout (10 seconds by default), and follows complete-CRL Freshest
+  locations in a bounded second stage. Explicit `--crl` inputs continue to
+  accept PEM or DER.
+- CRL signer evidence now requires `cRLSign` when the signer certificate has a
+  Key Usage extension. Full same-trust-anchor signer-path validation remains
+  the P4 boundary.
+- P3 revocation processing is complete within its documented exact-name and
+  supplied-signer boundaries; P4 certification-path and Section 7 name
+  validation are next.
+
 ## [3.0.0] - 2026-07-19
 
 ### Breaking Changes
@@ -143,7 +179,8 @@ Review any policies using `isNull` or absent-field checks against the updated no
 
 - See git history for earlier changes
 
-[Unreleased]: https://github.com/cavoq/PCL/compare/v3.0.0...HEAD
+[Unreleased]: https://github.com/cavoq/PCL/compare/v4.0.0...HEAD
+[4.0.0]: https://github.com/cavoq/PCL/compare/v3.0.0...v4.0.0
 [3.0.0]: https://github.com/cavoq/PCL/compare/v2.1.0...v3.0.0
 [2.1.0]: https://github.com/cavoq/PCL/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/cavoq/PCL/compare/v1.1.1...v2.0.0

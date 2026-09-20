@@ -29,3 +29,20 @@ func TestIsIndirectUsesIssuingDistributionPointOID(t *testing.T) {
 		})
 	}
 }
+
+func TestIsIndirectDoesNotScanNestedIDPBytes(t *testing.T) {
+	// The byte pattern for indirectCRL TRUE occurs inside an otherName OCTET
+	// STRING. A structural decoder must not interpret it as IDP field [4].
+	value := []byte{
+		0x30, 0x11, 0xa0, 0x0f, 0xa0, 0x0d, 0xa0, 0x0b,
+		0x06, 0x02, 0x2a, 0x03, 0xa0, 0x05, 0x04, 0x03, 0x84, 0x01, 0xff,
+	}
+	list := &x509.RevocationList{Extensions: []pkix.Extension{{
+		Id:       asn1.ObjectIdentifier{2, 5, 29, 28},
+		Critical: true,
+		Value:    value,
+	}}}
+	if IsIndirect(list) {
+		t.Fatal("nested bytes were mistaken for indirectCRL")
+	}
+}

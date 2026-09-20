@@ -126,14 +126,16 @@ func TestNoUnknownCriticalExtensionsUsesProcessedRegistry(t *testing.T) {
 			target: buildTarget("certificate", zasn1.ObjectIdentifier{1, 2, 3, 4}, false),
 		},
 		{
-			name:   "known CRL extension is deferred to P3",
+			name:   "processable CRL number extension",
 			target: buildTarget("crl", zasn1.ObjectIdentifier{2, 5, 29, 20}, false),
 			ctx:    &EvaluationContext{Cert: &cert.Info{Cert: &x509.Certificate{}}},
+			want:   true,
 		},
 		{
-			name:   "known but P3-only CRL extension",
+			name:   "processable IDP CRL extension",
 			target: buildTarget("crl", zasn1.ObjectIdentifier{2, 5, 29, 28}, false),
 			ctx:    &EvaluationContext{Cert: &cert.Info{Cert: &x509.Certificate{}}},
+			want:   true,
 		},
 		{
 			name:   "unknown CRL extension",
@@ -169,7 +171,7 @@ func TestNoUnknownCriticalExtensionsUsesProcessedRegistry(t *testing.T) {
 		}
 	})
 
-	t.Run("critical CRL entry extension fails closed pending P3", func(t *testing.T) {
+	t.Run("processed critical CRL entry extension is recognized", func(t *testing.T) {
 		target := node.New("crl", nil)
 		revoked := node.New("revokedCertificates", nil)
 		entry := node.New("0", nil)
@@ -184,8 +186,8 @@ func TestNoUnknownCriticalExtensionsUsesProcessedRegistry(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		if got {
-			t.Fatal("NoUnknownCriticalExtensions accepted a critical CRL entry extension")
+		if !got {
+			t.Fatal("NoUnknownCriticalExtensions rejected a processed CRL entry extension")
 		}
 	})
 

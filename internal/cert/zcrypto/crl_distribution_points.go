@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strconv"
 
-	internalasn1 "github.com/cavoq/PCL/internal/asn1"
 	"github.com/cavoq/PCL/internal/node"
+	"github.com/cavoq/PCL/internal/x509ext"
 	nameprojector "github.com/cavoq/PCL/internal/zcrypto"
 	"golang.org/x/crypto/cryptobyte"
 	cryptobyte_asn1 "golang.org/x/crypto/cryptobyte/asn1"
@@ -37,7 +37,7 @@ type decodedDistributionPointName struct {
 
 type decodedCRLDistributionPoint struct {
 	Name      *decodedDistributionPointName
-	Reasons   *decodedReasonFlags
+	Reasons   *x509ext.ReasonFlags
 	CRLIssuer []parsedGeneralName
 }
 
@@ -63,7 +63,7 @@ type CRLDistributionPointFacts struct {
 	DistributionPointNameKind CRLDistributionPointNameKind
 	FullNameGeneralNameTags   []int
 	ReasonsPresent            bool
-	ReasonBits                []int
+	ReasonMask                x509ext.ReasonMask
 	CRLIssuerGeneralNameTags  []int
 }
 
@@ -115,11 +115,7 @@ func DecodeCRLDistributionPointsStrict(extValue []byte) (CRLDistributionPointsFa
 			}
 		}
 		if distributionPoint.Reasons != nil {
-			for _, definition := range reasonFlagDefinitions {
-				if reasonFlagSet(distributionPoint.Reasons.Value, definition.Bit) {
-					pointFacts.ReasonBits = append(pointFacts.ReasonBits, definition.Bit)
-				}
-			}
+			pointFacts.ReasonMask = distributionPoint.Reasons.Mask
 		}
 		pointFacts.CRLIssuerGeneralNameTags = generalNameTags(distributionPoint.CRLIssuer)
 		facts.DistributionPoints = append(facts.DistributionPoints, pointFacts)
@@ -139,188 +135,42 @@ func generalNameTags(names []parsedGeneralName) []int {
 }
 
 func decodeCRLDistributionPoints(extValue []byte) ([]decodedCRLDistributionPoint, error) {
-	input := cryptobyte.String(extValue)
-	var encodedDistributionPoints cryptobyte.String
-	if !input.ReadASN1(&encodedDistributionPoints, cryptobyte_asn1.SEQUENCE) || !input.Empty() {
-		return nil, fmt.Errorf("invalid CRLDistributionPoints sequence")
+	shared, err := x509ext.DecodeDistributionPoints(extValue)
+	if err != nil {
+		return nil, err
 	}
-	if encodedDistributionPoints.Empty() {
-		return nil, fmt.Errorf("CRLDistributionPoints must not be empty")
-	}
-
-	var distributionPoints []decodedCRLDistributionPoint
-	for index := 0; !encodedDistributionPoints.Empty(); index++ {
-		var encodedDistributionPoint cryptobyte.String
-		if !encodedDistributionPoints.ReadASN1(&encodedDistributionPoint, cryptobyte_asn1.SEQUENCE) {
-			return nil, fmt.Errorf("invalid DistributionPoint %d", index)
+	decoded := make([]decodedCRLDistributionPoint, 0, len(shared))
+	for _, point := range shared {
+		converted := decodedCRLDistributionPoint{
+			CRLIssuer: append([]parsedGeneralName(nil), point.CRLIssuer...),
 		}
-		distributionPoint, err := decodeCRLDistributionPoint(encodedDistributionPoint, index)
-		if err != nil {
-			return nil, err
+		if point.Name != nil {
+			name := decodedDistributionPointName{
+				GeneralNames: append([]parsedGeneralName(nil), point.Name.FullName...),
+				RelativeRaw:  append([]byte(nil), point.Name.RawDER...),
+			}
+			switch point.Name.Kind {
+			case x509ext.DistributionPointNameFullName:
+				name.Kind = decodedFullName
+			case x509ext.DistributionPointNameRelative:
+				name.Kind = decodedNameRelativeToCRLIssuer
+				rdn := cryptobyte.String(point.Name.RelativeRDN)
+				var contents cryptobyte.String
+				if !rdn.ReadASN1(&contents, cryptobyte_asn1.SET) || !rdn.Empty() {
+					return nil, fmt.Errorf("invalid shared relative distinguished name")
+				}
+				name.RelativeName = append([]byte(nil), contents...)
+			default:
+				return nil, fmt.Errorf("unknown shared DistributionPointName kind")
+			}
+			converted.Name = &name
 		}
-		distributionPoints = append(distributionPoints, distributionPoint)
-	}
-	return distributionPoints, nil
-}
-
-func decodeCRLDistributionPoint(
-	encoded cryptobyte.String,
-	index int,
-) (decodedCRLDistributionPoint, error) {
-	var decoded decodedCRLDistributionPoint
-	lastTag := -1
-
-	for !encoded.Empty() {
-		var field cryptobyte.String
-		var tag cryptobyte_asn1.Tag
-		if !encoded.ReadAnyASN1(&field, &tag) {
-			return decodedCRLDistributionPoint{}, fmt.Errorf("invalid field in DistributionPoint %d", index)
+		if point.Reasons != nil {
+			converted.Reasons = point.Reasons
 		}
-
-		contextTag := int(tag) & 0x1f
-		if contextTag <= lastTag {
-			return decodedCRLDistributionPoint{}, fmt.Errorf(
-				"duplicate or out-of-order field in DistributionPoint %d",
-				index,
-			)
-		}
-		lastTag = contextTag
-
-		switch contextTag {
-		case 0:
-			if tag != cryptobyte_asn1.Tag(0).ContextSpecific().Constructed() {
-				return decodedCRLDistributionPoint{}, fmt.Errorf(
-					"invalid distributionPoint tag in DistributionPoint %d",
-					index,
-				)
-			}
-			name, err := decodeDistributionPointName(field, index)
-			if err != nil {
-				return decodedCRLDistributionPoint{}, err
-			}
-			decoded.Name = &name
-
-		case 1:
-			if tag != cryptobyte_asn1.Tag(1).ContextSpecific() {
-				return decodedCRLDistributionPoint{}, fmt.Errorf(
-					"invalid reasons tag in DistributionPoint %d",
-					index,
-				)
-			}
-			reasons, err := decodeReasonFlags([]byte(field))
-			if err != nil {
-				return decodedCRLDistributionPoint{}, fmt.Errorf(
-					"invalid reasons BIT STRING in DistributionPoint %d",
-					index,
-				)
-			}
-			decoded.Reasons = &reasons
-
-		case 2:
-			if tag != cryptobyte_asn1.Tag(2).ContextSpecific().Constructed() || field.Empty() {
-				return decodedCRLDistributionPoint{}, fmt.Errorf(
-					"invalid cRLIssuer in DistributionPoint %d",
-					index,
-				)
-			}
-			issuer, err := readGeneralNames(&field)
-			if err != nil {
-				return decodedCRLDistributionPoint{}, fmt.Errorf(
-					"invalid cRLIssuer in DistributionPoint %d: %w",
-					index,
-					err,
-				)
-			}
-			decoded.CRLIssuer = issuer
-
-		default:
-			return decodedCRLDistributionPoint{}, fmt.Errorf("unknown field in DistributionPoint %d", index)
-		}
-	}
-
-	if decoded.Name == nil && decoded.CRLIssuer == nil {
-		return decodedCRLDistributionPoint{}, fmt.Errorf(
-			"DistributionPoint %d has neither distributionPoint nor cRLIssuer",
-			index,
-		)
+		decoded = append(decoded, converted)
 	}
 	return decoded, nil
-}
-
-func decodeDistributionPointName(
-	encoded cryptobyte.String,
-	index int,
-) (decodedDistributionPointName, error) {
-	var raw cryptobyte.String
-	var tag cryptobyte_asn1.Tag
-	if !encoded.ReadAnyASN1Element(&raw, &tag) || !encoded.Empty() {
-		return decodedDistributionPointName{}, fmt.Errorf(
-			"invalid DistributionPointName in DistributionPoint %d",
-			index,
-		)
-	}
-	element := raw
-	var value cryptobyte.String
-	var parsedTag cryptobyte_asn1.Tag
-	if !element.ReadAnyASN1(&value, &parsedTag) || !element.Empty() || parsedTag != tag {
-		return decodedDistributionPointName{}, fmt.Errorf(
-			"invalid DistributionPointName in DistributionPoint %d",
-			index,
-		)
-	}
-
-	switch tag {
-	case cryptobyte_asn1.Tag(0).ContextSpecific().Constructed():
-		if value.Empty() {
-			return decodedDistributionPointName{}, fmt.Errorf("empty fullName in DistributionPoint %d", index)
-		}
-		names, err := readGeneralNames(&value)
-		if err != nil {
-			return decodedDistributionPointName{}, fmt.Errorf(
-				"invalid fullName in DistributionPoint %d: %w",
-				index,
-				err,
-			)
-		}
-		return decodedDistributionPointName{
-			Kind:         decodedFullName,
-			GeneralNames: names,
-		}, nil
-
-	case cryptobyte_asn1.Tag(1).ContextSpecific().Constructed():
-		if value.Empty() {
-			return decodedDistributionPointName{}, fmt.Errorf(
-				"empty nameRelativeToCRLIssuer in DistributionPoint %d",
-				index,
-			)
-		}
-		_, nameDER, err := encodeRelativeDistinguishedName(value)
-		if err != nil {
-			return decodedDistributionPointName{}, fmt.Errorf(
-				"invalid nameRelativeToCRLIssuer in DistributionPoint %d: %w",
-				index,
-				err,
-			)
-		}
-		parsed, err := internalasn1.ParseDistinguishedNameStrict(nameDER)
-		if err != nil || len(parsed.RDNs) != 1 {
-			return decodedDistributionPointName{}, fmt.Errorf(
-				"invalid nameRelativeToCRLIssuer in DistributionPoint %d",
-				index,
-			)
-		}
-		return decodedDistributionPointName{
-			Kind:         decodedNameRelativeToCRLIssuer,
-			RelativeName: append([]byte(nil), value...),
-			RelativeRaw:  append([]byte(nil), raw...),
-		}, nil
-
-	default:
-		return decodedDistributionPointName{}, fmt.Errorf(
-			"unknown DistributionPointName in DistributionPoint %d",
-			index,
-		)
-	}
 }
 
 func encodeRelativeDistinguishedName(contents []byte) (rdnDER, nameDER []byte, err error) {
@@ -364,7 +214,7 @@ func projectCRLDistributionPoint(name string, decoded decodedCRLDistributionPoin
 		n.Children["distributionPoint"] = projectDistributionPointName(*decoded.Name)
 	}
 	if decoded.Reasons != nil {
-		n.Children["reasons"] = projectReasonFlags(*decoded.Reasons)
+		n.Children["reasons"] = projectReasonFlags(decoded.Reasons)
 	}
 	if decoded.CRLIssuer != nil {
 		issuerNode := node.New("cRLIssuer", nil)

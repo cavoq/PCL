@@ -168,6 +168,7 @@ func processCertificates(cfg Config, policies []policy.Policy, reg *operator.Reg
 	// Auto-validate: climb chain via CA Issuers URLs (pool fallback when no CaIssuers)
 	if cfg.AutoValidate && !cfg.NoAutoChain {
 		pool := append([]*cert.Info{}, allCerts...)
+		poolSet := cert.NewCertificateSet(cert.CertsFromInfos(pool)...)
 		var climbedCerts []*cert.Info
 		for _, c := range certs {
 			if c.Cert == nil {
@@ -177,21 +178,10 @@ func processCertificates(cfg Config, policies []policy.Policy, reg *operator.Reg
 			miniChain = cert.ClimbChainWithPool(miniChain, pool, cfg.CertTimeout, cfg.MaxChainDepth, w)
 			climbedCerts = append(climbedCerts, miniChain...)
 			for _, info := range miniChain {
-				if info == nil || info.Cert == nil || info.Cert.SerialNumber == nil {
+				if info == nil || !poolSet.Add(info.Cert) {
 					continue
 				}
-				serial := info.Cert.SerialNumber.String()
-				already := false
-				for _, existing := range pool {
-					if existing != nil && existing.Cert != nil && existing.Cert.SerialNumber != nil &&
-						existing.Cert.SerialNumber.String() == serial {
-						already = true
-						break
-					}
-				}
-				if !already {
-					pool = append(pool, info)
-				}
+				pool = append(pool, info)
 			}
 		}
 		allCerts = append(climbedCerts, issuers...)
@@ -206,7 +196,10 @@ func processCertificates(cfg Config, policies []policy.Policy, reg *operator.Reg
 
 	// Auto-validate: fetch CRLs
 	if cfg.AutoValidate && !cfg.NoAutoCRL {
-		autoCRLs := crl.FetchForChain(chain, cfg.OCSPTimeout, w)
+		fetchSession := crl.NewFetchSession(crl.FetchConfig{
+			Timeout: crlResolveTimeout(cfg),
+		})
+		autoCRLs := fetchSession.FetchForChain(chain, w)
 		crls = append(crls, autoCRLs...)
 	}
 
@@ -225,15 +218,17 @@ func processCertificates(cfg Config, policies []policy.Policy, reg *operator.Reg
 	}
 
 	evalCtx := evaluator.Context{
-		Policies:           policies,
-		Registry:           reg,
-		CRLs:               crls,
-		OCSPs:              ocsps,
-		Chain:              chain,
-		ApplicationPurpose: cfg.ApplicationPurpose,
-		CRLResolveTimeout:  crlResolveTimeout(cfg),
-		CRLResolveMaxDepth: crlResolveMaxDepth(cfg),
-		CRLResolveWarn:     w,
+		Policies:            policies,
+		Registry:            reg,
+		CRLs:                crls,
+		OCSPs:               ocsps,
+		Chain:               chain,
+		RevocationRequested: crlRevocationRequested(cfg),
+		ValidationTime:      time.Now(),
+		ApplicationPurpose:  cfg.ApplicationPurpose,
+		CRLResolveTimeout:   crlResolveTimeout(cfg),
+		CRLResolveMaxDepth:  crlResolveMaxDepth(cfg),
+		CRLResolveWarn:      w,
 	}
 	evalCtx = evaluator.PrepareCRLIssuers(evalCtx)
 	results := evaluator.Chain(evalCtx)
@@ -276,6 +271,10 @@ func crlResolveMaxDepth(cfg Config) int {
 		return cfg.MaxChainDepth
 	}
 	return 10
+}
+
+func crlRevocationRequested(cfg Config) bool {
+	return cfg.CRLPath != "" || (cfg.AutoValidate && !cfg.NoAutoCRL)
 }
 
 func applyDefaults(cfg *Config) {

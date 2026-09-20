@@ -13,16 +13,13 @@ import (
 	internalasn1 "github.com/cavoq/PCL/internal/asn1"
 	"github.com/cavoq/PCL/internal/node"
 	"github.com/cavoq/PCL/internal/oid"
+	"github.com/cavoq/PCL/internal/x509ext"
 	nameprojector "github.com/cavoq/PCL/internal/zcrypto"
 	"golang.org/x/crypto/cryptobyte"
 	cryptobyte_asn1 "golang.org/x/crypto/cryptobyte/asn1"
 )
 
-type parsedGeneralName struct {
-	Tag      int
-	RawDER   []byte
-	RawValue []byte
-}
+type parsedGeneralName = x509ext.GeneralName
 
 type parsedDirectoryString struct {
 	Tag      int
@@ -37,74 +34,11 @@ type parsedEDIPartyName struct {
 }
 
 func generalNameType(tag int) string {
-	switch tag {
-	case 0:
-		return "otherName"
-	case 1:
-		return "rfc822Name"
-	case 2:
-		return "dNSName"
-	case 3:
-		return "x400Address"
-	case 4:
-		return "directoryName"
-	case 5:
-		return "ediPartyName"
-	case 6:
-		return "uniformResourceIdentifier"
-	case 7:
-		return "iPAddress"
-	case 8:
-		return "registeredID"
-	default:
-		return "unknown"
-	}
+	return x509ext.GeneralNameType(tag)
 }
 
 func readGeneralName(input *cryptobyte.String) (parsedGeneralName, error) {
-	return readGeneralNameWithValidation(input, validateGeneralName)
-}
-
-func readGeneralNameWithValidation(
-	input *cryptobyte.String,
-	validate func(cryptobyte_asn1.Tag, cryptobyte.String, cryptobyte.String) error,
-) (parsedGeneralName, error) {
-	var encoded cryptobyte.String
-	var tag cryptobyte_asn1.Tag
-	if !input.ReadAnyASN1Element(&encoded, &tag) {
-		return parsedGeneralName{}, fmt.Errorf("failed to read GeneralName")
-	}
-
-	element := encoded
-	var content cryptobyte.String
-	var parsedTag cryptobyte_asn1.Tag
-	if !element.ReadAnyASN1(&content, &parsedTag) || !element.Empty() || parsedTag != tag {
-		return parsedGeneralName{}, fmt.Errorf("failed to decode GeneralName")
-	}
-	if err := validate(tag, encoded, content); err != nil {
-		return parsedGeneralName{}, err
-	}
-
-	return parsedGeneralName{
-		Tag:      int(tag) & 0x1f,
-		RawDER:   append([]byte(nil), encoded...),
-		RawValue: append([]byte(nil), content...),
-	}, nil
-}
-
-// readGeneralNames consumes consecutive GeneralName values from input. The
-// surrounding SEQUENCE or implicit context-specific wrapper is owned by the
-// caller because GeneralNames appears under several different schemas.
-func readGeneralNames(input *cryptobyte.String) ([]parsedGeneralName, error) {
-	var names []parsedGeneralName
-	for !input.Empty() {
-		name, err := readGeneralName(input)
-		if err != nil {
-			return nil, err
-		}
-		names = append(names, name)
-	}
-	return names, nil
+	return x509ext.ReadGeneralName(input)
 }
 
 func buildParsedGeneralName(name string, value parsedGeneralName) *node.Node {
@@ -189,20 +123,7 @@ func addParsedGeneralNames(target *node.Node, names []parsedGeneralName) {
 }
 
 func parseGeneralNames(value []byte) ([]parsedGeneralName, error) {
-	input := cryptobyte.String(value)
-	var names cryptobyte.String
-	if !input.ReadASN1(&names, cryptobyte_asn1.SEQUENCE) || !input.Empty() {
-		return nil, fmt.Errorf("failed to read GeneralNames")
-	}
-
-	parsedNames, err := readGeneralNames(&names)
-	if err != nil {
-		return nil, err
-	}
-	if len(parsedNames) == 0 {
-		return nil, fmt.Errorf("GeneralNames must not be empty")
-	}
-	return parsedNames, nil
+	return x509ext.DecodeGeneralNames(value)
 }
 
 func buildSubjectAltName(cert *x509.Certificate) *node.Node {
@@ -274,95 +195,6 @@ func aliasGeneralNameNode(name string, canonical *node.Node) *node.Node {
 		Value:    canonical.Value,
 		Children: canonical.Children,
 	}
-}
-
-func validateGeneralName(
-	tag cryptobyte_asn1.Tag,
-	encoded cryptobyte.String,
-	content cryptobyte.String,
-) error {
-	return validateGeneralNameWithIPLengths(tag, encoded, content, 4, 16)
-}
-
-func validateNameConstraintGeneralName(
-	tag cryptobyte_asn1.Tag,
-	encoded cryptobyte.String,
-	content cryptobyte.String,
-) error {
-	return validateGeneralNameWithIPLengths(tag, encoded, content, 8, 32)
-}
-
-func validateGeneralNameWithIPLengths(
-	tag cryptobyte_asn1.Tag,
-	encoded cryptobyte.String,
-	content cryptobyte.String,
-	ipLengths ...int,
-) error {
-	tagValue := int(tag)
-	if tagValue&0xc0 != 0x80 || tagValue&0x1f > 8 {
-		return fmt.Errorf("invalid GeneralName tag %d", tagValue)
-	}
-	if len(content) == 0 {
-		return fmt.Errorf("GeneralName tag %d is empty", tagValue&0x1f)
-	}
-
-	tagNumber := tagValue & 0x1f
-	constructed := tagValue&0x20 != 0
-	wantConstructed := tagNumber == 0 || tagNumber == 3 || tagNumber == 4 || tagNumber == 5
-	if constructed != wantConstructed {
-		return fmt.Errorf("GeneralName tag %d has invalid primitive/constructed form", tagNumber)
-	}
-
-	switch tagNumber {
-	case 0: // otherName: implicit SEQUENCE content (OID, [0] EXPLICIT value)
-		if _, _, err := decodeOtherName(content); err != nil {
-			return fmt.Errorf("invalid otherName")
-		}
-	case 1, 2, 6: // rfc822Name, dNSName, and URI are IA5String values
-		for _, octet := range content {
-			if octet > 0x7f {
-				return fmt.Errorf("GeneralName tag %d contains a non-IA5 octet", tagNumber)
-			}
-		}
-	case 3: // x400Address: implicit ORAddress, whose first component is a SEQUENCE
-		value := content
-		var builtIn cryptobyte.String
-		if !value.ReadASN1(&builtIn, cryptobyte_asn1.SEQUENCE) || (builtIn.Empty() && value.Empty()) {
-			return fmt.Errorf("invalid x400Address")
-		}
-	case 4: // directoryName: explicit Name/RDNSequence
-		parsed, err := internalasn1.ParseDistinguishedNameStrict(content)
-		if err != nil || len(parsed.RDNs) == 0 {
-			return fmt.Errorf("invalid directoryName")
-		}
-	case 5: // ediPartyName: partyName [1] is required
-		if _, err := decodeEDIPartyName(content); err != nil {
-			return fmt.Errorf("invalid ediPartyName")
-		}
-	case 7:
-		validLength := false
-		for _, length := range ipLengths {
-			if len(content) == length {
-				validLength = true
-				break
-			}
-		}
-		if !validLength {
-			return fmt.Errorf("invalid iPAddress length %d", len(content))
-		}
-		if len(content) == 8 || len(content) == 32 {
-			half := len(content) / 2
-			if _, bits := net.IPMask(content[half:]).Size(); bits == 0 {
-				return fmt.Errorf("invalid iPAddress constraint mask")
-			}
-		}
-	case 8:
-		if _, err := decodeRegisteredID(encoded); err != nil {
-			return fmt.Errorf("invalid registeredID")
-		}
-	}
-
-	return nil
 }
 
 func decodeOtherName(content []byte) (string, []byte, error) {
@@ -465,15 +297,5 @@ func buildDirectoryStringNode(name string, value parsedDirectoryString) *node.No
 }
 
 func decodeRegisteredID(encoded []byte) (string, error) {
-	oidDER := append([]byte(nil), encoded...)
-	if len(oidDER) == 0 {
-		return "", fmt.Errorf("invalid registeredID")
-	}
-	oidDER[0] = byte(cryptobyte_asn1.OBJECT_IDENTIFIER)
-	var objectID stdasn1.ObjectIdentifier
-	rest, err := stdasn1.Unmarshal(oidDER, &objectID)
-	if err != nil || len(rest) != 0 || len(objectID) == 0 {
-		return "", fmt.Errorf("invalid registeredID")
-	}
-	return objectID.String(), nil
+	return x509ext.DecodeRegisteredID(encoded)
 }

@@ -38,15 +38,15 @@ func TestSigningIssuerFromPool_prefersSignature(t *testing.T) {
 	}, nil)
 
 	signer := mustZX509Cert(t, ocspKey, caKey, &cryptox509.Certificate{
-		SerialNumber:     big.NewInt(3),
-		Subject:          cryptopkix.Name{CommonName: "OCSP"},
-		Issuer:           pkixNameToStd(ca.Subject),
-		AuthorityKeyId:   ca.SubjectKeyId,
-		NotBefore:        ca.NotBefore,
-		NotAfter:         ca.NotAfter,
-		ExtKeyUsage:      []cryptox509.ExtKeyUsage{cryptox509.ExtKeyUsageOCSPSigning},
-		KeyUsage:         cryptox509.KeyUsageDigitalSignature,
-		SubjectKeyId:     []byte{0x02},
+		SerialNumber:   big.NewInt(3),
+		Subject:        cryptopkix.Name{CommonName: "OCSP"},
+		Issuer:         pkixNameToStd(ca.Subject),
+		AuthorityKeyId: ca.SubjectKeyId,
+		NotBefore:      ca.NotBefore,
+		NotAfter:       ca.NotAfter,
+		ExtKeyUsage:    []cryptox509.ExtKeyUsage{cryptox509.ExtKeyUsageOCSPSigning},
+		KeyUsage:       cryptox509.KeyUsageDigitalSignature,
+		SubjectKeyId:   []byte{0x02},
 	}, toStdCert(ca))
 
 	got := SigningIssuerFromPool(signer, []*zx509.Certificate{spoof, ca})
@@ -342,6 +342,28 @@ func TestBuildSignerEvalChain_noIssuerReturnsResponderOnly(t *testing.T) {
 func TestIndexInInfoChain_nilSerial(t *testing.T) {
 	if _, ok := indexInInfoChain(&zx509.Certificate{SerialNumber: nil}, nil); ok {
 		t.Fatal("nil serial should not match")
+	}
+}
+
+func TestIndexInInfoChain_sameSerialDifferentIssuer(t *testing.T) {
+	target := &zx509.Certificate{
+		Issuer:                  zx509pkix.Name{CommonName: "Issuer A"},
+		SerialNumber:            big.NewInt(7),
+		RawSubjectPublicKeyInfo: []byte{0x30, 0x01},
+	}
+	unrelated := &zx509.Certificate{
+		Issuer:                  zx509pkix.Name{CommonName: "Issuer B"},
+		SerialNumber:            big.NewInt(7),
+		RawSubjectPublicKeyInfo: []byte{0x30, 0x01},
+	}
+	match := &zx509.Certificate{
+		Issuer:                  target.Issuer,
+		SerialNumber:            new(big.Int).Set(target.SerialNumber),
+		RawSubjectPublicKeyInfo: append([]byte(nil), target.RawSubjectPublicKeyInfo...),
+	}
+	chain := []*cert.Info{{Cert: unrelated}, {Cert: match}}
+	if got, ok := indexInInfoChain(target, chain); !ok || got != 1 {
+		t.Fatalf("indexInInfoChain() = (%d, %v), want (1, true)", got, ok)
 	}
 }
 

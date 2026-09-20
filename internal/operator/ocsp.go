@@ -34,5 +34,8 @@ func assessOCSP(ctx *EvaluationContext) ocsppkg.Assessment {
 	if ctx == nil || !ctx.HasCert() {
 		return ocsppkg.Assessment{}
 	}
+	if ctx.OCSPAssessment != nil {
+		return *ctx.OCSPAssessment
+	}
 	return ocsppkg.AssessCertificate(ctx.Cert.Cert, ctx.OCSPs, cert.CertsFromInfos(ctx.Chain), ctx.Now)
 }

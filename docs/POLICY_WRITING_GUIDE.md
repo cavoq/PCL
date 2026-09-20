@@ -366,6 +366,11 @@ certificate.subjectAltName.dNSName.0.tag        # GeneralName tag (2)
 certificate.subjectAltName.dNSName.0.raw         # Complete GeneralName DER
 certificate.subjectAltName.dNSName.0.rawValue    # Implicit GeneralName content
 certificate.issuerAltName                       # IAN uses the same structure
+certificate.revocation.status                   # good, revoked, or unknown
+certificate.revocation.evidenceCount            # Retained complete-CRL decision count
+certificate.revocation.coveredReasons           # RFC 5280 reason-mask coverage
+certificate.revocation.reasonCode               # Present only when revoked
+certificate.revocation.revocationTime           # Present only when revoked
 ```
 
 Each per-type GeneralName entry has a scalar value, so collection rules target
@@ -385,10 +390,16 @@ crl.signatureAlgorithm.parameters      # Parameters node
 crl.tbsSignatureAlgorithm      # TBSCertList signature algorithm
 crl.crlNumber                  # CRL number (string)
 crl.authorityKeyIdentifier     # AKI value
+crl.deltaCRLIndicator          # Base CRL number with decimal/fitsInt metadata
+crl.issuingDistributionPoint   # Scope, reasons, indirectCRL, and distribution point
+crl.freshestCRL.distributionPoints  # Canonical Freshest CRL distribution points
 crl.revokedCertificates        # Revoked certificates list
 crl.revokedCertificates.0.serialNumber     # Serial number of revoked cert
 crl.revokedCertificates.0.revocationDate   # Revocation time
 crl.revokedCertificates.0.extensions       # Entry extensions
+crl.revokedCertificates.0.extensions.cRLReason.value
+crl.revokedCertificates.0.extensions.invalidityDate.value
+crl.revokedCertificates.0.extensions.certificateIssuer.entries
 crl.extensions.2.5.29.20       # crlNumber extension
 crl.extensions.2.5.29.35       # authorityKeyIdentifier extension
 ```
@@ -641,12 +652,13 @@ PCL's built-in operators are organized by category and registered in
 |----------|----------|-------------|
 | `isCritical` | None | Returns true if the extension is marked critical |
 | `notCritical` | None | Returns true if the extension is NOT marked critical |
-| `noUnknownCriticalExtensions` | None | Rejects duplicate extension OIDs; otherwise accepts a critical certificate extension only when registered as processable and its concrete node has neither a `malformed` nor `unprocessed` marker |
+| `noUnknownCriticalExtensions` | None | Rejects duplicate extension OIDs; otherwise accepts a critical extension only when registered as processable at its exact signed-object location and its concrete node has neither a `malformed` nor `unprocessed` marker |
 
 The processed registry is distinct from the RFC extension identity catalog.
-Its conservative processed set covers certificate extensions only. A known but
-unprocessed OID or extension value and every critical CRL or CRL-entry
-extension fail closed until its semantics are implemented. OID and
+Its conservative processed set is location-specific and includes only the
+strictly decoded certificate, CRL, and CRL-entry extensions whose supported
+semantics are implemented. A known but unprocessed OID, wrong-location value,
+or malformed/partially unprocessed critical extension fails closed. OID and
 friendly-name paths alias the same node and are evaluated once. Repeated
 instances of one OID fail closed before criticality lookup. Adding an identity
 catalog entry does not authorize critical processing.

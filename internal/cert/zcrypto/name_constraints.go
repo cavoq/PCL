@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/cavoq/PCL/internal/node"
+	"github.com/cavoq/PCL/internal/x509ext"
 	"golang.org/x/crypto/cryptobyte"
 	cryptobyte_asn1 "golang.org/x/crypto/cryptobyte/asn1"
 )
@@ -180,7 +181,7 @@ func decodeGeneralSubtree(
 	if !input.ReadASN1(&sequence, cryptobyte_asn1.SEQUENCE) || !input.Empty() {
 		return decodedGeneralSubtree{}, fmt.Errorf("invalid GeneralSubtree %d in %s", index, field)
 	}
-	base, err := readGeneralNameWithValidation(&sequence, validateNameConstraintGeneralName)
+	base, err := x509ext.ReadNameConstraintGeneralName(&sequence)
 	if err != nil {
 		return decodedGeneralSubtree{}, fmt.Errorf("invalid base in GeneralSubtree %d of %s: %w", index, field, err)
 	}
@@ -324,7 +325,7 @@ func integerFactNode(
 ) *node.Node {
 	var scalar any = 0
 	if present {
-		scalar = integerValueScalar(value)
+		scalar = value.Scalar()
 	}
 	n := node.New(name, scalar)
 	n.Children["present"] = node.New("present", present)

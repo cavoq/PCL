@@ -2,6 +2,7 @@ package tests
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -31,15 +32,25 @@ func TestRFC5280CoverageClassifiesEveryActiveRule(t *testing.T) {
 	}
 	coverage := string(coverageBytes)
 
+	classified, err := parseActiveRuleClassifications(coverage)
+	if err != nil {
+		t.Fatalf("parse active-rule coverage table: %v", err)
+	}
+
+	activeIDs := make(map[string]struct{}, len(active.Rules))
 	for _, candidate := range active.Rules {
-		needle := "`" + candidate.ID + "`"
-		_, found := classifiedMarkdownLineContaining(coverage, needle)
-		if !found {
-			if strings.Contains(coverage, needle) {
-				t.Errorf("active rule %q is mentioned but not explicitly classified as Covered, Partial, or Not active", candidate.ID)
-			} else {
-				t.Errorf("active rule %q is missing from the coverage matrix", candidate.ID)
-			}
+		activeIDs[candidate.ID] = struct{}{}
+		count := classified[candidate.ID]
+		switch {
+		case count == 0:
+			t.Errorf("active rule %q is missing from the active-rule coverage table", candidate.ID)
+		case count > 1:
+			t.Errorf("active rule %q is classified %d times; want exactly once", candidate.ID, count)
+		}
+	}
+	for identifier := range classified {
+		if _, active := activeIDs[identifier]; !active {
+			t.Errorf("coverage table classifies stale or inactive rule %q", identifier)
 		}
 	}
 
@@ -47,10 +58,67 @@ func TestRFC5280CoverageClassifiesEveryActiveRule(t *testing.T) {
 		"vector_coverage_test.go",
 		"deterministic_pki_test.go",
 		"extension_parser_test.go",
+		"status_assessment_test.go",
+		"acquisition_test.go",
+		"extensions_test.go",
+		"integration_test.go",
 	} {
 		if !strings.Contains(coverage, evidence) {
 			t.Errorf("coverage matrix does not link executable evidence %q", evidence)
 		}
+	}
+}
+
+func parseActiveRuleClassifications(document string) (map[string]int, error) {
+	const (
+		startHeading = "## Active rule classification"
+		endHeading   = "## Executable evidence"
+	)
+	start := strings.Index(document, startHeading)
+	end := strings.Index(document, endHeading)
+	if start < 0 || end < 0 || end <= start {
+		return nil, fmt.Errorf("missing or out-of-order coverage headings")
+	}
+
+	classifications := make(map[string]int)
+	for _, line := range strings.Split(document[start:end], "\n") {
+		if !strings.HasPrefix(line, "|") || strings.HasPrefix(line, "|---") ||
+			strings.HasPrefix(line, "| Area ") {
+			continue
+		}
+		columns := strings.Split(line, "|")
+		if len(columns) < 5 {
+			return nil, fmt.Errorf("malformed coverage row %q", line)
+		}
+		classification := strings.TrimSpace(columns[2])
+		if classification != "Covered" && classification != "Partial" {
+			return nil, fmt.Errorf("unsupported classification %q in row %q", classification, line)
+		}
+		identifiers := backtickValues(columns[3])
+		if len(identifiers) == 0 {
+			return nil, fmt.Errorf("coverage row has no rule identifiers: %q", line)
+		}
+		for _, identifier := range identifiers {
+			classifications[identifier]++
+		}
+	}
+	return classifications, nil
+}
+
+func backtickValues(value string) []string {
+	var values []string
+	for {
+		start := strings.IndexByte(value, '`')
+		if start < 0 {
+			return values
+		}
+		value = value[start+1:]
+		end := strings.IndexByte(value, '`')
+		if end < 0 {
+			return values
+		}
+		values = append(values, value[:end])
+		value = value[end+1:]
 	}
 }
 
@@ -111,19 +179,4 @@ func assertCriticalExtensionRejected(t *testing.T, tree *node.Node) {
 	if accepted {
 		t.Fatal("malformed critical extension was accepted as processed")
 	}
-}
-
-func classifiedMarkdownLineContaining(document, needle string) (string, bool) {
-	for _, line := range strings.Split(document, "\n") {
-		if strings.Contains(line, needle) && containsCoverageClassification(line) {
-			return line, true
-		}
-	}
-	return "", false
-}
-
-func containsCoverageClassification(line string) bool {
-	return strings.Contains(line, "Covered") ||
-		strings.Contains(line, "Partial") ||
-		strings.Contains(line, "Not active")
 }

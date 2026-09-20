@@ -103,13 +103,11 @@ func BuildSignerEvalChain(
 }
 
 func indexInInfoChain(target *x509.Certificate, chain []*cert.Info) (int, bool) {
-	if target == nil || target.SerialNumber == nil {
+	if target == nil {
 		return 0, false
 	}
-	serial := target.SerialNumber.String()
 	for i, info := range chain {
-		if info != nil && info.Cert != nil && info.Cert.SerialNumber != nil &&
-			info.Cert.SerialNumber.String() == serial {
+		if info != nil && cert.SameCertificate(target, info.Cert) {
 			return i, true
 		}
 	}

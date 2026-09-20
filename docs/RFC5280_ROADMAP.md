@@ -23,9 +23,9 @@ Status labels are intentionally date-free:
 | Area | Responsibility |
 |------|----------------|
 | Format adapters (`internal/{cert,crl,ocsp}/zcrypto`) | Decode and project format-specific data, including raw DER and extension presence. |
-| Representation helpers (`internal/zcrypto`, `internal/asn1`, `internal/oid`) | Reusable ASN.1, algorithm, extension, and OID mechanics; no policy decisions. |
+| Representation helpers (`internal/zcrypto`, `internal/x509ext`, `internal/asn1`, `internal/oid`) | Reusable ASN.1, algorithm, extension, and OID mechanics; no policy decisions. |
 | Domain packages (`internal/cert`, `internal/crl`, `internal/ocsp`, future `internal/path`) | Certificate, revocation, response, and path semantics with explicit status. |
-| Acquisition and orchestration (`internal/aia`, `internal/evaluator`) | Bind the current object and gather, share, and cache external evidence. |
+| Acquisition and orchestration (`internal/aia`, `internal/crl/acquisition.go`, `internal/evaluator`) | Gather, cache, and bind external evidence to the current evaluation. |
 | Operators (`internal/operator`) | Thin policy adapters over representation or domain behavior; no duplicate domain algorithms. |
 | Generic engine (`internal/node`, `internal/rule`, `internal/policy`) | Resolution, applicability, and evaluation without certificate-field exceptions. |
 | Policies and documentation | Declarative claims, severity, references, coverage status, and user-facing scope. |
@@ -123,11 +123,11 @@ Completed work units:
   distances, CRL distribution-point structural dependencies, policy-mapping
   restrictions, and `pathLenConstraint` counting over an already ordered
   chain.
-- `noUnknownCriticalExtensions` now uses a location-specific processed-
-  extension registry, distinct from the RFC identity catalog. Known but
-  unprocessed, wrong-location, malformed, and P3-only critical extensions
-  fail closed; OID/friendly-name aliases are deduplicated, and repeated OID
-  instances fail before criticality lookup.
+- At the P2 boundary, `noUnknownCriticalExtensions` used a location-specific
+  processed-extension registry distinct from the RFC identity catalog. Known
+  but unprocessed, wrong-location, malformed, and then-future CRL/entry
+  extensions failed closed; P3 now registers its strictly implemented CRL and
+  CRL-entry locations without broadening that rule.
 - Deterministic purpose/path vectors, strict-parser malformed-DER vectors,
   owner tests, and a coverage invariant provide executable evidence for every
   active `RFC5280.yaml` rule.
@@ -139,8 +139,9 @@ constraint-base value-form validation or the Section 6/7 state machine. Path
 length relies on the supplied leaf-to-root order and exact-name self-issued
 detection. Policy counters and mappings are decoded and checked for profile
 dependencies but do not run the Section 6 policy state machine.
-CRL distribution-point decoding does not apply CRL scope, reasons, indirect
-CRLs, or deltas. Those remain P3/P4 work.
+At the P2 boundary, CRL distribution-point decoding did not yet apply CRL
+scope, reasons, indirect CRLs, or deltas. P3 now owns those semantics; the
+remaining signer-path and Section 7 comparison boundaries are P4 work.
 
 Exit evidence is indexed in the coverage matrix, which classifies every active
 rule as Covered, Partial, or Not active and links the parser, domain,
@@ -148,24 +149,41 @@ integration, deterministic-vector, and coverage-invariant tests.
 
 ## P3 — Revocation processing
 
-**Status: Next**
+**Status: Done**
 
-- Implement CRL Distribution Point and Issuing Distribution Point scope,
-  reason masks, indirect CRLs and `certificateIssuer`, delta/base CRL
-  combination, Freshest CRL, and processed CRL-entry extension semantics.
-- Implement the RFC 5280 Section 6.3 revocation-processing semantics while
-  retaining Unknown unless accepted evidence proves Good or Revoked.
-- Keep retrieval and caching in acquisition/orchestration packages and keep
-  deterministic status decisions in `internal/crl`.
-- Integrate CRL-signer path validation when the P4 path engine is available.
+Completed work units:
 
-Exit criteria: standards-based vectors cover complete, scoped, indirect,
-delta, stale, unrelated, unsupported, and conflicting revocation evidence
-without operators duplicating CRL semantics.
+- A shared strict extension representation owns GeneralNames, distribution
+  points, reason flags, and unbounded integers used by certificate CRLDP,
+  Freshest CRL, IDP, CRL numbers, delta indicators, and CRL-entry extensions.
+  Certificate and CRL adapters retain their stable node schemas while
+  delegating to those mechanics.
+- The deterministic `internal/crl` assessment implements CRLDP/IDP scope,
+  reason-mask accumulation, indirect CRL issuer inheritance, complete/delta
+  combination, `removeFromCRL`, signer identity/signature/Key Usage checks,
+  and fail-closed critical-extension handling. Good is returned only for full
+  accepted reason coverage; unusable or insufficient evidence remains
+  Unknown.
+- Evaluation projects one structured Good/Revoked/Unknown decision per
+  certificate. Operators are thin adapters over that decision, and CRL
+  profile rules remain evaluated once per CRL.
+- Evaluation-scoped acquisition caches successful and failed URLs, bounds
+  responses, deduplicates signed CRLs while retaining origins, and discovers
+  DER CRLs through certificate CRLDP/Freshest and complete-CRL Freshest in two
+  stages.
+
+P3 deliberately does not claim the CRL-signing certificate path validation
+required by Section 6.3(f), Section 7 name equivalence, CRL-signer revocation,
+or attribute-certificate support. Exact DER name matching is the conservative
+boundary until P4 supplies the path and name engines.
+
+Exit evidence covers complete, scoped, indirect, delta, stale, unrelated,
+unsupported, and conflicting revocation evidence without policy or operator
+copies of the CRL algorithm.
 
 ## P4 — Certification-path validation
 
-**Status: Planned**
+**Status: Next**
 
 - Introduce a dedicated path domain with explicit trust anchors, validation
   time, initial policy set and inhibition flags, maximum path length, and

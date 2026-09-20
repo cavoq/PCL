@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/cavoq/PCL/internal/cert"
+	zasn1 "github.com/zmap/zcrypto/encoding/asn1"
 	"github.com/zmap/zcrypto/x509"
 	"github.com/zmap/zcrypto/x509/pkix"
 )
@@ -55,6 +56,14 @@ func TestCertMatchesCRLIssuer(t *testing.T) {
 			},
 		},
 		{
+			name: "authority key identifier requires subject key identifier",
+			cert: &x509.Certificate{Subject: pkix.Name{CommonName: "Signer"}},
+			crl: &x509.RevocationList{
+				Issuer:         pkix.Name{CommonName: "Signer"},
+				AuthorityKeyId: []byte{0x01, 0x02, 0x03},
+			},
+		},
+		{
 			name: "authority key identifier cannot replace issuer name",
 			cert: other,
 			crl: &x509.RevocationList{
@@ -86,6 +95,42 @@ func TestCertMatchesCRLIssuer(t *testing.T) {
 			got := CertMatchesCRLIssuer(tt.cert, tt.crl)
 			if got != tt.want {
 				t.Fatalf("CertMatchesCRLIssuer() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestCRLSignUsagePermitsRequiresUniqueKeyUsage(t *testing.T) {
+	keyUsage := pkix.Extension{
+		Id:    zasn1.ObjectIdentifier{2, 5, 29, 15},
+		Value: []byte{0x03, 0x02, 0x01, 0x02},
+	}
+	tests := []struct {
+		name        string
+		certificate *x509.Certificate
+		want        bool
+	}{
+		{name: "nil certificate", want: true},
+		{name: "absent", certificate: &x509.Certificate{}, want: true},
+		{
+			name: "single",
+			certificate: &x509.Certificate{
+				KeyUsage: x509.KeyUsageCRLSign, Extensions: []pkix.Extension{keyUsage},
+			},
+			want: true,
+		},
+		{
+			name: "duplicate",
+			certificate: &x509.Certificate{
+				KeyUsage:   x509.KeyUsageCRLSign,
+				Extensions: []pkix.Extension{keyUsage, keyUsage},
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := crlSignUsagePermits(test.certificate); got != test.want {
+				t.Fatalf("crlSignUsagePermits() = %t, want %t", got, test.want)
 			}
 		})
 	}
@@ -170,6 +215,76 @@ func TestResolveIssuerCerts_skipsFetchWhenSignerInChain(t *testing.T) {
 	pool := ResolveIssuerCerts(chain, revocationList, 0, 0, nil)
 	if len(pool) != 1 || pool[0] != signer {
 		t.Fatalf("ResolveIssuerCerts() = %v, want chain signer only", pool)
+	}
+}
+
+func TestResolveIssuerCertsContinuesPastSignerWithoutCRLSign(t *testing.T) {
+	goodDER, good, goodStd, signerKey := testCRLIssuerCA(t, "Test CA")
+	now := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+
+	badTemplate := &cryptox509.Certificate{
+		SerialNumber:          big.NewInt(2),
+		Subject:               goodStd.Subject,
+		NotBefore:             goodStd.NotBefore,
+		NotAfter:              goodStd.NotAfter,
+		KeyUsage:              cryptox509.KeyUsageCertSign,
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+		SubjectKeyId:          append([]byte(nil), goodStd.SubjectKeyId...),
+	}
+	badDER, err := cryptox509.CreateCertificate(
+		rand.Reader,
+		badTemplate,
+		badTemplate,
+		&signerKey.PublicKey,
+		signerKey,
+	)
+	if err != nil {
+		t.Fatalf("create signer without cRLSign: %v", err)
+	}
+	bad, err := x509.ParseCertificate(badDER)
+	if err != nil {
+		t.Fatalf("parse signer without cRLSign: %v", err)
+	}
+
+	crlDER, err := cryptox509.CreateRevocationList(rand.Reader, &cryptox509.RevocationList{
+		Number:     big.NewInt(1),
+		ThisUpdate: now,
+		NextUpdate: now.Add(24 * time.Hour),
+	}, goodStd, signerKey)
+	if err != nil {
+		t.Fatalf("create CRL: %v", err)
+	}
+	revocationList, err := ParseCRL(crlDER)
+	if err != nil {
+		t.Fatalf("parse CRL: %v", err)
+	}
+	if !CertSignsCRL(bad, revocationList) || crlSignUsagePermits(bad) {
+		t.Fatal("test signer must verify the CRL but lack permitted cRLSign usage")
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write(goodDER)
+	}))
+	defer server.Close()
+	leaf := &x509.Certificate{
+		SerialNumber:          big.NewInt(3),
+		IssuingCertificateURL: []string{server.URL},
+	}
+
+	pool := ResolveIssuerCerts(
+		[]*cert.Info{{Cert: bad}, {Cert: leaf}},
+		revocationList,
+		time.Second,
+		1,
+		nil,
+	)
+	if len(pool) != 3 {
+		t.Fatalf("pool len = %d, want bad signer + leaf + fetched usable signer", len(pool))
+	}
+	if signer := usableCRLSignerFromPool(revocationList, pool); signer == nil ||
+		!bytes.Equal(signer.Raw, good.Raw) {
+		t.Fatalf("usableCRLSignerFromPool() = %v, want fetched signer with cRLSign", signer)
 	}
 }
 

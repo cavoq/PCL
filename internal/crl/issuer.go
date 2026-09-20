@@ -17,19 +17,25 @@ func CertMatchesCRLIssuer(cert *x509.Certificate, revocationList *x509.Revocatio
 	if cert == nil || revocationList == nil {
 		return false
 	}
-	if len(cert.RawSubject) > 0 && len(revocationList.RawIssuer) > 0 {
-		if !bytes.Equal(cert.RawSubject, revocationList.RawIssuer) {
-			return false
-		}
-	} else if cert.Subject.String() != revocationList.Issuer.String() {
+	if !certSubjectMatchesCRLIssuer(cert, revocationList) {
 		return false
 	}
 
 	keyIdentifier := crlzcrypto.AuthorityKeyIdentifier(revocationList)
-	if len(keyIdentifier) > 0 && len(cert.SubjectKeyId) > 0 {
-		return bytes.Equal(cert.SubjectKeyId, keyIdentifier)
+	if len(keyIdentifier) > 0 {
+		return len(cert.SubjectKeyId) > 0 && bytes.Equal(cert.SubjectKeyId, keyIdentifier)
 	}
 	return true
+}
+
+func certSubjectMatchesCRLIssuer(
+	cert *x509.Certificate,
+	revocationList *x509.RevocationList,
+) bool {
+	if len(cert.RawSubject) > 0 && len(revocationList.RawIssuer) > 0 {
+		return bytes.Equal(cert.RawSubject, revocationList.RawIssuer)
+	}
+	return cert.Subject.String() == revocationList.Issuer.String()
 }
 
 // CertSignsCRL reports whether cert is the named CRL issuer and
@@ -38,7 +44,26 @@ func CertSignsCRL(cert *x509.Certificate, revocationList *x509.RevocationList) b
 	if !CertMatchesCRLIssuer(cert, revocationList) {
 		return false
 	}
-	return revocationList.CheckSignatureFrom(cert) == nil
+	return certVerifiesCRLSignature(cert, revocationList)
+}
+
+func certVerifiesCRLSignature(
+	cert *x509.Certificate,
+	revocationList *x509.RevocationList,
+) bool {
+	if cert == nil || revocationList == nil {
+		return false
+	}
+	// RevocationList.CheckSignatureFrom also applies zcrypto's CA and KeyUsage
+	// policy. RFC 5280 Section 6.3 treats those as separate steps: a dedicated
+	// CRL signer need not be a CA, and cRLSign is required only when Key Usage
+	// is present. Keep this helper cryptographic; the revocation assessment
+	// owns cRLSign and its P4 signer-path authorization hook.
+	return cert.CheckSignature(
+		revocationList.SignatureAlgorithm,
+		revocationList.RawTBSRevocationList,
+		revocationList.Signature,
+	) == nil
 }
 
 // SigningCertFromPool returns a certificate that is both the named CRL issuer
@@ -78,6 +103,22 @@ func VerifyingCertFromPool(revocationList *x509.RevocationList, pool []*x509.Cer
 	return nil
 }
 
+func usableCRLSignerFromPool(
+	revocationList *x509.RevocationList,
+	pool []*x509.Certificate,
+) *x509.Certificate {
+	for _, candidate := range pool {
+		if usableCRLSigner(candidate, revocationList) {
+			return candidate
+		}
+	}
+	return nil
+}
+
+func usableCRLSigner(cert *x509.Certificate, revocationList *x509.RevocationList) bool {
+	return CertSignsCRL(cert, revocationList) && crlSignUsagePermits(cert)
+}
+
 // ResolveIssuerCerts returns chain certificates plus any CRL signing certificates
 // discovered via Authority Key Identifier match, signature verify, or CA Issuers fetch.
 func ResolveIssuerCerts(
@@ -91,7 +132,7 @@ func ResolveIssuerCerts(
 	if revocationList == nil {
 		return pool
 	}
-	if VerifyingCertFromPool(revocationList, pool) != nil {
+	if usableCRLSignerFromPool(revocationList, pool) != nil {
 		return pool
 	}
 
@@ -100,7 +141,7 @@ func ResolveIssuerCerts(
 		MaxDepth: maxDepth,
 		Warn:     w,
 		StopWhen: func(c *x509.Certificate) bool {
-			return CertSignsCRL(c, revocationList)
+			return usableCRLSigner(c, revocationList)
 		},
 	})
 }

@@ -6,8 +6,11 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/json"
 	"encoding/pem"
 	"math/big"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -16,7 +19,9 @@ import (
 
 	"github.com/cavoq/PCL/internal/ocsp"
 	"github.com/cavoq/PCL/internal/operator"
+	"github.com/cavoq/PCL/internal/output"
 	"github.com/cavoq/PCL/internal/policy"
+	"github.com/cavoq/PCL/internal/rule"
 )
 
 func TestApplyDefaults(t *testing.T) {
@@ -509,6 +514,175 @@ func TestCrlResolveMaxDepth_default(t *testing.T) {
 	if got := crlResolveMaxDepth(cfg); got != 10 {
 		t.Fatalf("crlResolveMaxDepth() = %d, want 10", got)
 	}
+}
+
+func TestCRLRevocationRequested(t *testing.T) {
+	tests := []struct {
+		name string
+		cfg  Config
+		want bool
+	}{
+		{name: "not requested"},
+		{name: "explicit CRL", cfg: Config{CRLPath: "list.crl"}, want: true},
+		{name: "automatic CRL", cfg: Config{AutoValidate: true}, want: true},
+		{
+			name: "automatic CRL disabled",
+			cfg:  Config{AutoValidate: true, NoAutoCRL: true},
+		},
+		{
+			name: "explicit CRL survives automatic disable",
+			cfg: Config{
+				CRLPath:      "list.crl",
+				AutoValidate: true,
+				NoAutoCRL:    true,
+			},
+			want: true,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := crlRevocationRequested(test.cfg); got != test.want {
+				t.Fatalf("crlRevocationRequested() = %v, want %v", got, test.want)
+			}
+		})
+	}
+}
+
+func TestRunAutoCRLProjectsRevokedStatus(t *testing.T) {
+	now := time.Now().UTC().Truncate(time.Second)
+	rootKey, err := rsa.GenerateKey(rand.Reader, 1024)
+	if err != nil {
+		t.Fatalf("generate root key: %v", err)
+	}
+	rootTemplate := &x509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               pkix.Name{CommonName: "Auto CRL Root"},
+		NotBefore:             now.Add(-24 * time.Hour),
+		NotAfter:              now.Add(24 * time.Hour),
+		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+		SubjectKeyId:          []byte{0x01, 0x02, 0x03},
+	}
+	rootDER, err := x509.CreateCertificate(
+		rand.Reader,
+		rootTemplate,
+		rootTemplate,
+		&rootKey.PublicKey,
+		rootKey,
+	)
+	if err != nil {
+		t.Fatalf("create root: %v", err)
+	}
+	root, err := x509.ParseCertificate(rootDER)
+	if err != nil {
+		t.Fatalf("parse root: %v", err)
+	}
+
+	leafSerial := big.NewInt(2)
+	crlDER, err := x509.CreateRevocationList(rand.Reader, &x509.RevocationList{
+		Number:     big.NewInt(1),
+		ThisUpdate: now.Add(-time.Hour),
+		NextUpdate: now.Add(time.Hour),
+		RevokedCertificateEntries: []x509.RevocationListEntry{{
+			SerialNumber:   leafSerial,
+			RevocationTime: now.Add(-30 * time.Minute),
+		}},
+	}, root, rootKey)
+	if err != nil {
+		t.Fatalf("create CRL: %v", err)
+	}
+	hits := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		hits++
+		_, _ = w.Write(crlDER)
+	}))
+	defer server.Close()
+
+	leafKey, err := rsa.GenerateKey(rand.Reader, 1024)
+	if err != nil {
+		t.Fatalf("generate leaf key: %v", err)
+	}
+	leafDER, err := x509.CreateCertificate(rand.Reader, &x509.Certificate{
+		SerialNumber:          leafSerial,
+		Subject:               pkix.Name{CommonName: "revoked.example"},
+		NotBefore:             now.Add(-time.Hour),
+		NotAfter:              now.Add(time.Hour),
+		KeyUsage:              x509.KeyUsageDigitalSignature,
+		BasicConstraintsValid: true,
+		CRLDistributionPoints: []string{server.URL},
+	}, root, &leafKey.PublicKey, rootKey)
+	if err != nil {
+		t.Fatalf("create leaf: %v", err)
+	}
+
+	dir := t.TempDir()
+	rootPath := filepath.Join(dir, "root.pem")
+	leafPath := filepath.Join(dir, "leaf.pem")
+	policyPath := filepath.Join(dir, "revocation.yaml")
+	if err := os.WriteFile(rootPath, pemEncodeCert(rootDER), 0o600); err != nil {
+		t.Fatalf("write root: %v", err)
+	}
+	if err := os.WriteFile(leafPath, pemEncodeCert(leafDER), 0o600); err != nil {
+		t.Fatalf("write leaf: %v", err)
+	}
+	policyYAML := []byte(`id: auto-crl
+version: 1.0
+rules:
+  - id: status-known
+    target: certificate.revocation.status
+    operator: neq
+    operands: [unknown]
+    severity: error
+  - id: not-revoked
+    target: certificate.revocation.status
+    operator: neq
+    operands: [revoked]
+    severity: error
+`)
+	if err := os.WriteFile(policyPath, policyYAML, 0o600); err != nil {
+		t.Fatalf("write policy: %v", err)
+	}
+
+	var outputBuffer bytes.Buffer
+	err = Run(Config{
+		PolicyPaths:  []string{policyPath},
+		CertPath:     leafPath,
+		IssuerPaths:  []string{rootPath},
+		AutoValidate: true,
+		NoAutoChain:  true,
+		NoAutoOCSP:   true,
+		CertTimeout:  time.Second,
+		OutputFmt:    "json",
+		Verbosity:    2,
+		ShowMeta:     true,
+	}, &outputBuffer)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if hits != 1 {
+		t.Fatalf("CRL endpoint hits = %d, want 1", hits)
+	}
+
+	var lintOutput output.LintOutput
+	if err := json.Unmarshal(outputBuffer.Bytes(), &lintOutput); err != nil {
+		t.Fatalf("decode output: %v\n%s", err, outputBuffer.String())
+	}
+	for _, result := range lintOutput.Results {
+		if result.CertType != "leaf" {
+			continue
+		}
+		verdicts := make(map[string]string, len(result.Results))
+		for _, result := range result.Results {
+			verdicts[result.RuleID] = result.Verdict
+		}
+		if verdicts["status-known"] != rule.VerdictPass ||
+			verdicts["not-revoked"] != rule.VerdictFail {
+			t.Fatalf("leaf revocation verdicts = %#v", verdicts)
+		}
+		return
+	}
+	t.Fatal("leaf result is missing")
 }
 
 func TestProcessCertificates_withCRLAndResolve(t *testing.T) {

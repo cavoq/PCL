@@ -82,6 +82,9 @@ func (NotRevoked) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (bool,
 	if ctx == nil || ctx.Cert == nil || ctx.Cert.Cert == nil {
 		return false, nil
 	}
+	if ctx.CRLAssessment != nil {
+		return ctx.CRLAssessment.Status() == crlpkg.RevocationGood, nil
+	}
 
 	lists := make([]*x509.RevocationList, 0, len(ctx.CRLs))
 	for _, crlInfo := range ctx.CRLs {
@@ -92,8 +95,9 @@ func (NotRevoked) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (bool,
 	}
 
 	statusCtx := crlpkg.RevocationContext{
-		Now:     ctx.Now,
-		Issuers: ctx.CRLIssuerPool(),
+		Now:       ctx.Now,
+		Issuers:   ctx.CRLIssuerPool(),
+		UseDeltas: true,
 	}
-	return crlpkg.StatusForCertificate(ctx.Cert.Cert, lists, statusCtx) == crlpkg.RevocationGood, nil
+	return crlpkg.AssessCertificate(ctx.Cert.Cert, lists, statusCtx).Status() == crlpkg.RevocationGood, nil
 }
