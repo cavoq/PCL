@@ -133,18 +133,14 @@ func listAppliesToPoint(
 		}
 	}
 
+	// The ReasonFlags bit unused (0) names no revocation reason; masking with
+	// AllReasons ignores it (PKITS 4.14.18 asserts it in a valid CRL).
 	dpReasons := AllReasons
 	if !point.fallback && point.point.Reasons != nil {
-		if point.point.Reasons.Mask&1 != 0 {
-			return EvidenceScopeMismatch, 0
-		}
 		dpReasons = point.point.Reasons.Mask
 	}
 	idpReasons := AllReasons
 	if idp != nil && idp.OnlySomeReasons != nil {
-		if idp.OnlySomeReasons.Mask&1 != 0 {
-			return EvidenceScopeMismatch, 0
-		}
 		idpReasons = idp.OnlySomeReasons.Mask
 	}
 	return EvidenceAccepted, dpReasons & idpReasons & AllReasons
