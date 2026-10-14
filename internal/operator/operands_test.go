@@ -43,6 +43,11 @@ func TestParseIntegerOperand(t *testing.T) {
 		{name: "float64 integer", value: 4.0, want: 4},
 		{name: "fraction", value: 3.9, wantErr: true},
 		{name: "infinity", value: math.Inf(1), wantErr: true},
+		{name: "NaN", value: math.NaN(), wantErr: true},
+		{name: "max int64", value: int64(math.MaxInt64), want: math.MaxInt64},
+		{name: "uint64 out of range", value: uint64(math.MaxUint64), wantErr: true},
+		{name: "float out of range", value: 1e30, wantErr: true},
+		{name: "negative", value: int16(-5), want: -5},
 		{name: "string", value: "4", wantErr: true},
 	}
 
