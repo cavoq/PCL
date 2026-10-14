@@ -133,22 +133,25 @@ func TestBuiltinOperandCatalogContracts(t *testing.T) {
 
 func TestBuiltinOperandCatalogHasNoDuplicateOperators(t *testing.T) {
 	seen := make(map[string]struct{})
-	for _, group := range builtinOperandValidationCatalog {
-		if group.validator == nil {
-			t.Fatal("catalog contains a nil validator")
+	for _, builtin := range builtins {
+		name := builtin.op.Name()
+		if _, duplicate := seen[name]; duplicate {
+			t.Errorf("operator %q occurs more than once in the builtin catalog", name)
 		}
-		for _, op := range group.operators {
-			name := op.Name()
-			if _, duplicate := seen[name]; duplicate {
-				t.Errorf("operator %q occurs in more than one operand validation group", name)
-			}
-			seen[name] = struct{}{}
+		seen[name] = struct{}{}
+
+		_, selfValidating := builtin.op.(OperandValidator)
+		switch {
+		case selfValidating && builtin.validate != nil:
+			t.Errorf("operator %q validates itself; its catalog validator would be ignored", name)
+		case !selfValidating && builtin.validate == nil:
+			t.Errorf("operator %q has no operand validator", name)
 		}
 	}
 
 	for _, composite := range []string{"every", "dateDiff"} {
-		if _, cataloged := seen[composite]; cataloged {
-			t.Errorf("composite operator %q should provide its own operand validator", composite)
+		if _, cataloged := seen[composite]; !cataloged {
+			t.Errorf("composite operator %q is missing from the builtin catalog", composite)
 		}
 	}
 }

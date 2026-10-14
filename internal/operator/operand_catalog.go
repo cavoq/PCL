@@ -11,103 +11,11 @@ import (
 	"github.com/cavoq/PCL/internal/oid"
 )
 
-// builtinOperandValidationGroup keeps operand contracts next to the built-in
-// operator catalog without making policy parsing aware of individual
-// operators. Every and DateDiff validate themselves because their structured
-// operands need operator-specific parsing (and, for Every, registry access).
-type builtinOperandValidationGroup struct {
-	operators []Operator
-	validator OperandValidatorFunc
-}
-
-var builtinOperandValidationCatalog = []builtinOperandValidationGroup{
-	{
-		operators: []Operator{
-			Present{}, Absent{}, Positive{}, Odd{}, IsCritical{}, NotCritical{},
-			IsEmpty{}, NotEmpty{}, SignatureValid{}, IssuedBy{}, AKIMatchesSKI{},
-			PathLenValid{}, ApplicationPurposeValid{}, AnyExtendedKeyUsageNotCritical{},
-			BasicConstraintsDependenciesValid{}, KeyUsageDependenciesValid{},
-			NameConstraintsDependenciesValid{}, NameConstraintsDistancesValid{},
-			CRLDistributionPointsDependenciesValid{}, PolicyMappingsDependenciesValid{},
-			PolicyMappingsIssuerPoliciesPresent{}, PolicyConstraintsDependenciesValid{},
-			InhibitAnyPolicyDependenciesValid{}, ValidityOrderCorrect{},
-			SignatureAlgorithmMatchesTBS{},
-			NoUnknownCriticalExtensions{}, EKUServerAuth{}, EKUClientAuth{},
-			SerialNumberUnique{}, CRLValid{}, CRLNotExpired{}, CRLSignedBy{},
-			NotRevoked{}, NotRevokedByAvailableEvidence{}, OCSPValid{}, NotRevokedOCSP{}, OCSPGood{},
-			NameConstraintsValid{}, IsNull{}, TLDRegistered{}, TLDNotRegistered{},
-			IsPublicSuffix{}, IsNotPublicSuffix{}, ComponentTLDNotRegistered{},
-			ComponentIsPublicSuffix{},
-			ComponentNotPublicSuffix{}, UTF8NoBOM{}, ContainsBOM{},
-			NoDuplicateAttributes{}, UniqueValues{}, UniqueChildren{},
-			IsIA5String{}, IsPrintableString{}, IsUTF8String{}, ValidIA5String{},
-			ValidPrintableString{},
-		},
-		validator: validateNoOperands,
-	},
-	{
-		operators: []Operator{Eq{}, Neq{}},
-		validator: validateOneOperand,
-	},
-	{
-		operators: []Operator{Gte{}, Gt{}, Lte{}, Lt{}},
-		validator: validateOneNumber,
-	},
-	{
-		operators: []Operator{In{}, NotIn{}, Contains{}},
-		validator: validateOneOrMoreOperands,
-	},
-	{
-		operators: []Operator{Before{}, After{}, OnOrBefore{}, OnOrAfter{}},
-		validator: validateOptionalTime,
-	},
-	{
-		operators: []Operator{Matches{}},
-		validator: validateNodePaths,
-	},
-	{
-		operators: []Operator{MaxLength{}, MinLength{}},
-		validator: validateNonnegativeLength,
-	},
-	{
-		operators: []Operator{Regex{}, NotRegex{}, AnyComponentMatches{}, NoComponentMatches{}},
-		validator: validateOneRegex,
-	},
-	{
-		operators: []Operator{ValidityPeriodDays{}},
-		validator: validateValidityDays,
-	},
-	{
-		operators: []Operator{EKUContains{}, EKUNotContains{}},
-		validator: validateEKUs,
-	},
-	{
-		operators: []Operator{CertificatePolicyValid{}},
-		validator: validatePolicyOIDs,
-	},
-	{
-		operators: []Operator{ComponentMaxLength{}, ComponentMinLength{}},
-		validator: validateComponentLength,
-	},
-	{
-		operators: []Operator{ComponentRegex{}, ComponentNotRegex{}},
-		validator: validateComponentRegexOperands,
-	},
-	{
-		operators: []Operator{ComponentInCIDR{}, ComponentNotInCIDR{}},
-		validator: validateCIDRs,
-	},
-	{
-		operators: []Operator{DEREqualsHex{}},
-		validator: validateHexValues,
-	},
-}
-
 var builtinOperandValidatorsByType = func() map[reflect.Type]OperandValidator {
-	validators := make(map[reflect.Type]OperandValidator)
-	for _, group := range builtinOperandValidationCatalog {
-		for _, op := range group.operators {
-			validators[reflect.TypeOf(op)] = group.validator
+	validators := make(map[reflect.Type]OperandValidator, len(builtins))
+	for _, builtin := range builtins {
+		if builtin.validate != nil {
+			validators[reflect.TypeOf(builtin.op)] = builtin.validate
 		}
 	}
 	return validators
@@ -128,10 +36,10 @@ func builtinOperandValidator(op Operator) (OperandValidator, bool) {
 	return validator, ok
 }
 
-// unvalidatedBuiltinOperators is an invariant helper for keeping All and the
-// operand catalog in sync. An operator-provided validator is included in the
-// registry by Register, so composite and catalog-driven contracts are treated
-// uniformly here.
+// unvalidatedBuiltinOperators is an invariant helper reporting built-in
+// operators that a registry holds without an operand validator. An
+// operator-provided validator is included in the registry by Register, so
+// composite and catalog-driven contracts are treated uniformly here.
 func unvalidatedBuiltinOperators(registry *Registry) []string {
 	if registry == nil {
 		return []string{"<nil registry>"}
