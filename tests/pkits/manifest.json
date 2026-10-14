@@ -1,0 +1,4453 @@
+{
+ "source": {
+  "suite": "NIST Public Key Interoperability Test Suite (PKITS) 1.0.1",
+  "url": "https://csrc.nist.gov/CSRC/media/Projects/PKI-Testing/documents/PKITS_data.zip",
+  "description": "https://csrc.nist.gov/CSRC/media/Projects/PKI-Testing/documents/PKITS.pdf"
+ },
+ "tests": [
+  {
+   "id": "4.1.1",
+   "title": "Valid Signatures Test1",
+   "ee": "certs/ValidCertificatePathTest1EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/GoodCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/GoodCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.1.2",
+   "title": "Invalid CA Signature Test2",
+   "ee": "certs/InvalidCASignatureTest2EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/BadSignedCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/BadSignedCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.1.3",
+   "title": "Invalid EE Signature Test3",
+   "ee": "certs/InvalidEESignatureTest3EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/GoodCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/GoodCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.1.4",
+   "title": "Valid DSA Signatures Test4",
+   "ee": "certs/ValidDSASignaturesTest4EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/DSACACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/DSACACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.1.5",
+   "title": "Valid DSA Parameter Inheritance Test5",
+   "ee": "certs/ValidDSAParameterInheritanceTest5EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/DSACACert.crt",
+    "certs/DSAParametersInheritedCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/DSACACRL.crl",
+    "crls/DSAParametersInheritedCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.1.6",
+   "title": "Invalid DSA Signature Test6",
+   "ee": "certs/InvalidDSASignatureTest6EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/DSACACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/DSACACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.2.1",
+   "title": "Invalid CA notBefore Date Test1",
+   "ee": "certs/InvalidCAnotBeforeDateTest1EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/BadnotBeforeDateCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/BadnotBeforeDateCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.2.2",
+   "title": "Invalid EE notBefore Date Test2",
+   "ee": "certs/InvalidEEnotBeforeDateTest2EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/GoodCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/GoodCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.2.3",
+   "title": "Valid pre2000 UTC notBefore Date Test3",
+   "ee": "certs/Validpre2000UTCnotBeforeDateTest3EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/GoodCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/GoodCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.2.4",
+   "title": "Valid GeneralizedTime notBefore Date Test4",
+   "ee": "certs/ValidGeneralizedTimenotBeforeDateTest4EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/GoodCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/GoodCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.2.5",
+   "title": "Invalid CA notAfter Date Test5",
+   "ee": "certs/InvalidCAnotAfterDateTest5EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/BadnotAfterDateCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/BadnotAfterDateCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.2.6",
+   "title": "Invalid EE notAfter Date Test6",
+   "ee": "certs/InvalidEEnotAfterDateTest6EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/GoodCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/GoodCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.2.7",
+   "title": "Invalid pre2000 UTC EE notAfter Date Test7",
+   "ee": "certs/Invalidpre2000UTCEEnotAfterDateTest7EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/GoodCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/GoodCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.2.8",
+   "title": "Valid GeneralizedTime notAfter Date Test8",
+   "ee": "certs/ValidGeneralizedTimenotAfterDateTest8EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/GoodCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/GoodCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.3.1",
+   "title": "Invalid Name Chaining EE Test1",
+   "ee": "certs/InvalidNameChainingTest1EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/GoodCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/GoodCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.3.2",
+   "title": "Invalid Name Chaining Order Test2",
+   "ee": "certs/InvalidNameChainingOrderTest2EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/NameOrderingCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/NameOrderCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.3.3",
+   "title": "Valid Name Chaining Whitespace Test3",
+   "ee": "certs/ValidNameChainingWhitespaceTest3EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/GoodCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/GoodCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.3.4",
+   "title": "Valid Name Chaining Whitespace Test4",
+   "ee": "certs/ValidNameChainingWhitespaceTest4EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/GoodCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/GoodCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.3.5",
+   "title": "Valid Name Chaining Capitalization Test5",
+   "ee": "certs/ValidNameChainingCapitalizationTest5EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/GoodCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/GoodCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.3.6",
+   "title": "Valid Name Chaining UIDs Test6",
+   "ee": "certs/ValidNameUIDsTest6EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/UIDCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/UIDCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.3.7",
+   "title": "Valid RFC3280 Mandatory Attribute Types Test7",
+   "ee": "certs/ValidRFC3280MandatoryAttributeTypesTest7EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/RFC3280MandatoryAttributeTypesCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/RFC3280MandatoryAttributeTypesCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.3.8",
+   "title": "Valid RFC3280 Optional Attribute Types Test8",
+   "ee": "certs/ValidRFC3280OptionalAttributeTypesTest8EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/RFC3280OptionalAttributeTypesCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/RFC3280OptionalAttributeTypesCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.3.9",
+   "title": "Valid UTF8String Encoded Names Test9",
+   "ee": "certs/ValidUTF8StringEncodedNamesTest9EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/UTF8StringEncodedNamesCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/UTF8StringEncodedNamesCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.3.10",
+   "title": "Valid Rollover from PrintableString to UTF8String Test10",
+   "ee": "certs/ValidRolloverfromPrintableStringtoUTF8StringTest10EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/RolloverfromPrintableStringtoUTF8StringCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/RolloverfromPrintableStringtoUTF8StringCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.3.11",
+   "title": "Valid UTF8String Case Insensitive Match Test11",
+   "ee": "certs/ValidUTF8StringCaseInsensitiveMatchTest11EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/UTF8StringCaseInsensitiveMatchCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/UTF8StringCaseInsensitiveMatchCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.4.1",
+   "title": "Missing CRL Test1",
+   "ee": "certs/InvalidMissingCRLTest1EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/NoCRLCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.4.2",
+   "title": "Invalid Revoked CA Test2",
+   "ee": "certs/InvalidRevokedCATest2EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/GoodCACert.crt",
+    "certs/RevokedsubCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/GoodCACRL.crl",
+    "crls/RevokedsubCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.4.3",
+   "title": "Invalid Revoked EE Test3",
+   "ee": "certs/InvalidRevokedEETest3EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/GoodCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/GoodCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.4.4",
+   "title": "Invalid Bad CRL Signature Test4",
+   "ee": "certs/InvalidBadCRLSignatureTest4EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/BadCRLSignatureCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/BadCRLSignatureCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.4.5",
+   "title": "Invalid Bad CRL Issuer Name Test5",
+   "ee": "certs/InvalidBadCRLIssuerNameTest5EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/BadCRLIssuerNameCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/BadCRLIssuerNameCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.4.6",
+   "title": "Invalid Wrong CRL Test6",
+   "ee": "certs/InvalidWrongCRLTest6EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/WrongCRLCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/WrongCRLCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.4.7",
+   "title": "Valid Two CRLs Test7",
+   "ee": "certs/ValidTwoCRLsTest7EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/TwoCRLsCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/TwoCRLsCAGoodCRL.crl",
+    "crls/TwoCRLsCABadCRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.4.8",
+   "title": "Invalid Unknown CRL Entry Extension Test8",
+   "ee": "certs/InvalidUnknownCRLEntryExtensionTest8EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/UnknownCRLEntryExtensionCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/UnknownCRLEntryExtensionCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.4.9",
+   "title": "Invalid Unknown CRL Extension Test9",
+   "ee": "certs/InvalidUnknownCRLExtensionTest9EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/UnknownCRLExtensionCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/UnknownCRLExtensionCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.4.10",
+   "title": "Invalid Unknown CRL Extension Test10",
+   "ee": "certs/InvalidUnknownCRLExtensionTest10EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/UnknownCRLExtensionCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/UnknownCRLExtensionCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.4.11",
+   "title": "Invalid Old CRL nextUpdate Test11",
+   "ee": "certs/InvalidOldCRLnextUpdateTest11EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/OldCRLnextUpdateCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/OldCRLnextUpdateCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.4.12",
+   "title": "Invalid pre2000 CRL nextUpdate Test12",
+   "ee": "certs/Invalidpre2000CRLnextUpdateTest12EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/pre2000CRLnextUpdateCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/pre2000CRLnextUpdateCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.4.13",
+   "title": "Valid GeneralizedTime CRL nextUpdate Test13",
+   "ee": "certs/ValidGeneralizedTimeCRLnextUpdateTest13EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/GeneralizedTimeCRLnextUpdateCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/GeneralizedTimeCRLnextUpdateCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.4.14",
+   "title": "Valid Negative Serial Number Test14",
+   "ee": "certs/ValidNegativeSerialNumberTest14EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/NegativeSerialNumberCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/NegativeSerialNumberCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.4.15",
+   "title": "Invalid Negative Serial Number Test15",
+   "ee": "certs/InvalidNegativeSerialNumberTest15EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/NegativeSerialNumberCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/NegativeSerialNumberCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.4.16",
+   "title": "Valid Long Serial Number Test16",
+   "ee": "certs/ValidLongSerialNumberTest16EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/LongSerialNumberCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/LongSerialNumberCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.4.17",
+   "title": "Valid Long Serial Number Test17",
+   "ee": "certs/ValidLongSerialNumberTest17EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/LongSerialNumberCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/LongSerialNumberCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.4.18",
+   "title": "Invalid Long Serial Number Test18",
+   "ee": "certs/InvalidLongSerialNumberTest18EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/LongSerialNumberCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/LongSerialNumberCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.4.19",
+   "title": "Valid Separate Certificate and CRL Keys Test19",
+   "ee": "certs/ValidSeparateCertificateandCRLKeysTest19EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/SeparateCertificateandCRLKeysCertificateSigningCACert.crt",
+    "certs/SeparateCertificateandCRLKeysCRLSigningCert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/SeparateCertificateandCRLKeysCRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.4.20",
+   "title": "Invalid Separate Certificate and CRL Keys Test20",
+   "ee": "certs/InvalidSeparateCertificateandCRLKeysTest20EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/SeparateCertificateandCRLKeysCertificateSigningCACert.crt",
+    "certs/SeparateCertificateandCRLKeysCRLSigningCert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/SeparateCertificateandCRLKeysCRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.4.21",
+   "title": "Invalid Separate Certificate and CRL Keys Test21",
+   "ee": "certs/InvalidSeparateCertificateandCRLKeysTest21EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/SeparateCertificateandCRLKeysCA2CertificateSigningCACert.crt",
+    "certs/SeparateCertificateandCRLKeysCA2CRLSigningCert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/SeparateCertificateandCRLKeysCA2CRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.5.1",
+   "title": "Valid Basic Self-Issued Old With New Test1",
+   "ee": "certs/ValidBasicSelfIssuedOldWithNewTest1EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/BasicSelfIssuedNewKeyCACert.crt",
+    "certs/BasicSelfIssuedNewKeyOldWithNewCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/BasicSelfIssuedNewKeyCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.5.2",
+   "title": "Invalid Basic Self-Issued Old With New Test2",
+   "ee": "certs/InvalidBasicSelfIssuedOldWithNewTest2EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/BasicSelfIssuedNewKeyCACert.crt",
+    "certs/BasicSelfIssuedNewKeyOldWithNewCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/BasicSelfIssuedNewKeyCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.5.3",
+   "title": "Valid Basic Self-Issued New With Old Test3",
+   "ee": "certs/ValidBasicSelfIssuedNewWithOldTest3EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/BasicSelfIssuedOldKeyCACert.crt",
+    "certs/BasicSelfIssuedOldKeyNewWithOldCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/BasicSelfIssuedOldKeySelfIssuedCertCRL.crl",
+    "crls/BasicSelfIssuedOldKeyCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.5.4",
+   "title": "Valid Basic Self-Issued New With Old Test4",
+   "ee": "certs/ValidBasicSelfIssuedNewWithOldTest4EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/BasicSelfIssuedOldKeyCACert.crt",
+    "certs/BasicSelfIssuedOldKeyNewWithOldCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/BasicSelfIssuedOldKeySelfIssuedCertCRL.crl",
+    "crls/BasicSelfIssuedOldKeyCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.5.5",
+   "title": "Invalid Basic Self-Issued New With Old Test5",
+   "ee": "certs/InvalidBasicSelfIssuedNewWithOldTest5EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/BasicSelfIssuedOldKeyCACert.crt",
+    "certs/BasicSelfIssuedOldKeyNewWithOldCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/BasicSelfIssuedOldKeySelfIssuedCertCRL.crl",
+    "crls/BasicSelfIssuedOldKeyCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.5.6",
+   "title": "Valid Basic Self-Issued CRL Signing Key Test6",
+   "ee": "certs/ValidBasicSelfIssuedCRLSigningKeyTest6EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/BasicSelfIssuedCRLSigningKeyCACert.crt",
+    "certs/BasicSelfIssuedCRLSigningKeyCRLCert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/BasicSelfIssuedCRLSigningKeyCRLCertCRL.crl",
+    "crls/BasicSelfIssuedCRLSigningKeyCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.5.7",
+   "title": "Invalid Basic Self-Issued CRL Signing Key Test7",
+   "ee": "certs/InvalidBasicSelfIssuedCRLSigningKeyTest7EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/BasicSelfIssuedCRLSigningKeyCACert.crt",
+    "certs/BasicSelfIssuedCRLSigningKeyCRLCert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/BasicSelfIssuedCRLSigningKeyCRLCertCRL.crl",
+    "crls/BasicSelfIssuedCRLSigningKeyCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.5.8",
+   "title": "Invalid Basic Self-Issued CRL Signing Key Test8",
+   "ee": "certs/InvalidBasicSelfIssuedCRLSigningKeyTest8EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/BasicSelfIssuedCRLSigningKeyCACert.crt",
+    "certs/BasicSelfIssuedCRLSigningKeyCRLCert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/BasicSelfIssuedCRLSigningKeyCRLCertCRL.crl",
+    "crls/BasicSelfIssuedCRLSigningKeyCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.6.1",
+   "title": "Invalid Missing basicConstraints Test1",
+   "ee": "certs/InvalidMissingbasicConstraintsTest1EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/MissingbasicConstraintsCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/MissingbasicConstraintsCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.6.2",
+   "title": "Invalid cA False Test2",
+   "ee": "certs/InvalidcAFalseTest2EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/basicConstraintsCriticalcAFalseCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/basicConstraintsCriticalcAFalseCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.6.3",
+   "title": "Invalid cA False Test3",
+   "ee": "certs/InvalidcAFalseTest3EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/basicConstraintsNotCriticalcAFalseCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/basicConstraintsNotCriticalcAFalseCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.6.4",
+   "title": "Valid basicConstraints Not Critical Test4",
+   "ee": "certs/ValidbasicConstraintsNotCriticalTest4EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/basicConstraintsNotCriticalCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/basicConstraintsNotCriticalCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.6.5",
+   "title": "Invalid pathLenConstraint Test5",
+   "ee": "certs/InvalidpathLenConstraintTest5EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/pathLenConstraint0CACert.crt",
+    "certs/pathLenConstraint0subCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/pathLenConstraint0CACRL.crl",
+    "crls/pathLenConstraint0subCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.6.6",
+   "title": "Invalid pathLenConstraint Test6",
+   "ee": "certs/InvalidpathLenConstraintTest6EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/pathLenConstraint0CACert.crt",
+    "certs/pathLenConstraint0subCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/pathLenConstraint0CACRL.crl",
+    "crls/pathLenConstraint0subCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.6.7",
+   "title": "Valid pathLenConstraint Test7",
+   "ee": "certs/ValidpathLenConstraintTest7EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/pathLenConstraint0CACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/pathLenConstraint0CACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.6.8",
+   "title": "Valid pathLenConstraint Test8",
+   "ee": "certs/ValidpathLenConstraintTest8EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/pathLenConstraint0CACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/pathLenConstraint0CACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.6.9",
+   "title": "Invalid pathLenConstraint Test9",
+   "ee": "certs/InvalidpathLenConstraintTest9EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/pathLenConstraint6CACert.crt",
+    "certs/pathLenConstraint6subCA0Cert.crt",
+    "certs/pathLenConstraint6subsubCA00Cert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/pathLenConstraint6CACRL.crl",
+    "crls/pathLenConstraint6subCA0CRL.crl",
+    "crls/pathLenConstraint6subsubCA00CRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.6.10",
+   "title": "Invalid pathLenConstraint Test10",
+   "ee": "certs/InvalidpathLenConstraintTest10EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/pathLenConstraint6CACert.crt",
+    "certs/pathLenConstraint6subCA0Cert.crt",
+    "certs/pathLenConstraint6subsubCA00Cert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/pathLenConstraint6CACRL.crl",
+    "crls/pathLenConstraint6subCA0CRL.crl",
+    "crls/pathLenConstraint6subsubCA00CRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.6.11",
+   "title": "Invalid pathLenConstraint Test11",
+   "ee": "certs/InvalidpathLenConstraintTest11EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/pathLenConstraint6CACert.crt",
+    "certs/pathLenConstraint6subCA1Cert.crt",
+    "certs/pathLenConstraint6subsubCA11Cert.crt",
+    "certs/pathLenConstraint6subsubsubCA11XCert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/pathLenConstraint6CACRL.crl",
+    "crls/pathLenConstraint6subCA1CRL.crl",
+    "crls/pathLenConstraint6subsubCA11CRL.crl",
+    "crls/pathLenConstraint6subsubsubCA11XCRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.6.12",
+   "title": "Invalid pathLenConstraint Test12",
+   "ee": "certs/InvalidpathLenConstraintTest12EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/pathLenConstraint6CACert.crt",
+    "certs/pathLenConstraint6subCA1Cert.crt",
+    "certs/pathLenConstraint6subsubCA11Cert.crt",
+    "certs/pathLenConstraint6subsubsubCA11XCert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/pathLenConstraint6CACRL.crl",
+    "crls/pathLenConstraint6subCA1CRL.crl",
+    "crls/pathLenConstraint6subsubCA11CRL.crl",
+    "crls/pathLenConstraint6subsubsubCA11XCRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.6.13",
+   "title": "Valid pathLenConstraint Test13",
+   "ee": "certs/ValidpathLenConstraintTest13EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/pathLenConstraint6CACert.crt",
+    "certs/pathLenConstraint6subCA4Cert.crt",
+    "certs/pathLenConstraint6subsubCA41Cert.crt",
+    "certs/pathLenConstraint6subsubsubCA41XCert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/pathLenConstraint6CACRL.crl",
+    "crls/pathLenConstraint6subCA4CRL.crl",
+    "crls/pathLenConstraint6subsubCA41CRL.crl",
+    "crls/pathLenConstraint6subsubsubCA41XCRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.6.14",
+   "title": "Valid pathLenConstraint Test14",
+   "ee": "certs/ValidpathLenConstraintTest14EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/pathLenConstraint6CACert.crt",
+    "certs/pathLenConstraint6subCA4Cert.crt",
+    "certs/pathLenConstraint6subsubCA41Cert.crt",
+    "certs/pathLenConstraint6subsubsubCA41XCert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/pathLenConstraint6CACRL.crl",
+    "crls/pathLenConstraint6subCA4CRL.crl",
+    "crls/pathLenConstraint6subsubCA41CRL.crl",
+    "crls/pathLenConstraint6subsubsubCA41XCRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.6.15",
+   "title": "Valid Self-Issued pathLenConstraint Test15",
+   "ee": "certs/ValidSelfIssuedpathLenConstraintTest15EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/pathLenConstraint0CACert.crt",
+    "certs/pathLenConstraint0SelfIssuedCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/pathLenConstraint0CACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.6.16",
+   "title": "Invalid Self-Issued pathLenConstraint Test16",
+   "ee": "certs/InvalidSelfIssuedpathLenConstraintTest16EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/pathLenConstraint0CACert.crt",
+    "certs/pathLenConstraint0SelfIssuedCACert.crt",
+    "certs/pathLenConstraint0subCA2Cert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/pathLenConstraint0CACRL.crl",
+    "crls/pathLenConstraint0subCA2CRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.6.17",
+   "title": "Valid Self-Issued pathLenConstraint Test17",
+   "ee": "certs/ValidSelfIssuedpathLenConstraintTest17EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/pathLenConstraint1CACert.crt",
+    "certs/pathLenConstraint1SelfIssuedCACert.crt",
+    "certs/pathLenConstraint1subCACert.crt",
+    "certs/pathLenConstraint1SelfIssuedsubCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/pathLenConstraint1CACRL.crl",
+    "crls/pathLenConstraint1subCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.7.1",
+   "title": "Invalid keyUsage Critical keyCertSign False Test1",
+   "ee": "certs/InvalidkeyUsageCriticalkeyCertSignFalseTest1EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/keyUsageCriticalkeyCertSignFalseCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/keyUsageCriticalkeyCertSignFalseCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.7.2",
+   "title": "Invalid keyUsage Not Critical keyCertSign False Test2",
+   "ee": "certs/InvalidkeyUsageNotCriticalkeyCertSignFalseTest2EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/keyUsageNotCriticalkeyCertSignFalseCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/keyUsageNotCriticalkeyCertSignFalseCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.7.3",
+   "title": "Valid keyUsage Not Critical Test3",
+   "ee": "certs/ValidkeyUsageNotCriticalTest3EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/keyUsageNotCriticalCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/keyUsageNotCriticalCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.7.4",
+   "title": "Invalid keyUsage Critical cRLSign False Test4",
+   "ee": "certs/InvalidkeyUsageCriticalcRLSignFalseTest4EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/keyUsageCriticalcRLSignFalseCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/keyUsageCriticalcRLSignFalseCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.7.5",
+   "title": "Invalid keyUsage Not Critical cRLSign False Test5",
+   "ee": "certs/InvalidkeyUsageNotCriticalcRLSignFalseTest5EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/keyUsageNotCriticalcRLSignFalseCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/keyUsageNotCriticalcRLSignFalseCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.8.1",
+   "title": "All Certificates Same Policy Test1",
+   "ee": "certs/ValidCertificatePathTest1EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/GoodCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/GoodCACRL.crl"
+   ],
+   "runs": [
+    {
+     "explicitPolicy": true,
+     "expected": "valid"
+    },
+    {
+     "explicitPolicy": true,
+     "initialPolicySet": [
+      "2.16.840.1.101.3.2.1.48.1"
+     ],
+     "expected": "valid"
+    },
+    {
+     "explicitPolicy": true,
+     "initialPolicySet": [
+      "2.16.840.1.101.3.2.1.48.2"
+     ],
+     "expected": "invalid"
+    },
+    {
+     "explicitPolicy": true,
+     "initialPolicySet": [
+      "2.16.840.1.101.3.2.1.48.1",
+      "2.16.840.1.101.3.2.1.48.2"
+     ],
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.8.2",
+   "title": "All Certificates No Policies Test2",
+   "ee": "certs/AllCertificatesNoPoliciesTest2EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/NoPoliciesCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/NoPoliciesCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    },
+    {
+     "explicitPolicy": true,
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.8.3",
+   "title": "Different Policies Test3",
+   "ee": "certs/DifferentPoliciesTest3EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/GoodCACert.crt",
+    "certs/PoliciesP2subCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/GoodCACRL.crl",
+    "crls/PoliciesP2subCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    },
+    {
+     "explicitPolicy": true,
+     "expected": "invalid"
+    },
+    {
+     "explicitPolicy": true,
+     "initialPolicySet": [
+      "2.16.840.1.101.3.2.1.48.1",
+      "2.16.840.1.101.3.2.1.48.2"
+     ],
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.8.4",
+   "title": "Different Policies Test4",
+   "ee": "certs/DifferentPoliciesTest4EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/GoodCACert.crt",
+    "certs/GoodsubCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/GoodCACRL.crl",
+    "crls/GoodsubCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.8.5",
+   "title": "Different Policies Test5",
+   "ee": "certs/DifferentPoliciesTest5EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/GoodCACert.crt",
+    "certs/PoliciesP2subCA2Cert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/GoodCACRL.crl",
+    "crls/PoliciesP2subCA2CRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.8.6",
+   "title": "Overlapping Policies Test6",
+   "ee": "certs/OverlappingPoliciesTest6EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/PoliciesP1234CACert.crt",
+    "certs/PoliciesP1234subCAP123Cert.crt",
+    "certs/PoliciesP1234subsubCAP123P12Cert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/PoliciesP1234CACRL.crl",
+    "crls/PoliciesP1234subCAP123CRL.crl",
+    "crls/PoliciesP1234subsubCAP123P12CRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    },
+    {
+     "initialPolicySet": [
+      "2.16.840.1.101.3.2.1.48.1"
+     ],
+     "expected": "valid"
+    },
+    {
+     "initialPolicySet": [
+      "2.16.840.1.101.3.2.1.48.2"
+     ],
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.8.7",
+   "title": "Different Policies Test7",
+   "ee": "certs/DifferentPoliciesTest7EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/PoliciesP123CACert.crt",
+    "certs/PoliciesP123subCAP12Cert.crt",
+    "certs/PoliciesP123subsubCAP12P1Cert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/PoliciesP123CACRL.crl",
+    "crls/PoliciesP123subCAP12CRL.crl",
+    "crls/PoliciesP123subsubCAP12P1CRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.8.8",
+   "title": "Different Policies Test8",
+   "ee": "certs/DifferentPoliciesTest8EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/PoliciesP12CACert.crt",
+    "certs/PoliciesP12subCAP1Cert.crt",
+    "certs/PoliciesP12subsubCAP1P2Cert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/PoliciesP12CACRL.crl",
+    "crls/PoliciesP12subCAP1CRL.crl",
+    "crls/PoliciesP12subsubCAP1P2CRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.8.9",
+   "title": "Different Policies Test9",
+   "ee": "certs/DifferentPoliciesTest9EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/PoliciesP123CACert.crt",
+    "certs/PoliciesP123subCAP12Cert.crt",
+    "certs/PoliciesP123subsubCAP12P2Cert.crt",
+    "certs/PoliciesP123subsubsubCAP12P2P1Cert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/PoliciesP123CACRL.crl",
+    "crls/PoliciesP123subCAP12CRL.crl",
+    "crls/PoliciesP123subsubCAP2P2CRL.crl",
+    "crls/PoliciesP123subsubsubCAP12P2P1CRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.8.10",
+   "title": "All Certificates Same Policies Test10",
+   "ee": "certs/AllCertificatesSamePoliciesTest10EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/PoliciesP12CACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/PoliciesP12CACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    },
+    {
+     "initialPolicySet": [
+      "2.16.840.1.101.3.2.1.48.1"
+     ],
+     "expected": "valid"
+    },
+    {
+     "initialPolicySet": [
+      "2.16.840.1.101.3.2.1.48.2"
+     ],
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.8.11",
+   "title": "All Certificates AnyPolicy Test11",
+   "ee": "certs/AllCertificatesanyPolicyTest11EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/anyPolicyCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/anyPolicyCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    },
+    {
+     "initialPolicySet": [
+      "2.16.840.1.101.3.2.1.48.1"
+     ],
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.8.12",
+   "title": "Different Policies Test12",
+   "ee": "certs/DifferentPoliciesTest12EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/PoliciesP3CACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/PoliciesP3CACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.8.13",
+   "title": "All Certificates Same Policies Test13",
+   "ee": "certs/AllCertificatesSamePoliciesTest13EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/PoliciesP123CACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/PoliciesP123CACRL.crl"
+   ],
+   "runs": [
+    {
+     "initialPolicySet": [
+      "2.16.840.1.101.3.2.1.48.1"
+     ],
+     "expected": "valid"
+    },
+    {
+     "initialPolicySet": [
+      "2.16.840.1.101.3.2.1.48.2"
+     ],
+     "expected": "valid"
+    },
+    {
+     "initialPolicySet": [
+      "2.16.840.1.101.3.2.1.48.3"
+     ],
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.8.14",
+   "title": "AnyPolicy Test14",
+   "ee": "certs/AnyPolicyTest14EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/anyPolicyCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/anyPolicyCACRL.crl"
+   ],
+   "runs": [
+    {
+     "initialPolicySet": [
+      "2.16.840.1.101.3.2.1.48.1"
+     ],
+     "expected": "valid"
+    },
+    {
+     "initialPolicySet": [
+      "2.16.840.1.101.3.2.1.48.2"
+     ],
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.8.15",
+   "title": "User Notice Qualifier Test15",
+   "ee": "certs/UserNoticeQualifierTest15EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.8.16",
+   "title": "User Notice Qualifier Test16",
+   "ee": "certs/UserNoticeQualifierTest16EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/GoodCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/GoodCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.8.17",
+   "title": "User Notice Qualifier Test17",
+   "ee": "certs/UserNoticeQualifierTest17EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/GoodCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/GoodCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.8.18",
+   "title": "User Notice Qualifier Test18",
+   "ee": "certs/UserNoticeQualifierTest18EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/PoliciesP12CACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/PoliciesP12CACRL.crl"
+   ],
+   "runs": [
+    {
+     "initialPolicySet": [
+      "2.16.840.1.101.3.2.1.48.1"
+     ],
+     "expected": "valid"
+    },
+    {
+     "initialPolicySet": [
+      "2.16.840.1.101.3.2.1.48.2"
+     ],
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.8.19",
+   "title": "User Notice Qualifier Test19",
+   "ee": "certs/UserNoticeQualifierTest19EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.8.20",
+   "title": "CPS Pointer Qualifier Test20",
+   "ee": "certs/CPSPointerQualifierTest20EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/GoodCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/GoodCACRL.crl"
+   ],
+   "runs": [
+    {
+     "explicitPolicy": true,
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.9.1",
+   "title": "Valid RequireExplicitPolicy Test1",
+   "ee": "certs/ValidrequireExplicitPolicyTest1EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/requireExplicitPolicy10CACert.crt",
+    "certs/requireExplicitPolicy10subCACert.crt",
+    "certs/requireExplicitPolicy10subsubCACert.crt",
+    "certs/requireExplicitPolicy10subsubsubCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/requireExplicitPolicy10CACRL.crl",
+    "crls/requireExplicitPolicy10subCACRL.crl",
+    "crls/requireExplicitPolicy10subsubCACRL.crl",
+    "crls/requireExplicitPolicy10subsubsubCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.9.2",
+   "title": "Valid RequireExplicitPolicy Test2",
+   "ee": "certs/ValidrequireExplicitPolicyTest2EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/requireExplicitPolicy5CACert.crt",
+    "certs/requireExplicitPolicy5subCACert.crt",
+    "certs/requireExplicitPolicy5subsubCACert.crt",
+    "certs/requireExplicitPolicy5subsubsubCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/requireExplicitPolicy5CACRL.crl",
+    "crls/requireExplicitPolicy5subCACRL.crl",
+    "crls/requireExplicitPolicy5subsubCACRL.crl",
+    "crls/requireExplicitPolicy5subsubsubCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.9.3",
+   "title": "Invalid RequireExplicitPolicy Test3",
+   "ee": "certs/InvalidrequireExplicitPolicyTest3EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/requireExplicitPolicy4CACert.crt",
+    "certs/requireExplicitPolicy4subCACert.crt",
+    "certs/requireExplicitPolicy4subsubCACert.crt",
+    "certs/requireExplicitPolicy4subsubsubCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/requireExplicitPolicy4CACRL.crl",
+    "crls/requireExplicitPolicy4subCACRL.crl",
+    "crls/requireExplicitPolicy4subsubCACRL.crl",
+    "crls/requireExplicitPolicy4subsubsubCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.9.4",
+   "title": "Valid RequireExplicitPolicy Test4",
+   "ee": "certs/ValidrequireExplicitPolicyTest4EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/requireExplicitPolicy0CACert.crt",
+    "certs/requireExplicitPolicy0subCACert.crt",
+    "certs/requireExplicitPolicy0subsubCACert.crt",
+    "certs/requireExplicitPolicy0subsubsubCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/requireExplicitPolicy0CACRL.crl",
+    "crls/requireExplicitPolicy0subCACRL.crl",
+    "crls/requireExplicitPolicy0subsubCACRL.crl",
+    "crls/requireExplicitPolicy0subsubsubCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.9.5",
+   "title": "Invalid RequireExplicitPolicy Test5",
+   "ee": "certs/InvalidrequireExplicitPolicyTest5EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/requireExplicitPolicy7CACert.crt",
+    "certs/requireExplicitPolicy7subCARE2Cert.crt",
+    "certs/requireExplicitPolicy7subsubCARE2RE4Cert.crt",
+    "certs/requireExplicitPolicy7subsubsubCARE2RE4Cert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/requireExplicitPolicy7CACRL.crl",
+    "crls/requireExplicitPolicy7subCARE2CRL.crl",
+    "crls/requireExplicitPolicy7subsubCARE2RE4CRL.crl",
+    "crls/requireExplicitPolicy7subsubsubCARE2RE4CRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.9.6",
+   "title": "Valid Self-Issued requireExplicitPolicy Test6",
+   "ee": "certs/ValidSelfIssuedrequireExplicitPolicyTest6EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/requireExplicitPolicy2CACert.crt",
+    "certs/requireExplicitPolicy2SelfIssuedCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/requireExplicitPolicy2CACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.9.7",
+   "title": "Invalid Self-Issued requireExplicitPolicy Test7",
+   "ee": "certs/InvalidSelfIssuedrequireExplicitPolicyTest7EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/requireExplicitPolicy2CACert.crt",
+    "certs/requireExplicitPolicy2SelfIssuedCACert.crt",
+    "certs/requireExplicitPolicy2subCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/requireExplicitPolicy2CACRL.crl",
+    "crls/requireExplicitPolicy2subCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.9.8",
+   "title": "Invalid Self-Issued requireExplicitPolicy Test8",
+   "ee": "certs/InvalidSelfIssuedrequireExplicitPolicyTest8EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/requireExplicitPolicy2CACert.crt",
+    "certs/requireExplicitPolicy2SelfIssuedCACert.crt",
+    "certs/requireExplicitPolicy2subCACert.crt",
+    "certs/requireExplicitPolicy2SelfIssuedsubCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/requireExplicitPolicy2CACRL.crl",
+    "crls/requireExplicitPolicy2subCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.10.1",
+   "title": "Valid Policy Mapping Test1",
+   "ee": "certs/ValidPolicyMappingTest1EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/Mapping1to2CACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/Mapping1to2CACRL.crl"
+   ],
+   "runs": [
+    {
+     "initialPolicySet": [
+      "2.16.840.1.101.3.2.1.48.1"
+     ],
+     "expected": "valid"
+    },
+    {
+     "initialPolicySet": [
+      "2.16.840.1.101.3.2.1.48.2"
+     ],
+     "expected": "invalid"
+    },
+    {
+     "policyMappingInhibit": true,
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.10.2",
+   "title": "Invalid Policy Mapping Test2",
+   "ee": "certs/InvalidPolicyMappingTest2EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/Mapping1to2CACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/Mapping1to2CACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    },
+    {
+     "policyMappingInhibit": true,
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.10.3",
+   "title": "Valid Policy Mapping Test3",
+   "ee": "certs/ValidPolicyMappingTest3EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/P12Mapping1to3CACert.crt",
+    "certs/P12Mapping1to3subCACert.crt",
+    "certs/P12Mapping1to3subsubCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/P12Mapping1to3CACRL.crl",
+    "crls/P12Mapping1to3subCACRL.crl",
+    "crls/P12Mapping1to3subsubCACRL.crl"
+   ],
+   "runs": [
+    {
+     "initialPolicySet": [
+      "2.16.840.1.101.3.2.1.48.1"
+     ],
+     "expected": "invalid"
+    },
+    {
+     "initialPolicySet": [
+      "2.16.840.1.101.3.2.1.48.2"
+     ],
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.10.4",
+   "title": "Invalid Policy Mapping Test4",
+   "ee": "certs/InvalidPolicyMappingTest4EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/P12Mapping1to3CACert.crt",
+    "certs/P12Mapping1to3subCACert.crt",
+    "certs/P12Mapping1to3subsubCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/P12Mapping1to3CACRL.crl",
+    "crls/P12Mapping1to3subCACRL.crl",
+    "crls/P12Mapping1to3subsubCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.10.5",
+   "title": "Valid Policy Mapping Test5",
+   "ee": "certs/ValidPolicyMappingTest5EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/P1Mapping1to234CACert.crt",
+    "certs/P1Mapping1to234subCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/P1Mapping1to234CACRL.crl",
+    "crls/P1Mapping1to234subCACRL.crl"
+   ],
+   "runs": [
+    {
+     "initialPolicySet": [
+      "2.16.840.1.101.3.2.1.48.1"
+     ],
+     "expected": "valid"
+    },
+    {
+     "initialPolicySet": [
+      "2.16.840.1.101.3.2.1.48.6"
+     ],
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.10.6",
+   "title": "Valid Policy Mapping Test6",
+   "ee": "certs/ValidPolicyMappingTest6EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/P1Mapping1to234CACert.crt",
+    "certs/P1Mapping1to234subCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/P1Mapping1to234CACRL.crl",
+    "crls/P1Mapping1to234subCACRL.crl"
+   ],
+   "runs": [
+    {
+     "initialPolicySet": [
+      "2.16.840.1.101.3.2.1.48.1"
+     ],
+     "expected": "valid"
+    },
+    {
+     "initialPolicySet": [
+      "2.16.840.1.101.3.2.1.48.6"
+     ],
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.10.7",
+   "title": "Invalid Mapping From anyPolicy Test7",
+   "ee": "certs/InvalidMappingFromanyPolicyTest7EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/MappingFromanyPolicyCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/MappingFromanyPolicyCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.10.8",
+   "title": "Invalid Mapping To anyPolicy Test8",
+   "ee": "certs/InvalidMappingToanyPolicyTest8EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/MappingToanyPolicyCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/MappingToanyPolicyCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.10.9",
+   "title": "Valid Policy Mapping Test9",
+   "ee": "certs/ValidPolicyMappingTest9EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/PanyPolicyMapping1to2CACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/PanyPolicyMapping1to2CACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.10.10",
+   "title": "Invalid Policy Mapping Test10",
+   "ee": "certs/InvalidPolicyMappingTest10EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/GoodCACert.crt",
+    "certs/GoodsubCAPanyPolicyMapping1to2CACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/GoodCACRL.crl",
+    "crls/GoodsubCAPanyPolicyMapping1to2CACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.10.11",
+   "title": "Valid Policy Mapping Test11",
+   "ee": "certs/ValidPolicyMappingTest11EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/GoodCACert.crt",
+    "certs/GoodsubCAPanyPolicyMapping1to2CACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/GoodCACRL.crl",
+    "crls/GoodsubCAPanyPolicyMapping1to2CACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.10.12",
+   "title": "Valid Policy Mapping Test12",
+   "ee": "certs/ValidPolicyMappingTest12EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/P12Mapping1to3CACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/P12Mapping1to3CACRL.crl"
+   ],
+   "runs": [
+    {
+     "initialPolicySet": [
+      "2.16.840.1.101.3.2.1.48.1"
+     ],
+     "expected": "valid"
+    },
+    {
+     "initialPolicySet": [
+      "2.16.840.1.101.3.2.1.48.2"
+     ],
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.10.13",
+   "title": "Valid Policy Mapping Test13",
+   "ee": "certs/ValidPolicyMappingTest13EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/P1anyPolicyMapping1to2CACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/P1anyPolicyMapping1to2CACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.10.14",
+   "title": "Valid Policy Mapping Test14",
+   "ee": "certs/ValidPolicyMappingTest14EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/P1anyPolicyMapping1to2CACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/P1anyPolicyMapping1to2CACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.11.1",
+   "title": "Invalid inhibitPolicyMapping Test1",
+   "ee": "certs/InvalidinhibitPolicyMappingTest1EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/inhibitPolicyMapping0CACert.crt",
+    "certs/inhibitPolicyMapping0subCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/inhibitPolicyMapping0CACRL.crl",
+    "crls/inhibitPolicyMapping0subCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.11.2",
+   "title": "Valid inhibitPolicyMapping Test2",
+   "ee": "certs/ValidinhibitPolicyMappingTest2EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/inhibitPolicyMapping1P12CACert.crt",
+    "certs/inhibitPolicyMapping1P12subCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/inhibitPolicyMapping1P12CACRL.crl",
+    "crls/inhibitPolicyMapping1P12subCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.11.3",
+   "title": "Invalid inhibitPolicyMapping Test3",
+   "ee": "certs/InvalidinhibitPolicyMappingTest3EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/inhibitPolicyMapping1P12CACert.crt",
+    "certs/inhibitPolicyMapping1P12subCACert.crt",
+    "certs/inhibitPolicyMapping1P12subsubCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/inhibitPolicyMapping1P12CACRL.crl",
+    "crls/inhibitPolicyMapping1P12subCACRL.crl",
+    "crls/inhibitPolicyMapping1P12subsubCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.11.4",
+   "title": "Valid inhibitPolicyMapping Test4",
+   "ee": "certs/ValidinhibitPolicyMappingTest4EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/inhibitPolicyMapping1P12CACert.crt",
+    "certs/inhibitPolicyMapping1P12subCACert.crt",
+    "certs/inhibitPolicyMapping1P12subsubCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/inhibitPolicyMapping1P12CACRL.crl",
+    "crls/inhibitPolicyMapping1P12subCACRL.crl",
+    "crls/inhibitPolicyMapping1P12subsubCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.11.5",
+   "title": "Invalid inhibitPolicyMapping Test5",
+   "ee": "certs/InvalidinhibitPolicyMappingTest5EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/inhibitPolicyMapping5CACert.crt",
+    "certs/inhibitPolicyMapping5subCACert.crt",
+    "certs/inhibitPolicyMapping5subsubCACert.crt",
+    "certs/inhibitPolicyMapping5subsubsubCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/inhibitPolicyMapping5CACRL.crl",
+    "crls/inhibitPolicyMapping5subCACRL.crl",
+    "crls/inhibitPolicyMapping5subsubCACRL.crl",
+    "crls/inhibitPolicyMapping5subsubsubCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.11.6",
+   "title": "Invalid inhibitPolicyMapping Test6",
+   "ee": "certs/InvalidinhibitPolicyMappingTest6EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/inhibitPolicyMapping1P12CACert.crt",
+    "certs/inhibitPolicyMapping1P12subCAIPM5Cert.crt",
+    "certs/inhibitPolicyMapping1P12subsubCAIPM5Cert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/inhibitPolicyMapping1P12CACRL.crl",
+    "crls/inhibitPolicyMapping1P12subCAIPM5CRL.crl",
+    "crls/inhibitPolicyMapping1P12subsubCAIPM5CRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.11.7",
+   "title": "Valid Self-Issued inhibitPolicyMapping Test7",
+   "ee": "certs/ValidSelfIssuedinhibitPolicyMappingTest7EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/inhibitPolicyMapping1P1CACert.crt",
+    "certs/inhibitPolicyMapping1P1SelfIssuedCACert.crt",
+    "certs/inhibitPolicyMapping1P1subCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/inhibitPolicyMapping1P1CACRL.crl",
+    "crls/inhibitPolicyMapping1P1subCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.11.8",
+   "title": "Invalid Self-Issued inhibitPolicyMapping Test8",
+   "ee": "certs/InvalidSelfIssuedinhibitPolicyMappingTest8EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/inhibitPolicyMapping1P1CACert.crt",
+    "certs/inhibitPolicyMapping1P1SelfIssuedCACert.crt",
+    "certs/inhibitPolicyMapping1P1subCACert.crt",
+    "certs/inhibitPolicyMapping1P1subsubCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/inhibitPolicyMapping1P1CACRL.crl",
+    "crls/inhibitPolicyMapping1P1subCACRL.crl",
+    "crls/inhibitPolicyMapping1P1subsubCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.11.9",
+   "title": "Invalid Self-Issued inhibitPolicyMapping Test9",
+   "ee": "certs/InvalidSelfIssuedinhibitPolicyMappingTest9EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/inhibitPolicyMapping1P1CACert.crt",
+    "certs/inhibitPolicyMapping1P1SelfIssuedCACert.crt",
+    "certs/inhibitPolicyMapping1P1subCACert.crt",
+    "certs/inhibitPolicyMapping1P1subsubCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/inhibitPolicyMapping1P1CACRL.crl",
+    "crls/inhibitPolicyMapping1P1subCACRL.crl",
+    "crls/inhibitPolicyMapping1P1subsubCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.11.10",
+   "title": "Invalid Self-Issued inhibitPolicyMapping Test10",
+   "ee": "certs/InvalidSelfIssuedinhibitPolicyMappingTest10EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/inhibitPolicyMapping1P1CACert.crt",
+    "certs/inhibitPolicyMapping1P1SelfIssuedCACert.crt",
+    "certs/inhibitPolicyMapping1P1subCACert.crt",
+    "certs/inhibitPolicyMapping1P1SelfIssuedsubCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/inhibitPolicyMapping1P1CACRL.crl",
+    "crls/inhibitPolicyMapping1P1subCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.11.11",
+   "title": "Invalid Self-Issued inhibitPolicyMapping Test11",
+   "ee": "certs/InvalidSelfIssuedinhibitPolicyMappingTest11EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/inhibitPolicyMapping1P1CACert.crt",
+    "certs/inhibitPolicyMapping1P1SelfIssuedCACert.crt",
+    "certs/inhibitPolicyMapping1P1subCACert.crt",
+    "certs/inhibitPolicyMapping1P1SelfIssuedsubCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/inhibitPolicyMapping1P1CACRL.crl",
+    "crls/inhibitPolicyMapping1P1subCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.12.1",
+   "title": "Invalid inhibitAnyPolicy Test1",
+   "ee": "certs/InvalidinhibitAnyPolicyTest1EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/inhibitAnyPolicy0CACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/inhibitAnyPolicy0CACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.12.2",
+   "title": "Valid inhibitAnyPolicy Test2",
+   "ee": "certs/ValidinhibitAnyPolicyTest2EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/inhibitAnyPolicy0CACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/inhibitAnyPolicy0CACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.12.3",
+   "title": "inhibitAnyPolicy Test3",
+   "ee": "certs/inhibitAnyPolicyTest3EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/inhibitAnyPolicy1CACert.crt",
+    "certs/inhibitAnyPolicy1subCA1Cert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/inhibitAnyPolicy1CACRL.crl",
+    "crls/inhibitAnyPolicy1subCA1CRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    },
+    {
+     "anyPolicyInhibit": true,
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.12.4",
+   "title": "Invalid inhibitAnyPolicy Test4",
+   "ee": "certs/InvalidinhibitAnyPolicyTest4EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/inhibitAnyPolicy1CACert.crt",
+    "certs/inhibitAnyPolicy1subCA1Cert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/inhibitAnyPolicy1CACRL.crl",
+    "crls/inhibitAnyPolicy1subCA1CRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.12.5",
+   "title": "Invalid inhibitAnyPolicy Test5",
+   "ee": "certs/InvalidinhibitAnyPolicyTest5EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/inhibitAnyPolicy5CACert.crt",
+    "certs/inhibitAnyPolicy5subCACert.crt",
+    "certs/inhibitAnyPolicy5subsubCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/inhibitAnyPolicy5CACRL.crl",
+    "crls/inhibitAnyPolicy5subCACRL.crl",
+    "crls/inhibitAnyPolicy5subsubCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.12.6",
+   "title": "Invalid inhibitAnyPolicy Test6",
+   "ee": "certs/InvalidinhibitAnyPolicyTest6EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/inhibitAnyPolicy1CACert.crt",
+    "certs/inhibitAnyPolicy1subCAIAP5Cert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/inhibitAnyPolicy1CACRL.crl",
+    "crls/inhibitAnyPolicy1subCAIAP5CRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.12.7",
+   "title": "Valid Self-Issued inhibitAnyPolicy Test7",
+   "ee": "certs/ValidSelfIssuedinhibitAnyPolicyTest7EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/inhibitAnyPolicy1CACert.crt",
+    "certs/inhibitAnyPolicy1SelfIssuedCACert.crt",
+    "certs/inhibitAnyPolicy1subCA2Cert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/inhibitAnyPolicy1CACRL.crl",
+    "crls/inhibitAnyPolicy1subCA2CRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.12.8",
+   "title": "Invalid Self-Issued inhibitAnyPolicy Test8",
+   "ee": "certs/InvalidSelfIssuedinhibitAnyPolicyTest8EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/inhibitAnyPolicy1CACert.crt",
+    "certs/inhibitAnyPolicy1SelfIssuedCACert.crt",
+    "certs/inhibitAnyPolicy1subCA2Cert.crt",
+    "certs/inhibitAnyPolicy1subsubCA2Cert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/inhibitAnyPolicy1CACRL.crl",
+    "crls/inhibitAnyPolicy1subCA2CRL.crl",
+    "crls/inhibitAnyPolicy1subsubCA2CRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.12.9",
+   "title": "Valid Self-Issued inhibitAnyPolicy Test9",
+   "ee": "certs/ValidSelfIssuedinhibitAnyPolicyTest9EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/inhibitAnyPolicy1CACert.crt",
+    "certs/inhibitAnyPolicy1SelfIssuedCACert.crt",
+    "certs/inhibitAnyPolicy1subCA2Cert.crt",
+    "certs/inhibitAnyPolicy1SelfIssuedsubCA2Cert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/inhibitAnyPolicy1CACRL.crl",
+    "crls/inhibitAnyPolicy1subCA2CRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.12.10",
+   "title": "Invalid Self-Issued inhibitAnyPolicy Test10",
+   "ee": "certs/InvalidSelfIssuedinhibitAnyPolicyTest10EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/inhibitAnyPolicy1CACert.crt",
+    "certs/inhibitAnyPolicy1SelfIssuedCACert.crt",
+    "certs/inhibitAnyPolicy1subCA2Cert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/inhibitAnyPolicy1CACRL.crl",
+    "crls/inhibitAnyPolicy1subCA2CRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.13.1",
+   "title": "Valid DN nameConstraints Test1",
+   "ee": "certs/ValidDNnameConstraintsTest1EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/nameConstraintsDN1CACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/nameConstraintsDN1CACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.13.2",
+   "title": "Invalid DN nameConstraints Test2",
+   "ee": "certs/InvalidDNnameConstraintsTest2EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/nameConstraintsDN1CACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/nameConstraintsDN1CACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.13.3",
+   "title": "Invalid DN nameConstraints Test3",
+   "ee": "certs/InvalidDNnameConstraintsTest3EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/nameConstraintsDN1CACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/nameConstraintsDN1CACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.13.4",
+   "title": "Valid DN nameConstraints Test4",
+   "ee": "certs/ValidDNnameConstraintsTest4EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/nameConstraintsDN1CACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/nameConstraintsDN1CACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.13.5",
+   "title": "Valid DN nameConstraints Test5",
+   "ee": "certs/ValidDNnameConstraintsTest5EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/nameConstraintsDN2CACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/nameConstraintsDN2CACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.13.6",
+   "title": "Valid DN nameConstraints Test6",
+   "ee": "certs/ValidDNnameConstraintsTest6EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/nameConstraintsDN3CACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/nameConstraintsDN3CACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.13.7",
+   "title": "Invalid DN nameConstraints Test7",
+   "ee": "certs/InvalidDNnameConstraintsTest7EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/nameConstraintsDN3CACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/nameConstraintsDN3CACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.13.8",
+   "title": "Invalid DN nameConstraints Test8",
+   "ee": "certs/InvalidDNnameConstraintsTest8EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/nameConstraintsDN4CACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/nameConstraintsDN4CACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.13.9",
+   "title": "Invalid DN nameConstraints Test9",
+   "ee": "certs/InvalidDNnameConstraintsTest9EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/nameConstraintsDN4CACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/nameConstraintsDN4CACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.13.10",
+   "title": "Invalid DN nameConstraints Test10",
+   "ee": "certs/InvalidDNnameConstraintsTest10EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/nameConstraintsDN5CACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/nameConstraintsDN5CACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.13.11",
+   "title": "Valid DN nameConstraints Test11",
+   "ee": "certs/ValidDNnameConstraintsTest11EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/nameConstraintsDN5CACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/nameConstraintsDN5CACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.13.12",
+   "title": "Invalid DN nameConstraints Test12",
+   "ee": "certs/InvalidDNnameConstraintsTest12EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/nameConstraintsDN1CACert.crt",
+    "certs/nameConstraintsDN1subCA1Cert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/nameConstraintsDN1CACRL.crl",
+    "crls/nameConstraintsDN1subCA1CRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.13.13",
+   "title": "Invalid DN nameConstraints Test13",
+   "ee": "certs/InvalidDNnameConstraintsTest13EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/nameConstraintsDN1CACert.crt",
+    "certs/nameConstraintsDN1subCA2Cert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/nameConstraintsDN1CACRL.crl",
+    "crls/nameConstraintsDN1subCA2CRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.13.14",
+   "title": "Valid DN nameConstraints Test14",
+   "ee": "certs/ValidDNnameConstraintsTest14EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/nameConstraintsDN1CACert.crt",
+    "certs/nameConstraintsDN1subCA2Cert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/nameConstraintsDN1CACRL.crl",
+    "crls/nameConstraintsDN1subCA2CRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.13.15",
+   "title": "Invalid DN nameConstraints Test15",
+   "ee": "certs/InvalidDNnameConstraintsTest15EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/nameConstraintsDN3CACert.crt",
+    "certs/nameConstraintsDN3subCA1Cert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/nameConstraintsDN3CACRL.crl",
+    "crls/nameConstraintsDN3subCA1CRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.13.16",
+   "title": "Invalid DN nameConstraints Test16",
+   "ee": "certs/InvalidDNnameConstraintsTest16EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/nameConstraintsDN3CACert.crt",
+    "certs/nameConstraintsDN3subCA1Cert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/nameConstraintsDN3CACRL.crl",
+    "crls/nameConstraintsDN3subCA1CRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.13.17",
+   "title": "Invalid DN nameConstraints Test17",
+   "ee": "certs/InvalidDNnameConstraintsTest17EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/nameConstraintsDN3CACert.crt",
+    "certs/nameConstraintsDN3subCA2Cert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/nameConstraintsDN3CACRL.crl",
+    "crls/nameConstraintsDN3subCA2CRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.13.18",
+   "title": "Valid DN nameConstraints Test18",
+   "ee": "certs/ValidDNnameConstraintsTest18EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/nameConstraintsDN3CACert.crt",
+    "certs/nameConstraintsDN3subCA2Cert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/nameConstraintsDN3CACRL.crl",
+    "crls/nameConstraintsDN3subCA2CRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.13.19",
+   "title": "Valid Self-Issued DN nameConstraints Test19",
+   "ee": "certs/ValidDNnameConstraintsTest19EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/nameConstraintsDN1CACert.crt",
+    "certs/nameConstraintsDN1SelfIssuedCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/nameConstraintsDN1CACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.13.20",
+   "title": "Invalid Self-Issued DN nameConstraints Test20",
+   "ee": "certs/InvalidDNnameConstraintsTest20EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/nameConstraintsDN1CACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/nameConstraintsDN1CACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.13.21",
+   "title": "Valid RFC822 nameConstraints Test21",
+   "ee": "certs/ValidRFC822nameConstraintsTest21EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/nameConstraintsRFC822CA1Cert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/nameConstraintsRFC822CA1CRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.13.22",
+   "title": "Invalid RFC822 nameConstraints Test22",
+   "ee": "certs/InvalidRFC822nameConstraintsTest22EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/nameConstraintsRFC822CA1Cert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/nameConstraintsRFC822CA1CRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.13.23",
+   "title": "Valid RFC822 nameConstraints Test23",
+   "ee": "certs/ValidRFC822nameConstraintsTest23EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/nameConstraintsRFC822CA2Cert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/nameConstraintsRFC822CA2CRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.13.24",
+   "title": "Invalid RFC822 nameConstraints Test24",
+   "ee": "certs/InvalidRFC822nameConstraintsTest24EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/nameConstraintsRFC822CA2Cert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/nameConstraintsRFC822CA2CRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.13.25",
+   "title": "Valid RFC822 nameConstraints Test25",
+   "ee": "certs/ValidRFC822nameConstraintsTest25EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/nameConstraintsRFC822CA3Cert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/nameConstraintsRFC822CA3CRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.13.26",
+   "title": "Invalid RFC822 nameConstraints Test26",
+   "ee": "certs/InvalidRFC822nameConstraintsTest26EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/nameConstraintsRFC822CA3Cert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/nameConstraintsRFC822CA3CRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.13.27",
+   "title": "Valid DN and RFC822 nameConstraints Test27",
+   "ee": "certs/ValidDNandRFC822nameConstraintsTest27EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/nameConstraintsDN1CACert.crt",
+    "certs/nameConstraintsDN1subCA3Cert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/nameConstraintsDN1CACRL.crl",
+    "crls/nameConstraintsDN1subCA3CRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.13.28",
+   "title": "Invalid DN and RFC822 nameConstraints Test28",
+   "ee": "certs/InvalidDNandRFC822nameConstraintsTest28EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/nameConstraintsDN1CACert.crt",
+    "certs/nameConstraintsDN1subCA3Cert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/nameConstraintsDN1CACRL.crl",
+    "crls/nameConstraintsDN1subCA3CRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.13.29",
+   "title": "Invalid DN and RFC822 nameConstraints Test29",
+   "ee": "certs/InvalidDNandRFC822nameConstraintsTest29EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/nameConstraintsDN1CACert.crt",
+    "certs/nameConstraintsDN1subCA3Cert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/nameConstraintsDN1CACRL.crl",
+    "crls/nameConstraintsDN1subCA3CRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.13.30",
+   "title": "Valid DNS nameConstraints Test30",
+   "ee": "certs/ValidDNSnameConstraintsTest30EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/nameConstraintsDNS1CACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/nameConstraintsDNS1CACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.13.31",
+   "title": "Invalid DNS nameConstraints Test31",
+   "ee": "certs/InvalidDNSnameConstraintsTest31EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/nameConstraintsDNS1CACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/nameConstraintsDNS1CACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.13.32",
+   "title": "Valid DNS nameConstraints Test32",
+   "ee": "certs/ValidDNSnameConstraintsTest32EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/nameConstraintsDNS2CACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/nameConstraintsDNS2CACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.13.33",
+   "title": "Invalid DNS nameConstraints Test33",
+   "ee": "certs/InvalidDNSnameConstraintsTest33EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/nameConstraintsDNS2CACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/nameConstraintsDNS2CACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.13.34",
+   "title": "Valid URI nameConstraints Test34",
+   "ee": "certs/ValidURInameConstraintsTest34EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/nameConstraintsURI1CACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/nameConstraintsURI1CACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.13.35",
+   "title": "Invalid URI nameConstraints Test35",
+   "ee": "certs/InvalidURInameConstraintsTest35EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/nameConstraintsURI1CACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/nameConstraintsURI1CACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.13.36",
+   "title": "Valid URI nameConstraints Test36",
+   "ee": "certs/ValidURInameConstraintsTest36EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/nameConstraintsURI2CACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/nameConstraintsURI2CACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.13.37",
+   "title": "Invalid URI nameConstraints Test37",
+   "ee": "certs/InvalidURInameConstraintsTest37EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/nameConstraintsURI2CACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/nameConstraintsURI2CACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.13.38",
+   "title": "Invalid DNS nameConstraints Test38",
+   "ee": "certs/InvalidDNSnameConstraintsTest38EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/nameConstraintsDNS1CACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/nameConstraintsDNS1CACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.14.1",
+   "title": "Valid distributionPoint Test1",
+   "ee": "certs/ValiddistributionPointTest1EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/distributionPoint1CACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/distributionPoint1CACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.14.2",
+   "title": "Invalid distributionPoint Test2",
+   "ee": "certs/InvaliddistributionPointTest2EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/distributionPoint1CACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/distributionPoint1CACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.14.3",
+   "title": "Invalid distributionPoint Test3",
+   "ee": "certs/InvaliddistributionPointTest3EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/distributionPoint1CACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/distributionPoint1CACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.14.4",
+   "title": "Valid distributionPoint Test4",
+   "ee": "certs/ValiddistributionPointTest4EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/distributionPoint1CACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/distributionPoint1CACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.14.5",
+   "title": "Valid distributionPoint Test5",
+   "ee": "certs/ValiddistributionPointTest5EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/distributionPoint2CACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/distributionPoint2CACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.14.6",
+   "title": "Invalid distributionPoint Test6",
+   "ee": "certs/InvaliddistributionPointTest6EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/distributionPoint2CACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/distributionPoint2CACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.14.7",
+   "title": "Valid distributionPoint Test7",
+   "ee": "certs/ValiddistributionPointTest7EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/distributionPoint2CACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/distributionPoint2CACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.14.8",
+   "title": "Invalid distributionPoint Test8",
+   "ee": "certs/InvaliddistributionPointTest8EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/distributionPoint2CACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/distributionPoint2CACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.14.9",
+   "title": "Invalid distributionPoint Test9",
+   "ee": "certs/InvaliddistributionPointTest9EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/distributionPoint2CACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/distributionPoint2CACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.14.10",
+   "title": "Valid No issuingDistributionPoint Test10",
+   "ee": "certs/ValidNoissuingDistributionPointTest10EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/NoissuingDistributionPointCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/NoissuingDistributionPointCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.14.11",
+   "title": "Invalid onlyContainsUserCerts CRL Test11",
+   "ee": "certs/InvalidonlyContainsUserCertsTest11EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/onlyContainsUserCertsCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/onlyContainsUserCertsCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.14.12",
+   "title": "Invalid onlyContainsCACerts CRL Test12",
+   "ee": "certs/InvalidonlyContainsCACertsTest12EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/onlyContainsCACertsCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/onlyContainsCACertsCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.14.13",
+   "title": "Valid onlyContainsCACerts CRL Test13",
+   "ee": "certs/ValidonlyContainsCACertsTest13EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/onlyContainsCACertsCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/onlyContainsCACertsCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.14.14",
+   "title": "Invalid onlyContainsAttributeCerts Test14",
+   "ee": "certs/InvalidonlyContainsAttributeCertsTest14EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/onlyContainsAttributeCertsCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/onlyContainsAttributeCertsCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.14.15",
+   "title": "Invalid onlySomeReasons Test15",
+   "ee": "certs/InvalidonlySomeReasonsTest15EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/onlySomeReasonsCA1Cert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/onlySomeReasonsCA1compromiseCRL.crl",
+    "crls/onlySomeReasonsCA1otherreasonsCRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.14.16",
+   "title": "Invalid onlySomeReasons Test16",
+   "ee": "certs/InvalidonlySomeReasonsTest16EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/onlySomeReasonsCA1Cert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/onlySomeReasonsCA1compromiseCRL.crl",
+    "crls/onlySomeReasonsCA1otherreasonsCRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.14.17",
+   "title": "Invalid onlySomeReasons Test17",
+   "ee": "certs/InvalidonlySomeReasonsTest17EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/onlySomeReasonsCA2Cert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/onlySomeReasonsCA2CRL1.crl",
+    "crls/onlySomeReasonsCA2CRL2.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.14.18",
+   "title": "Valid onlySomeReasons Test18",
+   "ee": "certs/ValidonlySomeReasonsTest18EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/onlySomeReasonsCA3Cert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/onlySomeReasonsCA3compromiseCRL.crl",
+    "crls/onlySomeReasonsCA3otherreasonsCRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.14.19",
+   "title": "Valid onlySomeReasons Test19",
+   "ee": "certs/ValidonlySomeReasonsTest19EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/onlySomeReasonsCA4Cert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/onlySomeReasonsCA4compromiseCRL.crl",
+    "crls/onlySomeReasonsCA4otherreasonsCRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.14.20",
+   "title": "Invalid onlySomeReasons Test20",
+   "ee": "certs/InvalidonlySomeReasonsTest20EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/onlySomeReasonsCA4Cert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/onlySomeReasonsCA4compromiseCRL.crl",
+    "crls/onlySomeReasonsCA4otherreasonsCRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.14.21",
+   "title": "Invalid onlySomeReasons Test21",
+   "ee": "certs/InvalidonlySomeReasonsTest21EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/onlySomeReasonsCA4Cert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/onlySomeReasonsCA4compromiseCRL.crl",
+    "crls/onlySomeReasonsCA4otherreasonsCRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.14.22",
+   "title": "Valid IDP with indirectCRL Test22",
+   "ee": "certs/ValidIDPwithindirectCRLTest22EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/indirectCRLCA1Cert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/indirectCRLCA1CRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.14.23",
+   "title": "Invalid IDP with indirectCRL Test23",
+   "ee": "certs/InvalidIDPwithindirectCRLTest23EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/indirectCRLCA1Cert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/indirectCRLCA1CRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.14.24",
+   "title": "Valid IDP with indirectCRL Test24",
+   "ee": "certs/ValidIDPwithindirectCRLTest24EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/indirectCRLCA2Cert.crt",
+    "certs/indirectCRLCA1Cert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/indirectCRLCA1CRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.14.25",
+   "title": "Valid IDP with indirectCRL Test25",
+   "ee": "certs/ValidIDPwithindirectCRLTest25EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/indirectCRLCA2Cert.crt",
+    "certs/indirectCRLCA1Cert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/indirectCRLCA1CRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.14.26",
+   "title": "Invalid IDP with indirectCRL Test26",
+   "ee": "certs/InvalidIDPwithindirectCRLTest26EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/indirectCRLCA2Cert.crt",
+    "certs/indirectCRLCA1Cert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/indirectCRLCA1CRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.14.27",
+   "title": "Invalid cRLIssuer Test27",
+   "ee": "certs/InvalidcRLIssuerTest27EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/indirectCRLCA2Cert.crt",
+    "certs/GoodCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/GoodCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.14.28",
+   "title": "Valid cRLIssuer Test28",
+   "ee": "certs/ValidcRLIssuerTest28EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/indirectCRLCA3Cert.crt",
+    "certs/indirectCRLCA3cRLIssuerCert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/indirectCRLCA3CRL.crl",
+    "crls/indirectCRLCA3cRLIssuerCRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.14.29",
+   "title": "Valid cRLIssuer Test29",
+   "ee": "certs/ValidcRLIssuerTest29EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/indirectCRLCA3Cert.crt",
+    "certs/indirectCRLCA3cRLIssuerCert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/indirectCRLCA3CRL.crl",
+    "crls/indirectCRLCA3cRLIssuerCRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.14.30",
+   "title": "Valid cRLIssuer Test30",
+   "ee": "certs/ValidcRLIssuerTest30EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/indirectCRLCA4Cert.crt",
+    "certs/indirectCRLCA4cRLIssuerCert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/indirectCRLCA4cRLIssuerCRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.14.31",
+   "title": "Invalid cRLIssuer Test31",
+   "ee": "certs/InvalidcRLIssuerTest31EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/indirectCRLCA5Cert.crt",
+    "certs/indirectCRLCA6Cert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/indirectCRLCA5CRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.14.32",
+   "title": "Invalid cRLIssuer Test32",
+   "ee": "certs/InvalidcRLIssuerTest32EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/indirectCRLCA5Cert.crt",
+    "certs/indirectCRLCA6Cert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/indirectCRLCA5CRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.14.33",
+   "title": "Valid cRLIssuer Test33",
+   "ee": "certs/ValidcRLIssuerTest33EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/indirectCRLCA5Cert.crt",
+    "certs/indirectCRLCA6Cert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/indirectCRLCA5CRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.14.34",
+   "title": "Invalid cRLIssuer Test34",
+   "ee": "certs/InvalidcRLIssuerTest34EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/indirectCRLCA5Cert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/indirectCRLCA5CRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.14.35",
+   "title": "Invalid cRLIssuer Test35",
+   "ee": "certs/InvalidcRLIssuerTest35EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/indirectCRLCA5Cert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/indirectCRLCA5CRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.15.1",
+   "title": "Invalid deltaCRLIndicator No Base Test1",
+   "ee": "certs/InvaliddeltaCRLIndicatorNoBaseTest1EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/deltaCRLIndicatorNoBaseCACert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/deltaCRLIndicatorNoBaseCACRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.15.2",
+   "title": "Valid delta-CRL Test2",
+   "ee": "certs/ValiddeltaCRLTest2EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/deltaCRLCA1Cert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/deltaCRLCA1CRL.crl",
+    "crls/deltaCRLCA1deltaCRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.15.3",
+   "title": "Invalid delta-CRL Test3",
+   "ee": "certs/InvaliddeltaCRLTest3EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/deltaCRLCA1Cert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/deltaCRLCA1CRL.crl",
+    "crls/deltaCRLCA1deltaCRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.15.4",
+   "title": "Invalid delta-CRL Test4",
+   "ee": "certs/InvaliddeltaCRLTest4EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/deltaCRLCA1Cert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/deltaCRLCA1CRL.crl",
+    "crls/deltaCRLCA1deltaCRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.15.5",
+   "title": "Valid delta-CRL Test5",
+   "ee": "certs/ValiddeltaCRLTest5EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/deltaCRLCA1Cert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/deltaCRLCA1CRL.crl",
+    "crls/deltaCRLCA1deltaCRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.15.6",
+   "title": "Invalid delta-CRL Test6",
+   "ee": "certs/InvaliddeltaCRLTest6EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/deltaCRLCA1Cert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/deltaCRLCA1CRL.crl",
+    "crls/deltaCRLCA1deltaCRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.15.7",
+   "title": "Valid delta-CRL Test7",
+   "ee": "certs/ValiddeltaCRLTest7EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/deltaCRLCA1Cert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/deltaCRLCA1CRL.crl",
+    "crls/deltaCRLCA1deltaCRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.15.8",
+   "title": "Valid delta-CRL Test8",
+   "ee": "certs/ValiddeltaCRLTest8EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/deltaCRLCA2Cert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/deltaCRLCA2CRL.crl",
+    "crls/deltaCRLCA2deltaCRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.15.9",
+   "title": "Invalid delta-CRL Test9",
+   "ee": "certs/InvaliddeltaCRLTest9EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/deltaCRLCA2Cert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/deltaCRLCA2CRL.crl",
+    "crls/deltaCRLCA2deltaCRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.15.10",
+   "title": "Invalid delta-CRL Test10",
+   "ee": "certs/InvaliddeltaCRLTest10EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt",
+    "certs/deltaCRLCA3Cert.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl",
+    "crls/deltaCRLCA3CRL.crl",
+    "crls/deltaCRLCA3deltaCRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  },
+  {
+   "id": "4.16.1",
+   "title": "Valid Unknown Not Critical Certificate Extension Test1",
+   "ee": "certs/ValidUnknownNotCriticalCertificateExtensionTest1EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "valid"
+    }
+   ]
+  },
+  {
+   "id": "4.16.2",
+   "title": "Invalid Unknown Critical Certificate Extension Test2",
+   "ee": "certs/InvalidUnknownCriticalCertificateExtensionTest2EE.crt",
+   "issuers": [
+    "certs/TrustAnchorRootCertificate.crt"
+   ],
+   "crls": [
+    "crls/TrustAnchorRootCRL.crl"
+   ],
+   "runs": [
+    {
+     "expected": "invalid"
+    }
+   ]
+  }
+ ]
+}

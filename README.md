@@ -349,6 +349,14 @@ Related profiles used by selected rules and acquisition features include:
 - CA/Browser Forum Code Signing Baseline Requirements (CS BR)
 
 
+## ✅ Conformance
+
+The integration tests run the NIST Public Key Interoperability Test Suite
+(PKITS 1.0.1), the reference suite for RFC 5280 path validation, through the
+lint command: 240 of the 244 runs PCL can express reach the PKITS result. The
+remaining four use certificates the underlying zcrypto parser cannot load. See
+[`tests/pkits`](tests/pkits/README.md) for the mapping and the known gaps.
+
 ## ➕ Supported Operators
 
 ### Comparison Operators
@@ -463,8 +471,8 @@ Related profiles used by selected rules and acquisition features include:
 
 | Operator | Description |
 |----------|-------------|
-| `nameConstraintsValid` | Applies supported DNS, email, URI, and IP constraints; partial Sections 6/7 behavior |
-| `certificatePolicyValid` | RFC 5280 6.1 policy processing from the trust anchor to the certificate; passes when an operand policy is valid for the path (not active in `RFC5280.yaml`) |
+| `nameConstraintsValid` | Applies DNS, email, URI, IP and directoryName constraints across the chain (RFC 5280 4.2.1.10) |
+| `certificatePolicyValid` | RFC 5280 6.1 policy processing from the trust anchor to the certificate. With operands, one of the listed policies must be valid for the path; without operands, the path must satisfy its own policy constraints (not active in `RFC5280.yaml`) |
 
 ASN.1 time details are projected as ordinary fields (`encoding`, `rawValue`,
 `hasSeconds`, `hasFraction`, and `hasZulu`) and are checked with generic

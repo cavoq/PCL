@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- NIST PKITS 1.0.1 conformance suite in the integration tests (224 tests,
+  247 runs); 240 of the 244 runs PCL can express reach the PKITS result.
+- `nameConstraintsValid` enforces directoryName constraints on the subject
+  and directoryName alternative names; such constraints are no longer
+  reported as unprocessed critical extensions.
+- `certificatePolicyValid` without operands applies the RFC 5280 default
+  policy inputs: the path must satisfy its own requireExplicitPolicy,
+  inhibitPolicyMapping and inhibitAnyPolicy constraints.
+
+### Fixed
+- The chain is built from the certificates passed with `--cert`. A
+  certificate whose issuer was missing used to be skipped silently while a
+  longer chain from the `--issuer` inputs was linted instead; it is now
+  linted, and certificates left out of the chain are reported.
+- Chain building prefers the issuer whose key verifies the signature, so key
+  rollover and separate CRL-signing certificates with the same name no longer
+  replace each other. A certificate is a root only when it is self-signed;
+  self-issued rollover certificates are intermediates.
+- Distinguished names are compared by the RFC 5280 Section 7.1 rules (case
+  and insignificant whitespace, PrintableString and UTF8String) for name
+  chaining, signature checks, CRL scope and issuer matching.
+- Supplied certificates outside the chain, such as separate CRL-signing or
+  indirect CRL issuer certificates, can sign CRLs. Such signers must be valid
+  and not revoked under the same CRLs (RFC 5280 6.3.3).
+- The `unused` ReasonFlags bit no longer makes a reason-partitioned CRL
+  inapplicable.
+- Load errors for certificates, CRLs and OCSP responses include the parse
+  error.
+
 ## [5.1.0] - 2026-10-14
 
 ### Added

@@ -885,8 +885,8 @@ inside `every` as well.
 
 | Operator | Operands | Description |
 |----------|----------|-------------|
-| `nameConstraintsValid` | None | Applies supported DNS, email, URI, and IP constraints across the supplied chain; partial Section 6/7 behavior |
-| `certificatePolicyValid` | [oid, ...] | RFC 5280 6.1 policy processing (mappings, inhibitPolicyMapping, inhibitAnyPolicy) from the trust anchor to the certificate; passes when an operand policy, or any policy for `anyPolicy`, is valid for the path. The self-signed chain top is the trust anchor and is not processed. No active `RFC5280.yaml` rule uses it |
+| `nameConstraintsValid` | None | Applies DNS, email, URI, IP and directoryName constraints across the supplied chain; directory names are compared by the RFC 5280 Section 7.1 rules |
+| `certificatePolicyValid` | [oid, ...] or none | RFC 5280 6.1 policy processing (mappings, requireExplicitPolicy, inhibitPolicyMapping, inhibitAnyPolicy) from the trust anchor to the certificate. With operands, an operand policy (or any policy for `anyPolicy`) must be valid for the path; without operands, the RFC default inputs apply and the path must satisfy its own policy constraints. The self-signed chain top is the trust anchor and is not processed. No active `RFC5280.yaml` rule uses it |
 
 ### 14. Component Operators (Multi-Valued Fields)
 
