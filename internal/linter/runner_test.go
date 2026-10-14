@@ -17,6 +17,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cavoq/PCL/internal/evaluator"
 	"github.com/cavoq/PCL/internal/ocsp"
 	"github.com/cavoq/PCL/internal/operator"
 	"github.com/cavoq/PCL/internal/output"
@@ -704,13 +705,7 @@ rules:
 	t.Fatal("leaf result is missing")
 }
 
-func TestProcessCertificates_withCRLAndResolve(t *testing.T) {
-	crlPath := filepath.Join("..", "..", "internal", "crl", "testdata", "test.crl")
-	crls, err := loadCRLs(crlPath)
-	if err != nil {
-		t.Fatalf("loadCRLs: %v", err)
-	}
-
+func TestAcquireInputs_withCRLAndResolve(t *testing.T) {
 	certDir := filepath.Join("..", "..", "tests", "certs")
 	cfg := Config{
 		CertPath: filepath.Join(certDir, "leaf.pem"),
@@ -718,38 +713,36 @@ func TestProcessCertificates_withCRLAndResolve(t *testing.T) {
 			filepath.Join(certDir, "intermediate.pem"),
 			filepath.Join(certDir, "root.pem"),
 		},
+		CRLPath:       filepath.Join("..", "..", "internal", "crl", "testdata", "test.crl"),
 		CertTimeout:   5 * time.Second,
 		OCSPTimeout:   5 * time.Second,
 		MaxChainDepth: 10,
-	}
-	issuers, issuerCleanup, err := loadIssuersIfProvided(cfg)
-	if err != nil {
-		t.Fatalf("loadIssuersIfProvided: %v", err)
 	}
 
 	pol, err := policy.ParseFile(filepath.Join("..", "..", "tests", "policies", "crl-validity.yaml"))
 	if err != nil {
 		t.Fatalf("load policy: %v", err)
 	}
-
-	reg := operator.DefaultRegistry()
-	var buf bytes.Buffer
-	if issuerCleanup != nil {
-		defer issuerCleanup()
-	}
-	results, cleanup, err := processCertificates(cfg, []policy.Policy{pol}, reg, crls, nil, issuers, &buf)
-	if cleanup != nil {
-		defer cleanup()
-	}
-	if err != nil {
-		t.Fatalf("processCertificates: %v", err)
-	}
-	if results == nil {
-		t.Fatal("expected results slice from processCertificates")
+	if results := lintForTest(t, cfg, pol); results == nil {
+		t.Fatal("expected results for the CRL input")
 	}
 }
 
-func TestProcessCertificates_autoValidateExtendsChainFromIssuerPool(t *testing.T) {
+// lintForTest acquires inputs and evaluates pol the way Run does.
+func lintForTest(t *testing.T, cfg Config, pol policy.Policy) []policy.Result {
+	t.Helper()
+	var cleanups cleanupStack
+	t.Cleanup(cleanups.Close)
+	var buf bytes.Buffer
+	inputs, err := acquireInputs(cfg, &buf, &cleanups)
+	if err != nil {
+		t.Fatalf("acquireInputs: %v", err)
+	}
+	reg := operator.DefaultRegistry()
+	return evaluator.Evaluate(buildSubjects(cfg, inputs, []policy.Policy{pol}, reg, &buf), reg)
+}
+
+func TestAcquireInputs_autoValidateExtendsChainFromIssuerPool(t *testing.T) {
 	dir := t.TempDir()
 	parentKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
@@ -833,16 +826,7 @@ func TestProcessCertificates_autoValidateExtendsChainFromIssuerPool(t *testing.T
 		t.Fatalf("load policy: %v", err)
 	}
 
-	reg := operator.DefaultRegistry()
-	var buf bytes.Buffer
-	results, cleanup, err := processCertificates(cfg, []policy.Policy{pol}, reg, nil, nil, nil, &buf)
-	if cleanup != nil {
-		defer cleanup()
-	}
-	if err != nil {
-		t.Fatalf("processCertificates: %v", err)
-	}
-	if results == nil {
+	if results := lintForTest(t, cfg, pol); results == nil {
 		t.Fatal("expected results from auto-validate with issuer pool")
 	}
 }

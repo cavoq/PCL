@@ -34,53 +34,140 @@ func Run(cfg Config, w io.Writer) error {
 		return err
 	}
 
-	var results []policy.Result
-
-	// Load CRLs if provided
-	crls, err := loadCRLs(cfg.CRLPath)
+	inputs, err := acquireInputs(cfg, diagnostics, &cleanups)
 	if err != nil {
 		return err
 	}
-
-	// Load OCSP if provided
-	ocsps, err := loadOCSPs(cfg.OCSPPath)
-	if err != nil {
-		return err
-	}
-
-	// Load issuers for CRL/OCSP signature verification
-	issuers, issuerCleanup, err := loadIssuersIfProvided(cfg)
-	cleanups.Add(issuerCleanup)
-	if err != nil {
-		return err
-	}
-
-	switch {
-	case cfg.hasCertificateInput():
-		var certCleanup func()
-		results, certCleanup, err = processCertificates(cfg, policies, reg, crls, ocsps, issuers, diagnostics)
-		cleanups.Add(certCleanup)
-		if err != nil {
-			return err
-		}
-	case len(crls) > 0 || len(ocsps) > 0:
-		// Without certificates every supplied CRL and OCSP input is linted
-		// on its own.
-		if len(crls) > 0 {
-			results = append(results, evaluator.CRLOnly(policies, reg, crls, issuers)...)
-		}
-		if len(ocsps) > 0 {
-			results = append(results, evaluator.OCSPOnly(policies, reg, ocsps)...)
-		}
-	default:
-		return fmt.Errorf("no certificates, CRLs, or OCSP responses provided")
-	}
+	results := evaluator.Evaluate(buildSubjects(cfg, inputs, policies, reg, diagnostics), reg)
 	if len(results) == 0 {
 		return fmt.Errorf("no loaded policy applies to the supplied input")
 	}
 
-	// Output results
 	return outputResults(cfg, results, w)
+}
+
+// lintInputs is everything a run evaluates, after loading, chain building
+// and automatic retrieval. chain is nil without certificate input.
+type lintInputs struct {
+	chain   []*cert.Info
+	issuers []*cert.Info
+	crls    []*crl.Info
+	ocsps   []*ocsp.Info
+}
+
+func acquireInputs(cfg Config, diagnostics io.Writer, cleanups *cleanupStack) (lintInputs, error) {
+	var inputs lintInputs
+	var err error
+	if inputs.crls, err = loadCRLs(cfg.CRLPath); err != nil {
+		return lintInputs{}, err
+	}
+	if inputs.ocsps, err = loadOCSPs(cfg.OCSPPath); err != nil {
+		return lintInputs{}, err
+	}
+
+	// Issuers support chain building and CRL/OCSP signature verification.
+	issuers, issuerCleanup, err := loadIssuersIfProvided(cfg)
+	cleanups.Add(issuerCleanup)
+	if err != nil {
+		return lintInputs{}, err
+	}
+	inputs.issuers = issuers
+
+	if !cfg.hasCertificateInput() {
+		if len(inputs.crls) == 0 && len(inputs.ocsps) == 0 {
+			return lintInputs{}, fmt.Errorf("no certificates, CRLs, or OCSP responses provided")
+		}
+		return inputs, nil
+	}
+
+	certs, certCleanup, err := loadCertificates(cfg)
+	cleanups.Add(certCleanup)
+	if err != nil {
+		return lintInputs{}, err
+	}
+	if inputs.chain, err = buildCertificateChain(cfg, certs, issuers, diagnostics); err != nil {
+		return lintInputs{}, err
+	}
+
+	if cfg.AutoValidate && !cfg.NoAutoCRL {
+		inputs.crls = append(inputs.crls, fetchAutoCRLs(cfg, inputs.chain, diagnostics)...)
+	}
+	if cfg.AutoValidate && !cfg.NoAutoOCSP {
+		inputs.ocsps = append(inputs.ocsps, fetchAutoOCSPs(cfg, inputs.chain, diagnostics)...)
+	}
+	return inputs, nil
+}
+
+func buildCertificateChain(cfg Config, certs, issuers []*cert.Info, w io.Writer) ([]*cert.Info, error) {
+	allCerts := make([]*cert.Info, 0, len(certs)+len(issuers))
+	allCerts = append(allCerts, certs...)
+	allCerts = append(allCerts, issuers...)
+	if len(allCerts) == 0 {
+		return nil, fmt.Errorf("no certificates available to build a chain")
+	}
+
+	if cfg.AutoValidate && !cfg.NoAutoChain {
+		allCerts = append(climbChains(cfg, certs, allCerts, w), issuers...)
+	}
+
+	chain, err := cert.BuildChain(allCerts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build certificate chain: %w", err)
+	}
+	return chain, nil
+}
+
+// buildSubjects returns every evaluated input in output order: the chain,
+// then OCSP responses, then CRLs. Without certificates, CRLs and OCSP
+// responses are evaluated on their own.
+func buildSubjects(
+	cfg Config,
+	inputs lintInputs,
+	policies []policy.Policy,
+	reg *operator.Registry,
+	w io.Writer,
+) []evaluator.Subject {
+	if inputs.chain == nil {
+		var subjects []evaluator.Subject
+		if len(inputs.crls) > 0 {
+			subjects = append(subjects, evaluator.CRLSubjects(evaluator.Context{
+				Policies: policies,
+				Registry: reg,
+				CRLs:     inputs.crls,
+				Chain:    inputs.issuers,
+			})...)
+		}
+		if len(inputs.ocsps) > 0 {
+			subjects = append(subjects, evaluator.OCSPSubjects(evaluator.Context{
+				Policies: policies,
+				Registry: reg,
+				OCSPs:    inputs.ocsps,
+			})...)
+		}
+		return subjects
+	}
+
+	evalCtx := evaluator.PrepareCRLIssuers(evaluator.Context{
+		Policies:            policies,
+		Registry:            reg,
+		CRLs:                inputs.crls,
+		OCSPs:               inputs.ocsps,
+		Chain:               inputs.chain,
+		RevocationRequested: crlRevocationRequested(cfg),
+		ValidationTime:      time.Now(),
+		ApplicationPurpose:  cfg.ApplicationPurpose,
+		CRLResolveTimeout:   crlResolveTimeout(cfg),
+		CRLResolveMaxDepth:  crlResolveMaxDepth(cfg),
+		CRLResolveWarn:      w,
+	})
+	subjects := evaluator.ChainSubjects(evalCtx)
+	if len(inputs.ocsps) > 0 {
+		subjects = append(subjects, evaluator.OCSPSubjects(evalCtx)...)
+	}
+	if len(inputs.crls) > 0 {
+		subjects = append(subjects, evaluator.CRLSubjects(evalCtx)...)
+	}
+	return subjects
 }
 
 func loadPolicies(paths []string, reg *operator.Registry) ([]policy.Policy, error) {
@@ -143,63 +230,6 @@ func loadIssuersIfProvided(cfg Config) ([]*cert.Info, func(), error) {
 		return nil, nil, nil
 	}
 	return loadIssuers(cfg)
-}
-
-func processCertificates(cfg Config, policies []policy.Policy, reg *operator.Registry, crls []*crl.Info, ocsps []*ocsp.Info, issuers []*cert.Info, w io.Writer) ([]policy.Result, func(), error) {
-	// Load leaf certificates
-	certs, cleanup, err := loadCertificates(cfg)
-	if err != nil {
-		return nil, cleanup, err
-	}
-
-	allCerts := make([]*cert.Info, 0, len(certs)+len(issuers))
-	allCerts = append(allCerts, certs...)
-	allCerts = append(allCerts, issuers...)
-	if len(allCerts) == 0 {
-		return nil, cleanup, fmt.Errorf("no certificates available to build a chain")
-	}
-
-	if cfg.AutoValidate && !cfg.NoAutoChain {
-		allCerts = append(climbChains(cfg, certs, allCerts, w), issuers...)
-	}
-
-	chain, err := cert.BuildChain(allCerts)
-	if err != nil {
-		return nil, cleanup, fmt.Errorf("failed to build certificate chain: %w", err)
-	}
-
-	if cfg.AutoValidate && !cfg.NoAutoCRL {
-		crls = append(crls, fetchAutoCRLs(cfg, chain, w)...)
-	}
-	if cfg.AutoValidate && !cfg.NoAutoOCSP {
-		ocsps = append(ocsps, fetchAutoOCSPs(cfg, chain, w)...)
-	}
-
-	evalCtx := evaluator.Context{
-		Policies:            policies,
-		Registry:            reg,
-		CRLs:                crls,
-		OCSPs:               ocsps,
-		Chain:               chain,
-		RevocationRequested: crlRevocationRequested(cfg),
-		ValidationTime:      time.Now(),
-		ApplicationPurpose:  cfg.ApplicationPurpose,
-		CRLResolveTimeout:   crlResolveTimeout(cfg),
-		CRLResolveMaxDepth:  crlResolveMaxDepth(cfg),
-		CRLResolveWarn:      w,
-	}
-	evalCtx = evaluator.PrepareCRLIssuers(evalCtx)
-	results := evaluator.Chain(evalCtx)
-
-	if len(ocsps) > 0 {
-		results = append(results, evaluator.OCSP(evalCtx)...)
-	}
-
-	if len(crls) > 0 {
-		results = append(results, evaluator.CRL(evalCtx)...)
-	}
-
-	return results, cleanup, nil
 }
 
 // climbChains extends each leaf towards a root via CA Issuers URLs, falling
