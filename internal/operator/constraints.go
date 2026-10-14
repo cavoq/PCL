@@ -4,6 +4,7 @@ import (
 	"github.com/cavoq/PCL/internal/cert"
 	"github.com/cavoq/PCL/internal/node"
 	"github.com/cavoq/PCL/internal/oid"
+	"github.com/cavoq/PCL/internal/x509asn1"
 )
 
 type PathLenValid struct{}
@@ -66,7 +67,7 @@ func (SerialNumberUnique) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any
 		if other == nil || other.Cert == nil || other.Cert.SerialNumber == nil {
 			continue
 		}
-		if cert.Issuer.String() == other.Cert.Issuer.String() {
+		if x509asn1.NamesMatchOrText(cert.RawIssuer, other.Cert.RawIssuer, cert.Issuer.String(), other.Cert.Issuer.String()) {
 			if other.Cert.SerialNumber.String() == serialStr {
 				return false, nil
 			}

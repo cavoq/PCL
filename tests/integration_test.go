@@ -2,8 +2,10 @@ package tests
 
 import (
 	"bytes"
+	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	cryptox509 "crypto/x509"
 	cryptopkix "crypto/x509/pkix"
 	stdasn1 "encoding/asn1"
@@ -402,7 +404,7 @@ func materializeCaseFixture(t *testing.T, tc testCase) testCase {
 		})
 		tc.Certs = writePEMFixture(t, dir, "certificate.pem", "CERTIFICATE", der)
 	case "certificate-serial-leading-sign-octet":
-		_, _, der := makeIntegrationCertificate(t, nil)
+		key, _, der := makeIntegrationCertificate(t, nil)
 		der = rewriteIntegrationTBSCertificate(t, der, func(fields [][]byte) [][]byte {
 			if len(fields) < 2 || len(fields[1]) == 0 || fields[1][0] != 0x02 {
 				t.Fatalf("TBSCertificate serialNumber field is missing")
@@ -416,9 +418,10 @@ func materializeCaseFixture(t *testing.T, tc testCase) testCase {
 			fields[1] = serialDER
 			return fields
 		})
+		der = resignIntegrationCertificate(t, der, key)
 		tc.Certs = writePEMFixture(t, dir, "certificate.pem", "CERTIFICATE", der)
 	case "certificate-zero-bit-issuer-unique-id":
-		_, _, der := makeIntegrationCertificate(t, nil)
+		key, _, der := makeIntegrationCertificate(t, nil)
 		der = rewriteIntegrationTBSCertificate(t, der, func(fields [][]byte) [][]byte {
 			// issuerUniqueID is [1] IMPLICIT BIT STRING. A content octet of zero
 			// denotes a present identifier containing zero bits.
@@ -435,6 +438,7 @@ func materializeCaseFixture(t *testing.T, tc testCase) testCase {
 			fields[insertAt] = issuerUniqueID
 			return fields
 		})
+		der = resignIntegrationCertificate(t, der, key)
 		tc.Certs = writePEMFixture(t, dir, "certificate.pem", "CERTIFICATE", der)
 	case "certificate-ian-second-invalid-dns-label":
 		issuerAlternativeName, err := oid.Parse(oid.IssuerAlternativeName)
@@ -714,6 +718,27 @@ func rewriteIntegrationTBSCertificate(
 	content := append([]byte(nil), x509asn1.EncodeSequence(tbsContent)...)
 	content = append(content, envelope.Algorithm.FullBytes...)
 	content = append(content, envelope.Signature.FullBytes...)
+	return x509asn1.EncodeSequence(content)
+}
+
+// resignIntegrationCertificate replaces the signature of a certificate whose
+// TBSCertificate was rewritten, so a rewritten self-signed certificate stays
+// self-signed. The signature algorithm must be sha256WithRSAEncryption.
+func resignIntegrationCertificate(t *testing.T, der []byte, key *rsa.PrivateKey) []byte {
+	t.Helper()
+	envelope := decodeIntegrationSignedEnvelope(t, der)
+	digest := sha256.Sum256(envelope.TBS.FullBytes)
+	signature, err := rsa.SignPKCS1v15(rand.Reader, key, crypto.SHA256, digest[:])
+	if err != nil {
+		t.Fatalf("re-sign certificate: %v", err)
+	}
+	bitString, err := stdasn1.Marshal(stdasn1.BitString{Bytes: signature, BitLength: len(signature) * 8})
+	if err != nil {
+		t.Fatalf("encode signature: %v", err)
+	}
+	content := append([]byte(nil), envelope.TBS.FullBytes...)
+	content = append(content, envelope.Algorithm.FullBytes...)
+	content = append(content, bitString...)
 	return x509asn1.EncodeSequence(content)
 }
 

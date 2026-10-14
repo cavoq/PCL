@@ -1,6 +1,7 @@
 package cert
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/cavoq/PCL/internal/source"
+	"github.com/cavoq/PCL/internal/x509asn1"
 	"github.com/zmap/zcrypto/x509"
 )
 
@@ -57,58 +59,76 @@ func LoadCertificatesWithSource(path string, sourceInfo source.Info) ([]*Info, e
 	return infos, nil
 }
 
+// BuildChain builds the longest certification path that starts at any of
+// certs and continues with issuers among certs.
 func BuildChain(certs []*Info) ([]*Info, error) {
-	if len(certs) == 0 {
-		return nil, fmt.Errorf("no certificates provided")
-	}
+	return BuildChainFor(certs, certs)
+}
 
-	if len(certs) == 1 {
-		certs[0].Position = 0
-		certs[0].Type = GetCertType(certs[0].Cert)
-		return certs, nil
-	}
-
-	subjectMap := make(map[string]*Info)
-	for _, c := range certs {
-		subjectMap[c.Cert.Subject.String()] = c
-	}
-
-	var longestChain []*Info
-
-	for _, leaf := range certs {
-		chain := []*Info{leaf}
-		current := leaf
-
-		for !IsSelfSigned(current.Cert) {
-
-			issuer := subjectMap[current.Cert.Issuer.String()]
+// BuildChainFor builds the longest certification path that starts at one of
+// targets and continues with issuers from pool, ending at a self-signed
+// certificate or the last certificate whose issuer is not in pool. Chains
+// never start at a certificate that is only in pool, so a target whose issuer
+// is missing is still evaluated, as a chain of its own.
+//
+// Among certificates whose subject matches a certificate's issuer, the one
+// whose key verifies the signature is preferred, then one whose subject key
+// identifier matches the authority key identifier, then the first; so key
+// rollover and separate CRL-signing certificates with equal names do not
+// replace each other.
+func BuildChainFor(targets, pool []*Info) ([]*Info, error) {
+	var longest []*Info
+	for _, target := range targets {
+		if target == nil || target.Cert == nil {
+			continue
+		}
+		chain := []*Info{target}
+		for current := target; !IsSelfSigned(current.Cert) && len(chain) <= len(pool); {
+			issuer := selectIssuer(current, pool, chain)
 			if issuer == nil {
 				break
 			}
-
-			if slices.Contains(chain, issuer) {
-				break
-			}
-
 			chain = append(chain, issuer)
 			current = issuer
 		}
-
-		if len(chain) > len(longestChain) {
-			longestChain = chain
+		if len(chain) > len(longest) {
+			longest = chain
 		}
 	}
-
-	if len(longestChain) == 0 {
-		return nil, fmt.Errorf("could not build certificate chain")
+	if len(longest) == 0 {
+		return nil, fmt.Errorf("no certificates provided")
 	}
 
-	for i, c := range longestChain {
-		c.Position = i
-		c.Type = GetCertType(c.Cert)
-	}
+	RebuildChainMetadata(longest)
+	return longest, nil
+}
 
-	return longestChain, nil
+func selectIssuer(current *Info, pool, chain []*Info) *Info {
+	var byKeyIdentifier, byName *Info
+	for _, candidate := range pool {
+		if candidate == nil || candidate.Cert == nil || slices.Contains(chain, candidate) ||
+			!issuerNameMatches(current.Cert, candidate.Cert) {
+			continue
+		}
+		if SignedBy(current.Cert, candidate.Cert) {
+			return candidate
+		}
+		if byKeyIdentifier == nil && len(current.Cert.AuthorityKeyId) > 0 &&
+			bytes.Equal(current.Cert.AuthorityKeyId, candidate.Cert.SubjectKeyId) {
+			byKeyIdentifier = candidate
+		}
+		if byName == nil {
+			byName = candidate
+		}
+	}
+	if byKeyIdentifier != nil {
+		return byKeyIdentifier
+	}
+	return byName
+}
+
+func issuerNameMatches(child, issuer *x509.Certificate) bool {
+	return x509asn1.NamesMatchOrText(child.RawIssuer, issuer.RawSubject, child.Issuer.String(), issuer.Subject.String())
 }
 
 // ClimbChain recursively fetches issuer certificates via CA Issuers URLs.
@@ -184,7 +204,7 @@ func findSigningParentInPool(child *x509.Certificate, pool []*Info, seen *Certif
 		if info == nil || info.Cert == nil {
 			continue
 		}
-		if child.CheckSignatureFrom(info.Cert) != nil {
+		if CheckSignatureFrom(child, info.Cert) != nil {
 			continue
 		}
 		if seen.Contains(info.Cert) {

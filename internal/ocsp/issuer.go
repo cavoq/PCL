@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/cavoq/PCL/internal/cert"
+	"github.com/cavoq/PCL/internal/x509asn1"
 	"github.com/zmap/zcrypto/x509"
 )
 
@@ -27,7 +28,7 @@ func certMatchesSignerIssuer(signer, candidate *x509.Certificate) bool {
 	if signer == nil || candidate == nil {
 		return false
 	}
-	if signer.Issuer.String() == candidate.Subject.String() {
+	if x509asn1.NamesMatchOrText(signer.RawIssuer, candidate.RawSubject, signer.Issuer.String(), candidate.Subject.String()) {
 		return true
 	}
 	if len(signer.AuthorityKeyId) > 0 && len(candidate.SubjectKeyId) > 0 {

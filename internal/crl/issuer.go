@@ -7,6 +7,7 @@ import (
 
 	"github.com/cavoq/PCL/internal/cert"
 	crlzcrypto "github.com/cavoq/PCL/internal/crl/zcrypto"
+	"github.com/cavoq/PCL/internal/x509asn1"
 	"github.com/zmap/zcrypto/x509"
 )
 
@@ -33,7 +34,7 @@ func certSubjectMatchesCRLIssuer(
 	revocationList *x509.RevocationList,
 ) bool {
 	if len(cert.RawSubject) > 0 && len(revocationList.RawIssuer) > 0 {
-		return bytes.Equal(cert.RawSubject, revocationList.RawIssuer)
+		return x509asn1.NamesMatch(cert.RawSubject, revocationList.RawIssuer)
 	}
 	return cert.Subject.String() == revocationList.Issuer.String()
 }

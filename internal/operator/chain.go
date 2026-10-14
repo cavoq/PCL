@@ -5,6 +5,7 @@ import (
 
 	certpkg "github.com/cavoq/PCL/internal/cert"
 	"github.com/cavoq/PCL/internal/node"
+	"github.com/cavoq/PCL/internal/x509asn1"
 )
 
 type SignatureValid struct{}
@@ -20,7 +21,7 @@ func (SignatureValid) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (b
 	position := ctx.Cert.Position
 
 	if ctx.Cert.Type == certpkg.TypeRoot {
-		err := cert.CheckSignatureFrom(cert)
+		err := certpkg.CheckSignatureFrom(cert, cert)
 		return err == nil, nil
 	}
 
@@ -33,7 +34,7 @@ func (SignatureValid) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (b
 		return false, nil
 	}
 
-	err := cert.CheckSignatureFrom(issuer.Cert)
+	err := certpkg.CheckSignatureFrom(cert, issuer.Cert)
 	return err == nil, nil
 }
 
@@ -50,7 +51,7 @@ func (IssuedBy) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (bool, e
 	position := ctx.Cert.Position
 
 	if ctx.Cert.Type == certpkg.TypeRoot {
-		return cert.Issuer.String() == cert.Subject.String(), nil
+		return certpkg.IsSelfIssued(cert), nil
 	}
 
 	if position+1 >= len(ctx.Chain) {
@@ -62,7 +63,7 @@ func (IssuedBy) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (bool, e
 		return false, nil
 	}
 
-	return cert.Issuer.String() == issuer.Cert.Subject.String(), nil
+	return x509asn1.NamesMatchOrText(cert.RawIssuer, issuer.Cert.RawSubject, cert.Issuer.String(), issuer.Cert.Subject.String()), nil
 }
 
 type AKIMatchesSKI struct{}

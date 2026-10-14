@@ -1,8 +1,7 @@
 package cert
 
 import (
-	"bytes"
-
+	"github.com/cavoq/PCL/internal/x509asn1"
 	"github.com/zmap/zcrypto/x509"
 )
 
@@ -64,10 +63,10 @@ func IsSelfIssued(certificate *x509.Certificate) bool {
 	if certificate == nil {
 		return false
 	}
-	if len(certificate.RawSubject) > 0 && len(certificate.RawIssuer) > 0 {
-		return bytes.Equal(certificate.RawSubject, certificate.RawIssuer)
-	}
-	return certificate.Subject.String() == certificate.Issuer.String()
+	return x509asn1.NamesMatchOrText(
+		certificate.RawSubject, certificate.RawIssuer,
+		certificate.Subject.String(), certificate.Issuer.String(),
+	)
 }
 
 func certificatePosition(current *Info, chain []*Info) (int, bool) {

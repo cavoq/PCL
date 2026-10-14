@@ -3,6 +3,7 @@ package aia
 import (
 	"bytes"
 
+	"github.com/cavoq/PCL/internal/x509asn1"
 	"github.com/zmap/zcrypto/x509"
 )
 
@@ -28,7 +29,7 @@ func SelectIssuer(child *x509.Certificate, candidates []*x509.Certificate) (*x50
 		if candidate == nil {
 			continue
 		}
-		if candidate.Subject.String() == child.Issuer.String() {
+		if x509asn1.NamesMatchOrText(child.RawIssuer, candidate.RawSubject, child.Issuer.String(), candidate.Subject.String()) {
 			return candidate, true
 		}
 	}

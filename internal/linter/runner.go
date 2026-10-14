@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 	"time"
 
 	"github.com/cavoq/PCL/internal/cert"
@@ -51,8 +52,8 @@ func Run(cfg Config, w io.Writer) error {
 type lintInputs struct {
 	chain   []*cert.Info
 	issuers []*cert.Info
-	crls    []*crl.Info
-	ocsps   []*ocsp.Info
+	crls         []*crl.Info
+	ocsps        []*ocsp.Info
 }
 
 func acquireInputs(cfg Config, diagnostics io.Writer, cleanups *cleanupStack) (lintInputs, error) {
@@ -110,9 +111,14 @@ func buildCertificateChain(cfg Config, certs, issuers []*cert.Info, w io.Writer)
 		allCerts = append(climbChains(cfg, certs, allCerts, w), issuers...)
 	}
 
-	chain, err := cert.BuildChain(allCerts)
+	chain, err := cert.BuildChainFor(certs, allCerts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build certificate chain: %w", err)
+	}
+	for _, target := range certs {
+		if !slices.Contains(chain, target) {
+			_, _ = fmt.Fprintf(w, "Warning: %s is not part of the evaluated certificate chain and is not linted\n", target.FilePath)
+		}
 	}
 	return chain, nil
 }

@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/cavoq/PCL/internal/oid"
+	"github.com/cavoq/PCL/internal/x509asn1"
 	"github.com/cavoq/PCL/internal/x509ext"
 	"github.com/zmap/zcrypto/x509"
 )
@@ -191,8 +192,5 @@ func generalNamesIntersect(left, right []x509ext.GeneralName) bool {
 }
 
 func namesEqual(firstRaw, secondRaw []byte, firstFallback, secondFallback string) bool {
-	if len(firstRaw) > 0 && len(secondRaw) > 0 {
-		return bytes.Equal(firstRaw, secondRaw)
-	}
-	return firstFallback == secondFallback
+	return x509asn1.NamesMatchOrText(firstRaw, secondRaw, firstFallback, secondFallback)
 }

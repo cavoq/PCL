@@ -97,7 +97,7 @@ func decodeCertificatePolicyFacts(certificate *x509.Certificate) (certificatePol
 	facts := certificatePolicyFacts{
 		inhibitPolicyMapping: -1,
 		inhibitAnyPolicy:     -1,
-		selfIssued:           certpkg.IsSelfSigned(certificate),
+		selfIssued:           certpkg.IsSelfIssued(certificate),
 	}
 
 	if value, present := policyExtensionValue(certificate, oid.CertificatePolicies); present {
