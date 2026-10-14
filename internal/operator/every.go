@@ -85,55 +85,52 @@ func (Every) EvaluateWithRegistry(
 
 	// Check each logical collection element.
 	for _, child := range elements {
-		var targetNode *node.Node
-		if parsed.path == "" {
-			targetNode = child
-		} else {
-			resolution := child.Lookup(parsed.path)
-			targetNode = resolution.Node
-			if resolution.Partial && !parsed.skipMissing {
-				return false, nil
+		resolution := child.Lookup(parsed.path)
+		if resolution.Partial && !parsed.skipMissing {
+			return false, nil
+		}
+		if resolution.Node == nil {
+			if parsed.skipMissing {
+				continue
 			}
-			if targetNode == nil {
-				if parsed.skipMissing {
-					continue
-				}
-				return false, nil
-			}
+			return false, nil
 		}
 
-		// If target is a virtual node (from wildcard), check all its children
-		if targetNode.Name == node.Wildcard && len(targetNode.Children) > 0 {
-			for _, subChild := range node.CollectionElements(targetNode) {
-				result, err := registry.evaluateValidated(parsed.operator, subChild, ctx, parsed.operands)
-				if err != nil {
-					return false, fmt.Errorf(
-						"inner operator %q on child %q: %w",
-						parsed.operator,
-						subChild.Name,
-						err,
-					)
-				}
-				if !result {
-					return false, nil
-				}
-			}
-		} else {
-			result, err := registry.evaluateValidated(parsed.operator, targetNode, ctx, parsed.operands)
-			if err != nil {
-				return false, fmt.Errorf(
-					"inner operator %q on child %q: %w",
-					parsed.operator,
-					targetNode.Name,
-					err,
-				)
-			}
-			if !result {
-				return false, nil
-			}
+		ok, err := evaluateEveryTarget(registry, parsed, resolution.Node, ctx)
+		if err != nil || !ok {
+			return false, err
 		}
 	}
 
+	return true, nil
+}
+
+// evaluateEveryTarget applies the inner operator to target, or to each match
+// when target is the synthetic node produced by a wildcard path.
+func evaluateEveryTarget(
+	registry *Registry,
+	parsed everyOperands,
+	target *node.Node,
+	ctx *EvaluationContext,
+) (bool, error) {
+	targets := []*node.Node{target}
+	if target.Name == node.Wildcard && len(target.Children) > 0 {
+		targets = node.CollectionElements(target)
+	}
+	for _, candidate := range targets {
+		result, err := registry.evaluateValidated(parsed.operator, candidate, ctx, parsed.operands)
+		if err != nil {
+			return false, fmt.Errorf(
+				"inner operator %q on child %q: %w",
+				parsed.operator,
+				candidate.Name,
+				err,
+			)
+		}
+		if !result {
+			return false, nil
+		}
+	}
 	return true, nil
 }
 
