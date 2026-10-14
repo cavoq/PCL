@@ -23,15 +23,7 @@ func Run(cfg Config, w io.Writer) error {
 	var cleanups cleanupStack
 	defer cleanups.Close()
 
-	diagnostics := cfg.Diagnostics
-	if diagnostics == nil && (cfg.OutputFmt == "json" || cfg.OutputFmt == "yaml") {
-		// Keep machine-readable output a single valid document. Diagnostic
-		// acquisition warnings belong on a separate channel.
-		diagnostics = io.Discard
-	} else if diagnostics == nil {
-		diagnostics = w
-	}
-
+	diagnostics := diagnosticsWriter(cfg, w)
 	reg := operator.DefaultRegistry()
 
 	// Load policies and validate that every rule is executable by the same
@@ -63,18 +55,19 @@ func Run(cfg Config, w io.Writer) error {
 		return err
 	}
 
-	if cfg.hasCertificateInput() {
+	switch {
+	case cfg.hasCertificateInput():
 		var certCleanup func()
 		results, certCleanup, err = processCertificates(cfg, policies, reg, crls, ocsps, issuers, diagnostics)
 		cleanups.Add(certCleanup)
 		if err != nil {
 			return err
 		}
-	} else if len(crls) > 0 {
+	case len(crls) > 0:
 		results = evaluator.CRLOnly(policies, reg, crls, issuers)
-	} else if len(ocsps) > 0 {
+	case len(ocsps) > 0:
 		results = evaluator.OCSPOnly(policies, reg, ocsps)
-	} else {
+	default:
 		return fmt.Errorf("no certificates, CRLs, or OCSP responses provided")
 	}
 	if len(results) == 0 {
@@ -154,32 +147,15 @@ func processCertificates(cfg Config, policies []policy.Policy, reg *operator.Reg
 		return nil, cleanup, err
 	}
 
-	// Build chain
-	allCerts := append(certs, issuers...)
+	allCerts := make([]*cert.Info, 0, len(certs)+len(issuers))
+	allCerts = append(allCerts, certs...)
+	allCerts = append(allCerts, issuers...)
 	if len(allCerts) == 0 {
 		return nil, cleanup, fmt.Errorf("no certificates available to build a chain")
 	}
 
-	// Auto-validate: climb chain via CA Issuers URLs (pool fallback when no CaIssuers)
 	if cfg.AutoValidate && !cfg.NoAutoChain {
-		pool := append([]*cert.Info{}, allCerts...)
-		poolSet := cert.NewCertificateSet(cert.CertsFromInfos(pool)...)
-		var climbedCerts []*cert.Info
-		for _, c := range certs {
-			if c.Cert == nil {
-				continue
-			}
-			miniChain := []*cert.Info{c}
-			miniChain = cert.ClimbChainWithPool(miniChain, pool, cfg.CertTimeout, cfg.MaxChainDepth, w)
-			climbedCerts = append(climbedCerts, miniChain...)
-			for _, info := range miniChain {
-				if info == nil || !poolSet.Add(info.Cert) {
-					continue
-				}
-				pool = append(pool, info)
-			}
-		}
-		allCerts = append(climbedCerts, issuers...)
+		allCerts = append(climbChains(cfg, certs, allCerts, w), issuers...)
 	}
 
 	chain, err := cert.BuildChain(allCerts)
@@ -187,29 +163,11 @@ func processCertificates(cfg Config, policies []policy.Policy, reg *operator.Reg
 		return nil, cleanup, fmt.Errorf("failed to build certificate chain: %w", err)
 	}
 
-	nonceOpts := buildNonceOptions(cfg)
-
-	// Auto-validate: fetch CRLs
 	if cfg.AutoValidate && !cfg.NoAutoCRL {
-		fetchSession := crl.NewFetchSession(crl.FetchConfig{
-			Timeout: crlResolveTimeout(cfg),
-		})
-		autoCRLs := fetchSession.FetchForChain(chain, w)
-		crls = append(crls, autoCRLs...)
+		crls = append(crls, fetchAutoCRLs(cfg, chain, w)...)
 	}
-
-	// Auto-validate: fetch OCSP
 	if cfg.AutoValidate && !cfg.NoAutoOCSP {
-		autoOCSPs, errs := ocsp.FetchForChain(chain, cfg.OCSPTimeout, nonceOpts)
-		for _, err := range errs {
-			_, _ = fmt.Fprintf(w, "Warning: auto OCSP fetch failed for %v\n", err)
-		}
-		if cfg.Verbosity >= 2 {
-			for _, ocspInfo := range autoOCSPs {
-				printOCSPResponseDebug(w, ocspInfo, nonceOpts)
-			}
-		}
-		ocsps = append(ocsps, autoOCSPs...)
+		ocsps = append(ocsps, fetchAutoOCSPs(cfg, chain, w)...)
 	}
 
 	evalCtx := evaluator.Context{
@@ -237,6 +195,64 @@ func processCertificates(cfg Config, policies []policy.Policy, reg *operator.Reg
 	}
 
 	return results, cleanup, nil
+}
+
+// climbChains extends each leaf towards a root via CA Issuers URLs, falling
+// back to the supplied pool when a certificate has none. Certificates found
+// while climbing join the pool for later leaves.
+func climbChains(cfg Config, leaves, known []*cert.Info, w io.Writer) []*cert.Info {
+	pool := append([]*cert.Info{}, known...)
+	poolSet := cert.NewCertificateSet(cert.CertsFromInfos(pool)...)
+	var climbed []*cert.Info
+	for _, leaf := range leaves {
+		if leaf.Cert == nil {
+			continue
+		}
+		chain := cert.ClimbChainWithPool([]*cert.Info{leaf}, pool, cfg.CertTimeout, cfg.MaxChainDepth, w)
+		climbed = append(climbed, chain...)
+		for _, info := range chain {
+			if info == nil || !poolSet.Add(info.Cert) {
+				continue
+			}
+			pool = append(pool, info)
+		}
+	}
+	return climbed
+}
+
+func fetchAutoCRLs(cfg Config, chain []*cert.Info, w io.Writer) []*crl.Info {
+	fetchSession := crl.NewFetchSession(crl.FetchConfig{
+		Timeout: crlResolveTimeout(cfg),
+	})
+	return fetchSession.FetchForChain(chain, w)
+}
+
+func fetchAutoOCSPs(cfg Config, chain []*cert.Info, w io.Writer) []*ocsp.Info {
+	nonceOpts := buildNonceOptions(cfg)
+	autoOCSPs, errs := ocsp.FetchForChain(chain, cfg.OCSPTimeout, nonceOpts)
+	for _, err := range errs {
+		_, _ = fmt.Fprintf(w, "Warning: auto OCSP fetch failed for %v\n", err)
+	}
+	if cfg.Verbosity >= 2 {
+		for _, ocspInfo := range autoOCSPs {
+			printOCSPResponseDebug(w, ocspInfo, nonceOpts)
+		}
+	}
+	return autoOCSPs
+}
+
+// diagnosticsWriter returns the stream for acquisition warnings. Without an
+// explicit stream, machine-readable output discards them so the result stays
+// a single valid document.
+func diagnosticsWriter(cfg Config, w io.Writer) io.Writer {
+	switch {
+	case cfg.Diagnostics != nil:
+		return cfg.Diagnostics
+	case cfg.OutputFmt == "json" || cfg.OutputFmt == "yaml":
+		return io.Discard
+	default:
+		return w
+	}
 }
 
 func outputResults(cfg Config, results []policy.Result, w io.Writer) error {
