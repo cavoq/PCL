@@ -47,16 +47,6 @@ type CRLDistributionPointFacts struct {
 	CRLIssuerGeneralNameTags  []int
 }
 
-// ParseCRLDP parses the CRL Distribution Points extension and retains the
-// compatibility behavior that projects malformed input as a node.
-func ParseCRLDP(extValue []byte) *node.Node {
-	n, err := ParseCRLDPStrict(extValue)
-	if err == nil {
-		return n
-	}
-	return malformedExtensionNode("cRLDistributionPoints", isEmptySequence(extValue))
-}
-
 // ParseCRLDPStrict parses exactly one CRLDistributionPoints value.
 func ParseCRLDPStrict(extValue []byte) (*node.Node, error) {
 	distributionPoints, err := x509ext.DecodeDistributionPoints(extValue)

@@ -59,7 +59,7 @@ func buildCertPoliciesValue(policyOID string, cpsURI string, explicitText string
 	return b.BytesOrPanic()
 }
 
-func TestParseCertPolicies(t *testing.T) {
+func TestParseCertPoliciesStrict(t *testing.T) {
 	const policy, cps = "2.23.140.1.2.1", "http://cps.example.com/policy"
 	tests := []struct {
 		name  string
@@ -78,15 +78,18 @@ func TestParseCertPolicies(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			n := ParseCertPolicies(tt.value)
-			if n == nil {
-				t.Fatalf("ParseCertPolicies returned nil")
+			n, err := ParseCertPoliciesStrict(tt.value)
+			if err != nil {
+				t.Fatalf("ParseCertPoliciesStrict() error = %v", err)
 			}
 			checkNodeValues(t, n, tt.want)
 		})
 	}
 
-	both := ParseCertPolicies(buildCertPoliciesValue(policy, cps, "Test notice"))
+	both, err := ParseCertPoliciesStrict(buildCertPoliciesValue(policy, cps, "Test notice"))
+	if err != nil {
+		t.Fatalf("ParseCertPoliciesStrict() error = %v", err)
+	}
 	if informations, ok := both.Resolve("policyInformations"); !ok || len(informations.Children) != 1 || informations.Children["0"] == nil {
 		t.Fatal("a policy with CPS and userNotice qualifiers must be one policyInformation")
 	}

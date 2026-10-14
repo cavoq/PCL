@@ -224,20 +224,7 @@ func TestCertificatePoliciesStrictRejectsMalformedQualifiers(t *testing.T) {
 			if _, err := ParseCertPoliciesStrict(der); err == nil {
 				t.Fatal("strict parser accepted malformed CertificatePolicies")
 			}
-			if got := requirePolicyChild(t, ParseCertPolicies(der), "malformed").Value; got != true {
-				t.Errorf("compatibility malformed marker = %v, want true", got)
-			}
 		})
-	}
-}
-
-func TestCertificatePoliciesCompatibilityMarksEmptySequence(t *testing.T) {
-	var builder cryptobyte.Builder
-	builder.AddASN1(cryptobyte_asn1.SEQUENCE, func(*cryptobyte.Builder) {})
-	parsed := ParseCertPolicies(builder.BytesOrPanic())
-	if requirePolicyChild(t, parsed, "malformed").Value != true ||
-		requirePolicyChild(t, parsed, "empty").Value != true {
-		t.Errorf("empty CertificatePolicies compatibility schema = %#v", parsed.Children)
 	}
 }
 

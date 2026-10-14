@@ -55,14 +55,6 @@ type NameConstraintSubtreeFacts struct {
 	RawDER         []byte
 }
 
-func ParseNameConstraints(extValue []byte) *node.Node {
-	n, err := ParseNameConstraintsStrict(extValue)
-	if err == nil {
-		return n
-	}
-	return malformedExtensionNodeWithRaw("nameConstraints", isEmptySequence(extValue), extValue)
-}
-
 // ParseNameConstraintsStrict parses all GeneralName alternatives and retains
 // exact GeneralSubtree and GeneralName DER. Presence of minimum and maximum is
 // represented separately from their integer values.

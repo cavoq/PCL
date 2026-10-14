@@ -205,7 +205,7 @@ func parseCertificateExtensions(extensionsNode *node.Node, extensions []pkix.Ext
 		if err != nil {
 			extNode.Children["malformed"] = node.New("malformed", true)
 			name, _ := oid.ExtensionName(oidStr)
-			parsedExtensions[oidStr] = malformedExtensionNodeWithRaw(name, false, ext.Value)
+			parsedExtensions[oidStr] = malformedExtensionNodeWithRaw(name, ext.Value)
 			continue
 		}
 		parsedExtensions[oidStr] = parsed

@@ -88,7 +88,6 @@ func TestCRLDistributionPointRelativeNameRejectsMalformedRDN(t *testing.T) {
 			if _, err := ParseCRLDPStrict(der); err == nil {
 				t.Fatal("ParseCRLDPStrict() error = nil, want error")
 			}
-			assertExtensionSchemaValue(t, ParseCRLDP(der), "malformed", true)
 		})
 	}
 }

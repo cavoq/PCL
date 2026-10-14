@@ -97,32 +97,6 @@ func TestParseCRLDPStrictGeneralNamesNodeSchema(t *testing.T) {
 	assertExtensionSchemaValue(t, issuerName, "value", "issuer.example.test")
 }
 
-func TestCompatibilityExtensionWrappersMalformedAndEmptySchema(t *testing.T) {
-	tests := []struct {
-		name     string
-		rootName string
-		parse    func([]byte) *node.Node
-	}{
-		{name: "AIA", rootName: "authorityInfoAccess", parse: ParseAIA},
-		{name: "CRLDP", rootName: "cRLDistributionPoints", parse: ParseCRLDP},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name+"/malformed", func(t *testing.T) {
-			n := test.parse([]byte{0x01, 0x01, 0x00})
-			assertExtensionSchemaNode(t, n, test.rootName, nil, "malformed")
-			assertExtensionSchemaValue(t, n, "malformed", true)
-		})
-
-		t.Run(test.name+"/empty", func(t *testing.T) {
-			n := test.parse([]byte{0x30, 0x00})
-			assertExtensionSchemaNode(t, n, test.rootName, nil, "empty", "malformed")
-			assertExtensionSchemaValue(t, n, "malformed", true)
-			assertExtensionSchemaValue(t, n, "empty", true)
-		})
-	}
-}
-
 func TestParseCRLDPStrictReasonFlagsRFC5280BitMapping(t *testing.T) {
 	reasonNames := []string{
 		"unused",

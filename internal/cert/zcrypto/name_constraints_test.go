@@ -133,9 +133,6 @@ func TestNameConstraintsStrictRejectsMalformedAndNonCanonicalDER(t *testing.T) {
 			if _, err := ParseNameConstraintsStrict(der); err == nil {
 				t.Fatal("ParseNameConstraintsStrict() error = nil, want error")
 			}
-			compat := ParseNameConstraints(der)
-			assertExtensionSchemaValue(t, compat, "malformed", true)
-			assertExtensionSchemaBytes(t, compat.Children["raw"].Value, der)
 		})
 	}
 }

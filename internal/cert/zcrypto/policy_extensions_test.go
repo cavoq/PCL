@@ -74,7 +74,6 @@ func TestPolicyMappingsStrictRejectsMalformedDER(t *testing.T) {
 			if _, err := DecodePolicyMappingsStrict(der); err == nil {
 				t.Fatal("DecodePolicyMappingsStrict() error = nil, want error")
 			}
-			assertExtensionSchemaValue(t, ParsePolicyMappings(der), "malformed", true)
 		})
 	}
 }
@@ -153,7 +152,6 @@ func TestPolicyConstraintsStrictRejectsMalformedDER(t *testing.T) {
 			if _, err := DecodePolicyConstraintsStrict(der); err == nil {
 				t.Fatal("DecodePolicyConstraintsStrict() error = nil, want error")
 			}
-			assertExtensionSchemaValue(t, ParsePolicyConstraints(der), "malformed", true)
 		})
 	}
 }
@@ -202,7 +200,6 @@ func TestInhibitAnyPolicyStrictRejectsMalformedDER(t *testing.T) {
 			if _, err := DecodeInhibitAnyPolicyStrict(der); err == nil {
 				t.Fatal("DecodeInhibitAnyPolicyStrict() error = nil, want error")
 			}
-			assertExtensionSchemaValue(t, ParseInhibitAnyPolicy(der), "malformed", true)
 		})
 	}
 }

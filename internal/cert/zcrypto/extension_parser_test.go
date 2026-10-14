@@ -59,7 +59,7 @@ func checkNodeValues(t *testing.T, root *node.Node, want map[string]any) {
 	}
 }
 
-func TestParseAIA(t *testing.T) {
+func TestParseAIAStrict(t *testing.T) {
 	tests := []struct {
 		name  string
 		value []byte
@@ -76,26 +76,22 @@ func TestParseAIA(t *testing.T) {
 		{"AIA with DNS name instead of URI",
 			buildAIA(accessDescription{ocspAccessMethod, generalName(2, []byte("ocsp.example.com"))}),
 			map[string]any{"accessDescriptions.0.accessLocation.type": "dNSName"}},
-		{"empty AIA", buildAIAValue("", ""), map[string]any{"empty": true}},
 		{"contains OCSP check", buildAIAValue("http://ocsp.example.com", ""), map[string]any{"containsOCSP": true}},
 		{"contains CA Issuers check", buildAIAValue("", "http://ca.example.com"), map[string]any{"containsCaIssuers": true}},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			n := ParseAIA(tt.value)
-			if n == nil {
-				t.Fatalf("ParseAIA returned nil")
+			n, err := ParseAIAStrict(tt.value)
+			if err != nil {
+				t.Fatalf("ParseAIAStrict() error = %v", err)
 			}
 			checkNodeValues(t, n, tt.want)
 		})
 	}
 }
 
-func TestParseCRLDP(t *testing.T) {
-	var empty cryptobyte.Builder
-	empty.AddASN1(cryptobyte_asn1.SEQUENCE, func(*cryptobyte.Builder) {})
-
+func TestParseCRLDPStrict(t *testing.T) {
 	tests := []struct {
 		name  string
 		value []byte
@@ -113,14 +109,13 @@ func TestParseCRLDP(t *testing.T) {
 			map[string]any{"distributionPoints.0.hasReasons": true}},
 		{"CRL DP with cRLIssuer field", buildCRLDP("http://crl.example.com", nil, generalName(2, []byte("issuer.example"))),
 			map[string]any{"distributionPoints.0.hasCRLIssuer": true}},
-		{"empty CRL DP", empty.BytesOrPanic(), map[string]any{"empty": true}},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			n := ParseCRLDP(tt.value)
-			if n == nil {
-				t.Fatalf("ParseCRLDP returned nil")
+			n, err := ParseCRLDPStrict(tt.value)
+			if err != nil {
+				t.Fatalf("ParseCRLDPStrict() error = %v", err)
 			}
 			checkNodeValues(t, n, tt.want)
 		})
@@ -129,39 +124,31 @@ func TestParseCRLDP(t *testing.T) {
 
 func TestStrictExtensionParsersRejectMalformedDER(t *testing.T) {
 	tests := []struct {
-		name   string
-		value  []byte
-		strict func([]byte) (*node.Node, error)
-		compat func([]byte) *node.Node
+		name  string
+		value []byte
+		parse func([]byte) (*node.Node, error)
 	}{
 		{
-			name:   "AIA",
-			value:  append(buildAIAValue("http://ocsp.example", ""), 0x00),
-			strict: ParseAIAStrict,
-			compat: ParseAIA,
+			name:  "AIA",
+			value: append(buildAIAValue("http://ocsp.example", ""), 0x00),
+			parse: ParseAIAStrict,
 		},
 		{
-			name:   "CRL distribution points",
-			value:  append(buildCRLDP("http://crl.example", nil, nil), 0x00),
-			strict: ParseCRLDPStrict,
-			compat: ParseCRLDP,
+			name:  "CRL distribution points",
+			value: append(buildCRLDP("http://crl.example", nil, nil), 0x00),
+			parse: ParseCRLDPStrict,
 		},
 		{
-			name:   "certificate policies",
-			value:  append(buildCertPoliciesValue("2.23.140.1.2.1", "", ""), 0x00),
-			strict: ParseCertPoliciesStrict,
-			compat: ParseCertPolicies,
+			name:  "certificate policies",
+			value: append(buildCertPoliciesValue("2.23.140.1.2.1", "", ""), 0x00),
+			parse: ParseCertPoliciesStrict,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if _, err := tt.strict(tt.value); err == nil {
+			if _, err := tt.parse(tt.value); err == nil {
 				t.Fatal("strict parser accepted trailing DER")
-			}
-			malformed, ok := tt.compat(tt.value).Children["malformed"]
-			if !ok || malformed.Value != true {
-				t.Fatalf("compatibility parser did not project malformed state: %v", malformed)
 			}
 		})
 	}

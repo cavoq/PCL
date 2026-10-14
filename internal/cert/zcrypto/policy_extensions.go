@@ -18,14 +18,6 @@ type PolicyMapping struct {
 	RawDER              []byte
 }
 
-func ParsePolicyMappings(extValue []byte) *node.Node {
-	n, err := ParsePolicyMappingsStrict(extValue)
-	if err == nil {
-		return n
-	}
-	return malformedExtensionNodeWithRaw("policyMappings", isEmptySequence(extValue), extValue)
-}
-
 func ParsePolicyMappingsStrict(extValue []byte) (*node.Node, error) {
 	mappings, err := DecodePolicyMappingsStrict(extValue)
 	if err != nil {
@@ -110,14 +102,6 @@ type PolicyConstraints struct {
 	RequireExplicitPolicyRaw     []byte
 	InhibitPolicyMappingRaw      []byte
 	RawDER                       []byte
-}
-
-func ParsePolicyConstraints(extValue []byte) *node.Node {
-	n, err := ParsePolicyConstraintsStrict(extValue)
-	if err == nil {
-		return n
-	}
-	return malformedExtensionNodeWithRaw("policyConstraints", isEmptySequence(extValue), extValue)
 }
 
 func ParsePolicyConstraintsStrict(extValue []byte) (*node.Node, error) {
@@ -213,14 +197,6 @@ func projectPolicyConstraints(decoded PolicyConstraints) *node.Node {
 		n.Children["inhibitPolicyMapping"] = value
 	}
 	return n
-}
-
-func ParseInhibitAnyPolicy(extValue []byte) *node.Node {
-	n, err := ParseInhibitAnyPolicyStrict(extValue)
-	if err == nil {
-		return n
-	}
-	return malformedExtensionNodeWithRaw("inhibitAnyPolicy", false, extValue)
 }
 
 func ParseInhibitAnyPolicyStrict(extValue []byte) (*node.Node, error) {

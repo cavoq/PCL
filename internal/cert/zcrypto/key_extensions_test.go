@@ -59,9 +59,6 @@ func TestParseKeyUsageRejectsNonCanonicalAndUndefinedBits(t *testing.T) {
 			if _, err := ParseKeyUsageStrict(der); err == nil {
 				t.Fatal("ParseKeyUsageStrict() error = nil, want error")
 			}
-			compat := ParseKeyUsage(der)
-			assertExtensionSchemaValue(t, compat, "malformed", true)
-			assertExtensionSchemaBytes(t, compat.Children["raw"].Value, der)
 		})
 	}
 }
@@ -131,7 +128,6 @@ func TestParseBasicConstraintsRejectsMalformedAndExplicitDefault(t *testing.T) {
 			if _, err := ParseBasicConstraintsStrict(der); err == nil {
 				t.Fatal("ParseBasicConstraintsStrict() error = nil, want error")
 			}
-			assertExtensionSchemaValue(t, ParseBasicConstraints(der), "malformed", true)
 		})
 	}
 }
@@ -189,7 +185,6 @@ func TestParseExtKeyUsageRejectsEmptyAndMalformedSequences(t *testing.T) {
 			if _, err := ParseExtKeyUsageStrict(der); err == nil {
 				t.Fatal("ParseExtKeyUsageStrict() error = nil, want error")
 			}
-			assertExtensionSchemaValue(t, ParseExtKeyUsage(der), "malformed", true)
 		})
 	}
 }

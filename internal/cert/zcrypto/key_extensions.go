@@ -21,16 +21,6 @@ type decodedKeyUsage struct {
 	RawValue   []byte
 }
 
-// ParseKeyUsage retains the compatibility convention of returning a node
-// whose malformed child is true when strict parsing fails.
-func ParseKeyUsage(extValue []byte) *node.Node {
-	n, err := ParseKeyUsageStrict(extValue)
-	if err == nil {
-		return n
-	}
-	return malformedExtensionNodeWithRaw("keyUsage", false, extValue)
-}
-
 // ParseKeyUsageStrict parses exactly one RFC 5280 KeyUsage BIT STRING.
 func ParseKeyUsageStrict(extValue []byte) (*node.Node, error) {
 	decoded, err := decodeKeyUsage(extValue)
@@ -124,14 +114,6 @@ type BasicConstraintsFacts struct {
 	PathLenConstraintFitsInt bool
 	PathLenConstraintPresent bool
 	RawDER                   []byte
-}
-
-func ParseBasicConstraints(extValue []byte) *node.Node {
-	n, err := ParseBasicConstraintsStrict(extValue)
-	if err == nil {
-		return n
-	}
-	return malformedExtensionNodeWithRaw("basicConstraints", isEmptySequence(extValue), extValue)
 }
 
 // ParseBasicConstraintsStrict parses exactly one BasicConstraints sequence,
@@ -228,14 +210,6 @@ type decodedExtendedKeyUsage struct {
 type decodedKeyPurpose struct {
 	OID    string
 	RawDER []byte
-}
-
-func ParseExtKeyUsage(extValue []byte) *node.Node {
-	n, err := ParseExtKeyUsageStrict(extValue)
-	if err == nil {
-		return n
-	}
-	return malformedExtensionNodeWithRaw("extKeyUsage", isEmptySequence(extValue), extValue)
 }
 
 // ParseExtKeyUsageStrict projects every KeyPurposeId, including anyExtendedKeyUsage

@@ -22,17 +22,6 @@ type decodedAccessDescription struct {
 	Location parsedGeneralName
 }
 
-// ParseAIA parses the Authority Information Access extension. It is retained
-// as a compatibility wrapper; new builder code should use ParseAIAStrict so a
-// malformed extension cannot be mistaken for an empty or partial value.
-func ParseAIA(extValue []byte) *node.Node {
-	n, err := ParseAIAStrict(extValue)
-	if err == nil {
-		return n
-	}
-	return malformedExtensionNode("authorityInfoAccess", isEmptySequence(extValue))
-}
-
 // ParseAIAStrict parses exactly one AuthorityInfoAccessSyntax value.
 func ParseAIAStrict(extValue []byte) (*node.Node, error) {
 	accessDescriptions, err := decodeAuthorityInformationAccess(extValue)
