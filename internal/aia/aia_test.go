@@ -296,4 +296,3 @@ func testCertificateDER(t *testing.T, commonName string) []byte {
 	}
 	return der
 }
-

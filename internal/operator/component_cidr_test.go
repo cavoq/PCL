@@ -15,52 +15,52 @@ func TestComponentInCIDR(t *testing.T) {
 		want     bool
 	}{
 		{
-			name: "single IP in range",
-			node: node.New("iPAddress", "10.0.0.1"),
+			name:     "single IP in range",
+			node:     node.New("iPAddress", "10.0.0.1"),
 			operands: []any{"10.0.0.0/8"},
-			want: true,
+			want:     true,
 		},
 		{
-			name: "single IP not in range",
-			node: node.New("iPAddress", "8.8.8.8"),
+			name:     "single IP not in range",
+			node:     node.New("iPAddress", "8.8.8.8"),
 			operands: []any{"10.0.0.0/8"},
-			want: false,
+			want:     false,
 		},
 		{
-			name: "multiple CIDRs - IP in first",
-			node: node.New("iPAddress", "10.1.2.3"),
+			name:     "multiple CIDRs - IP in first",
+			node:     node.New("iPAddress", "10.1.2.3"),
 			operands: []any{"10.0.0.0/8", "192.168.0.0/16"},
-			want: true,
+			want:     true,
 		},
 		{
-			name: "multiple CIDRs - IP in second",
-			node: node.New("iPAddress", "192.168.1.1"),
+			name:     "multiple CIDRs - IP in second",
+			node:     node.New("iPAddress", "192.168.1.1"),
 			operands: []any{"10.0.0.0/8", "192.168.0.0/16"},
-			want: true,
+			want:     true,
 		},
 		{
-			name: "multiple CIDRs - IP in neither",
-			node: node.New("iPAddress", "1.1.1.1"),
+			name:     "multiple CIDRs - IP in neither",
+			node:     node.New("iPAddress", "1.1.1.1"),
 			operands: []any{"10.0.0.0/8", "192.168.0.0/16"},
-			want: false,
+			want:     false,
 		},
 		{
-			name: "IPv6 in range",
-			node: node.New("iPAddress", "::1"),
+			name:     "IPv6 in range",
+			node:     node.New("iPAddress", "::1"),
 			operands: []any{"::1/128"},
-			want: true,
+			want:     true,
 		},
 		{
-			name: "IPv6 not in range",
-			node: node.New("iPAddress", "2001:db8::1"),
+			name:     "IPv6 not in range",
+			node:     node.New("iPAddress", "2001:db8::1"),
 			operands: []any{"::1/128", "fe80::/10"},
-			want: false,
+			want:     false,
 		},
 		{
-			name: "IPv6 link-local in range",
-			node: node.New("iPAddress", "fe80::1234"),
+			name:     "IPv6 link-local in range",
+			node:     node.New("iPAddress", "fe80::1234"),
 			operands: []any{"fe80::/10"},
-			want: true,
+			want:     true,
 		},
 		{
 			name: "array of IPs - one in range",
@@ -71,7 +71,7 @@ func TestComponentInCIDR(t *testing.T) {
 				return n
 			}(),
 			operands: []any{"10.0.0.0/8"},
-			want: true,
+			want:     true,
 		},
 		{
 			name: "array of IPs - none in range",
@@ -82,31 +82,31 @@ func TestComponentInCIDR(t *testing.T) {
 				return n
 			}(),
 			operands: []any{"10.0.0.0/8", "192.168.0.0/16"},
-			want: false,
+			want:     false,
 		},
 		{
-			name: "invalid CIDR operand skipped",
-			node: node.New("iPAddress", "10.0.0.1"),
+			name:     "invalid CIDR operand skipped",
+			node:     node.New("iPAddress", "10.0.0.1"),
 			operands: []any{"invalid-cidr", "10.0.0.0/8"},
-			want: true,
+			want:     true,
 		},
 		{
-			name: "invalid IP address",
-			node: node.New("iPAddress", "not-an-ip"),
+			name:     "invalid IP address",
+			node:     node.New("iPAddress", "not-an-ip"),
 			operands: []any{"10.0.0.0/8"},
-			want: false,
+			want:     false,
 		},
 		{
-			name: "nil node",
-			node: nil,
+			name:     "nil node",
+			node:     nil,
 			operands: []any{"10.0.0.0/8"},
-			want: false,
+			want:     false,
 		},
 		{
-			name: "no operands",
-			node: node.New("iPAddress", "10.0.0.1"),
+			name:     "no operands",
+			node:     node.New("iPAddress", "10.0.0.1"),
 			operands: []any{},
-			want: false,
+			want:     false,
 		},
 	}
 
@@ -132,52 +132,52 @@ func TestComponentNotInCIDR(t *testing.T) {
 		want     bool
 	}{
 		{
-			name: "single IP not in range - passes",
-			node: node.New("iPAddress", "8.8.8.8"),
+			name:     "single IP not in range - passes",
+			node:     node.New("iPAddress", "8.8.8.8"),
 			operands: []any{"10.0.0.0/8"},
-			want: true,
+			want:     true,
 		},
 		{
-			name: "single IP in range - fails",
-			node: node.New("iPAddress", "10.0.0.1"),
+			name:     "single IP in range - fails",
+			node:     node.New("iPAddress", "10.0.0.1"),
 			operands: []any{"10.0.0.0/8"},
-			want: false,
+			want:     false,
 		},
 		{
-			name: "multiple CIDRs - IP outside all - passes",
-			node: node.New("iPAddress", "1.1.1.1"),
+			name:     "multiple CIDRs - IP outside all - passes",
+			node:     node.New("iPAddress", "1.1.1.1"),
 			operands: []any{"10.0.0.0/8", "192.168.0.0/16", "172.16.0.0/12"},
-			want: true,
+			want:     true,
 		},
 		{
-			name: "multiple CIDRs - IP in one - fails",
-			node: node.New("iPAddress", "172.17.0.1"),
+			name:     "multiple CIDRs - IP in one - fails",
+			node:     node.New("iPAddress", "172.17.0.1"),
 			operands: []any{"10.0.0.0/8", "192.168.0.0/16", "172.16.0.0/12"},
-			want: false,
+			want:     false,
 		},
 		{
-			name: "loopback - fails",
-			node: node.New("iPAddress", "127.0.0.1"),
+			name:     "loopback - fails",
+			node:     node.New("iPAddress", "127.0.0.1"),
 			operands: []any{"127.0.0.0/8"},
-			want: false,
+			want:     false,
 		},
 		{
-			name: "public IP - passes",
-			node: node.New("iPAddress", "93.184.216.34"), // example.com
+			name:     "public IP - passes",
+			node:     node.New("iPAddress", "93.184.216.34"), // example.com
 			operands: []any{"10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "127.0.0.0/8"},
-			want: true,
+			want:     true,
 		},
 		{
-			name: "IPv6 not in range - passes",
-			node: node.New("iPAddress", "2001:db8::1"),
+			name:     "IPv6 not in range - passes",
+			node:     node.New("iPAddress", "2001:db8::1"),
 			operands: []any{"::1/128", "fe80::/10"},
-			want: true,
+			want:     true,
 		},
 		{
-			name: "IPv6 link-local - fails",
-			node: node.New("iPAddress", "fe80::1"),
+			name:     "IPv6 link-local - fails",
+			node:     node.New("iPAddress", "fe80::1"),
 			operands: []any{"fe80::/10"},
-			want: false,
+			want:     false,
 		},
 		{
 			name: "array of IPs - all outside - passes",
@@ -188,7 +188,7 @@ func TestComponentNotInCIDR(t *testing.T) {
 				return n
 			}(),
 			operands: []any{"10.0.0.0/8", "192.168.0.0/16"},
-			want: true,
+			want:     true,
 		},
 		{
 			name: "array of IPs - one in range - fails",
@@ -199,7 +199,7 @@ func TestComponentNotInCIDR(t *testing.T) {
 				return n
 			}(),
 			operands: []any{"10.0.0.0/8", "192.168.0.0/16"},
-			want: false,
+			want:     false,
 		},
 		{
 			name: "array of IPs - all in range - fails",
@@ -210,19 +210,19 @@ func TestComponentNotInCIDR(t *testing.T) {
 				return n
 			}(),
 			operands: []any{"10.0.0.0/8", "192.168.0.0/16"},
-			want: false,
+			want:     false,
 		},
 		{
-			name: "nil node",
-			node: nil,
+			name:     "nil node",
+			node:     nil,
 			operands: []any{"10.0.0.0/8"},
-			want: false,
+			want:     false,
 		},
 		{
-			name: "no operands",
-			node: node.New("iPAddress", "8.8.8.8"),
+			name:     "no operands",
+			node:     node.New("iPAddress", "8.8.8.8"),
 			operands: []any{},
-			want: false,
+			want:     false,
 		},
 	}
 
@@ -247,29 +247,29 @@ func TestParseCIDROperands(t *testing.T) {
 		wantLen  int
 	}{
 		{
-			name: "valid CIDRs",
+			name:     "valid CIDRs",
 			operands: []any{"10.0.0.0/8", "192.168.0.0/16"},
-			wantLen: 2,
+			wantLen:  2,
 		},
 		{
-			name: "mixed valid and invalid",
+			name:     "mixed valid and invalid",
 			operands: []any{"10.0.0.0/8", "invalid", "192.168.0.0/16"},
-			wantLen: 2,
+			wantLen:  2,
 		},
 		{
-			name: "all invalid",
+			name:     "all invalid",
 			operands: []any{"invalid", "also-invalid"},
-			wantLen: 0,
+			wantLen:  0,
 		},
 		{
-			name: "non-string operand",
+			name:     "non-string operand",
 			operands: []any{123, "10.0.0.0/8"},
-			wantLen: 1,
+			wantLen:  1,
 		},
 		{
-			name: "empty operands",
+			name:     "empty operands",
 			operands: []any{},
-			wantLen: 0,
+			wantLen:  0,
 		},
 	}
 

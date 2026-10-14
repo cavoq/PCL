@@ -14,8 +14,9 @@ import (
 // Per RFC 9598 3: "The UTF8String encoding MUST NOT contain a Byte Order Mark (BOM)"
 //
 // Example: validate SmtpUTF8Mailbox doesn't contain BOM
-//   target: certificate.subjectAltName.otherName.smtpUTF8Mailbox
-//   operator: utf8NoBom
+//
+//	target: certificate.subjectAltName.otherName.smtpUTF8Mailbox
+//	operator: utf8NoBom
 type UTF8NoBOM struct{}
 
 func (UTF8NoBOM) Name() string { return "utf8NoBom" }
