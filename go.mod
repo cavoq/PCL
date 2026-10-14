@@ -3,6 +3,7 @@ module github.com/cavoq/PCL
 go 1.24.5
 
 require (
+	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2
 	github.com/spf13/cobra v1.10.1
 	github.com/spf13/pflag v1.0.9
 	github.com/zmap/zcrypto v0.0.0-20251114214934-bb32b590b717

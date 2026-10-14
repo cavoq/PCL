@@ -2,6 +2,7 @@ package operator
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/cavoq/PCL/internal/node"
 )
@@ -9,12 +10,14 @@ import (
 type Registry struct {
 	ops        map[string]Operator
 	validators map[string]OperandValidator
+	schemas    map[string]map[string]any
 }
 
 func NewRegistry() *Registry {
 	return &Registry{
 		ops:        map[string]Operator{},
 		validators: map[string]OperandValidator{},
+		schemas:    map[string]map[string]any{},
 	}
 }
 
@@ -28,10 +31,17 @@ func (r *Registry) Register(op Operator) {
 	name := op.Name()
 	r.ops[name] = op
 	delete(r.validators, name)
+	delete(r.schemas, name)
+	contract, builtin := builtinContract(op)
 	if validator, ok := op.(OperandValidator); ok {
 		r.validators[name] = validator
-	} else if validator, ok := builtinOperandValidator(op); ok {
-		r.validators[name] = validator
+	} else if builtin {
+		r.validators[name] = contract.validate
+	}
+	if provider, ok := op.(OperandSchemaProvider); ok {
+		r.schemas[name] = provider.OperandSchema()
+	} else if builtin {
+		r.schemas[name] = contract.schema
 	}
 }
 
@@ -42,7 +52,29 @@ func (r *Registry) RegisterValidated(op Operator, validator OperandValidator) {
 	r.Register(op)
 	if validator != nil {
 		r.validators[op.Name()] = validator
+		// A replaced validator may accept other operands than the schema
+		// registered with the operator describes.
+		if _, ok := op.(OperandSchemaProvider); !ok {
+			delete(r.schemas, op.Name())
+		}
 	}
+}
+
+// Names returns the registered operator names in sorted order.
+func (r *Registry) Names() []string {
+	names := make([]string, 0, len(r.ops))
+	for name := range r.ops {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
+// OperandSchema returns the JSON Schema of the operands value accepted by the
+// named operator, when it is known.
+func (r *Registry) OperandSchema(name string) (map[string]any, bool) {
+	schema, ok := r.schemas[name]
+	return schema, ok
 }
 
 func (r *Registry) RegisterAll(ops []Operator) {

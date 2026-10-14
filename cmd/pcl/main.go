@@ -10,7 +10,9 @@ import (
 
 	"github.com/cavoq/PCL/internal/data"
 	"github.com/cavoq/PCL/internal/linter"
+	"github.com/cavoq/PCL/internal/operator"
 	"github.com/cavoq/PCL/internal/output"
+	"github.com/cavoq/PCL/internal/policy"
 )
 
 var version = "5.0.0"
@@ -108,6 +110,26 @@ as a lint run. Every path shown can be used as a rule target.`,
 	return cmd
 }
 
+func newSchemaCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "schema",
+		Short: "Print the JSON Schema of policy files",
+		Long: `Print the JSON Schema (draft-07) of policy files for editor completion and
+validation. Reference the published copy from a policy with:
+
+  # yaml-language-server: $schema=` + policy.SchemaID,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			schema, err := policy.JSONSchema(operator.DefaultRegistry())
+			if err != nil {
+				return err
+			}
+			_, err = cmd.OutOrStdout().Write(schema)
+			return err
+		},
+	}
+}
+
 func newUpdateDataCmd() *cobra.Command {
 	var dataDir string
 
@@ -129,6 +151,7 @@ func main() {
 
 	root := newRootCmd(&opts)
 	root.AddCommand(newInspectCmd())
+	root.AddCommand(newSchemaCmd())
 	root.AddCommand(newUpdateDataCmd())
 
 	if err := root.Execute(); err != nil {

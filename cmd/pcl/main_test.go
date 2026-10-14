@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"os"
 	"testing"
 
 	"github.com/cavoq/PCL/internal/linter"
@@ -30,5 +32,22 @@ func TestInspectCommandSharesInputFlags(t *testing.T) {
 	}
 	if command.Flags().Lookup("policy") != nil {
 		t.Error("inspect must not accept --policy")
+	}
+}
+
+func TestSchemaCommandPrintsCommittedSchema(t *testing.T) {
+	var out bytes.Buffer
+	command := newSchemaCmd()
+	command.SetOut(&out)
+	command.SetArgs(nil)
+	if err := command.Execute(); err != nil {
+		t.Fatalf("schema command: %v", err)
+	}
+	committed, err := os.ReadFile("../../schemas/policy.schema.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(out.Bytes(), committed) {
+		t.Fatal("pcl schema output differs from schemas/policy.schema.json")
 	}
 }

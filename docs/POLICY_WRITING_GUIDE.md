@@ -66,6 +66,7 @@ check, not a trust-anchor or complete RFC 5280 Section 6 input.
 ## Policy File Structure
 
 ```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/cavoq/PCL/master/schemas/policy.schema.json
 id: policy-name           # Required: Unique identifier for the policy
 version: "1.0"            # Optional: Policy version
 
@@ -75,6 +76,11 @@ rules:
   - id: rule-2
     ...
 ```
+
+The first line connects the file to the policy JSON Schema, so editors with
+the YAML language server complete operator names and flag invalid fields and
+operands while you type. `pcl schema` prints the schema for your installed
+version.
 
 ### Metadata Fields
 

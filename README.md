@@ -128,6 +128,23 @@ pcl inspect --crl list.crl --output json
 
 Byte values are shown as hex (shortened in text output), times in RFC 3339 UTC.
 
+### Editor Support
+
+Policy files have a JSON Schema at
+[`schemas/policy.schema.json`](schemas/policy.schema.json). Editors using the
+YAML language server (for example VS Code with the Red Hat YAML extension)
+complete fields and operator names, and flag unknown operators, invalid
+severities and operands that do not match the operator. Add this first line to
+a policy:
+
+```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/cavoq/PCL/master/schemas/policy.schema.json
+```
+
+`pcl schema` prints the schema for the installed version. Linting still
+performs the authoritative checks, including regular expression syntax and
+value ranges a schema cannot express.
+
 ## 📝 Policy Configuration
 
 Policies are YAML files defining validation rules with a simple declarative syntax.

@@ -11,29 +11,29 @@ import (
 	"github.com/cavoq/PCL/internal/oid"
 )
 
-var builtinOperandValidatorsByType = func() map[reflect.Type]OperandValidator {
-	validators := make(map[reflect.Type]OperandValidator, len(builtins))
+var builtinContractsByType = func() map[reflect.Type]operandContract {
+	contracts := make(map[reflect.Type]operandContract, len(builtins))
 	for _, builtin := range builtins {
-		if builtin.validate != nil {
-			validators[reflect.TypeOf(builtin.op)] = builtin.validate
+		if builtin.contract.validate != nil {
+			contracts[reflect.TypeOf(builtin.op)] = builtin.contract
 		}
 	}
-	return validators
+	return contracts
 }()
 
-// builtinOperandValidator resolves contracts by concrete built-in type. A
-// custom operator may intentionally reuse a built-in name without inheriting
-// a schema that belongs to a different implementation.
-func builtinOperandValidator(op Operator) (OperandValidator, bool) {
+// builtinContract resolves contracts by concrete built-in type. A custom
+// operator may intentionally reuse a built-in name without inheriting a
+// contract that belongs to a different implementation.
+func builtinContract(op Operator) (operandContract, bool) {
 	typeOf := reflect.TypeOf(op)
 	if typeOf == nil {
-		return nil, false
+		return operandContract{}, false
 	}
 	if typeOf.Kind() == reflect.Pointer {
 		typeOf = typeOf.Elem()
 	}
-	validator, ok := builtinOperandValidatorsByType[typeOf]
-	return validator, ok
+	contract, ok := builtinContractsByType[typeOf]
+	return contract, ok
 }
 
 // unvalidatedBuiltinOperators is an invariant helper reporting built-in

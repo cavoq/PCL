@@ -36,6 +36,16 @@ func ExtKeyUsage(name string) (x509.ExtKeyUsage, bool) {
 	return descriptor.usage, ok
 }
 
+// ExtKeyUsageNames returns the policy-facing EKU names accepted by
+// ExtKeyUsage, in unspecified order.
+func ExtKeyUsageNames() []string {
+	names := make([]string, 0, len(extendedKeyUsages))
+	for name := range extendedKeyUsages {
+		names = append(names, name)
+	}
+	return names
+}
+
 // ExtKeyUsageOID returns the dotted identifier for a policy-facing EKU name.
 func ExtKeyUsageOID(name string) (string, bool) {
 	descriptor, ok := extendedKeyUsages[name]

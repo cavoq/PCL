@@ -1,0 +1,178 @@
+package policy
+
+import (
+	"bytes"
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/santhosh-tekuri/jsonschema/v6"
+	"gopkg.in/yaml.v3"
+
+	"github.com/cavoq/PCL/internal/operator"
+)
+
+const committedSchemaPath = "../../schemas/policy.schema.json"
+
+func compilePolicySchema(t *testing.T) *jsonschema.Schema {
+	t.Helper()
+	generated, err := JSONSchema(operator.DefaultRegistry())
+	if err != nil {
+		t.Fatalf("JSONSchema: %v", err)
+	}
+	document, err := jsonschema.UnmarshalJSON(bytes.NewReader(generated))
+	if err != nil {
+		t.Fatalf("schema is not JSON: %v", err)
+	}
+	compiler := jsonschema.NewCompiler()
+	if err := compiler.AddResource(SchemaID, document); err != nil {
+		t.Fatalf("add schema: %v", err)
+	}
+	schema, err := compiler.Compile(SchemaID)
+	if err != nil {
+		t.Fatalf("compile schema: %v", err)
+	}
+	return schema
+}
+
+// yamlInstance decodes policy YAML into the JSON value the schema validates.
+func yamlInstance(t *testing.T, data []byte) any {
+	t.Helper()
+	var decoded any
+	if err := yaml.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("decode YAML: %v", err)
+	}
+	encoded, err := json.Marshal(decoded)
+	if err != nil {
+		t.Fatalf("encode JSON: %v", err)
+	}
+	instance, err := jsonschema.UnmarshalJSON(bytes.NewReader(encoded))
+	if err != nil {
+		t.Fatalf("decode JSON: %v", err)
+	}
+	return instance
+}
+
+func TestCommittedSchemaIsCurrent(t *testing.T) {
+	generated, err := JSONSchema(operator.DefaultRegistry())
+	if err != nil {
+		t.Fatalf("JSONSchema: %v", err)
+	}
+	committed, err := os.ReadFile(committedSchemaPath)
+	if err != nil {
+		t.Fatalf("read committed schema: %v", err)
+	}
+	if !bytes.Equal(committed, generated) {
+		t.Fatal("schemas/policy.schema.json is stale; run: go run ./cmd/pcl schema > schemas/policy.schema.json")
+	}
+}
+
+func TestSchemaAcceptsRepositoryPolicies(t *testing.T) {
+	schema := compilePolicySchema(t)
+	var files []string
+	for _, dir := range []string{"../../policies", "../../tests/policies"} {
+		matches, err := filepath.Glob(filepath.Join(dir, "*.yaml"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		files = append(files, matches...)
+	}
+	if len(files) < 20 {
+		t.Fatalf("found only %d policy files", len(files))
+	}
+	for _, file := range files {
+		data, err := os.ReadFile(file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := schema.Validate(yamlInstance(t, data)); err != nil {
+			t.Errorf("%s: %v", file, err)
+		}
+	}
+}
+
+func TestSchemaAndParserRejectTheSamePolicies(t *testing.T) {
+	schema := compilePolicySchema(t)
+	registry := operator.DefaultRegistry()
+	tests := []struct {
+		name   string
+		policy string
+		valid  bool
+	}{
+		{name: "minimal", valid: true, policy: `
+id: example
+rules:
+  - id: version-3
+    target: certificate.version
+    operator: eq
+    operands: [3]
+    severity: error`},
+		{name: "scalar operand and condition", valid: true, policy: `
+id: example
+rules:
+  - id: rsa-size
+    target: certificate.subjectPublicKeyInfo.publicKey.keySize
+    operator: gte
+    operands: 2048
+    severity: warning
+    certType: [leaf]
+    when:
+      target: certificate.subjectPublicKeyInfo.algorithm.oid
+      operator: eq
+      operands: ["1.2.840.113549.1.1.1"]`},
+		{name: "missing id", policy: `
+rules: []`},
+		{name: "unknown top-level field", policy: `
+id: example
+rule: []`},
+		{name: "unknown operator", policy: `
+id: example
+rules:
+  - {id: r, target: certificate.version, operator: equals, operands: [3], severity: error}`},
+		{name: "invalid severity", policy: `
+id: example
+rules:
+  - {id: r, target: certificate.version, operator: eq, operands: [3], severity: fatal}`},
+		{name: "missing required operands", policy: `
+id: example
+rules:
+  - {id: r, target: certificate.version, operator: eq, severity: error}`},
+		{name: "operands for an operator without operands", policy: `
+id: example
+rules:
+  - {id: r, target: certificate.version, operator: present, operands: [true], severity: error}`},
+		{name: "non-numeric comparison operand", policy: `
+id: example
+rules:
+  - {id: r, target: certificate.version, operator: gte, operands: ["3"], severity: error}`},
+		{name: "unknown rule certType", policy: `
+id: example
+rules:
+  - {id: r, target: certificate.version, operator: present, severity: error, certType: [server]}`},
+		{name: "invalid condition operands", policy: `
+id: example
+rules:
+  - id: r
+    target: certificate.version
+    operator: present
+    severity: error
+    when: {target: certificate.version, operator: maxLength, operands: [-1]}`},
+		{name: "invalid appliesTo", policy: `
+id: example
+appliesTo: [certificate]
+rules: []`},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			schemaErr := schema.Validate(yamlInstance(t, []byte(test.policy)))
+			_, parseErr := ParseWithRegistry([]byte(test.policy), registry)
+			if (schemaErr == nil) != test.valid {
+				t.Errorf("schema error = %v, want valid %v", schemaErr, test.valid)
+			}
+			if (parseErr == nil) != test.valid {
+				t.Errorf("parser error = %v, want valid %v", parseErr, test.valid)
+			}
+		})
+	}
+}
