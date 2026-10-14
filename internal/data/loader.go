@@ -210,13 +210,6 @@ func parsePSLFile(filePath string) (*PSL, error) {
 	return psl, nil
 }
 
-// GetPSL returns the loaded PSL, or nil if not loaded.
-func (l *Loader) GetPSL() *PSL {
-	l.pslMutex.RLock()
-	defer l.pslMutex.RUnlock()
-	return l.psl
-}
-
 // IsPublicSuffix checks if a domain is a public suffix.
 // Uses loaded PSL if available, otherwise returns false.
 func (l *Loader) IsPublicSuffix(domain string) bool {
@@ -228,18 +221,6 @@ func (l *Loader) IsPublicSuffix(domain string) bool {
 	}
 
 	return l.psl.AllPublicSuffixes[domain]
-}
-
-// IsICANNDomain checks if a domain is in ICANN section (official TLD).
-func (l *Loader) IsICANNDomain(domain string) bool {
-	l.pslMutex.RLock()
-	defer l.pslMutex.RUnlock()
-
-	if l.psl == nil {
-		return false
-	}
-
-	return l.psl.ICANNDomains[domain]
 }
 
 // TLDRegistered checks if a TLD is registered in IANA Root Zone.

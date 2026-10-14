@@ -41,14 +41,14 @@ func TestChainWithEmptyChain(t *testing.T) {
 }
 
 func TestCRLOnlyWithEmptyCRLs(t *testing.T) {
-	results := CRLOnly(nil, operator.DefaultRegistry(), nil, nil)
+	results := CRL(Context{Registry: operator.DefaultRegistry()})
 	if len(results) != 0 {
 		t.Errorf("expected 0 results for empty CRLs, got %d", len(results))
 	}
 }
 
 func TestOCSPOnlyWithEmptyOCSPs(t *testing.T) {
-	results := OCSPOnly(nil, operator.DefaultRegistry(), nil)
+	results := OCSP(Context{Registry: operator.DefaultRegistry()})
 	if len(results) != 0 {
 		t.Errorf("expected 0 results for empty OCSPs, got %d", len(results))
 	}

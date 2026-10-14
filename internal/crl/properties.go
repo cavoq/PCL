@@ -21,30 +21,6 @@ func HasDeltaIndicator(crl *x509.RevocationList) bool {
 	return false
 }
 
-func HasIssuingDistributionPoint(crl *x509.RevocationList) bool {
-	if crl == nil {
-		return false
-	}
-	for _, ext := range crl.Extensions {
-		if ext.Id.String() == oid.IssuingDistributionPoint {
-			return true
-		}
-	}
-	return false
-}
-
-func HasCriticalExtension(crl *x509.RevocationList) bool {
-	if crl == nil {
-		return false
-	}
-	for _, ext := range crl.Extensions {
-		if ext.Critical {
-			return true
-		}
-	}
-	return false
-}
-
 // IsCurrentAt applies the RFC 5280 CRL time window. Conforming CRLs include
 // nextUpdate, and both boundary instants are accepted.
 func IsCurrentAt(crl *x509.RevocationList, now time.Time) bool {

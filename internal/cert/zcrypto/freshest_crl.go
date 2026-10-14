@@ -16,7 +16,3 @@ func ParseFreshestCRLStrict(extValue []byte) (*node.Node, error) {
 	n.Name = "freshestCRL"
 	return n, nil
 }
-
-func DecodeFreshestCRLStrict(extValue []byte) ([]x509ext.DistributionPoint, error) {
-	return x509ext.DecodeDistributionPoints(extValue)
-}

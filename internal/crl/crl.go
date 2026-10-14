@@ -6,11 +6,9 @@ import (
 	"encoding/hex"
 	"encoding/pem"
 	"fmt"
-	"io"
 	"os"
 	"time"
 
-	"github.com/cavoq/PCL/internal/cert"
 	"github.com/cavoq/PCL/internal/fsutil"
 	"github.com/cavoq/PCL/internal/source"
 	"github.com/zmap/zcrypto/x509"
@@ -102,12 +100,4 @@ func crlHash(revocationList *x509.RevocationList) string {
 
 func FetchCRL(url string, timeout time.Duration) (*Info, error) {
 	return newFetchSession(FetchConfig{Timeout: timeout}, true).Fetch(url)
-}
-
-func FetchCRLs(urls []string, timeout time.Duration) ([]*Info, []error) {
-	return newFetchSession(FetchConfig{Timeout: timeout}, true).FetchAll(urls)
-}
-
-func FetchForChain(chain []*cert.Info, timeout time.Duration, w io.Writer) []*Info {
-	return NewFetchSession(FetchConfig{Timeout: timeout}).FetchForChain(chain, w)
 }

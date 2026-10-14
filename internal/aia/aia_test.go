@@ -243,33 +243,6 @@ func TestSelectIssuer(t *testing.T) {
 	}
 }
 
-func TestToStdCert(t *testing.T) {
-	t.Run("nil", func(t *testing.T) {
-		cert, err := ToStdCert(nil)
-		if err != nil {
-			t.Fatalf("ToStdCert(nil) returned error: %v", err)
-		}
-		if cert != nil {
-			t.Fatalf("ToStdCert(nil) = %v, want nil", cert)
-		}
-	})
-
-	t.Run("valid", func(t *testing.T) {
-		zcert, err := zx509.ParseCertificate(testCertificateDER(t, "ToStdCert CA"))
-		if err != nil {
-			t.Fatalf("failed to parse test cert: %v", err)
-		}
-
-		stdCert, err := ToStdCert(zcert)
-		if err != nil {
-			t.Fatalf("ToStdCert returned error: %v", err)
-		}
-		if stdCert.Subject.CommonName != "ToStdCert CA" {
-			t.Fatalf("common name = %q, want %q", stdCert.Subject.CommonName, "ToStdCert CA")
-		}
-	})
-}
-
 func testCertificateDER(t *testing.T, commonName string) []byte {
 	t.Helper()
 

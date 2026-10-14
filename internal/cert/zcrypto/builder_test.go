@@ -3,8 +3,11 @@ package zcrypto
 import (
 	"bytes"
 	"crypto/dsa"
+	"encoding/pem"
+	"errors"
 	"math/big"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -101,10 +104,9 @@ func TestBuilder_OmitsAbsentProfileExtensionNodes(t *testing.T) {
 
 func loadCert(t *testing.T, name string) *node.Node {
 	t.Helper()
-	loader := NewLoader()
 	builder := NewZCryptoBuilder()
 
-	cert, err := loader.Load(loadTestCert(t, name))
+	cert, err := parsePEMCertificate(loadTestCert(t, name))
 	if err != nil {
 		t.Fatalf("failed to load cert: %v", err)
 	}
@@ -168,7 +170,7 @@ func TestBuilder_Subject(t *testing.T) {
 }
 
 func TestBuilder_SubjectAndIssuerUseRawNameProjection(t *testing.T) {
-	cert, err := NewLoader().Load(loadTestCert(t, "leaf.pem"))
+	cert, err := parsePEMCertificate(loadTestCert(t, "leaf.pem"))
 	if err != nil {
 		t.Fatalf("load certificate: %v", err)
 	}
@@ -487,8 +489,7 @@ func TestBuilder_SignatureValue(t *testing.T) {
 }
 
 func TestBuilder_BuildTree(t *testing.T) {
-	loader := NewLoader()
-	cert, err := loader.Load(loadTestCert(t, "leaf.pem"))
+	cert, err := parsePEMCertificate(loadTestCert(t, "leaf.pem"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -616,8 +617,7 @@ func TestBuilder_AIAStructure(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to read cert: %v", err)
 	}
-	loader := NewLoader()
-	cert, err := loader.Load(data)
+	cert, err := parsePEMCertificate(data)
 	if err != nil {
 		t.Fatalf("failed to load cert: %v", err)
 	}
@@ -720,8 +720,7 @@ func TestBuilder_CRLDPStructure(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to read cert: %v", err)
 	}
-	loader := NewLoader()
-	cert, err := loader.Load(data)
+	cert, err := parsePEMCertificate(data)
 	if err != nil {
 		t.Fatalf("failed to load cert: %v", err)
 	}
@@ -837,4 +836,24 @@ func TestBuilder_NameConstraints(t *testing.T) {
 	// Check min/max are NOT present (BR requirement)
 	assertPathNotExists(t, root, "certificate.nameConstraints.permittedSubtrees.dNSName.0.min")
 	assertPathNotExists(t, root, "certificate.nameConstraints.permittedSubtrees.dNSName.0.max")
+}
+
+func parsePEMCertificate(data []byte) (*x509.Certificate, error) {
+	block, _ := pem.Decode(data)
+	if block == nil {
+		return nil, errors.New("invalid PEM")
+	}
+	return x509.ParseCertificate(block.Bytes)
+}
+
+func loadTestCert(t *testing.T, name string) []byte {
+	t.Helper()
+
+	path := filepath.Join("..", "testdata", name)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("failed to read test cert %s: %v", name, err)
+	}
+
+	return data
 }

@@ -223,23 +223,6 @@ func CRLSubjects(ctx Context) []Subject {
 	return subjects
 }
 
-func CRLOnly(policies []policy.Policy, registry *operator.Registry, crls []*crl.Info, issuers []*cert.Info) []policy.Result {
-	return CRL(Context{
-		Policies: policies,
-		Registry: registry,
-		CRLs:     crls,
-		Chain:    issuers,
-	})
-}
-
-func OCSPOnly(policies []policy.Policy, registry *operator.Registry, ocsps []*ocsp.Info) []policy.Result {
-	return OCSP(Context{
-		Policies: policies,
-		Registry: registry,
-		OCSPs:    ocsps,
-	})
-}
-
 func ocspSignerSubject(ctx Context, ocspInfo *ocsp.Info, now time.Time) (Subject, bool) {
 	zcryptoSignerCert, err := x509node.FromStdCert(ocspInfo.Response.Certificate)
 	if err != nil || zcryptoSignerCert == nil {
