@@ -123,7 +123,8 @@ var (
 	ekusContract = operandContract{validateEKUs, withDescription(
 		operandList(ekuOperand(), 1, -1), "One or more extended key usage names.")}
 	policyOIDsContract = operandContract{validatePolicyOIDs, withDescription(
-		operandList(dottedOIDOperand, 1, -1), "One or more acceptable certificate policy OIDs.")}
+		operandList(dottedOIDOperand, 0, -1),
+		"Acceptable certificate policy OIDs; none applies the RFC 5280 default policy inputs.")}
 	componentLengthContract = operandContract{validateComponentLength, withDescription(
 		operandTuple(1, nonnegativeInteger, delimiterOperand), `Length bound and optional delimiter (default ".").`)}
 	componentRegexContract = operandContract{validateComponentRegexOperands, withDescription(

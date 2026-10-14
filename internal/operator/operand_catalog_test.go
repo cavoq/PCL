@@ -88,8 +88,8 @@ var operandContractCases = []struct {
 	{
 		name:     "certificate policy OIDs",
 		operator: "certificatePolicyValid",
-		valid:    [][]any{{"2.5.29.32.0"}, {"1.3.6.1.5.5.7.14.2", "2.23.140.1.2.1"}},
-		invalid:  [][]any{nil, {""}, {"3.1"}, {"1.40"}, {"1.03.6"}, {17}},
+		valid:    [][]any{nil, {"2.5.29.32.0"}, {"1.3.6.1.5.5.7.14.2", "2.23.140.1.2.1"}},
+		invalid:  [][]any{{""}, {"3.1"}, {"1.40"}, {"1.03.6"}, {17}},
 	},
 	{
 		name:     "component length and delimiter",

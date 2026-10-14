@@ -171,7 +171,7 @@ func validateEKUs(operands []any, _ *Registry) error {
 }
 
 func validatePolicyOIDs(operands []any, _ *Registry) error {
-	if err := validateOperandCount(operands, 1, -1); err != nil {
+	if err := validateOperandCount(operands, 0, -1); err != nil {
 		return err
 	}
 	for index, operand := range operands {

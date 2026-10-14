@@ -13,11 +13,15 @@ import (
 
 // CertificatePolicyValid runs the RFC 5280 Section 6.1 certificate policy
 // processing over the path from the trust anchor to the evaluated
-// certificate. The operands are the user-initial-policy-set (anyPolicy accepts
-// any policy) and initial-explicit-policy is set, so the check passes when at
-// least one acceptable policy is valid for the whole path. Because policies
-// are always required, requireExplicitPolicy cannot change the outcome;
-// policy mappings, inhibitPolicyMapping and inhibitAnyPolicy are honored.
+// certificate, honoring policy mappings, requireExplicitPolicy,
+// inhibitPolicyMapping and inhibitAnyPolicy.
+//
+// Operands are the user-initial-policy-set: with operands, initial-explicit-
+// policy is set and the check passes when at least one acceptable policy
+// (anyPolicy accepts any) is valid for the whole path. Without operands the
+// RFC default inputs apply (any-policy, explicit policy not required), and the
+// check passes unless the path's own policy constraints require an explicit
+// policy it does not provide, or a CA maps to or from anyPolicy.
 //
 // The self-signed top of the chain is the trust anchor and is not processed
 // unless it is the evaluated certificate itself. Malformed policy extensions
@@ -36,9 +40,6 @@ func (CertificatePolicyValid) Evaluate(_ *node.Node, ctx *EvaluationContext, ope
 		if policy, ok := operand.(string); ok {
 			acceptable = append(acceptable, policy)
 		}
-	}
-	if len(acceptable) == 0 {
-		return false, nil
 	}
 
 	path, ok := certificatePolicyPath(ctx)
@@ -88,16 +89,18 @@ type certificatePolicyFacts struct {
 	policies    []string
 	mappings    []certzcrypto.PolicyMapping
 	// Counters are -1 when absent or too large to constrain a path.
-	inhibitPolicyMapping int
-	inhibitAnyPolicy     int
-	selfIssued           bool
+	requireExplicitPolicy int
+	inhibitPolicyMapping  int
+	inhibitAnyPolicy      int
+	selfIssued            bool
 }
 
 func decodeCertificatePolicyFacts(certificate *x509.Certificate) (certificatePolicyFacts, error) {
 	facts := certificatePolicyFacts{
-		inhibitPolicyMapping: -1,
-		inhibitAnyPolicy:     -1,
-		selfIssued:           certpkg.IsSelfIssued(certificate),
+		requireExplicitPolicy: -1,
+		inhibitPolicyMapping:  -1,
+		inhibitAnyPolicy:      -1,
+		selfIssued:            certpkg.IsSelfIssued(certificate),
 	}
 
 	if value, present := policyExtensionValue(certificate, oid.CertificatePolicies); present {
@@ -127,6 +130,9 @@ func decodeCertificatePolicyFacts(certificate *x509.Certificate) (certificatePol
 		if err != nil {
 			return facts, err
 		}
+		if constraints.RequireExplicitPolicyPresent && constraints.RequireExplicitPolicyFitsInt {
+			facts.requireExplicitPolicy = constraints.RequireExplicitPolicy
+		}
 		if constraints.InhibitPolicyMappingPresent && constraints.InhibitPolicyMappingFitsInt {
 			facts.inhibitPolicyMapping = constraints.InhibitPolicyMapping
 		}
@@ -153,23 +159,33 @@ func policyExtensionValue(certificate *x509.Certificate, identifier string) ([]b
 	return nil, false
 }
 
-// processCertificatePolicies applies RFC 5280 Sections 6.1.3 (d)-(f), 6.1.4
-// (a), (b), (h)-(j) and 6.1.5 (g) to certificates 1..n and reports whether the
-// valid_policy_tree is non-NULL after intersecting it with acceptable.
+// processCertificatePolicies applies the RFC 5280 Section 6.1 policy steps
+// (6.1.3 (d)-(f), 6.1.4 (a)(b)(h)-(j), 6.1.5 (a)(b)(g)) to certificates 1..n.
+// With acceptable policies, initial-explicit-policy is set and the path is
+// valid when the valid_policy_tree is non-NULL after intersecting it with
+// them. Without, the inputs are the RFC defaults (any-policy, explicit policy
+// not required) and the path is valid unless its own policy constraints
+// require an explicit policy that the path does not provide.
 func processCertificatePolicies(path []certificatePolicyFacts, acceptable []string) bool {
 	n := len(path)
+	explicitPolicy := n + 1
+	if len(acceptable) > 0 {
+		explicitPolicy = 0
+	}
 	inhibitAnyPolicy := n + 1
 	policyMapping := n + 1
 	tree := newPolicyTree()
 
 	for i := 1; i <= n; i++ {
 		certificate := path[i-1]
-		if !certificate.hasPolicies {
-			return false // 6.1.3 (e), then (f) with explicit_policy 0
+		switch {
+		case !certificate.hasPolicies:
+			tree.root = nil // 6.1.3 (e)
+		case tree.root != nil:
+			allowAnyPolicy := inhibitAnyPolicy > 0 || (i < n && certificate.selfIssued)
+			tree.addCertificatePolicies(i, certificate.policies, allowAnyPolicy)
 		}
-		allowAnyPolicy := inhibitAnyPolicy > 0 || (i < n && certificate.selfIssued)
-		tree.addCertificatePolicies(i, certificate.policies, allowAnyPolicy)
-		if tree.root == nil {
+		if explicitPolicy == 0 && tree.root == nil {
 			return false // 6.1.3 (f)
 		}
 		if i == n {
@@ -179,12 +195,13 @@ func processCertificatePolicies(path []certificatePolicyFacts, acceptable []stri
 		if !tree.applyPolicyMappings(i, certificate.mappings, policyMapping > 0) {
 			return false // 6.1.4 (a): anyPolicy must not be mapped
 		}
-		if tree.root == nil {
-			return false
-		}
 		if !certificate.selfIssued {
+			explicitPolicy = max(explicitPolicy-1, 0)
 			policyMapping = max(policyMapping-1, 0)
 			inhibitAnyPolicy = max(inhibitAnyPolicy-1, 0)
+		}
+		if certificate.requireExplicitPolicy >= 0 {
+			explicitPolicy = min(explicitPolicy, certificate.requireExplicitPolicy)
 		}
 		if certificate.inhibitPolicyMapping >= 0 {
 			policyMapping = min(policyMapping, certificate.inhibitPolicyMapping)
@@ -194,8 +211,14 @@ func processCertificatePolicies(path []certificatePolicyFacts, acceptable []stri
 		}
 	}
 
-	tree.intersect(n, acceptable)
-	return tree.root != nil
+	explicitPolicy = max(explicitPolicy-1, 0) // 6.1.5 (a)
+	if path[n-1].requireExplicitPolicy == 0 {
+		explicitPolicy = 0 // 6.1.5 (b)
+	}
+	if len(acceptable) > 0 {
+		tree.intersect(n, acceptable) // 6.1.5 (g); none means any-policy
+	}
+	return explicitPolicy > 0 || tree.root != nil
 }
 
 type policyNode struct {

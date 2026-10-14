@@ -35,11 +35,98 @@ func TestCertificatePolicyValidNilContext(t *testing.T) {
 	}
 }
 
-func TestCertificatePolicyValidNoOperands(t *testing.T) {
-	leaf := policyTestCert("Leaf", "Root", policyA)
-	got, err := CertificatePolicyValid{}.Evaluate(nil, policyChainContext(leaf, policyTestRoot()), nil)
-	if err != nil || got {
-		t.Fatalf("no operands = %v, %v; want false", got, err)
+func TestCertificatePolicyValidDefaultInputs(t *testing.T) {
+	tests := []struct {
+		name  string
+		chain func() []*x509.Certificate // leaf first
+		want  bool
+	}{
+		{
+			name: "no policies and no constraints",
+			chain: func() []*x509.Certificate {
+				return []*x509.Certificate{policyTestCert("Leaf", "CA1"), policyTestCert("CA1", "Root"), policyTestRoot()}
+			},
+			want: true,
+		},
+		{
+			name: "disjoint policies without requireExplicitPolicy",
+			chain: func() []*x509.Certificate {
+				return []*x509.Certificate{
+					policyTestCert("Leaf", "CA1", policyB),
+					policyTestCert("CA1", "Root", policyA),
+					policyTestRoot(),
+				}
+			},
+			want: true,
+		},
+		{
+			name: "requireExplicitPolicy 0 with disjoint policies",
+			chain: func() []*x509.Certificate {
+				return []*x509.Certificate{
+					policyTestCert("Leaf", "CA1", policyB),
+					withPolicyExtension(policyTestCert("CA1", "Root", policyA),
+						oid.PolicyConstraints, policyConstraintsDER(0, -1)),
+					policyTestRoot(),
+				}
+			},
+			want: false,
+		},
+		{
+			name: "requireExplicitPolicy 0 with a common policy",
+			chain: func() []*x509.Certificate {
+				return []*x509.Certificate{
+					policyTestCert("Leaf", "CA1", policyA),
+					withPolicyExtension(policyTestCert("CA1", "Root", policyA),
+						oid.PolicyConstraints, policyConstraintsDER(0, -1)),
+					policyTestRoot(),
+				}
+			},
+			want: true,
+		},
+		{
+			name: "requireExplicitPolicy 2 skips past a short path",
+			chain: func() []*x509.Certificate {
+				return []*x509.Certificate{
+					policyTestCert("Leaf", "CA1"),
+					withPolicyExtension(policyTestCert("CA1", "Root", policyA),
+						oid.PolicyConstraints, policyConstraintsDER(2, -1)),
+					policyTestRoot(),
+				}
+			},
+			want: true,
+		},
+		{
+			name: "requireExplicitPolicy 1 reaches the leaf",
+			chain: func() []*x509.Certificate {
+				return []*x509.Certificate{
+					policyTestCert("Leaf", "CA1"),
+					withPolicyExtension(policyTestCert("CA1", "Root", policyA),
+						oid.PolicyConstraints, policyConstraintsDER(1, -1)),
+					policyTestRoot(),
+				}
+			},
+			want: false,
+		},
+		{
+			name: "mapping to anyPolicy is invalid without operands",
+			chain: func() []*x509.Certificate {
+				return []*x509.Certificate{
+					policyTestCert("Leaf", "CA1", policyA),
+					withPolicyExtension(policyTestCert("CA1", "Root", policyA),
+						oid.PolicyMappings, policyMappingsDER(policyA, oid.AnyPolicy)),
+					policyTestRoot(),
+				}
+			},
+			want: false,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got, err := CertificatePolicyValid{}.Evaluate(nil, policyChainContext(test.chain()...), nil)
+			if err != nil || got != test.want {
+				t.Fatalf("default inputs = %v, %v; want %v", got, err, test.want)
+			}
+		})
 	}
 }
 
