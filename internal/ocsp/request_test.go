@@ -89,3 +89,20 @@ func TestAddNonceExtension(t *testing.T) {
 		t.Errorf("Invalid result structure")
 	}
 }
+
+func TestAddNonceExtensionDoesNotModifyRequest(t *testing.T) {
+	requestList := der.EncodeSequence(der.EncodeSequence([]byte{}))
+	tbsRequest := der.EncodeSequence(requestList)
+	// An optionalSignature after the TBSRequest shares the input buffer with
+	// the TBSRequest contents and is longer than the added extensions.
+	optionalSignature := der.EncodeContextSpecificConstructed(0, der.EncodeOctetString(make([]byte, 64)))
+	ocspRequest := der.EncodeSequence(append(append([]byte{}, tbsRequest...), optionalSignature...))
+	original := bytes.Clone(ocspRequest)
+
+	if _, err := addNonceToOCSPRequest(ocspRequest, []byte{0x01, 0x02, 0x03, 0x04}); err != nil {
+		t.Fatalf("addNonceToOCSPRequest: %v", err)
+	}
+	if !bytes.Equal(ocspRequest, original) {
+		t.Fatalf("input request was modified:\n got %x\nwant %x", ocspRequest, original)
+	}
+}

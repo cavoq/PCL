@@ -138,11 +138,17 @@ func addNonceToOCSPRequest(ocspRequest []byte, nonce []byte) ([]byte, error) {
 
 	tbsContent := tbsBytes[tbsContentStart : tbsContentStart+tbsLen]
 	nonceOctetString := der.EncodeOctetString(nonce)
-	extensionContent := append(nonceOIDDER, nonceOctetString...)
+	extensionContent := make([]byte, 0, len(nonceOIDDER)+len(nonceOctetString))
+	extensionContent = append(extensionContent, nonceOIDDER...)
+	extensionContent = append(extensionContent, nonceOctetString...)
 	extension := der.EncodeSequence(extensionContent)
 	extensions := der.EncodeSequence(extension)
 	requestExtensions := der.EncodeContextSpecificConstructed(2, extensions)
 
-	newTbsContent := append(tbsContent, requestExtensions...)
+	// tbsContent aliases the caller's request; build the new TBSRequest in a
+	// fresh buffer so appending never overwrites bytes that follow it.
+	newTbsContent := make([]byte, 0, len(tbsContent)+len(requestExtensions))
+	newTbsContent = append(newTbsContent, tbsContent...)
+	newTbsContent = append(newTbsContent, requestExtensions...)
 	return der.EncodeSequence(der.EncodeSequence(newTbsContent)), nil
 }
