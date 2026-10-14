@@ -253,31 +253,8 @@ func decodeAuthorityKeyIdentifierExtension(
 		if !element.ReadAnyASN1(&content, &parsedTag) || !element.Empty() || parsedTag != tag {
 			return nil, fmt.Errorf("invalid AuthorityKeyIdentifier field")
 		}
-		switch tagNumber {
-		case 0:
-			if tag != cryptobyte_asn1.Tag(0).ContextSpecific() {
-				return nil, fmt.Errorf("invalid keyIdentifier tag")
-			}
-			decoded.KeyIdentifier = append([]byte(nil), content...)
-		case 1:
-			if tag != cryptobyte_asn1.Tag(1).ContextSpecific().Constructed() || content.Empty() {
-				return nil, fmt.Errorf("invalid authorityCertIssuer")
-			}
-			names, err := x509ext.ReadGeneralNamesContents(&content)
-			if err != nil || len(names) == 0 {
-				return nil, fmt.Errorf("invalid authorityCertIssuer")
-			}
-			decoded.AuthorityIssuer = names
-		case 2:
-			if tag != cryptobyte_asn1.Tag(2).ContextSpecific() {
-				return nil, fmt.Errorf("invalid authorityCertSerialNumber tag")
-			}
-			serial, err := x509ext.DecodeNonNegativeIntegerContent(content)
-			if err != nil {
-				return nil, fmt.Errorf("invalid authorityCertSerialNumber: %w", err)
-			}
-			serial.RawDER = append([]byte(nil), raw...)
-			decoded.SerialNumber = &serial
+		if err := decoded.decodeField(tagNumber, tag, raw, content); err != nil {
+			return nil, err
 		}
 	}
 	if (decoded.AuthorityIssuer != nil) != (decoded.SerialNumber != nil) {
@@ -286,6 +263,42 @@ func decodeAuthorityKeyIdentifierExtension(
 		)
 	}
 	return decoded, nil
+}
+
+// decodeField stores one AuthorityKeyIdentifier field identified by
+// tagNumber, after checking the tag form the field requires.
+func (decoded *AuthorityKeyIdentifierFacts) decodeField(
+	tagNumber int,
+	tag cryptobyte_asn1.Tag,
+	raw, content cryptobyte.String,
+) error {
+	switch tagNumber {
+	case 0:
+		if tag != cryptobyte_asn1.Tag(0).ContextSpecific() {
+			return fmt.Errorf("invalid keyIdentifier tag")
+		}
+		decoded.KeyIdentifier = append([]byte(nil), content...)
+	case 1:
+		if tag != cryptobyte_asn1.Tag(1).ContextSpecific().Constructed() || content.Empty() {
+			return fmt.Errorf("invalid authorityCertIssuer")
+		}
+		names, err := x509ext.ReadGeneralNamesContents(&content)
+		if err != nil || len(names) == 0 {
+			return fmt.Errorf("invalid authorityCertIssuer")
+		}
+		decoded.AuthorityIssuer = names
+	case 2:
+		if tag != cryptobyte_asn1.Tag(2).ContextSpecific() {
+			return fmt.Errorf("invalid authorityCertSerialNumber tag")
+		}
+		serial, err := x509ext.DecodeNonNegativeIntegerContent(content)
+		if err != nil {
+			return fmt.Errorf("invalid authorityCertSerialNumber: %w", err)
+		}
+		serial.RawDER = append([]byte(nil), raw...)
+		decoded.SerialNumber = &serial
+	}
+	return nil
 }
 
 func decodeIssuingDistributionPointExtension(
@@ -312,41 +325,68 @@ func decodeIssuingDistributionPointExtension(
 			return nil, fmt.Errorf("duplicate, out-of-order, or unknown IssuingDistributionPoint field")
 		}
 		lastTag = tagNumber
-		switch tagNumber {
-		case 0:
-			if tag != cryptobyte_asn1.Tag(0).ContextSpecific().Constructed() {
-				return nil, fmt.Errorf("invalid distributionPoint tag")
-			}
-			name, err := x509ext.DecodeDistributionPointNameContents(content)
-			if err != nil {
-				return nil, err
-			}
-			decoded.DistributionPoint = &name
-		case 1, 2, 4, 5:
-			if tag != cryptobyte_asn1.Tag(tagNumber).ContextSpecific() || len(content) != 1 || content[0] != 0xff {
-				return nil, fmt.Errorf("invalid or explicitly false DEFAULT boolean field %d", tagNumber)
-			}
-			switch tagNumber {
-			case 1:
-				decoded.OnlyContainsUserCerts = true
-			case 2:
-				decoded.OnlyContainsCACerts = true
-			case 4:
-				decoded.IndirectCRL = true
-			case 5:
-				decoded.OnlyContainsAttributeCerts = true
-			}
-		case 3:
-			if tag != cryptobyte_asn1.Tag(3).ContextSpecific() {
-				return nil, fmt.Errorf("invalid onlySomeReasons tag")
-			}
-			reasons, err := x509ext.DecodeReasonFlagsContents(content)
-			if err != nil {
-				return nil, err
-			}
-			decoded.OnlySomeReasons = &reasons
+		if err := decoded.decodeField(tagNumber, tag, content); err != nil {
+			return nil, err
 		}
 	}
+	if err := decoded.validate(); err != nil {
+		return nil, err
+	}
+	return decoded, nil
+}
+
+// decodeField stores one IssuingDistributionPoint field identified by
+// tagNumber, after checking the tag form the field requires.
+func (decoded *IssuingDistributionPointFacts) decodeField(
+	tagNumber int,
+	tag cryptobyte_asn1.Tag,
+	content cryptobyte.String,
+) error {
+	switch tagNumber {
+	case 0:
+		if tag != cryptobyte_asn1.Tag(0).ContextSpecific().Constructed() {
+			return fmt.Errorf("invalid distributionPoint tag")
+		}
+		name, err := x509ext.DecodeDistributionPointNameContents(content)
+		if err != nil {
+			return err
+		}
+		decoded.DistributionPoint = &name
+	case 1, 2, 4, 5:
+		// DEFAULT FALSE booleans may only be encoded when TRUE.
+		if tag != cryptobyte_asn1.Tag(tagNumber).ContextSpecific() || len(content) != 1 || content[0] != 0xff {
+			return fmt.Errorf("invalid or explicitly false DEFAULT boolean field %d", tagNumber)
+		}
+		*decoded.booleanField(tagNumber) = true
+	case 3:
+		if tag != cryptobyte_asn1.Tag(3).ContextSpecific() {
+			return fmt.Errorf("invalid onlySomeReasons tag")
+		}
+		reasons, err := x509ext.DecodeReasonFlagsContents(content)
+		if err != nil {
+			return err
+		}
+		decoded.OnlySomeReasons = &reasons
+	}
+	return nil
+}
+
+func (decoded *IssuingDistributionPointFacts) booleanField(tagNumber int) *bool {
+	switch tagNumber {
+	case 1:
+		return &decoded.OnlyContainsUserCerts
+	case 2:
+		return &decoded.OnlyContainsCACerts
+	case 4:
+		return &decoded.IndirectCRL
+	default:
+		return &decoded.OnlyContainsAttributeCerts
+	}
+}
+
+// validate checks the cross-field rules: at most one onlyContains scope and
+// at least one field present.
+func (decoded *IssuingDistributionPointFacts) validate() error {
 	scopeBooleans := 0
 	for _, asserted := range []bool{
 		decoded.OnlyContainsUserCerts,
@@ -358,14 +398,14 @@ func decodeIssuingDistributionPointExtension(
 		}
 	}
 	if scopeBooleans > 1 {
-		return nil, fmt.Errorf("multiple onlyContains scope booleans are asserted")
+		return fmt.Errorf("multiple onlyContains scope booleans are asserted")
 	}
 	if decoded.DistributionPoint == nil && decoded.OnlySomeReasons == nil &&
 		!decoded.OnlyContainsUserCerts && !decoded.OnlyContainsCACerts &&
 		!decoded.IndirectCRL && !decoded.OnlyContainsAttributeCerts {
-		return nil, fmt.Errorf("IssuingDistributionPoint must not be empty")
+		return fmt.Errorf("IssuingDistributionPoint must not be empty")
 	}
-	return decoded, nil
+	return nil
 }
 
 func decodeDistributionPointsExtension(

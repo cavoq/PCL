@@ -68,9 +68,6 @@ linters:
       - linters: [gocognit]
         path: internal/crl/(assessment|entries)\.go
         text: "func `\\(\\*Catalog\\)\\.assessCertificate`|func `prepareEntryIndex`"
-      - linters: [gocognit]
-        path: internal/crl/zcrypto/extensions\.go
-        text: "func `decode(AuthorityKeyIdentifier|IssuingDistributionPoint)Extension`"
 
 issues:
   max-issues-per-linter: 0
