@@ -93,11 +93,7 @@ func Chain(ctx Context) []policy.Result {
 		}
 		evalCtx := operator.NewEvaluationContext(tree, c, ctx.Chain, evalOpts...)
 
-		filteredPolicies := policy.ByCertificate(ctx.Policies, c.Cert)
-		for _, p := range filteredPolicies {
-			res := policy.Evaluate(p, tree, ctx.Registry, evalCtx)
-			results = append(results, res)
-		}
+		results = append(results, evaluatePolicies(policy.ByCertificate(ctx.Policies, c.Cert), tree, ctx.Registry, evalCtx)...)
 	}
 
 	return results
@@ -113,8 +109,8 @@ func OCSP(ctx Context) []policy.Result {
 			continue
 		}
 
-		ocspNode := ocspzcrypto.BuildTree(ocspInfo.Response)
-		if ocspNode == nil {
+		tree := ocspzcrypto.BuildTree(ocspInfo.Response)
+		if tree == nil {
 			continue
 		}
 
@@ -124,17 +120,13 @@ func OCSP(ctx Context) []policy.Result {
 			Source:   ocspInfo.Source,
 		}
 
-		tree := ocspNode
 		evalOpts := []operator.ContextOption{
 			operator.WithOCSPs(ctx.OCSPs),
 			operator.WithEvaluationTime(now),
 		}
 		evalCtx := operator.NewEvaluationContext(tree, ocspCertInfo, ctx.Chain, evalOpts...)
 
-		for _, p := range filteredPolicies {
-			res := policy.Evaluate(p, tree, ctx.Registry, evalCtx)
-			results = append(results, res)
-		}
+		results = append(results, evaluatePolicies(filteredPolicies, tree, ctx.Registry, evalCtx)...)
 
 		if ocspInfo.Response.Certificate != nil {
 			results = append(results, ocspSigningCert(ctx, ocspInfo, now)...)
@@ -156,8 +148,8 @@ func CRL(ctx Context) []policy.Result {
 
 		issuerCerts := ctx.crlIssuerPools[crlInfo]
 
-		crlNode := crl.BuildTreeWithChain(crlInfo.CRL, issuerCerts)
-		if crlNode == nil {
+		tree := crl.BuildTreeWithChain(crlInfo.CRL, issuerCerts)
+		if tree == nil {
 			continue
 		}
 
@@ -167,7 +159,6 @@ func CRL(ctx Context) []policy.Result {
 			Source:   crlInfo.Source,
 		}
 
-		tree := crlNode
 		evalOpts := []operator.ContextOption{
 			operator.WithCRLs(ctx.CRLs),
 			operator.WithCurrentCRL(crlInfo),
@@ -176,11 +167,7 @@ func CRL(ctx Context) []policy.Result {
 		}
 		evalCtx := operator.NewEvaluationContext(tree, crlCertInfo, ctx.Chain, evalOpts...)
 
-		filteredPolicies := policy.ByCRL(ctx.Policies, crlInfo.CRL)
-		for _, p := range filteredPolicies {
-			res := policy.Evaluate(p, tree, ctx.Registry, evalCtx)
-			results = append(results, res)
-		}
+		results = append(results, evaluatePolicies(policy.ByCRL(ctx.Policies, crlInfo.CRL), tree, ctx.Registry, evalCtx)...)
 	}
 
 	return results
@@ -241,13 +228,20 @@ func ocspSigningCert(ctx Context, ocspInfo *ocsp.Info, now time.Time) []policy.R
 	}
 	evalCtx := operator.NewEvaluationContext(ocspSignerTree, ocspSignerInfo, signerChain, evalOpts...)
 
-	var results []policy.Result
 	signerPolicies := policy.ByCertificate(ctx.Policies, zcryptoSignerCert)
-	for _, p := range signerPolicies {
-		res := policy.Evaluate(p, ocspSignerTree, ctx.Registry, evalCtx)
-		results = append(results, res)
-	}
+	return evaluatePolicies(signerPolicies, ocspSignerTree, ctx.Registry, evalCtx)
+}
 
+func evaluatePolicies(
+	policies []policy.Policy,
+	tree *node.Node,
+	registry *operator.Registry,
+	evalCtx *operator.EvaluationContext,
+) []policy.Result {
+	results := make([]policy.Result, 0, len(policies))
+	for _, p := range policies {
+		results = append(results, policy.Evaluate(p, tree, registry, evalCtx))
+	}
 	return results
 }
 
