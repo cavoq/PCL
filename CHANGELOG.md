@@ -14,8 +14,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   explicit boolean, the node value is the reason mask, `present` is set, and
   `raw`/`value` are plain bytes. Certificate policies that tested a single
   flag with `present` or `absent` should use `eq: true` or `eq: false`.
+- `in`, `notIn` and `contains` compare strictly: values of different kinds
+  no longer match by their string form (`1` and `"1"`, `true` and `"true"`).
+  Numbers of different Go types still compare numerically.
+
+### Changed
+- Paths inside `every` and `dateDiff` operands resolve with the same rules as
+  rule targets: dotted keys such as OIDs resolve at any segment, and empty
+  segments (`a..b`) no longer collapse.
+- CRL trees decode `otherName` and `ediPartyName` GeneralNames like
+  certificate trees.
+- `regex`, `anyComponentMatches`, `noComponentMatches`, the component length
+  and regex operators and the CIDR operators traverse collection elements the
+  same way as `every`, ignoring named metadata beside indexed elements.
+- Input validation runs before any policy or input is loaded; `--issuer`
+  without a certificate, CRL or OCSP input is rejected immediately.
 
 ### Fixed
+- `--data-dir` is honored when loading the Public Suffix List.
+- Policy-level `certType` classifies CA certificates with the strict
+  basicConstraints decoding used for rule-level roles, so a malformed
+  extension no longer makes a certificate a CA for policy selection only.
+- Adding an OCSP nonce no longer overwrites bytes of the caller's request
+  buffer.
 - Running with `--crl` and `--ocsp` but no certificate now lints the OCSP
   responses as well; previously only the CRLs were evaluated.
 - `certificatePolicyValid` now implements RFC 5280 Section 6.1 policy
