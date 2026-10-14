@@ -99,6 +99,7 @@ var All = []Operator{
 	CRLNotExpired{},
 	CRLSignedBy{},
 	NotRevoked{},
+	NotRevokedByAvailableEvidence{},
 	OCSPValid{},
 	NotRevokedOCSP{},
 	OCSPGood{},

@@ -2,6 +2,7 @@
 package zcrypto
 
 import (
+	"crypto/dsa"
 	"crypto/ecdsa"
 	"crypto/ed25519"
 	"crypto/rsa"
@@ -310,6 +311,8 @@ func buildSubjectPublicKeyInfo(cert *x509.Certificate) *node.Node {
 		switch key := cert.PublicKey.(type) {
 		case *rsa.PublicKey:
 			n.Children["publicKey"] = buildRSAKey(key)
+		case *dsa.PublicKey:
+			n.Children["publicKey"] = buildDSAKey(key)
 		case *ecdsa.PublicKey:
 			n.Children["publicKey"] = buildECDSAKey(key)
 		case ed25519.PublicKey:
@@ -391,6 +394,17 @@ func buildRSAKey(key *rsa.PublicKey) *node.Node {
 	n := node.New("publicKey", nil)
 	n.Children["keySize"] = node.New("keySize", key.N.BitLen())
 	n.Children["exponent"] = node.New("exponent", key.E)
+	return n
+}
+
+func buildDSAKey(key *dsa.PublicKey) *node.Node {
+	n := node.New("publicKey", nil)
+	if key.P != nil {
+		n.Children["keySize"] = node.New("keySize", key.P.BitLen())
+	}
+	if key.Q != nil {
+		n.Children["subgroupSize"] = node.New("subgroupSize", key.Q.BitLen())
+	}
 	return n
 }
 

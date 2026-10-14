@@ -34,7 +34,7 @@ var builtinOperandValidationCatalog = []builtinOperandValidationGroup{
 			SignatureAlgorithmMatchesTBS{},
 			NoUnknownCriticalExtensions{}, EKUServerAuth{}, EKUClientAuth{},
 			SerialNumberUnique{}, CRLValid{}, CRLNotExpired{}, CRLSignedBy{},
-			NotRevoked{}, OCSPValid{}, NotRevokedOCSP{}, OCSPGood{},
+			NotRevoked{}, NotRevokedByAvailableEvidence{}, OCSPValid{}, NotRevokedOCSP{}, OCSPGood{},
 			NameConstraintsValid{}, IsNull{}, TLDRegistered{}, TLDNotRegistered{},
 			IsPublicSuffix{}, IsNotPublicSuffix{}, ComponentTLDNotRegistered{},
 			ComponentIsPublicSuffix{},

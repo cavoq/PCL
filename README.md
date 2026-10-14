@@ -237,11 +237,18 @@ rules:
 - `policies/RFC5280.yaml` — RFC 5280 certificate and CRL profile checks
 - `policies/RFC4055.yaml` — RSA algorithm-identifier checks from RFC 4055
 - `policies/RFC6960.yaml` — fail-closed OCSP evidence checks for leaf certificates
+- `policies/TR03116-TLS-SERVER.yaml` — BSI TR-03116 TLS server certificate profile
 - `policies/LOCAL-PROFILE.yaml` — explicitly supplemental local/WebPKI checks
 
 These are lint policies, not claims that PCL implements every state machine in
 the named standard. See the coverage matrices and conformance roadmap for the
 exact scope.
+
+The TR-03116 profile implements the certificate checklist from TR-03116-TS
+v1.1 using the certificate cryptography requirements from TR-03116-4 (2025).
+Its [coverage matrix](policies/TR03116-TLS-SERVER-COVERAGE.md) identifies the
+hostname, service-availability, and application-context checks that require
+evidence outside a standalone certificate.
 
 RFC 5280 P3 revocation processing is complete within its documented boundary:
 strict extension parsing, scoped complete and delta CRLs, indirect issuer

@@ -1,0 +1,341 @@
+id: tr03116-tls-server
+version: "2025"
+appliesTo: [cert]
+
+# Certificate profile for a TLS server evaluated with the complete chain.
+# Sources:
+#   - BSI TR-03116-TS v1.1 (2023-05-15), Section 6.1.1 / Table 24
+#   - BSI TR-03116-4 (2025-07-03), Sections 2.2.1.2 and 6.1.2-6.1.4
+#
+# Use policies/TR03116-TLS-SERVER-COVERAGE.md for evidence requirements and
+# checks that require information outside a standalone certificate.
+
+rules:
+  # TLS_CERT_01 and TLS_CERT_02: algorithms, key sizes, hashes, and curves.
+  - id: tls-cert-01-public-key-algorithm
+    reference: TR-03116-TS 6.1.1 TLS_CERT_01; TR-03116-4 6.1.4 Table 29
+    target: certificate.subjectPublicKeyInfo.algorithm.oid
+    operator: in
+    operands:
+      - "1.2.840.113549.1.1.1" # rsaEncryption
+      - "1.2.840.10040.4.1"    # id-dsa
+      - "1.2.840.10045.2.1"    # id-ecPublicKey
+    certType: [leaf, intermediate, root]
+    severity: error
+    message: "Certificate public keys must use RSA, DSA, or ECDSA"
+
+  - id: tls-cert-01-server-key-algorithm
+    reference: TR-03116-4 2.2.1.2
+    target: certificate.subjectPublicKeyInfo.algorithm.oid
+    operator: in
+    operands:
+      - "1.2.840.113549.1.1.1" # rsaEncryption
+      - "1.2.840.10045.2.1"    # id-ecPublicKey
+    certType: [leaf]
+    severity: error
+    message: "A TLS server certificate must contain an RSA or ECDSA public key"
+
+  - id: tls-cert-01-rsa-key-size
+    reference: TR-03116-4 6.1.4 Table 29
+    when:
+      target: certificate.subjectPublicKeyInfo.algorithm.oid
+      operator: eq
+      operands: ["1.2.840.113549.1.1.1"]
+    target: certificate.subjectPublicKeyInfo.publicKey.keySize
+    operator: gte
+    operands: [3072]
+    certType: [leaf, intermediate, root]
+    severity: error
+    message: "RSA public keys must be at least 3072 bits"
+
+  - id: tls-cert-01-dsa-key-size
+    reference: TR-03116-4 6.1.4 Table 29
+    when:
+      target: certificate.subjectPublicKeyInfo.algorithm.oid
+      operator: eq
+      operands: ["1.2.840.10040.4.1"]
+    target: certificate.subjectPublicKeyInfo.publicKey.keySize
+    operator: gte
+    operands: [3072]
+    certType: [intermediate, root]
+    severity: error
+    message: "DSA public keys must be at least 3072 bits"
+
+  - id: tls-cert-01-ecdsa-named-curve
+    reference: TR-03116-4 6.1.4 Table 30
+    when:
+      target: certificate.subjectPublicKeyInfo.algorithm.oid
+      operator: eq
+      operands: ["1.2.840.10045.2.1"]
+    target: certificate.subjectPublicKeyInfo.algorithm.parameters.namedCurve
+    operator: in
+    operands:
+      - "1.3.36.3.3.2.8.1.1.7"  # brainpoolP256r1
+      - "1.3.36.3.3.2.8.1.1.11" # brainpoolP384r1
+      - "1.3.36.3.3.2.8.1.1.13" # brainpoolP512r1
+      - "1.2.840.10045.3.1.7"    # NIST P-256
+      - "1.3.132.0.34"           # NIST P-384
+      - "1.3.132.0.35"           # NIST P-521
+    certType: [leaf, intermediate, root]
+    severity: error
+    message: "ECDSA keys must use a permitted named curve of at least 256 bits"
+
+  - id: tls-cert-02-signature-algorithm-and-hash
+    reference: TR-03116-TS 6.1.1 TLS_CERT_02; TR-03116-4 6.1.4 Table 29
+    target: certificate.signatureAlgorithm.oid
+    operator: in
+    operands:
+      - "1.2.840.10045.4.3.2"    # ecdsa-with-SHA256
+      - "1.2.840.10045.4.3.3"    # ecdsa-with-SHA384
+      - "1.2.840.10045.4.3.4"    # ecdsa-with-SHA512
+      - "2.16.840.1.101.3.4.3.2" # dsa-with-sha256 (permitted through 2029)
+      - "1.2.840.113549.1.1.10"  # RSASSA-PSS
+    certType: [leaf, intermediate, root]
+    severity: error
+    message: "Certificate signatures must use ECDSA, DSA, or RSASSA-PSS with at least SHA-256"
+
+  - id: tls-cert-02-pss-hash
+    reference: TR-03116-4 6.1.4 Table 29
+    when:
+      target: certificate.signatureAlgorithm.oid
+      operator: eq
+      operands: ["1.2.840.113549.1.1.10"]
+    target: certificate.signatureAlgorithm.parameters.pss.hashAlgorithm.oid
+    operator: in
+    operands:
+      - "2.16.840.1.101.3.4.2.1" # SHA-256
+      - "2.16.840.1.101.3.4.2.2" # SHA-384
+      - "2.16.840.1.101.3.4.2.3" # SHA-512
+    certType: [leaf, intermediate, root]
+    severity: error
+    message: "RSASSA-PSS certificate signatures must use SHA-256 or stronger"
+
+  - id: tls-cert-02-signature-valid
+    reference: TR-03116-4 6.1.3
+    target: certificate
+    operator: signatureValid
+    certType: [leaf, intermediate, root]
+    severity: error
+    message: "Every certificate signature must validate against its issuer"
+
+  # TLS_CERT_03: no wildcard in Subject CN or Subject Alternative Name DNS IDs.
+  - id: tls-cert-03-no-wildcard-common-name
+    reference: TR-03116-TS 6.1.1 TLS_CERT_03; TR-03116-4 6.1.2
+    when:
+      target: certificate.subject.commonName
+      operator: present
+    target: certificate.subject.commonName
+    operator: every
+    operands:
+      - path: value
+        operator: notRegex
+        operands: ["\\*"]
+    certType: [leaf, intermediate, root]
+    severity: error
+    message: "Subject commonName values must not contain wildcards"
+
+  - id: tls-cert-03-no-wildcard-san-dns
+    reference: TR-03116-TS 6.1.1 TLS_CERT_03; TR-03116-4 6.1.2
+    when:
+      target: certificate.subjectAltName.dNSName
+      operator: present
+    target: certificate.subjectAltName.dNSName
+    operator: every
+    operands:
+      - operator: notRegex
+        operands: ["\\*"]
+    certType: [leaf, intermediate, root]
+    severity: error
+    message: "SubjectAltName dNSName values must not contain wildcards"
+
+  # TLS_CERT_04: CRL distribution information or an OCSP AIA method.
+  - id: tls-cert-04-revocation-information
+    reference: TR-03116-TS 6.1.1 TLS_CERT_04; TR-03116-4 6.1.2
+    when:
+      target: certificate.extensions.cRLDistributionPoints
+      operator: absent
+    target: certificate.extensions.authorityInfoAccess.containsOCSP
+    operator: eq
+    operands: [true]
+    certType: [leaf, intermediate, root]
+    severity: error
+    message: "A certificate without CRL Distribution Points must provide OCSP information in AIA"
+
+  # TLS_CERT_05: fail closed when applicable revocation evidence is absent.
+  - id: tls-cert-05-not-revoked
+    reference: TR-03116-TS 6.1.1 TLS_CERT_05; TR-03116-4 6.1.3
+    target: certificate
+    operator: notRevokedByAvailableEvidence
+    certType: [leaf, intermediate, root]
+    severity: error
+    message: "Current authenticated CRL or OCSP evidence must establish Good; any Revoked evidence wins"
+
+  # TLS_CERT_06: TLS server end-entity Key Usage.
+  - id: tls-cert-06-key-usage-present
+    reference: TR-03116-TS 6.1.1 TLS_CERT_06; TR-03116-4 6.1.2
+    target: certificate.extensions.keyUsage
+    operator: present
+    certType: [leaf]
+    severity: error
+    message: "The TLS server certificate must contain Key Usage"
+
+  - id: tls-cert-06-key-usage-critical
+    reference: TR-03116-TS 6.1.1 TLS_CERT_06; TR-03116-4 6.1.2
+    target: certificate.extensions.keyUsage
+    operator: isCritical
+    certType: [leaf]
+    severity: error
+    message: "The TLS server Key Usage extension must be critical"
+
+  - id: tls-cert-06-digital-signature
+    reference: TR-03116-TS 6.1.1 TLS_CERT_06
+    target: certificate.keyUsage.digitalSignature
+    operator: eq
+    operands: [true]
+    certType: [leaf]
+    severity: error
+
+  - id: tls-cert-06-no-key-cert-sign
+    reference: TR-03116-TS 6.1.1 TLS_CERT_06
+    target: certificate.keyUsage.keyCertSign
+    operator: eq
+    operands: [false]
+    certType: [leaf]
+    severity: error
+
+  - id: tls-cert-06-no-crl-sign
+    reference: TR-03116-TS 6.1.1 TLS_CERT_06
+    target: certificate.keyUsage.cRLSign
+    operator: eq
+    operands: [false]
+    certType: [leaf]
+    severity: error
+
+  # TLS_CERT_07: CA Key Usage.
+  - id: tls-cert-07-ca-key-usage-present
+    reference: TR-03116-TS 6.1.1 TLS_CERT_07; TR-03116-4 6.1.2
+    target: certificate.extensions.keyUsage
+    operator: present
+    certType: [intermediate, root]
+    severity: error
+
+  - id: tls-cert-07-ca-key-usage-critical
+    reference: TR-03116-TS 6.1.1 TLS_CERT_07; TR-03116-4 6.1.2
+    target: certificate.extensions.keyUsage
+    operator: isCritical
+    certType: [intermediate, root]
+    severity: error
+
+  - id: tls-cert-07-ca-key-cert-sign
+    reference: TR-03116-TS 6.1.1 TLS_CERT_07
+    target: certificate.keyUsage.keyCertSign
+    operator: eq
+    operands: [true]
+    certType: [intermediate, root]
+    severity: error
+
+  - id: tls-cert-07-ca-crl-sign
+    reference: TR-03116-TS 6.1.1 TLS_CERT_07
+    target: certificate.keyUsage.cRLSign
+    operator: eq
+    operands: [true]
+    certType: [intermediate, root]
+    severity: error
+
+  # TLS_CERT_08: TLS Web Server Authentication EKU.
+  - id: tls-cert-08-server-auth-eku
+    reference: TR-03116-TS 6.1.1 TLS_CERT_08; TR-03116-4 6.1.2
+    target: certificate.extKeyUsage
+    operator: ekuContains
+    operands: [serverAuth]
+    certType: [leaf]
+    severity: error
+    message: "The TLS server certificate must assert id-kp-serverAuth"
+
+  # TLS_CERT_10: CA Basic Constraints and bounded certification path.
+  - id: tls-cert-10-ca-basic-constraints-present
+    reference: TR-03116-TS 6.1.1 TLS_CERT_10; TR-03116-4 6.1.2
+    target: certificate.extensions.basicConstraints
+    operator: present
+    certType: [intermediate, root]
+    severity: error
+
+  - id: tls-cert-10-ca-basic-constraints-critical
+    reference: TR-03116-TS 6.1.1 TLS_CERT_10; TR-03116-4 6.1.2
+    target: certificate.extensions.basicConstraints
+    operator: isCritical
+    certType: [intermediate, root]
+    severity: error
+
+  - id: tls-cert-10-ca-flag
+    reference: TR-03116-TS 6.1.1 TLS_CERT_10; TR-03116-4 6.1.2
+    target: certificate.basicConstraints.cA
+    operator: eq
+    operands: [true]
+    certType: [intermediate, root]
+    severity: error
+
+  - id: tls-cert-10-path-length-present
+    reference: TR-03116-TS 6.1.1 TLS_CERT_10; TR-03116-4 6.1.2
+    target: certificate.basicConstraints.pathLenConstraintPresent
+    operator: eq
+    operands: [true]
+    certType: [intermediate, root]
+    severity: error
+
+  - id: tls-cert-10-path-length-valid
+    reference: TR-03116-TS 6.1.1 TLS_CERT_10; TR-03116-4 6.1.2
+    target: certificate
+    operator: pathLenValid
+    certType: [intermediate, root]
+    severity: error
+    message: "The supplied certification path must respect every pathLenConstraint"
+
+  # TLS_CERT_11: maximum certificate validity periods.
+  - id: tls-cert-11-leaf-validity-max-three-years
+    reference: TR-03116-TS 6.1.1 TLS_CERT_11; TR-03116-4 6.1.2
+    target: certificate.validity
+    operator: dateDiff
+    operands:
+      - start: notBefore
+        end: notAfter
+        maxMonths: 36
+    certType: [leaf]
+    severity: error
+
+  - id: tls-cert-11-intermediate-validity-max-five-years
+    reference: TR-03116-TS 6.1.1 TLS_CERT_11; TR-03116-4 6.1.2
+    target: certificate.validity
+    operator: dateDiff
+    operands:
+      - start: notBefore
+        end: notAfter
+        maxMonths: 60
+    certType: [intermediate]
+    severity: error
+
+  - id: tls-cert-11-root-validity-max-six-years
+    reference: TR-03116-TS 6.1.1 TLS_CERT_11; TR-03116-4 6.1.2
+    target: certificate.validity
+    operator: dateDiff
+    operands:
+      - start: notBefore
+        end: notAfter
+        maxMonths: 72
+    certType: [root]
+    severity: error
+
+  # TLS_CERT_12: current validity at evaluation time.
+  - id: tls-cert-12-not-yet-valid
+    reference: TR-03116-TS 6.1.1 TLS_CERT_12; TR-03116-4 6.1.3
+    target: certificate.validity.notBefore
+    operator: onOrBefore
+    certType: [leaf, intermediate, root]
+    severity: error
+
+  - id: tls-cert-12-not-expired
+    reference: TR-03116-TS 6.1.1 TLS_CERT_12; TR-03116-4 6.1.3
+    target: certificate.validity.notAfter
+    operator: onOrAfter
+    certType: [leaf, intermediate, root]
+    severity: error

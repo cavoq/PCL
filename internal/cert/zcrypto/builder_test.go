@@ -2,6 +2,7 @@ package zcrypto
 
 import (
 	"bytes"
+	"crypto/dsa"
 	"math/big"
 	"os"
 	"testing"
@@ -303,6 +304,20 @@ func TestBuilder_SubjectPublicKeyInfo_RSA4096(t *testing.T) {
 	root := loadCert(t, "intermediate.pem")
 
 	assertPathValue(t, root, "certificate.subjectPublicKeyInfo.publicKey.keySize", 4096)
+}
+
+func TestBuilder_SubjectPublicKeyInfo_DSA(t *testing.T) {
+	root := BuildTree(&x509.Certificate{
+		PublicKeyAlgorithm: x509.DSA,
+		PublicKey: &dsa.PublicKey{Parameters: dsa.Parameters{
+			P: new(big.Int).Lsh(big.NewInt(1), 3071),
+			Q: new(big.Int).Lsh(big.NewInt(1), 255),
+		}},
+	})
+
+	assertPathValue(t, root, "certificate.subjectPublicKeyInfo.algorithm.algorithm", "DSA")
+	assertPathValue(t, root, "certificate.subjectPublicKeyInfo.publicKey.keySize", 3072)
+	assertPathValue(t, root, "certificate.subjectPublicKeyInfo.publicKey.subgroupSize", 256)
 }
 
 func TestBuilder_KeyUsage_LeafCert(t *testing.T) {

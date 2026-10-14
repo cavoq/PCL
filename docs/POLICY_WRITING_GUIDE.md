@@ -32,13 +32,15 @@ Key concepts:
 
 ### Shipped Policies
 
-The repository ships `RFC5280.yaml`, `RFC4055.yaml`, `RFC6960.yaml`, and
-`LOCAL-PROFILE.yaml`. Their names describe the source of their rules, not a
-claim of complete implementation; consult the coverage matrices and roadmap
-for exact scope. `RFC6960.yaml` is a certificate-evidence policy: it runs for
-leaf certificates and fails closed unless a valid, matching, good OCSP
-response is supplied. Additional policies can be authored with the same
-schema.
+The repository ships `RFC5280.yaml`, `RFC4055.yaml`, `RFC6960.yaml`,
+`TR03116-TLS-SERVER.yaml`, and `LOCAL-PROFILE.yaml`. Their names describe the
+source of their rules, not a claim of complete implementation; consult the
+coverage matrices and roadmap for exact scope. `RFC6960.yaml` is a
+certificate-evidence policy: it runs for leaf certificates and fails closed
+unless a valid, matching, good OCSP response is supplied. The TR-03116 policy
+profiles TLS server certificate chains and documents its external evidence
+requirements in `TR03116-TLS-SERVER-COVERAGE.md`. Additional policies can be
+authored with the same schema.
 
 ## Application Purpose Input
 
@@ -270,9 +272,10 @@ certificate.extensions.certificatePolicies.smimeMailboxLegacy  # S/MIME PolicyIn
 
 #### SubjectPublicKeyInfo
 ```
-certificate.subjectPublicKeyInfo.algorithm.algorithm  # Algorithm name (RSA, ECDSA)
+certificate.subjectPublicKeyInfo.algorithm.algorithm  # Algorithm name (RSA, DSA, ECDSA)
 certificate.subjectPublicKeyInfo.algorithm.oid        # Algorithm OID
-certificate.subjectPublicKeyInfo.publicKey.keySize    # RSA key size (bits)
+certificate.subjectPublicKeyInfo.publicKey.keySize    # RSA/DSA/ECDSA key size (bits)
+certificate.subjectPublicKeyInfo.publicKey.subgroupSize # DSA subgroup size (bits)
 certificate.subjectPublicKeyInfo.publicKey.curve      # ECDSA curve name (P-256, P-384, P-521)
 certificate.subjectPublicKeyInfo.algorithm.parameters  # Algorithm parameters node
 certificate.subjectPublicKeyInfo.algorithm.parameters.namedCurve  # ECDSA curve OID
@@ -776,6 +779,7 @@ ordered chain, not a complete Section 6 engine.
 | `crlNotExpired` | None | Compatibility deadline check; rejects missing or elapsed `nextUpdate` but does not check `thisUpdate` |
 | `crlSignedBy` | None | Returns true only when the CRL signature verifies against a resolved issuer certificate |
 | `notRevoked` | None | Returns true only when an applicable CRL exists and does not list the certificate; missing/unrelated CRLs are unknown and return false |
+| `notRevokedByAvailableEvidence` | None | Combines prepared CRL and OCSP decisions; Revoked wins, otherwise at least one mechanism must establish Good |
 
 **Examples:**
 ```yaml
