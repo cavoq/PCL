@@ -156,11 +156,21 @@ const (
 	ansiWhite  = "\033[37m"
 )
 
+// verdictWidth is the padded width of the always-present VERDICT column.
+const verdictWidth = 7
+
+// tableColumn is an optional rules-table column after VERDICT.
+type tableColumn struct {
+	header string
+	width  int
+	value  func(rule.Result) string
+}
+
 func writeRulesTable(w io.Writer, results []rule.Result, passCount, failCount, skipCount int) error {
+	if _, err := fmt.Fprintln(w, strings.Repeat("-", 72)); err != nil {
+		return err
+	}
 	if len(results) == 0 {
-		if _, err := fmt.Fprintln(w, strings.Repeat("-", 72)); err != nil {
-			return err
-		}
 		if passCount+failCount+skipCount > 0 {
 			_, err := fmt.Fprintln(w, "  (no rules to display with current verbosity)")
 			return err
@@ -168,82 +178,28 @@ func writeRulesTable(w io.Writer, results []rule.Result, passCount, failCount, s
 		_, err := fmt.Fprintln(w, "  (no rules to display)")
 		return err
 	}
-	showReference := false
-	showSeverity := false
-	for _, rr := range results {
-		if rr.Reference != "" {
-			showReference = true
-		}
-		// Show severity column if any rule has a severity defined (not empty)
-		if rr.Severity != "" {
-			showSeverity = true
-		}
-	}
 
-	ruleWidth := len("RULE")
-	refWidth := len("REFERENCE")
-	levelWidth := len("SEVERITY")
-	for _, rr := range results {
-		if len(rr.RuleID) > ruleWidth {
-			ruleWidth = len(rr.RuleID)
-		}
-		if showReference && len(rr.Reference) > refWidth {
-			refWidth = len(rr.Reference)
-		}
+	columns := rulesTableColumns(results)
+	header := []string{fmt.Sprintf("%-*s", verdictWidth, "VERDICT")}
+	separator := []string{strings.Repeat("-", verdictWidth)}
+	for _, column := range columns {
+		header = append(header, fmt.Sprintf("%-*s", column.width, column.header))
+		separator = append(separator, strings.Repeat("-", column.width))
 	}
-
-	if _, err := fmt.Fprintln(w, strings.Repeat("-", 72)); err != nil {
+	if err := writeTableLine(w, header); err != nil {
 		return err
 	}
-	if showReference && showSeverity {
-		if _, err := fmt.Fprintf(w, "  %-7s  %-*s  %-*s  %-*s\n", "VERDICT", levelWidth, "SEVERITY", ruleWidth, "RULE", refWidth, "REFERENCE"); err != nil {
-			return err
-		}
-		if _, err := fmt.Fprintf(w, "  %-7s  %-*s  %-*s  %-*s\n", strings.Repeat("-", 7), levelWidth, strings.Repeat("-", levelWidth), ruleWidth, strings.Repeat("-", ruleWidth), refWidth, strings.Repeat("-", refWidth)); err != nil {
-			return err
-		}
-	} else if showReference {
-		if _, err := fmt.Fprintf(w, "  %-7s  %-*s  %-*s\n", "VERDICT", ruleWidth, "RULE", refWidth, "REFERENCE"); err != nil {
-			return err
-		}
-		if _, err := fmt.Fprintf(w, "  %-7s  %-*s  %-*s\n", strings.Repeat("-", 7), ruleWidth, strings.Repeat("-", ruleWidth), refWidth, strings.Repeat("-", refWidth)); err != nil {
-			return err
-		}
-	} else if showSeverity {
-		if _, err := fmt.Fprintf(w, "  %-7s  %-*s  %-*s\n", "VERDICT", levelWidth, "SEVERITY", ruleWidth, "RULE"); err != nil {
-			return err
-		}
-		if _, err := fmt.Fprintf(w, "  %-7s  %-*s  %-*s\n", strings.Repeat("-", 7), levelWidth, strings.Repeat("-", levelWidth), ruleWidth, strings.Repeat("-", ruleWidth)); err != nil {
-			return err
-		}
-	} else {
-		if _, err := fmt.Fprintf(w, "  %-7s  %-*s\n", "VERDICT", ruleWidth, "RULE"); err != nil {
-			return err
-		}
-		if _, err := fmt.Fprintf(w, "  %-7s  %-*s\n", strings.Repeat("-", 7), ruleWidth, strings.Repeat("-", ruleWidth)); err != nil {
-			return err
-		}
+	if err := writeTableLine(w, separator); err != nil {
+		return err
 	}
 
 	for _, rr := range results {
-		verdict := verdictLabelColoredPaddedWithSeverity(rr.Verdict, rr.Severity, 7)
-		level := severityLabel(rr.Severity)
-		if showReference && showSeverity {
-			if _, err := fmt.Fprintf(w, "  %s  %-*s  %-*s  %-*s\n", verdict, levelWidth, level, ruleWidth, rr.RuleID, refWidth, rr.Reference); err != nil {
-				return err
-			}
-		} else if showReference {
-			if _, err := fmt.Fprintf(w, "  %s  %-*s  %-*s\n", verdict, ruleWidth, rr.RuleID, refWidth, rr.Reference); err != nil {
-				return err
-			}
-		} else if showSeverity {
-			if _, err := fmt.Fprintf(w, "  %s  %-*s  %-*s\n", verdict, levelWidth, level, ruleWidth, rr.RuleID); err != nil {
-				return err
-			}
-		} else {
-			if _, err := fmt.Fprintf(w, "  %s  %-*s\n", verdict, ruleWidth, rr.RuleID); err != nil {
-				return err
-			}
+		cells := []string{verdictLabelColoredPaddedWithSeverity(rr.Verdict, rr.Severity, verdictWidth)}
+		for _, column := range columns {
+			cells = append(cells, fmt.Sprintf("%-*s", column.width, column.value(rr)))
+		}
+		if err := writeTableLine(w, cells); err != nil {
+			return err
 		}
 		if rr.Message != "" {
 			if _, err := fmt.Fprintf(w, "          -> %s\n", rr.Message); err != nil {
@@ -253,6 +209,41 @@ func writeRulesTable(w io.Writer, results []rule.Result, passCount, failCount, s
 	}
 
 	return nil
+}
+
+// rulesTableColumns returns the SEVERITY, RULE and REFERENCE columns, omitting
+// SEVERITY and REFERENCE when no result has a value for them.
+func rulesTableColumns(results []rule.Result) []tableColumn {
+	severity := tableColumn{header: "SEVERITY", value: func(rr rule.Result) string { return severityLabel(rr.Severity) }}
+	ruleID := tableColumn{header: "RULE", value: func(rr rule.Result) string { return rr.RuleID }}
+	reference := tableColumn{header: "REFERENCE", value: func(rr rule.Result) string { return rr.Reference }}
+
+	showSeverity := false
+	showReference := false
+	ruleID.width = len(ruleID.header)
+	reference.width = len(reference.header)
+	for _, rr := range results {
+		showSeverity = showSeverity || rr.Severity != ""
+		showReference = showReference || rr.Reference != ""
+		ruleID.width = max(ruleID.width, len(rr.RuleID))
+		reference.width = max(reference.width, len(rr.Reference))
+	}
+	severity.width = len(severity.header)
+
+	columns := make([]tableColumn, 0, 3)
+	if showSeverity {
+		columns = append(columns, severity)
+	}
+	columns = append(columns, ruleID)
+	if showReference {
+		columns = append(columns, reference)
+	}
+	return columns
+}
+
+func writeTableLine(w io.Writer, cells []string) error {
+	_, err := fmt.Fprintf(w, "  %s\n", strings.Join(cells, "  "))
+	return err
 }
 
 func countResults(results []rule.Result) (int, int, int, int) {
