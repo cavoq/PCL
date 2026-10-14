@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/cavoq/PCL/internal/linter"
@@ -62,5 +63,35 @@ func TestTestCommandRunsExampleSuites(t *testing.T) {
 	}
 	if !bytes.Contains(out.Bytes(), []byte(" passed, 0 failed")) {
 		t.Fatalf("unexpected report:\n%s", out.String())
+	}
+}
+
+func TestRuntimeErrorsDoNotPrintUsage(t *testing.T) {
+	execute := func(args ...string) (string, error) {
+		var opts linter.Config
+		root := newRootCmd(&opts)
+		root.AddCommand(newInspectCmd())
+		var out bytes.Buffer
+		root.SetOut(&out)
+		root.SetErr(&out)
+		root.SetArgs(args)
+		err := root.Execute()
+		return out.String(), err
+	}
+
+	output, err := execute("inspect", "--issuer", "root.pem")
+	if err == nil {
+		t.Fatal("expected a runtime error")
+	}
+	if strings.Contains(output, "Usage:") || strings.Contains(output, "Error:") {
+		t.Fatalf("runtime error printed usage or the error itself:\n%s", output)
+	}
+
+	output, err = execute("inspect", "--bogus")
+	if err == nil {
+		t.Fatal("expected a flag error")
+	}
+	if !strings.Contains(output, "Usage:") {
+		t.Fatalf("flag error should print usage:\n%s", output)
 	}
 }

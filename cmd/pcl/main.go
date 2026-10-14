@@ -22,6 +22,12 @@ func newRootCmd(opts *linter.Config) *cobra.Command {
 		Use:     "pcl",
 		Short:   "Policy-based X.509 certificate linter",
 		Version: version,
+		// main reports errors once; usage is only shown for flag and argument
+		// errors, which happen before PersistentPreRun.
+		SilenceErrors: true,
+		PersistentPreRun: func(cmd *cobra.Command, _ []string) {
+			cmd.SilenceUsage = true
+		},
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			data.DefaultLoader.SetDataDir(opts.DataDir)
 			// Load PSL if specified or if file exists in default location
@@ -139,8 +145,7 @@ and state the expected verdicts per input and rule. Directories are searched
 for *` + linter.PolicyTestSuffix + ` files. Paths inside a suite are relative to the suite file.`,
 		Example: `  pcl test policies/tests
   pcl test my-profile.test.yaml`,
-		Args:         cobra.MinimumNArgs(1),
-		SilenceUsage: true,
+		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			summary, err := linter.RunPolicyTests(args, cmd.OutOrStdout())
 			if err != nil {
@@ -180,7 +185,7 @@ func main() {
 	root.AddCommand(newUpdateDataCmd())
 
 	if err := root.Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		fmt.Fprintln(os.Stderr, "Error:", err)
 		os.Exit(1)
 	}
 }
