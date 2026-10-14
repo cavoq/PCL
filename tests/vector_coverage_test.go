@@ -61,7 +61,9 @@ func TestRFC5280CoverageClassifiesEveryActiveRule(t *testing.T) {
 		"status_assessment_test.go",
 		"acquisition_test.go",
 		"extensions_test.go",
-		"integration_test.go",
+		"cases_test.go",
+		"fixtures_test.go",
+		"pkits_test.go",
 	} {
 		if !strings.Contains(coverage, evidence) {
 			t.Errorf("coverage matrix does not link executable evidence %q", evidence)

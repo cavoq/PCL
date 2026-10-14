@@ -1,0 +1,5 @@
+name: crl-only
+policy: policies/crl-validity.yaml
+crl: ../internal/crl/testdata/test.crl
+expected:
+  crl: {pass: 0, fail: 2, skip: 0, verdict: fail}

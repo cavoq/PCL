@@ -1,0 +1,4 @@
+name: missing-policy
+policy: policies/missing.yaml
+certs: certs
+error: "checking policy path"

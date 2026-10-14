@@ -1,0 +1,7 @@
+name: crl-and-ocsp-only
+policy: policies/crl-and-ocsp-present.yaml
+crl: ../internal/crl/testdata/test.crl
+ocsp: ocsps/good-leaf.ocsp
+expected:
+  crl: {pass: 1, fail: 0, skip: 1, verdict: pass}
+  ocsp: {pass: 1, fail: 0, skip: 1, verdict: pass}

@@ -1,0 +1,11 @@
+name: rfc5280-purpose-server-auth
+policy: ../policies/RFC5280.yaml
+rules:
+  - extended-key-usage-allows-application-purpose
+certs: certs/leaf.pem
+issuers: [certs/intermediate.pem, certs/root.pem]
+purpose: serverAuth
+expected:
+  intermediate: {pass: 1, fail: 0, skip: 0}
+  leaf: {pass: 1, fail: 0, skip: 0}
+  root: {pass: 1, fail: 0, skip: 0}

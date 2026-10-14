@@ -1,0 +1,7 @@
+name: crl-validity
+policy: policies/crl-validity.yaml
+certs: certs
+crl: ../internal/crl/testdata/test.crl
+time: 2026-01-10T00:00:00Z
+expected:
+  crl: {pass: 2, fail: 0, skip: 0}

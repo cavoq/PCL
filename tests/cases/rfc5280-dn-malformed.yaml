@@ -1,0 +1,8 @@
+name: rfc5280-dn-malformed
+policy: ../policies/RFC5280.yaml
+rules:
+  - subject-name-well-formed
+  - issuer-name-well-formed
+fixture: certificate-dn-noncanonical-order
+expected:
+  leaf: {pass: 0, fail: 2, skip: 0}

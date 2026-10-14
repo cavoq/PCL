@@ -1,0 +1,14 @@
+name: leaf-keycertsign-fails
+policy: policies/leaf-keycertsign-fails.yaml
+certs: certs
+output: text
+contains:
+  - "[Summary]"
+  - "Policy: integration-leaf-keycertsign-fails"
+  - "Cert: leaf"
+  - "Verdict:"
+  - "leaf-keycertsign-must-be-true"
+expected:
+  intermediate: {pass: 0, fail: 0, skip: 1}
+  leaf: {pass: 0, fail: 1, skip: 0}
+  root: {pass: 0, fail: 0, skip: 1}

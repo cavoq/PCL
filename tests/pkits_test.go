@@ -1,7 +1,6 @@
 package tests
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -14,7 +13,6 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/cavoq/PCL/internal/linter"
-	"github.com/cavoq/PCL/internal/policy"
 	"github.com/cavoq/PCL/internal/rule"
 )
 
@@ -126,47 +124,29 @@ func TestPKITS(t *testing.T) {
 func runPKITS(t *testing.T, test pkitsTest, run pkitsRun) (string, []string) {
 	t.Helper()
 	dir := t.TempDir()
-	crlDir := filepath.Join(dir, "crls")
-	if err := os.Mkdir(crlDir, 0o755); err != nil {
-		t.Fatal(err)
+	cfg := linter.Config{
+		PolicyPaths: []string{
+			filepath.Join(pkitsDir, "path-policy.yaml"),
+			writePKITSPolicyRule(t, dir, pkitsAcceptablePolicies(run)),
+		},
+		CertPath:       filepath.Join(pkitsDir, test.EE),
+		ValidationTime: pkitsValidationTime,
 	}
+	for _, issuer := range test.Issuers {
+		cfg.IssuerPaths = append(cfg.IssuerPaths, filepath.Join(pkitsDir, issuer))
+	}
+	// --crl takes one path, so the run's CRLs share a directory.
 	for _, crlFile := range test.CRLs {
 		data, err := os.ReadFile(filepath.Join(pkitsDir, crlFile))
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(filepath.Join(crlDir, filepath.Base(crlFile)), data, 0o600); err != nil {
-			t.Fatal(err)
-		}
+		cfg.CRLPath = filepath.Dir(writeTestFile(t, dir, filepath.Base(crlFile), data))
 	}
 
-	policies := []string{
-		filepath.Join(pkitsDir, "path-policy.yaml"),
-		writePKITSPolicyRule(t, dir, pkitsAcceptablePolicies(run)),
-	}
-
-	issuers := make([]string, 0, len(test.Issuers))
-	for _, issuer := range test.Issuers {
-		issuers = append(issuers, filepath.Join(pkitsDir, issuer))
-	}
-	cfg := linter.Config{
-		PolicyPaths:    policies,
-		CertPath:       filepath.Join(pkitsDir, test.EE),
-		IssuerPaths:    issuers,
-		OutputFmt:      "json",
-		ValidationTime: pkitsValidationTime,
-	}
-	if len(test.CRLs) > 0 {
-		cfg.CRLPath = crlDir
-	}
-
-	var out bytes.Buffer
-	if err := linter.Run(cfg, &out); err != nil {
+	results, err := lint(t, cfg)
+	if err != nil {
 		return "invalid", []string{"error: " + err.Error()}
-	}
-	var results []policy.Result
-	if err := json.Unmarshal(out.Bytes(), &results); err != nil {
-		t.Fatalf("%s: parse lint output: %v\n%s", test.ID, err, out.String())
 	}
 	var failures []string
 	for _, result := range results {
@@ -215,7 +195,6 @@ func writePKITSPolicyRule(t *testing.T, dir string, acceptable []string) string 
 	for index, oid := range acceptable {
 		quoted[index] = `"` + oid + `"`
 	}
-	path := filepath.Join(dir, "policy-processing.yaml")
 	content := `id: pkits-policy-processing
 appliesTo: [cert]
 rules:
@@ -227,8 +206,5 @@ rules:
     certType: [leaf, intermediate, ocspSigning]
     severity: error
 `
-	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	return path
+	return writeTestFile(t, dir, "policy-processing.yaml", []byte(content))
 }

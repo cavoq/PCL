@@ -1,0 +1,9 @@
+name: rfc5280-revoked-status
+policy: ../policies/RFC5280.yaml
+rules:
+  - cert-revocation-status-known
+  - cert-not-revoked
+fixture: valid-revoked-certificate
+expected:
+  leaf: {pass: 1, fail: 1, skip: 0}
+  root: {pass: 2, fail: 0, skip: 0}

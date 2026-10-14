@@ -1,0 +1,6 @@
+name: rfc5280-crl-algorithm-mismatch
+policy: ../policies/RFC5280.yaml
+rules:
+  - crl-signature-algorithm-matches-tbs
+fixture: crl-algorithm-mismatch
+error: "failed to load CRLs"

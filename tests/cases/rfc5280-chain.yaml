@@ -1,0 +1,18 @@
+name: rfc5280-chain
+policy: ../policies/RFC5280.yaml
+certs: certs/leaf.pem
+issuers: [certs/intermediate.pem, certs/root.pem]
+time: 2027-01-01T00:00:00Z
+output: yaml
+contains:
+  - "meta:"
+  - "total_certs: 3"
+  - "policy_id: rfc5280"
+  - "cert_type: leaf"
+  - "cert_type: intermediate"
+  - "cert_type: root"
+  - "verdict: pass"
+expected:
+  intermediate: {pass: 53, fail: 0, skip: 86, verdict: pass}
+  leaf: {pass: 51, fail: 0, skip: 88, verdict: pass}
+  root: {pass: 44, fail: 0, skip: 95, verdict: pass}

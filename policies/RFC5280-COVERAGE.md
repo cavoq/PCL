@@ -107,9 +107,10 @@ as RFC 5280 coverage.
   deterministic complete, scoped, reason-partitioned, indirect, and delta CRL
   decisions. [`internal/crl/acquisition_test.go`](../internal/crl/acquisition_test.go)
   covers cached, bounded, two-stage network acquisition.
-- [`tests/integration_test.go`](../tests/integration_test.go) and
-  [`tests/linter_run_test.go`](../tests/linter_run_test.go) exercise policy and
-  CLI wiring. Existing operator owner tests cover comparison, date, encoding,
+- [`tests/cases_test.go`](../tests/cases_test.go) runs the scenarios in
+  [`tests/cases`](../tests/cases) through the lint command, with generated DER
+  vectors from [`tests/fixtures_test.go`](../tests/fixtures_test.go), and
+  [`tests/pkits_test.go`](../tests/pkits_test.go) runs NIST PKITS. Existing operator owner tests cover comparison, date, encoding,
   collection, chain, CRL, and signature behavior used by the remaining rows.
 
 ## P3 boundary
