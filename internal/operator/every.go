@@ -89,9 +89,9 @@ func (Every) EvaluateWithRegistry(
 		if parsed.path == "" {
 			targetNode = child
 		} else {
-			resolution := resolvePathResult(child, parsed.path)
-			targetNode = resolution.node
-			if resolution.missing && !parsed.skipMissing {
+			resolution := child.Lookup(parsed.path)
+			targetNode = resolution.Node
+			if resolution.Partial && !parsed.skipMissing {
 				return false, nil
 			}
 			if targetNode == nil {
@@ -103,7 +103,7 @@ func (Every) EvaluateWithRegistry(
 		}
 
 		// If target is a virtual node (from wildcard), check all its children
-		if targetNode.Name == "*" && len(targetNode.Children) > 0 {
+		if targetNode.Name == node.Wildcard && len(targetNode.Children) > 0 {
 			for _, subChild := range node.CollectionElements(targetNode) {
 				result, err := registry.evaluateValidated(parsed.operator, subChild, ctx, parsed.operands)
 				if err != nil {
@@ -241,147 +241,4 @@ func parseEveryObject(object map[string]any) (everyOperands, error) {
 		parsed.skipMissing = skipMissing
 	}
 	return parsed, nil
-}
-
-// resolvePath resolves a dot-separated path from a node.
-// Handles OID-style keys that contain dots (e.g., "2.5.29.21").
-// Supports `*` wildcard to match all children at that level.
-func resolvePath(n *node.Node, path string) *node.Node {
-	return resolvePathResult(n, path).node
-}
-
-type pathResolution struct {
-	node    *node.Node
-	missing bool
-}
-
-// resolvePathResult preserves resolvePath's projected node while recording
-// whether a wildcard branch failed to resolve the remaining path. Composite
-// operators use that fact to distinguish a partial wildcard match from a
-// complete one.
-func resolvePathResult(n *node.Node, path string) pathResolution {
-	if n == nil || path == "" {
-		return pathResolution{node: n}
-	}
-
-	current := n
-	parts := splitPath(path)
-
-	for i := 0; i < len(parts); i++ {
-		if current == nil || current.Children == nil {
-			return pathResolution{}
-		}
-
-		part := parts[i]
-
-		// Handle wildcard: collect all children and continue matching
-		if part == "*" {
-			virtualNode := node.New("*", nil)
-			missing := false
-			for _, child := range node.CollectionElements(current) {
-				// Build remaining path
-				if i+1 < len(parts) {
-					remainingPath := combineParts(parts, i+1, len(parts))
-					// If the child's name matches the next path segment,
-					// skip that segment when resolving from the child
-					remainingParts := splitPath(remainingPath)
-					if len(remainingParts) > 0 && child.Name == remainingParts[0] {
-						// Skip the matching segment
-						if len(remainingParts) > 1 {
-							remainingPath = combineParts(remainingParts, 1, len(remainingParts))
-						} else {
-							remainingPath = ""
-						}
-					}
-					resolution := resolvePathResult(child, remainingPath)
-					missing = missing || resolution.missing
-					if resolution.node != nil {
-						// Merge results into virtual node
-						if len(resolution.node.Children) > 0 {
-							for _, v := range node.CollectionElements(resolution.node) {
-								virtualNode.AddElement(v)
-							}
-						} else {
-							// Single value result
-							virtualNode.AddElement(resolution.node)
-						}
-					} else {
-						missing = true
-					}
-				} else {
-					// * is the last part, add all children directly
-					virtualNode.AddElement(child)
-				}
-			}
-			// Return nil if virtualNode has no children (nothing matched the wildcard)
-			if len(virtualNode.Children) == 0 {
-				return pathResolution{missing: missing}
-			}
-			return pathResolution{node: virtualNode, missing: missing}
-		}
-
-		// Try to find child with exact match
-		next := current.Children[part]
-
-		// If not found and part looks like OID start (numeric),
-		// try combining with subsequent parts to find OID key
-		if next == nil && isOIDStart(part) && i+1 < len(parts) {
-			// Try progressively combining parts until we find a match
-			for j := i + 1; j <= len(parts); j++ {
-				combined := combineParts(parts, i, j)
-				if current.Children[combined] != nil {
-					next = current.Children[combined]
-					i = j - 1 // Skip the combined parts
-					break
-				}
-			}
-		}
-
-		if next == nil {
-			return pathResolution{}
-		}
-		current = next
-	}
-
-	return pathResolution{node: current}
-}
-
-// isOIDStart checks if a part looks like the start of an OID (numeric).
-func isOIDStart(s string) bool {
-	if len(s) == 0 {
-		return false
-	}
-	for _, c := range s {
-		if c < '0' || c > '9' {
-			return false
-		}
-	}
-	return true
-}
-
-// combineParts combines parts from i to j (exclusive) with dots.
-func combineParts(parts []string, i, j int) string {
-	result := parts[i]
-	for k := i + 1; k < j; k++ {
-		result += "." + parts[k]
-	}
-	return result
-}
-
-// splitPath splits a path by dots, handling numeric indices.
-func splitPath(path string) []string {
-	var parts []string
-	start := 0
-	for i := 0; i < len(path); i++ {
-		if path[i] == '.' {
-			if i > start {
-				parts = append(parts, path[start:i])
-			}
-			start = i + 1
-		}
-	}
-	if start < len(path) {
-		parts = append(parts, path[start:])
-	}
-	return parts
 }

@@ -170,7 +170,7 @@ func (DateDiff) Evaluate(n *node.Node, _ *EvaluationContext, operands []any) (bo
 	}
 
 	// Resolve start date from target node's children
-	startNode := resolvePath(n, parsed.startPath)
+	startNode := n.Lookup(parsed.startPath).Node
 	if startNode == nil || startNode.Value == nil {
 		return false, nil
 	}
@@ -183,7 +183,7 @@ func (DateDiff) Evaluate(n *node.Node, _ *EvaluationContext, operands []any) (bo
 	// Resolve end date - if endPath not specified, use target node's value
 	var endDate time.Time
 	if parsed.endPath != "" {
-		endNode := resolvePath(n, parsed.endPath)
+		endNode := n.Lookup(parsed.endPath).Node
 		if endNode == nil || endNode.Value == nil {
 			return false, nil
 		}
