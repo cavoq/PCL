@@ -1,7 +1,6 @@
 package zcrypto
 
 import (
-	"fmt"
 	"strconv"
 
 	"github.com/cavoq/PCL/internal/node"
@@ -21,25 +20,6 @@ import (
 //	DistributionPointName ::= CHOICE {
 //	    fullName                [0] GeneralNames,
 //	    nameRelativeToCRLIssuer [1] RelativeDistinguishedName }
-type decodedDistributionPointNameKind uint8
-
-const (
-	decodedFullName decodedDistributionPointNameKind = iota
-	decodedNameRelativeToCRLIssuer
-)
-
-type decodedDistributionPointName struct {
-	Kind         decodedDistributionPointNameKind
-	GeneralNames []parsedGeneralName
-	RelativeName []byte
-	RelativeRaw  []byte
-}
-
-type decodedCRLDistributionPoint struct {
-	Name      *decodedDistributionPointName
-	Reasons   *x509ext.ReasonFlags
-	CRLIssuer []parsedGeneralName
-}
 
 // CRLDistributionPointNameKind identifies the selected DistributionPointName
 // alternative. The empty value means the optional field was absent.
@@ -79,7 +59,7 @@ func ParseCRLDP(extValue []byte) *node.Node {
 
 // ParseCRLDPStrict parses exactly one CRLDistributionPoints value.
 func ParseCRLDPStrict(extValue []byte) (*node.Node, error) {
-	distributionPoints, err := decodeCRLDistributionPoints(extValue)
+	distributionPoints, err := x509ext.DecodeDistributionPoints(extValue)
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +70,7 @@ func ParseCRLDPStrict(extValue []byte) (*node.Node, error) {
 // without applying RFC 5280 profile dependencies such as the cRLIssuer name
 // form restriction or the relative-name single-issuer rule.
 func DecodeCRLDistributionPointsStrict(extValue []byte) (CRLDistributionPointsFacts, error) {
-	decoded, err := decodeCRLDistributionPoints(extValue)
+	decoded, err := x509ext.DecodeDistributionPoints(extValue)
 	if err != nil {
 		return CRLDistributionPointsFacts{}, err
 	}
@@ -105,12 +85,12 @@ func DecodeCRLDistributionPointsStrict(extValue []byte) (CRLDistributionPointsFa
 		}
 		if distributionPoint.Name != nil {
 			switch distributionPoint.Name.Kind {
-			case decodedFullName:
+			case x509ext.DistributionPointNameFullName:
 				pointFacts.DistributionPointNameKind = CRLDistributionPointNameFullName
 				pointFacts.FullNameGeneralNameTags = generalNameTags(
-					distributionPoint.Name.GeneralNames,
+					distributionPoint.Name.FullName,
 				)
-			case decodedNameRelativeToCRLIssuer:
+			case x509ext.DistributionPointNameRelative:
 				pointFacts.DistributionPointNameKind = CRLDistributionPointNameRelative
 			}
 		}
@@ -123,7 +103,7 @@ func DecodeCRLDistributionPointsStrict(extValue []byte) (CRLDistributionPointsFa
 	return facts, nil
 }
 
-func generalNameTags(names []parsedGeneralName) []int {
+func generalNameTags(names []x509ext.GeneralName) []int {
 	if names == nil {
 		return nil
 	}
@@ -134,67 +114,7 @@ func generalNameTags(names []parsedGeneralName) []int {
 	return tags
 }
 
-func decodeCRLDistributionPoints(extValue []byte) ([]decodedCRLDistributionPoint, error) {
-	shared, err := x509ext.DecodeDistributionPoints(extValue)
-	if err != nil {
-		return nil, err
-	}
-	decoded := make([]decodedCRLDistributionPoint, 0, len(shared))
-	for _, point := range shared {
-		converted := decodedCRLDistributionPoint{
-			CRLIssuer: append([]parsedGeneralName(nil), point.CRLIssuer...),
-		}
-		if point.Name != nil {
-			name := decodedDistributionPointName{
-				GeneralNames: append([]parsedGeneralName(nil), point.Name.FullName...),
-				RelativeRaw:  append([]byte(nil), point.Name.RawDER...),
-			}
-			switch point.Name.Kind {
-			case x509ext.DistributionPointNameFullName:
-				name.Kind = decodedFullName
-			case x509ext.DistributionPointNameRelative:
-				name.Kind = decodedNameRelativeToCRLIssuer
-				rdn := cryptobyte.String(point.Name.RelativeRDN)
-				var contents cryptobyte.String
-				if !rdn.ReadASN1(&contents, cryptobyte_asn1.SET) || !rdn.Empty() {
-					return nil, fmt.Errorf("invalid shared relative distinguished name")
-				}
-				name.RelativeName = append([]byte(nil), contents...)
-			default:
-				return nil, fmt.Errorf("unknown shared DistributionPointName kind")
-			}
-			converted.Name = &name
-		}
-		if point.Reasons != nil {
-			converted.Reasons = point.Reasons
-		}
-		decoded = append(decoded, converted)
-	}
-	return decoded, nil
-}
-
-func encodeRelativeDistinguishedName(contents []byte) (rdnDER, nameDER []byte, err error) {
-	var rdnBuilder cryptobyte.Builder
-	rdnBuilder.AddASN1(cryptobyte_asn1.SET, func(builder *cryptobyte.Builder) {
-		builder.AddBytes(contents)
-	})
-	rdnDER, err = rdnBuilder.Bytes()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	var nameBuilder cryptobyte.Builder
-	nameBuilder.AddASN1(cryptobyte_asn1.SEQUENCE, func(builder *cryptobyte.Builder) {
-		builder.AddBytes(rdnDER)
-	})
-	nameDER, err = nameBuilder.Bytes()
-	if err != nil {
-		return nil, nil, err
-	}
-	return rdnDER, nameDER, nil
-}
-
-func projectCRLDistributionPoints(decoded []decodedCRLDistributionPoint) *node.Node {
+func projectCRLDistributionPoints(decoded []x509ext.DistributionPoint) *node.Node {
 	n := node.New("cRLDistributionPoints", nil)
 	distributionPointsNode := node.New("distributionPoints", nil)
 	n.Children["distributionPoints"] = distributionPointsNode
@@ -208,7 +128,7 @@ func projectCRLDistributionPoints(decoded []decodedCRLDistributionPoint) *node.N
 	return n
 }
 
-func projectCRLDistributionPoint(name string, decoded decodedCRLDistributionPoint) *node.Node {
+func projectCRLDistributionPoint(name string, decoded x509ext.DistributionPoint) *node.Node {
 	n := node.New(name, nil)
 	if decoded.Name != nil {
 		n.Children["distributionPoint"] = projectDistributionPointName(*decoded.Name)
@@ -224,38 +144,36 @@ func projectCRLDistributionPoint(name string, decoded decodedCRLDistributionPoin
 		n.Children["cRLIssuer"] = issuerNode
 	}
 
-	hasFullName := decoded.Name != nil && decoded.Name.Kind == decodedFullName
+	hasFullName := decoded.Name != nil && decoded.Name.Kind == x509ext.DistributionPointNameFullName
 	n.Children["hasFullName"] = node.New("hasFullName", hasFullName)
 	n.Children["hasReasons"] = node.New("hasReasons", decoded.Reasons != nil)
 	n.Children["hasCRLIssuer"] = node.New("hasCRLIssuer", decoded.CRLIssuer != nil)
 	return n
 }
 
-func projectDistributionPointName(decoded decodedDistributionPointName) *node.Node {
+func projectDistributionPointName(decoded x509ext.DistributionPointName) *node.Node {
 	n := node.New("distributionPoint", nil)
 	switch decoded.Kind {
-	case decodedFullName:
+	case x509ext.DistributionPointNameFullName:
 		fullNameNode := node.New("fullName", nil)
 		generalNamesNode := node.New("generalNames", nil)
-		nameprojector.AddGeneralNames(generalNamesNode, decoded.GeneralNames)
+		nameprojector.AddGeneralNames(generalNamesNode, decoded.FullName)
 		fullNameNode.Children["generalNames"] = generalNamesNode
-		fullNameNode.Children["count"] = node.New("count", len(decoded.GeneralNames))
+		fullNameNode.Children["count"] = node.New("count", len(decoded.FullName))
 		n.Children["fullName"] = fullNameNode
 
-	case decodedNameRelativeToCRLIssuer:
-		rdnDER, nameDER, err := encodeRelativeDistinguishedName(decoded.RelativeName)
-		if err != nil {
+	case x509ext.DistributionPointNameRelative:
+		rdn := cryptobyte.String(decoded.RelativeRDN)
+		var contents cryptobyte.String
+		if !rdn.ReadASN1(&contents, cryptobyte_asn1.SET) || !rdn.Empty() {
 			break
 		}
-		relativeName := nameprojector.BuildRawName("nameRelativeToCRLIssuer", nameDER)
-		relativeName.Children["raw"] = node.New("raw", append([]byte(nil), rdnDER...))
-		relativeName.Children["rawValue"] = node.New(
-			"rawValue",
-			append([]byte(nil), decoded.RelativeName...),
-		)
+		relativeName := nameprojector.BuildRawName("nameRelativeToCRLIssuer", decoded.RelativeNameDER)
+		relativeName.Children["raw"] = node.New("raw", append([]byte(nil), decoded.RelativeRDN...))
+		relativeName.Children["rawValue"] = node.New("rawValue", append([]byte(nil), contents...))
 		relativeName.Children["encoded"] = node.New(
 			"encoded",
-			append([]byte(nil), decoded.RelativeRaw...),
+			append([]byte(nil), decoded.RawDER...),
 		)
 		n.Children["nameRelativeToCRLIssuer"] = relativeName
 	}

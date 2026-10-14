@@ -30,7 +30,11 @@ func TestCRLDistributionPointRelativeNameUsesCanonicalRDNProjection(t *testing.T
 	if relative.Children["rdns"] == nil || relative.Children["rdns"].Children["0"] == nil {
 		t.Fatal("canonical RDN structure is missing")
 	}
-	wantRDN, _, err := encodeRelativeDistinguishedName(attribute)
+	var rdnBuilder cryptobyte.Builder
+	rdnBuilder.AddASN1(cryptobyte_asn1.SET, func(builder *cryptobyte.Builder) {
+		builder.AddBytes(attribute)
+	})
+	wantRDN, err := rdnBuilder.Bytes()
 	if err != nil {
 		t.Fatal(err)
 	}

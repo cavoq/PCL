@@ -8,8 +8,6 @@ import (
 	"github.com/cavoq/PCL/internal/x509ext"
 	nameprojector "github.com/cavoq/PCL/internal/zcrypto"
 	"github.com/zmap/zcrypto/x509/pkix"
-	"golang.org/x/crypto/cryptobyte"
-	cryptobyte_asn1 "golang.org/x/crypto/cryptobyte/asn1"
 )
 
 func projectCRLExtension(extension pkix.Extension) (*node.Node, error) {
@@ -186,24 +184,12 @@ func projectDistributionPointName(name *x509ext.DistributionPointName) *node.Nod
 		fullName.Children["count"] = node.New("count", len(name.FullName))
 		n.Children["fullName"] = fullName
 	case x509ext.DistributionPointNameRelative:
-		nameDER, err := relativeRDNName(name.RelativeRDN)
-		if err != nil {
-			return n
-		}
-		relative := nameprojector.BuildRawName("nameRelativeToCRLIssuer", nameDER)
+		relative := nameprojector.BuildRawName("nameRelativeToCRLIssuer", name.RelativeNameDER)
 		relative.Children["raw"] = node.New("raw", append([]byte(nil), name.RelativeRDN...))
 		relative.Children["encoded"] = node.New("encoded", append([]byte(nil), name.RawDER...))
 		n.Children["nameRelativeToCRLIssuer"] = relative
 	}
 	return n
-}
-
-func relativeRDNName(rdn []byte) ([]byte, error) {
-	var builder cryptobyte.Builder
-	builder.AddASN1(cryptobyte_asn1.SEQUENCE, func(builder *cryptobyte.Builder) {
-		builder.AddBytes(rdn)
-	})
-	return builder.Bytes()
 }
 
 func projectReasonFlags(name string, reasons *x509ext.ReasonFlags) *node.Node {

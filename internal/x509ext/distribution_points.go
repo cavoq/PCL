@@ -20,7 +20,10 @@ type DistributionPointName struct {
 	Kind        DistributionPointNameKind
 	FullName    []GeneralName
 	RelativeRDN []byte
-	RawDER      []byte
+	// RelativeNameDER is RelativeRDN wrapped as a single-RDN Name, the form
+	// accepted by name parsers and projections.
+	RelativeNameDER []byte
+	RawDER          []byte
 }
 
 type DistributionPoint struct {
@@ -165,9 +168,10 @@ func DecodeDistributionPointNameContents(encoded cryptobyte.String) (Distributio
 			return DistributionPointName{}, fmt.Errorf("invalid nameRelativeToCRLIssuer")
 		}
 		return DistributionPointName{
-			Kind:        DistributionPointNameRelative,
-			RelativeRDN: rdnDER,
-			RawDER:      append([]byte(nil), raw...),
+			Kind:            DistributionPointNameRelative,
+			RelativeRDN:     rdnDER,
+			RelativeNameDER: nameDER,
+			RawDER:          append([]byte(nil), raw...),
 		}, nil
 	default:
 		return DistributionPointName{}, fmt.Errorf("unknown DistributionPointName")
