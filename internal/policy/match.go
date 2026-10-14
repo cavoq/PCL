@@ -56,39 +56,41 @@ func AppliesToCertificate(p Policy, cert *x509.Certificate) bool {
 	isCA := certpkg.IsCA(cert)
 	selfSigned := certpkg.IsSelfSigned(cert)
 	for _, ct := range p.CertType {
-		ct = oid.NormalizeOID(ct)
-
-		switch ct {
-		case "ca":
-			if isCA {
-				return true
-			}
-		case "root":
-			if isCA && selfSigned {
-				return true
-			}
-		case "intermediate":
-			if isCA && !selfSigned {
-				return true
-			}
-		case "leaf":
-			if !isCA {
-				return true
-			}
-		default:
-			for _, eku := range cert.ExtKeyUsage {
-				if oid.ExtKeyUsageToOID(eku) == ct {
-					return true
-				}
-			}
-			for _, eku := range cert.UnknownExtKeyUsage {
-				if eku.String() == ct {
-					return true
-				}
-			}
+		if certificateMatchesType(cert, oid.NormalizeOID(ct), isCA, selfSigned) {
+			return true
 		}
 	}
+	return false
+}
 
+// certificateMatchesType reports whether cert has the policy-level role
+// certType: ca, root, intermediate, leaf, or an extended key usage OID.
+func certificateMatchesType(cert *x509.Certificate, certType string, isCA, selfSigned bool) bool {
+	switch certType {
+	case "ca":
+		return isCA
+	case "root":
+		return isCA && selfSigned
+	case "intermediate":
+		return isCA && !selfSigned
+	case "leaf":
+		return !isCA
+	default:
+		return hasExtendedKeyUsage(cert, certType)
+	}
+}
+
+func hasExtendedKeyUsage(cert *x509.Certificate, identifier string) bool {
+	for _, eku := range cert.ExtKeyUsage {
+		if oid.ExtKeyUsageToOID(eku) == identifier {
+			return true
+		}
+	}
+	for _, eku := range cert.UnknownExtKeyUsage {
+		if eku.String() == identifier {
+			return true
+		}
+	}
 	return false
 }
 
