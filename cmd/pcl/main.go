@@ -30,14 +30,6 @@ func newRootCmd(opts *linter.Config) *cobra.Command {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if len(opts.PolicyPaths) == 0 {
-				return fmt.Errorf("--policy is required")
-			}
-			hasCert := opts.CertPath != "" || len(opts.CertURLs) > 0
-			hasIssuer := len(opts.IssuerPaths) > 0 || len(opts.IssuerURLs) > 0
-			if !hasCert && !hasIssuer && opts.CRLPath == "" && opts.OCSPPath == "" {
-				return fmt.Errorf("at least one of --cert, --cert-url, --issuer, --issuer-url, --crl, or --ocsp is required")
-			}
 			opts.Diagnostics = cmd.ErrOrStderr()
 			return linter.Run(*opts, cmd.OutOrStdout())
 		},

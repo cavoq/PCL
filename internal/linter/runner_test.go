@@ -317,7 +317,7 @@ rules:
 		t.Fatalf("expected executable-policy validation error, got %v", err)
 	}
 
-	err = Run(Config{PolicyPaths: []string{path}}, &bytes.Buffer{})
+	err = Run(Config{PolicyPaths: []string{path}, CertPath: filepath.Join(t.TempDir(), "missing.pem")}, &bytes.Buffer{})
 	if err == nil || !strings.Contains(err.Error(), `unknown operator "doesNotExist"`) {
 		t.Fatalf("Run should reject the policy before loading inputs, got %v", err)
 	}
@@ -343,7 +343,7 @@ rules:
 		t.Fatalf("expected operand validation error, got %v", err)
 	}
 
-	err = Run(Config{PolicyPaths: []string{path}}, &bytes.Buffer{})
+	err = Run(Config{PolicyPaths: []string{path}, CertPath: filepath.Join(t.TempDir(), "missing.pem")}, &bytes.Buffer{})
 	if err == nil || !strings.Contains(err.Error(), `operator "gte"`) {
 		t.Fatalf("Run should reject operands before loading inputs, got %v", err)
 	}
@@ -379,6 +379,25 @@ func TestRunRejectsNoApplicablePolicy(t *testing.T) {
 	}
 }
 
+func TestRunRejectsIssuerOnlyInputBeforeLoading(t *testing.T) {
+	cfg := Config{
+		PolicyPaths: []string{filepath.Join(t.TempDir(), "missing.yaml")},
+		IssuerPaths: []string{filepath.Join("..", "..", "tests", "certs", "root.pem")},
+	}
+
+	err := Run(cfg, &bytes.Buffer{})
+	if err == nil || !strings.Contains(err.Error(), "no certificates, CRLs, or OCSP responses provided") {
+		t.Fatalf("expected missing lint input error, got %v", err)
+	}
+}
+
+func TestConfigValidateRequiresPolicy(t *testing.T) {
+	err := Config{CertPath: "leaf.pem"}.Validate()
+	if err == nil || !strings.Contains(err.Error(), "policy path is required") {
+		t.Fatalf("expected missing policy error, got %v", err)
+	}
+}
+
 func TestLoadCRLs(t *testing.T) {
 	// Test with empty path
 	crls, err := loadCRLs("")
@@ -403,7 +422,7 @@ func TestLoadOCSPs(t *testing.T) {
 
 func TestLoadIssuersIfProvided(t *testing.T) {
 	// Test with no issuers
-	issuers, cleanup, err := loadIssuersIfProvided(Config{}, false)
+	issuers, cleanup, err := loadIssuersIfProvided(Config{})
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -703,7 +722,7 @@ func TestProcessCertificates_withCRLAndResolve(t *testing.T) {
 		OCSPTimeout:   5 * time.Second,
 		MaxChainDepth: 10,
 	}
-	issuers, issuerCleanup, err := loadIssuersIfProvided(cfg, true)
+	issuers, issuerCleanup, err := loadIssuersIfProvided(cfg)
 	if err != nil {
 		t.Fatalf("loadIssuersIfProvided: %v", err)
 	}

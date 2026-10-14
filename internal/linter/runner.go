@@ -17,6 +17,9 @@ import (
 
 func Run(cfg Config, w io.Writer) error {
 	applyDefaults(&cfg)
+	if err := cfg.Validate(); err != nil {
+		return err
+	}
 	var cleanups cleanupStack
 	defer cleanups.Close()
 
@@ -53,18 +56,14 @@ func Run(cfg Config, w io.Writer) error {
 		return err
 	}
 
-	// Process certificates if provided
-	hasCert := cfg.CertPath != "" || len(cfg.CertURLs) > 0
-	hasIssuer := len(cfg.IssuerPaths) > 0 || len(cfg.IssuerURLs) > 0
-
 	// Load issuers for CRL/OCSP signature verification
-	issuers, issuerCleanup, err := loadIssuersIfProvided(cfg, hasIssuer)
+	issuers, issuerCleanup, err := loadIssuersIfProvided(cfg)
 	cleanups.Add(issuerCleanup)
 	if err != nil {
 		return err
 	}
 
-	if hasCert {
+	if cfg.hasCertificateInput() {
 		var certCleanup func()
 		results, certCleanup, err = processCertificates(cfg, policies, reg, crls, ocsps, issuers, diagnostics)
 		cleanups.Add(certCleanup)
@@ -87,10 +86,6 @@ func Run(cfg Config, w io.Writer) error {
 }
 
 func loadPolicies(paths []string, reg *operator.Registry) ([]policy.Policy, error) {
-	if len(paths) == 0 {
-		return nil, fmt.Errorf("at least one policy path is required")
-	}
-
 	var policies []policy.Policy
 	for _, path := range paths {
 		isDir, err := isDirectory(path)
@@ -145,8 +140,8 @@ func loadOCSPs(path string) ([]*ocsp.Info, error) {
 	return ocsps, nil
 }
 
-func loadIssuersIfProvided(cfg Config, hasIssuer bool) ([]*cert.Info, func(), error) {
-	if !hasIssuer {
+func loadIssuersIfProvided(cfg Config) ([]*cert.Info, func(), error) {
+	if !cfg.hasIssuerInput() {
 		return nil, nil, nil
 	}
 	return loadIssuers(cfg)

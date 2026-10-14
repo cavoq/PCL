@@ -2,6 +2,7 @@
 package linter
 
 import (
+	"errors"
 	"io"
 	"time"
 )
@@ -47,4 +48,24 @@ type Config struct {
 	PSLFile string // Path to Public Suffix List file (optional)
 	UsePSL  bool   // Enable PSL loading (default: true if file exists)
 	DataDir string // Directory for external data files (optional)
+}
+
+// Validate reports configurations that cannot produce lint results. Issuer
+// certificates only support other inputs and are not linted on their own.
+func (cfg Config) Validate() error {
+	if len(cfg.PolicyPaths) == 0 {
+		return errors.New("at least one policy path is required")
+	}
+	if !cfg.hasCertificateInput() && cfg.CRLPath == "" && cfg.OCSPPath == "" {
+		return errors.New("no certificates, CRLs, or OCSP responses provided")
+	}
+	return nil
+}
+
+func (cfg Config) hasCertificateInput() bool {
+	return cfg.CertPath != "" || len(cfg.CertURLs) > 0
+}
+
+func (cfg Config) hasIssuerInput() bool {
+	return len(cfg.IssuerPaths) > 0 || len(cfg.IssuerURLs) > 0
 }
