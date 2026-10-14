@@ -1,14 +1,27 @@
 package operator
 
 import (
-	"encoding/asn1"
+	"slices"
 
 	"github.com/zmap/zcrypto/x509"
 
+	certpkg "github.com/cavoq/PCL/internal/cert"
+	certzcrypto "github.com/cavoq/PCL/internal/cert/zcrypto"
 	"github.com/cavoq/PCL/internal/node"
 	"github.com/cavoq/PCL/internal/oid"
 )
 
+// CertificatePolicyValid runs the RFC 5280 Section 6.1 certificate policy
+// processing over the path from the trust anchor to the evaluated
+// certificate. The operands are the user-initial-policy-set (anyPolicy accepts
+// any policy) and initial-explicit-policy is set, so the check passes when at
+// least one acceptable policy is valid for the whole path. Because policies
+// are always required, requireExplicitPolicy cannot change the outcome;
+// policy mappings, inhibitPolicyMapping and inhibitAnyPolicy are honored.
+//
+// The self-signed top of the chain is the trust anchor and is not processed
+// unless it is the evaluated certificate itself. Malformed policy extensions
+// fail the check.
 type CertificatePolicyValid struct{}
 
 func (CertificatePolicyValid) Name() string { return "certificatePolicyValid" }
@@ -18,174 +31,364 @@ func (CertificatePolicyValid) Evaluate(_ *node.Node, ctx *EvaluationContext, ope
 		return false, nil
 	}
 
-	acceptablePolicies := make(map[string]bool)
-	for _, op := range operands {
-		if s, ok := op.(string); ok {
-			acceptablePolicies[s] = true
+	var acceptable []string
+	for _, operand := range operands {
+		if policy, ok := operand.(string); ok {
+			acceptable = append(acceptable, policy)
 		}
 	}
-
-	if len(acceptablePolicies) == 0 {
+	if len(acceptable) == 0 {
 		return false, nil
 	}
 
-	validPolicies := make(map[string]bool)
-	validPolicies[oid.AnyPolicy] = true
-
-	requireExplicitPolicy := -1
-	inhibitPolicyMapping := -1
-	inhibitAnyPolicy := -1
-
-	for i := len(ctx.Chain) - 1; i >= 0; i-- {
-		cert := ctx.Chain[i].Cert
-		if cert == nil {
-			continue
-		}
-
-		pc := parsePolicyConstraints(cert)
-		if pc.requireExplicitPolicy != nil && requireExplicitPolicy < 0 {
-			requireExplicitPolicy = *pc.requireExplicitPolicy + i
-		}
-		if pc.inhibitPolicyMapping != nil && inhibitPolicyMapping < 0 {
-			inhibitPolicyMapping = *pc.inhibitPolicyMapping + i
-		}
-
-		iap := parseInhibitAnyPolicy(cert)
-		if iap != nil && inhibitAnyPolicy < 0 {
-			inhibitAnyPolicy = *iap + i
-		}
-
-		certPolicies := make(map[string]bool)
-		for _, policyID := range cert.PolicyIdentifiers {
-			certPolicies[policyID.String()] = true
-		}
-
-		if inhibitAnyPolicy >= 0 && i <= inhibitAnyPolicy {
-			delete(certPolicies, oid.AnyPolicy)
-		}
-
-		switch {
-		case len(certPolicies) == 0:
-			validPolicies = make(map[string]bool)
-		case validPolicies[oid.AnyPolicy]:
-			validPolicies = certPolicies
-		default:
-			newValid := make(map[string]bool)
-			for p := range certPolicies {
-				if validPolicies[p] || p == oid.AnyPolicy {
-					newValid[p] = true
-				}
-			}
-			validPolicies = newValid
-		}
-
-		if inhibitPolicyMapping < 0 || i > inhibitPolicyMapping {
-			mappings := parsePolicyMappings(cert)
-			for _, m := range mappings {
-				if validPolicies[m.issuerPolicy] {
-					validPolicies[m.subjectPolicy] = true
-				}
-			}
-		}
+	path, ok := certificatePolicyPath(ctx)
+	if !ok {
+		return false, nil
 	}
-
-	if requireExplicitPolicy >= 0 && ctx.Cert.Position >= requireExplicitPolicy {
-		delete(validPolicies, oid.AnyPolicy)
-	}
-
-	for policy := range acceptablePolicies {
-		if validPolicies[policy] || validPolicies[oid.AnyPolicy] {
-			return true, nil
-		}
-	}
-
-	return false, nil
-}
-
-type policyMapping struct {
-	issuerPolicy  string
-	subjectPolicy string
-}
-
-func parsePolicyMappings(cert *x509.Certificate) []policyMapping {
-	for _, ext := range cert.Extensions {
-		if ext.Id.String() == oid.PolicyMappings {
-			return decodePolicyMappings(ext.Value)
-		}
-	}
-	return nil
-}
-
-func decodePolicyMappings(data []byte) []policyMapping {
-	var seq []struct {
-		IssuerDomain  asn1.ObjectIdentifier
-		SubjectDomain asn1.ObjectIdentifier
-	}
-	if _, err := asn1.Unmarshal(data, &seq); err != nil {
-		return nil
-	}
-	mappings := make([]policyMapping, 0, len(seq))
-	for _, m := range seq {
-		mappings = append(mappings, policyMapping{
-			issuerPolicy:  m.IssuerDomain.String(),
-			subjectPolicy: m.SubjectDomain.String(),
-		})
-	}
-	return mappings
-}
-
-type policyConstraintsData struct {
-	requireExplicitPolicy *int
-	inhibitPolicyMapping  *int
-}
-
-func parsePolicyConstraints(cert *x509.Certificate) policyConstraintsData {
-	for _, ext := range cert.Extensions {
-		if ext.Id.String() == oid.PolicyConstraints {
-			return decodePolicyConstraints(ext.Value)
-		}
-	}
-	return policyConstraintsData{}
-}
-
-func decodePolicyConstraints(data []byte) policyConstraintsData {
-	var result policyConstraintsData
-	var seq asn1.RawValue
-	rest, err := asn1.Unmarshal(data, &seq)
-	if err != nil || len(rest) != 0 || seq.Tag != asn1.TagSequence {
-		return result
-	}
-
-	rest = seq.Bytes
-	for len(rest) > 0 {
-		var val asn1.RawValue
-		rest, err = asn1.Unmarshal(rest, &val)
+	facts := make([]certificatePolicyFacts, 0, len(path))
+	for _, certificate := range path {
+		certificateFacts, err := decodeCertificatePolicyFacts(certificate)
 		if err != nil {
+			return false, nil
+		}
+		facts = append(facts, certificateFacts)
+	}
+	return processCertificatePolicies(facts, acceptable), nil
+}
+
+// certificatePolicyPath returns the certificates from the one issued by the
+// trust anchor (RFC 5280 certificate 1) down to the evaluated certificate
+// (certificate n).
+func certificatePolicyPath(ctx *EvaluationContext) ([]*x509.Certificate, bool) {
+	target := slices.IndexFunc(ctx.Chain, func(info *certpkg.Info) bool {
+		return info != nil && info.Cert == ctx.Cert.Cert
+	})
+	if target < 0 {
+		return nil, false
+	}
+
+	top := len(ctx.Chain) - 1
+	if top > target && ctx.Chain[top] != nil && ctx.Chain[top].Cert != nil &&
+		certpkg.IsSelfSigned(ctx.Chain[top].Cert) {
+		top-- // trust anchor
+	}
+
+	path := make([]*x509.Certificate, 0, top-target+1)
+	for index := top; index >= target; index-- {
+		if ctx.Chain[index] == nil || ctx.Chain[index].Cert == nil {
+			return nil, false
+		}
+		path = append(path, ctx.Chain[index].Cert)
+	}
+	return path, true
+}
+
+type certificatePolicyFacts struct {
+	hasPolicies bool
+	policies    []string
+	mappings    []certzcrypto.PolicyMapping
+	// Counters are -1 when absent or too large to constrain a path.
+	inhibitPolicyMapping int
+	inhibitAnyPolicy     int
+	selfIssued           bool
+}
+
+func decodeCertificatePolicyFacts(certificate *x509.Certificate) (certificatePolicyFacts, error) {
+	facts := certificatePolicyFacts{
+		inhibitPolicyMapping: -1,
+		inhibitAnyPolicy:     -1,
+		selfIssued:           certpkg.IsSelfSigned(certificate),
+	}
+
+	if value, present := policyExtensionValue(certificate, oid.CertificatePolicies); present {
+		policies, err := certzcrypto.DecodeCertificatePolicyIdentifiersStrict(value)
+		if err != nil {
+			return facts, err
+		}
+		facts.hasPolicies, facts.policies = true, policies
+	} else if len(certificate.PolicyIdentifiers) > 0 {
+		// Typed facts supplied without the raw extension.
+		facts.hasPolicies = true
+		for _, identifier := range certificate.PolicyIdentifiers {
+			facts.policies = append(facts.policies, identifier.String())
+		}
+	}
+
+	if value, present := policyExtensionValue(certificate, oid.PolicyMappings); present {
+		mappings, err := certzcrypto.DecodePolicyMappingsStrict(value)
+		if err != nil {
+			return facts, err
+		}
+		facts.mappings = mappings
+	}
+
+	if value, present := policyExtensionValue(certificate, oid.PolicyConstraints); present {
+		constraints, err := certzcrypto.DecodePolicyConstraintsStrict(value)
+		if err != nil {
+			return facts, err
+		}
+		if constraints.InhibitPolicyMappingPresent && constraints.InhibitPolicyMappingFitsInt {
+			facts.inhibitPolicyMapping = constraints.InhibitPolicyMapping
+		}
+	}
+
+	if value, present := policyExtensionValue(certificate, oid.InhibitAnyPolicy); present {
+		skipCerts, err := certzcrypto.DecodeInhibitAnyPolicyStrict(value)
+		if err != nil {
+			return facts, err
+		}
+		if skipCerts.FitsInt {
+			facts.inhibitAnyPolicy = skipCerts.Int
+		}
+	}
+	return facts, nil
+}
+
+func policyExtensionValue(certificate *x509.Certificate, identifier string) ([]byte, bool) {
+	for _, extension := range certificate.Extensions {
+		if extension.Id.String() == identifier {
+			return extension.Value, true
+		}
+	}
+	return nil, false
+}
+
+// processCertificatePolicies applies RFC 5280 Sections 6.1.3 (d)-(f), 6.1.4
+// (a), (b), (h)-(j) and 6.1.5 (g) to certificates 1..n and reports whether the
+// valid_policy_tree is non-NULL after intersecting it with acceptable.
+func processCertificatePolicies(path []certificatePolicyFacts, acceptable []string) bool {
+	n := len(path)
+	inhibitAnyPolicy := n + 1
+	policyMapping := n + 1
+	tree := newPolicyTree()
+
+	for i := 1; i <= n; i++ {
+		certificate := path[i-1]
+		if !certificate.hasPolicies {
+			return false // 6.1.3 (e), then (f) with explicit_policy 0
+		}
+		allowAnyPolicy := inhibitAnyPolicy > 0 || (i < n && certificate.selfIssued)
+		tree.addCertificatePolicies(i, certificate.policies, allowAnyPolicy)
+		if tree.root == nil {
+			return false // 6.1.3 (f)
+		}
+		if i == n {
 			break
 		}
-		if val.Class == asn1.ClassContextSpecific {
-			var n int
-			if _, err := asn1.Unmarshal(val.FullBytes, &n); err == nil {
-				switch val.Tag {
-				case 0:
-					result.requireExplicitPolicy = &n
-				case 1:
-					result.inhibitPolicyMapping = &n
+
+		if !tree.applyPolicyMappings(i, certificate.mappings, policyMapping > 0) {
+			return false // 6.1.4 (a): anyPolicy must not be mapped
+		}
+		if tree.root == nil {
+			return false
+		}
+		if !certificate.selfIssued {
+			policyMapping = max(policyMapping-1, 0)
+			inhibitAnyPolicy = max(inhibitAnyPolicy-1, 0)
+		}
+		if certificate.inhibitPolicyMapping >= 0 {
+			policyMapping = min(policyMapping, certificate.inhibitPolicyMapping)
+		}
+		if certificate.inhibitAnyPolicy >= 0 {
+			inhibitAnyPolicy = min(inhibitAnyPolicy, certificate.inhibitAnyPolicy)
+		}
+	}
+
+	tree.intersect(n, acceptable)
+	return tree.root != nil
+}
+
+type policyNode struct {
+	validPolicy string
+	expected    []string
+	parent      *policyNode
+	children    []*policyNode
+}
+
+func (n *policyNode) addChild(validPolicy string, expected []string) {
+	n.children = append(n.children, &policyNode{
+		validPolicy: validPolicy,
+		expected:    expected,
+		parent:      n,
+	})
+}
+
+func (n *policyNode) hasChild(validPolicy string) bool {
+	return slices.ContainsFunc(n.children, func(child *policyNode) bool {
+		return child.validPolicy == validPolicy
+	})
+}
+
+// policyTree is the RFC 5280 valid_policy_tree; a nil root is NULL.
+type policyTree struct {
+	root *policyNode
+}
+
+func newPolicyTree() *policyTree {
+	return &policyTree{root: &policyNode{validPolicy: oid.AnyPolicy, expected: []string{oid.AnyPolicy}}}
+}
+
+func (tree *policyTree) nodesAtDepth(depth int) []*policyNode {
+	if tree.root == nil {
+		return nil
+	}
+	level := []*policyNode{tree.root}
+	for ; depth > 0; depth-- {
+		var next []*policyNode
+		for _, n := range level {
+			next = append(next, n.children...)
+		}
+		level = next
+	}
+	return level
+}
+
+// addCertificatePolicies implements 6.1.3 (d) for certificate i.
+func (tree *policyTree) addCertificatePolicies(i int, policies []string, allowAnyPolicy bool) {
+	parents := tree.nodesAtDepth(i - 1)
+	for _, policy := range policies {
+		if policy == oid.AnyPolicy {
+			continue
+		}
+		matched := false
+		for _, parent := range parents {
+			if slices.Contains(parent.expected, policy) {
+				parent.addChild(policy, []string{policy})
+				matched = true
+			}
+		}
+		if matched {
+			continue
+		}
+		for _, parent := range parents {
+			if parent.validPolicy == oid.AnyPolicy {
+				parent.addChild(policy, []string{policy})
+			}
+		}
+	}
+
+	if allowAnyPolicy && slices.Contains(policies, oid.AnyPolicy) {
+		for _, parent := range parents {
+			for _, expected := range parent.expected {
+				if !parent.hasChild(expected) {
+					parent.addChild(expected, []string{expected})
 				}
 			}
 		}
 	}
-	return result
+	tree.prune(i)
 }
 
-func parseInhibitAnyPolicy(cert *x509.Certificate) *int {
-	for _, ext := range cert.Extensions {
-		if ext.Id.String() == oid.InhibitAnyPolicy {
-			var skipCerts int
-			if _, err := asn1.Unmarshal(ext.Value, &skipCerts); err == nil {
-				return &skipCerts
+// applyPolicyMappings implements 6.1.4 (a) and (b) for certificate i. It
+// reports false when a mapping involves anyPolicy.
+func (tree *policyTree) applyPolicyMappings(i int, mappings []certzcrypto.PolicyMapping, allowed bool) bool {
+	var issuerPolicies []string
+	subjectPolicies := make(map[string][]string)
+	for _, mapping := range mappings {
+		if mapping.IssuerDomainPolicy == oid.AnyPolicy || mapping.SubjectDomainPolicy == oid.AnyPolicy {
+			return false
+		}
+		if _, seen := subjectPolicies[mapping.IssuerDomainPolicy]; !seen {
+			issuerPolicies = append(issuerPolicies, mapping.IssuerDomainPolicy)
+		}
+		if !slices.Contains(subjectPolicies[mapping.IssuerDomainPolicy], mapping.SubjectDomainPolicy) {
+			subjectPolicies[mapping.IssuerDomainPolicy] = append(
+				subjectPolicies[mapping.IssuerDomainPolicy],
+				mapping.SubjectDomainPolicy,
+			)
+		}
+	}
+
+	for _, issuerPolicy := range issuerPolicies {
+		var mapped, anyPolicyNode *policyNode
+		for _, n := range tree.nodesAtDepth(i) {
+			switch n.validPolicy {
+			case issuerPolicy:
+				mapped = n
+				if allowed {
+					n.expected = slices.Clone(subjectPolicies[issuerPolicy])
+				} else {
+					tree.remove(n)
+				}
+			case oid.AnyPolicy:
+				anyPolicyNode = n
+			}
+		}
+		if allowed && mapped == nil && anyPolicyNode != nil {
+			anyPolicyNode.parent.addChild(issuerPolicy, slices.Clone(subjectPolicies[issuerPolicy]))
+		}
+	}
+	if !allowed {
+		tree.prune(i)
+	}
+	return true
+}
+
+// intersect implements 6.1.5 (g) for a path of n certificates.
+func (tree *policyTree) intersect(n int, acceptable []string) {
+	if tree.root == nil || slices.Contains(acceptable, oid.AnyPolicy) {
+		return
+	}
+
+	var validPolicyNodes []*policyNode
+	tree.walk(func(candidate *policyNode) {
+		if candidate.parent != nil && candidate.parent.validPolicy == oid.AnyPolicy {
+			validPolicyNodes = append(validPolicyNodes, candidate)
+		}
+	})
+	for _, candidate := range validPolicyNodes {
+		if candidate.validPolicy != oid.AnyPolicy && !slices.Contains(acceptable, candidate.validPolicy) {
+			tree.remove(candidate)
+		}
+	}
+
+	for _, anyPolicyLeaf := range tree.nodesAtDepth(n) {
+		if anyPolicyLeaf.validPolicy != oid.AnyPolicy || anyPolicyLeaf.parent == nil {
+			continue
+		}
+		for _, policy := range acceptable {
+			if !slices.ContainsFunc(validPolicyNodes, func(candidate *policyNode) bool {
+				return candidate.validPolicy == policy
+			}) {
+				anyPolicyLeaf.parent.addChild(policy, []string{policy})
+			}
+		}
+		tree.remove(anyPolicyLeaf)
+	}
+	tree.prune(n)
+}
+
+func (tree *policyTree) walk(visit func(*policyNode)) {
+	if tree.root == nil {
+		return
+	}
+	pending := []*policyNode{tree.root}
+	for len(pending) > 0 {
+		current := pending[0]
+		pending = pending[1:]
+		visit(current)
+		pending = append(pending, current.children...)
+	}
+}
+
+func (tree *policyTree) remove(target *policyNode) {
+	if target.parent == nil {
+		tree.root = nil
+		return
+	}
+	target.parent.children = slices.DeleteFunc(target.parent.children, func(child *policyNode) bool {
+		return child == target
+	})
+}
+
+// prune deletes nodes of depth below depth that have no children, deepest
+// first, and sets the tree to NULL when the root is deleted.
+func (tree *policyTree) prune(depth int) {
+	for level := depth - 1; level >= 0; level-- {
+		for _, n := range tree.nodesAtDepth(level) {
+			if len(n.children) == 0 {
+				tree.remove(n)
 			}
 		}
 	}
-	return nil
 }

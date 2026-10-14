@@ -18,6 +18,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Running with `--crl` and `--ocsp` but no certificate now lints the OCSP
   responses as well; previously only the CRLs were evaluated.
+- `certificatePolicyValid` now implements RFC 5280 Section 6.1 policy
+  processing. Policy constraints were previously never decoded and the
+  inhibitAnyPolicy and inhibitPolicyMapping skip counts were applied in the
+  wrong direction. The self-signed chain top is treated as the trust anchor
+  and its policies are no longer processed.
 
 ## [4.0.0] - 2026-09-20
 

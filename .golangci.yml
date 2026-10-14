@@ -64,8 +64,7 @@ linters:
           - dupl
 
       # Known complexity debt. Strict DER decoders and revocation assessment
-      # are refactored separately with golden fixtures; certificatePolicyValid
-      # needs an RFC 5280 6.1 rework rather than a restructuring.
+      # are refactored separately with golden fixtures.
       - linters: [gocognit]
         path: internal/crl/(assessment|entries)\.go
         text: "func `\\(\\*Catalog\\)\\.assessCertificate`|func `prepareEntryIndex`"
@@ -75,9 +74,6 @@ linters:
       - linters: [gocognit]
         path: internal/x509ext/general_names\.go
         text: "func `validateGeneralName`"
-      - linters: [gocognit]
-        path: internal/operator/policy\.go
-        text: "func `\\(CertificatePolicyValid\\)\\.Evaluate`"
 
 issues:
   max-issues-per-linter: 0

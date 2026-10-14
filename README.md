@@ -385,7 +385,7 @@ Related profiles used by selected rules and acquisition features include:
 | Operator | Description |
 |----------|-------------|
 | `nameConstraintsValid` | Applies supported DNS, email, URI, and IP constraints; partial Sections 6/7 behavior |
-| `certificatePolicyValid` | Compatibility operator; the Section 6 policy state machine is not active in `RFC5280.yaml` |
+| `certificatePolicyValid` | RFC 5280 6.1 policy processing from the trust anchor to the certificate; passes when an operand policy is valid for the path (not active in `RFC5280.yaml`) |
 
 ASN.1 time details are projected as ordinary fields (`encoding`, `rawValue`,
 `hasSeconds`, `hasFraction`, and `hasZulu`) and are checked with generic
