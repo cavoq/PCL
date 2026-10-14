@@ -2,6 +2,7 @@ package cert
 
 import (
 	"bytes"
+	"cmp"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -26,14 +27,17 @@ func LoadCertificatesWithSource(path string, sourceInfo source.Info) ([]*Info, e
 	}
 
 	infos := make([]*Info, 0, len(files))
+	var firstErr error
 	for _, file := range files {
 		data, err := os.ReadFile(file)
 		if err != nil {
+			firstErr = cmp.Or(firstErr, fmt.Errorf("%s: %w", file, err))
 			continue
 		}
 
 		cert, format, err := parseCertificate(data)
 		if err != nil {
+			firstErr = cmp.Or(firstErr, fmt.Errorf("%s: %w", file, err))
 			continue
 		}
 
@@ -53,7 +57,7 @@ func LoadCertificatesWithSource(path string, sourceInfo source.Info) ([]*Info, e
 	}
 
 	if len(infos) == 0 && len(files) > 0 {
-		return nil, fmt.Errorf("no valid items found in %s", path)
+		return nil, fmt.Errorf("no valid items found in %s: %w", path, firstErr)
 	}
 
 	return infos, nil

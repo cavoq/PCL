@@ -2,6 +2,7 @@
 package ocsp
 
 import (
+	"cmp"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/pem"
@@ -60,14 +61,17 @@ func GetOCSPs(path string) ([]*Info, error) {
 	}
 
 	infos := make([]*Info, 0, len(files))
+	var firstErr error
 	for _, file := range files {
 		data, err := os.ReadFile(file)
 		if err != nil {
+			firstErr = cmp.Or(firstErr, fmt.Errorf("%s: %w", file, err))
 			continue
 		}
 
 		resp, format, err := parseOCSP(data)
 		if err != nil {
+			firstErr = cmp.Or(firstErr, fmt.Errorf("%s: %w", file, err))
 			continue
 		}
 
@@ -82,7 +86,7 @@ func GetOCSPs(path string) ([]*Info, error) {
 	}
 
 	if len(infos) == 0 && len(files) > 0 {
-		return nil, fmt.Errorf("no valid items found in %s", path)
+		return nil, fmt.Errorf("no valid items found in %s: %w", path, firstErr)
 	}
 	return infos, nil
 }
