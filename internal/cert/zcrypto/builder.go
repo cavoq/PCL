@@ -8,6 +8,7 @@ import (
 	"crypto/rsa"
 	"encoding/hex"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/zmap/zcrypto/x509"
@@ -52,26 +53,10 @@ func BuildTree(cert *x509.Certificate) *node.Node {
 
 func buildCertificate(cert *x509.Certificate) *node.Node {
 	root := node.New("certificate", nil)
-	parsedExtensions := make(map[string]*node.Node)
 	metadata := projectTBSCertificateMetadata(root, cert.RawTBSCertificate)
 
 	root.Children["version"] = node.New("version", cert.Version)
-
-	if cert.SerialNumber != nil {
-		serialBytes := cert.SerialNumber.Bytes()
-		serialNode := node.New("serialNumber", serialBytes)
-		if metadata != nil {
-			serialBytes = append([]byte(nil), metadata.SerialNumber.Value...)
-			serialNode.Value = serialBytes
-			serialNode.Children["raw"] = node.New(
-				"raw",
-				append([]byte(nil), metadata.SerialNumber.RawDER...),
-			)
-			serialNode.Children["length"] = node.New("length", len(serialBytes))
-		}
-		serialNode.Children["value"] = node.New("value", cert.SerialNumber.String())
-		root.Children["serialNumber"] = serialNode
-	}
+	setChild(root, "serialNumber", buildSerialNumber(cert, metadata))
 
 	root.Children["signatureAlgorithm"] = buildSignatureAlgorithm(cert)
 	root.Children["tbsSignatureAlgorithm"] = buildTBSSignatureAlgorithm(cert)
@@ -85,70 +70,27 @@ func buildCertificate(cert *x509.Certificate) *node.Node {
 		projectUniqueIdentifier(root, "subjectUniqueID", metadata.SubjectUniqueID)
 	}
 
+	parsedExtensions := map[string]*node.Node{}
 	if len(cert.Extensions) > 0 {
 		root.Children["extensions"] = zcrypto.BuildExtensions(cert.Extensions)
-		extensionsNode := root.Children["extensions"]
-		seenExtensions := make(map[string]struct{}, len(cert.Extensions))
-		for _, ext := range cert.Extensions {
-			oidStr := ext.Id.String()
-			if _, duplicate := seenExtensions[oidStr]; duplicate {
-				continue
-			}
-			seenExtensions[oidStr] = struct{}{}
-			parser, supported := certificateExtensionParsers[oidStr]
-			if !supported {
-				continue
-			}
-			extNode := extensionsNode.Children[oidStr]
-			parsed, err := parser(ext.Value)
-			if err != nil {
-				extNode.Children["malformed"] = node.New("malformed", true)
-				name, _ := oid.ExtensionName(oidStr)
-				parsedExtensions[oidStr] = malformedExtensionNodeWithRaw(name, false, ext.Value)
-				continue
-			}
-			parsedExtensions[oidStr] = parsed
-			for name, child := range parsed.Children {
-				extNode.Children[name] = child
-			}
-		}
+		parsedExtensions = parseCertificateExtensions(root.Children["extensions"], cert.Extensions)
 	}
 
-	if projected := parsedExtensions[oid.KeyUsage]; projected != nil {
-		if projected.Children["malformed"] != nil {
-			fallback := buildKeyUsage(cert.KeyUsage)
-			fallback.Children["malformed"] = node.New("malformed", true)
-			fallback.Children["raw"] = projected.Children["raw"]
-			projected = fallback
-		}
-		root.Children["keyUsage"] = projected
-	} else if hasExtension(cert.Extensions, oid.KeyUsage) {
-		root.Children["keyUsage"] = buildKeyUsage(cert.KeyUsage)
-	}
-
-	if projected := parsedExtensions[oid.ExtendedKeyUsage]; projected != nil {
-		if projected.Children["malformed"] != nil && len(cert.ExtKeyUsage) > 0 {
-			fallback := buildExtKeyUsage(cert.ExtKeyUsage)
-			fallback.Children["malformed"] = node.New("malformed", true)
-			fallback.Children["raw"] = projected.Children["raw"]
-			projected = fallback
-		}
-		root.Children["extKeyUsage"] = projected
-	} else if len(cert.ExtKeyUsage) > 0 {
-		root.Children["extKeyUsage"] = buildExtKeyUsage(cert.ExtKeyUsage)
-	}
-
-	if projected := parsedExtensions[oid.BasicConstraints]; projected != nil {
-		if projected.Children["malformed"] != nil && cert.BasicConstraintsValid {
-			fallback := buildBasicConstraints(cert)
-			fallback.Children["malformed"] = node.New("malformed", true)
-			fallback.Children["raw"] = projected.Children["raw"]
-			projected = fallback
-		}
-		root.Children["basicConstraints"] = projected
-	} else if cert.BasicConstraintsValid {
-		root.Children["basicConstraints"] = buildBasicConstraints(cert)
-	}
+	setChild(root, "keyUsage", projectWithFallback(
+		parsedExtensions[oid.KeyUsage],
+		hasExtension(cert.Extensions, oid.KeyUsage),
+		func() *node.Node { return buildKeyUsage(cert.KeyUsage) },
+	))
+	setChild(root, "extKeyUsage", projectWithFallback(
+		parsedExtensions[oid.ExtendedKeyUsage],
+		len(cert.ExtKeyUsage) > 0,
+		func() *node.Node { return buildExtKeyUsage(cert.ExtKeyUsage) },
+	))
+	setChild(root, "basicConstraints", projectWithFallback(
+		parsedExtensions[oid.BasicConstraints],
+		cert.BasicConstraintsValid,
+		func() *node.Node { return buildBasicConstraints(cert) },
+	))
 
 	for identifier, name := range map[string]string{
 		oid.PolicyMappings:    "policyMappings",
@@ -188,20 +130,17 @@ func buildCertificate(cert *x509.Certificate) *node.Node {
 	}
 
 	// Add Name Constraints (for CA certificates)
-	if projected := parsedExtensions[oid.NameConstraints]; projected != nil {
+	projectedNameConstraints := parsedExtensions[oid.NameConstraints]
+	if projectedNameConstraints != nil {
 		if extension, ok := findExtension(cert.Extensions, oid.NameConstraints); ok {
-			projected.Children["critical"] = node.New("critical", extension.Critical)
+			projectedNameConstraints.Children["critical"] = node.New("critical", extension.Critical)
 		}
-		if projected.Children["malformed"] != nil && hasNameConstraints(cert) {
-			fallback := buildNameConstraints(cert)
-			fallback.Children["malformed"] = node.New("malformed", true)
-			fallback.Children["raw"] = projected.Children["raw"]
-			projected = fallback
-		}
-		root.Children["nameConstraints"] = projected
-	} else if hasNameConstraints(cert) {
-		root.Children["nameConstraints"] = buildNameConstraints(cert)
 	}
+	setChild(root, "nameConstraints", projectWithFallback(
+		projectedNameConstraints,
+		hasNameConstraints(cert),
+		func() *node.Node { return buildNameConstraints(cert) },
+	))
 
 	// Add CABF Organization Identifier (for EV certificates)
 	if cert.CABFOrganizationIdentifier != nil {
@@ -216,12 +155,90 @@ func buildCertificate(cert *x509.Certificate) *node.Node {
 	if len(cert.SignedCertificateTimestampList) > 0 {
 		sctNode := node.New("signedCertificateTimestamps", nil)
 		for i, sct := range cert.SignedCertificateTimestampList {
-			sctNode.Children[fmt.Sprintf("%d", i)] = buildSCT(sct, i)
+			sctNode.Children[strconv.Itoa(i)] = buildSCT(sct, i)
 		}
 		root.Children["signedCertificateTimestamps"] = sctNode
 	}
 
 	return root
+}
+
+func buildSerialNumber(cert *x509.Certificate, metadata *tbsCertificateMetadata) *node.Node {
+	if cert.SerialNumber == nil {
+		return nil
+	}
+	serialNode := node.New("serialNumber", cert.SerialNumber.Bytes())
+	if metadata != nil {
+		serialBytes := append([]byte(nil), metadata.SerialNumber.Value...)
+		serialNode.Value = serialBytes
+		serialNode.Children["raw"] = node.New(
+			"raw",
+			append([]byte(nil), metadata.SerialNumber.RawDER...),
+		)
+		serialNode.Children["length"] = node.New("length", len(serialBytes))
+	}
+	serialNode.Children["value"] = node.New("value", cert.SerialNumber.String())
+	return serialNode
+}
+
+// parseCertificateExtensions runs the strict parser for each supported
+// extension, merges the parsed children into the generic extension node and
+// returns the parsed projections by OID. A parse failure marks the generic
+// node malformed and records a malformed projection that keeps the raw value.
+func parseCertificateExtensions(extensionsNode *node.Node, extensions []pkix.Extension) map[string]*node.Node {
+	parsedExtensions := make(map[string]*node.Node)
+	seenExtensions := make(map[string]struct{}, len(extensions))
+	for _, ext := range extensions {
+		oidStr := ext.Id.String()
+		if _, duplicate := seenExtensions[oidStr]; duplicate {
+			continue
+		}
+		seenExtensions[oidStr] = struct{}{}
+		parser, supported := certificateExtensionParsers[oidStr]
+		if !supported {
+			continue
+		}
+		extNode := extensionsNode.Children[oidStr]
+		parsed, err := parser(ext.Value)
+		if err != nil {
+			extNode.Children["malformed"] = node.New("malformed", true)
+			name, _ := oid.ExtensionName(oidStr)
+			parsedExtensions[oidStr] = malformedExtensionNodeWithRaw(name, false, ext.Value)
+			continue
+		}
+		parsedExtensions[oidStr] = parsed
+		for name, child := range parsed.Children {
+			extNode.Children[name] = child
+		}
+	}
+	return parsedExtensions
+}
+
+// projectWithFallback prefers the strictly parsed projection of an extension.
+// When strict parsing failed but zcrypto still recovered typed values
+// (recovered), those values are projected instead, keeping the malformed
+// marker and raw bytes. Without a parsed projection the typed values are used
+// when recovered, and nil is returned otherwise.
+func projectWithFallback(parsed *node.Node, recovered bool, buildRecovered func() *node.Node) *node.Node {
+	if parsed == nil {
+		if recovered {
+			return buildRecovered()
+		}
+		return nil
+	}
+	if parsed.Children["malformed"] == nil || !recovered {
+		return parsed
+	}
+	fallback := buildRecovered()
+	fallback.Children["malformed"] = node.New("malformed", true)
+	fallback.Children["raw"] = parsed.Children["raw"]
+	return fallback
+}
+
+func setChild(parent *node.Node, name string, child *node.Node) {
+	if child != nil {
+		parent.Children[name] = child
+	}
 }
 
 func mirrorGeneralNamesMalformed(extensions *node.Node, identifier string, projected *node.Node) {
@@ -492,92 +509,75 @@ func buildNameConstraints(cert *x509.Certificate) *node.Node {
 	// Critical flag
 	n.Children["critical"] = node.New("critical", cert.NameConstraintsCritical)
 
-	// Permitted subtrees
-	if len(cert.PermittedDNSNames) > 0 ||
-		len(cert.PermittedEmailAddresses) > 0 ||
-		len(cert.PermittedURIs) > 0 ||
-		len(cert.PermittedIPAddresses) > 0 ||
-		len(cert.PermittedDirectoryNames) > 0 {
-		permittedNode := node.New("permittedSubtrees", nil)
-		buildGeneralSubtrees(permittedNode, "dNSName", cert.PermittedDNSNames)
-		buildGeneralSubtrees(permittedNode, "rfc822Name", cert.PermittedEmailAddresses)
-		buildGeneralSubtrees(permittedNode, "uniformResourceIdentifier", cert.PermittedURIs)
-		buildGeneralSubtreeIPs(permittedNode, "iPAddress", cert.PermittedIPAddresses)
-		buildGeneralSubtreeNames(permittedNode, "directoryName", cert.PermittedDirectoryNames)
-		n.Children["permittedSubtrees"] = permittedNode
-	}
-
-	// Excluded subtrees
-	if len(cert.ExcludedDNSNames) > 0 ||
-		len(cert.ExcludedEmailAddresses) > 0 ||
-		len(cert.ExcludedURIs) > 0 ||
-		len(cert.ExcludedIPAddresses) > 0 ||
-		len(cert.ExcludedDirectoryNames) > 0 {
-		excludedNode := node.New("excludedSubtrees", nil)
-		buildGeneralSubtrees(excludedNode, "dNSName", cert.ExcludedDNSNames)
-		buildGeneralSubtrees(excludedNode, "rfc822Name", cert.ExcludedEmailAddresses)
-		buildGeneralSubtrees(excludedNode, "uniformResourceIdentifier", cert.ExcludedURIs)
-		buildGeneralSubtreeIPs(excludedNode, "iPAddress", cert.ExcludedIPAddresses)
-		buildGeneralSubtreeNames(excludedNode, "directoryName", cert.ExcludedDirectoryNames)
-		n.Children["excludedSubtrees"] = excludedNode
-	}
+	setChild(n, "permittedSubtrees", buildNameConstraintSubtrees(
+		"permittedSubtrees",
+		cert.PermittedDNSNames,
+		cert.PermittedEmailAddresses,
+		cert.PermittedURIs,
+		cert.PermittedIPAddresses,
+		cert.PermittedDirectoryNames,
+	))
+	setChild(n, "excludedSubtrees", buildNameConstraintSubtrees(
+		"excludedSubtrees",
+		cert.ExcludedDNSNames,
+		cert.ExcludedEmailAddresses,
+		cert.ExcludedURIs,
+		cert.ExcludedIPAddresses,
+		cert.ExcludedDirectoryNames,
+	))
 
 	return n
 }
 
-func buildGeneralSubtrees(parent *node.Node, name string, subtrees []x509.GeneralSubtreeString) {
-	if len(subtrees) == 0 {
-		return
+// buildNameConstraintSubtrees projects one subtrees list per name form, or
+// returns nil when every list is empty.
+func buildNameConstraintSubtrees(
+	name string,
+	dnsNames, emailAddresses, uris []x509.GeneralSubtreeString,
+	ipAddresses []x509.GeneralSubtreeIP,
+	directoryNames []x509.GeneralSubtreeName,
+) *node.Node {
+	n := node.New(name, nil)
+	stringSubtree := func(subtree x509.GeneralSubtreeString) (*node.Node, int, int) {
+		return node.New("value", subtree.Data), subtree.Min, subtree.Max
 	}
-	subtreeNode := node.New(name, nil)
-	for i, subtree := range subtrees {
-		child := node.New(fmt.Sprintf("%d", i), nil)
-		child.Children["value"] = node.New("value", subtree.Data)
-		if subtree.Min > 0 {
-			child.Children["min"] = node.New("min", subtree.Min)
-		}
-		if subtree.Max > 0 {
-			child.Children["max"] = node.New("max", subtree.Max)
-		}
-		subtreeNode.Children[fmt.Sprintf("%d", i)] = child
+	buildGeneralSubtrees(n, "dNSName", dnsNames, stringSubtree)
+	buildGeneralSubtrees(n, "rfc822Name", emailAddresses, stringSubtree)
+	buildGeneralSubtrees(n, "uniformResourceIdentifier", uris, stringSubtree)
+	buildGeneralSubtrees(n, "iPAddress", ipAddresses, func(subtree x509.GeneralSubtreeIP) (*node.Node, int, int) {
+		return node.New("value", subtree.Data.String()), subtree.Min, subtree.Max
+	})
+	buildGeneralSubtrees(n, "directoryName", directoryNames, func(subtree x509.GeneralSubtreeName) (*node.Node, int, int) {
+		return zcrypto.BuildPkixName("value", subtree.Data), subtree.Min, subtree.Max
+	})
+	if len(n.Children) == 0 {
+		return nil
 	}
-	parent.Children[name] = subtreeNode
+	return n
 }
 
-func buildGeneralSubtreeIPs(parent *node.Node, name string, subtrees []x509.GeneralSubtreeIP) {
+func buildGeneralSubtrees[T any](
+	parent *node.Node,
+	name string,
+	subtrees []T,
+	project func(T) (value *node.Node, minimum, maximum int),
+) {
 	if len(subtrees) == 0 {
 		return
 	}
 	subtreeNode := node.New(name, nil)
 	for i, subtree := range subtrees {
-		child := node.New(fmt.Sprintf("%d", i), nil)
-		child.Children["value"] = node.New("value", subtree.Data.String())
-		if subtree.Min > 0 {
-			child.Children["min"] = node.New("min", subtree.Min)
+		key := strconv.Itoa(i)
+		child := node.New(key, nil)
+		value, minimum, maximum := project(subtree)
+		child.Children["value"] = value
+		if minimum > 0 {
+			child.Children["min"] = node.New("min", minimum)
 		}
-		if subtree.Max > 0 {
-			child.Children["max"] = node.New("max", subtree.Max)
+		if maximum > 0 {
+			child.Children["max"] = node.New("max", maximum)
 		}
-		subtreeNode.Children[fmt.Sprintf("%d", i)] = child
-	}
-	parent.Children[name] = subtreeNode
-}
-
-func buildGeneralSubtreeNames(parent *node.Node, name string, subtrees []x509.GeneralSubtreeName) {
-	if len(subtrees) == 0 {
-		return
-	}
-	subtreeNode := node.New(name, nil)
-	for i, subtree := range subtrees {
-		child := node.New(fmt.Sprintf("%d", i), nil)
-		child.Children["value"] = zcrypto.BuildPkixName("value", subtree.Data)
-		if subtree.Min > 0 {
-			child.Children["min"] = node.New("min", subtree.Min)
-		}
-		if subtree.Max > 0 {
-			child.Children["max"] = node.New("max", subtree.Max)
-		}
-		subtreeNode.Children[fmt.Sprintf("%d", i)] = child
+		subtreeNode.Children[key] = child
 	}
 	parent.Children[name] = subtreeNode
 }
