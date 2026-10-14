@@ -25,6 +25,10 @@ type Context struct {
 	CRLs     []*crl.Info
 	OCSPs    []*ocsp.Info
 	Chain    []*cert.Info
+	// Certificates are all supplied certificates. Those outside Chain, such
+	// as separate CRL-signing or indirect CRL issuer certificates, remain
+	// CRL signer candidates.
+	Certificates []*cert.Info
 	// RevocationRequested records that the caller requested CRL checking even
 	// when acquisition produced no usable lists. In that case the certificate
 	// receives an explicit Unknown assessment rather than silently skipping the
@@ -93,12 +97,21 @@ func ChainSubjects(ctx Context) []Subject {
 	lists := revocationLists(ctx.CRLs)
 	allCRLIssuers := combinedCRLIssuerPool(ctx)
 	ocspIssuers := cert.CertsFromInfos(ctx.Chain)
+	authorizer := ctx.CRLSignerAuthorizer
+	var pathAuthorizer *pathSignerAuthorizer
+	if authorizer == nil {
+		pathAuthorizer = newPathSignerAuthorizer(ctx.Chain, now)
+		authorizer = pathAuthorizer
+	}
 	catalog := crl.NewCatalog(lists, crl.RevocationContext{
 		Now:             now,
 		Issuers:         allCRLIssuers,
 		UseDeltas:       true,
-		AuthorizeSigner: ctx.CRLSignerAuthorizer,
+		AuthorizeSigner: authorizer,
 	})
+	if pathAuthorizer != nil {
+		pathAuthorizer.catalog = catalog
+	}
 
 	var subjects []Subject
 	for _, c := range ctx.Chain {
@@ -280,6 +293,51 @@ func evaluatePolicies(
 	return results
 }
 
+// pathSignerAuthorizer is the default CRL signer decision. A signer in the
+// evaluated chain is authorized. Any other signer, such as a separate
+// CRL-signing certificate or an indirect CRL issuer, must be within its
+// validity period and have Good status under the same CRLs (RFC 5280 6.3.3
+// (f)). A signer may be covered by a CRL it signed itself.
+type pathSignerAuthorizer struct {
+	chain    *cert.CertificateSet
+	now      time.Time
+	catalog  *crl.Catalog
+	visiting *cert.CertificateSet
+}
+
+func newPathSignerAuthorizer(chain []*cert.Info, now time.Time) *pathSignerAuthorizer {
+	return &pathSignerAuthorizer{
+		chain:    cert.NewCertificateSet(cert.CertsFromInfos(chain)...),
+		now:      now,
+		visiting: cert.NewCertificateSet(),
+	}
+}
+
+func (authorizer *pathSignerAuthorizer) AuthorizeCRLSigner(
+	_, signer *x509.Certificate,
+	_ *x509.RevocationList,
+) bool {
+	if authorizer.chain.Contains(signer) {
+		return true
+	}
+	if authorizer.now.Before(signer.NotBefore) || authorizer.now.After(signer.NotAfter) {
+		return false
+	}
+	if authorizer.catalog == nil {
+		return false
+	}
+	if !authorizer.visiting.Add(signer) {
+		// The signer's own status is being assessed and depends on a CRL it
+		// signed, as for an indirect CRL issuer covered by its own CRL (PKITS
+		// 4.14.30). Accept provisionally; that CRL decides whether the
+		// signer is revoked.
+		return true
+	}
+	defer authorizer.visiting.Remove(signer)
+	assessment := authorizer.catalog.AssessCertificate(signer)
+	return assessment.Status() == crl.RevocationGood
+}
+
 func projectApplicationPurpose(tree *node.Node, purpose string) {
 	if tree == nil || purpose == "" {
 		return
@@ -338,16 +396,30 @@ func evaluationTime(configured time.Time) time.Time {
 }
 
 func issuerCertsForCRL(ctx Context, revocationList *x509.RevocationList) []*x509.Certificate {
+	candidates := crlSignerCandidates(ctx)
 	if ctx.CRLResolveTimeout > 0 && ctx.CRLResolveMaxDepth > 0 {
 		return crl.ResolveIssuerCerts(
-			ctx.Chain,
+			candidates,
 			revocationList,
 			ctx.CRLResolveTimeout,
 			ctx.CRLResolveMaxDepth,
 			ctx.CRLResolveWarn,
 		)
 	}
-	return cert.CertsFromInfos(ctx.Chain)
+	return cert.CertsFromInfos(candidates)
+}
+
+// crlSignerCandidates returns the chain followed by the other supplied
+// certificates, each certificate once.
+func crlSignerCandidates(ctx Context) []*cert.Info {
+	candidates := append([]*cert.Info(nil), ctx.Chain...)
+	seen := cert.NewCertificateSet(cert.CertsFromInfos(ctx.Chain)...)
+	for _, info := range ctx.Certificates {
+		if info != nil && info.Cert != nil && seen.Add(info.Cert) {
+			candidates = append(candidates, info)
+		}
+	}
+	return candidates
 }
 
 // PrepareCRLIssuers resolves each CRL issuer once and stores the pools on the

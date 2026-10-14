@@ -50,8 +50,10 @@ func Run(cfg Config, w io.Writer) error {
 // lintInputs is everything a run evaluates, after loading, chain building
 // and automatic retrieval. chain is nil without certificate input.
 type lintInputs struct {
-	chain   []*cert.Info
-	issuers []*cert.Info
+	chain []*cert.Info
+	// certificates holds every supplied, climbed or downloaded certificate.
+	certificates []*cert.Info
+	issuers      []*cert.Info
 	crls         []*crl.Info
 	ocsps        []*ocsp.Info
 }
@@ -86,7 +88,7 @@ func acquireInputs(cfg Config, diagnostics io.Writer, cleanups *cleanupStack) (l
 	if err != nil {
 		return lintInputs{}, err
 	}
-	if inputs.chain, err = buildCertificateChain(cfg, certs, issuers, diagnostics); err != nil {
+	if inputs.chain, inputs.certificates, err = buildCertificateChain(cfg, certs, issuers, diagnostics); err != nil {
 		return lintInputs{}, err
 	}
 
@@ -99,12 +101,14 @@ func acquireInputs(cfg Config, diagnostics io.Writer, cleanups *cleanupStack) (l
 	return inputs, nil
 }
 
-func buildCertificateChain(cfg Config, certs, issuers []*cert.Info, w io.Writer) ([]*cert.Info, error) {
+// buildCertificateChain returns the evaluated chain and every certificate
+// that was available to build it.
+func buildCertificateChain(cfg Config, certs, issuers []*cert.Info, w io.Writer) ([]*cert.Info, []*cert.Info, error) {
 	allCerts := make([]*cert.Info, 0, len(certs)+len(issuers))
 	allCerts = append(allCerts, certs...)
 	allCerts = append(allCerts, issuers...)
 	if len(allCerts) == 0 {
-		return nil, fmt.Errorf("no certificates available to build a chain")
+		return nil, nil, fmt.Errorf("no certificates available to build a chain")
 	}
 
 	if cfg.AutoValidate && !cfg.NoAutoChain {
@@ -113,14 +117,14 @@ func buildCertificateChain(cfg Config, certs, issuers []*cert.Info, w io.Writer)
 
 	chain, err := cert.BuildChainFor(certs, allCerts)
 	if err != nil {
-		return nil, fmt.Errorf("failed to build certificate chain: %w", err)
+		return nil, nil, fmt.Errorf("failed to build certificate chain: %w", err)
 	}
 	for _, target := range certs {
 		if !slices.Contains(chain, target) {
 			_, _ = fmt.Fprintf(w, "Warning: %s is not part of the evaluated certificate chain and is not linted\n", target.FilePath)
 		}
 	}
-	return chain, nil
+	return chain, allCerts, nil
 }
 
 // buildSubjects returns every evaluated input in output order: the chain,
@@ -161,6 +165,7 @@ func buildSubjects(
 		CRLs:                inputs.crls,
 		OCSPs:               inputs.ocsps,
 		Chain:               inputs.chain,
+		Certificates:        inputs.certificates,
 		RevocationRequested: crlRevocationRequested(cfg),
 		ValidationTime:      validationTime(cfg),
 		ApplicationPurpose:  cfg.ApplicationPurpose,

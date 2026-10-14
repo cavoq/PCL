@@ -62,6 +62,16 @@ func SameCertificate(left, right *x509.Certificate) bool {
 	return leftOK && rightOK && leftKey == rightKey
 }
 
+// Remove forgets certificate.
+func (s *CertificateSet) Remove(certificate *x509.Certificate) {
+	if s == nil || s.keys == nil {
+		return
+	}
+	if key, ok := certificateIdentity(certificate); ok {
+		delete(s.keys, key)
+	}
+}
+
 // Add records certificate and reports whether its identity was new.
 func (s *CertificateSet) Add(certificate *x509.Certificate) bool {
 	if s == nil {
