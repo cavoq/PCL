@@ -2,6 +2,7 @@ package operator
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -175,18 +176,11 @@ func parseEveryOperands(operands []any) (everyOperands, error) {
 }
 
 func parseEveryObject(object map[string]any) (everyOperands, error) {
-	allowed := map[string]struct{}{
-		"path": {}, "operator": {}, "check": {}, "operands": {}, "values": {}, "skipMissing": {},
-	}
-	var unknown []string
-	for key := range object {
-		if _, ok := allowed[key]; !ok {
-			unknown = append(unknown, key)
-		}
-	}
-	if len(unknown) > 0 {
-		sort.Strings(unknown)
-		return everyOperands{}, fmt.Errorf("operands[0]: unknown field(s) %s", strings.Join(unknown, ", "))
+	if err := rejectUnknownFields(
+		object,
+		"path", "operator", "check", "operands", "values", "skipMissing",
+	); err != nil {
+		return everyOperands{}, err
 	}
 
 	parsed := everyOperands{invocationPath: "operands[0]"}
@@ -200,10 +194,8 @@ func parseEveryObject(object map[string]any) (everyOperands, error) {
 		}
 		parsed.path = path
 	}
-	if _, modern := object["operator"]; modern {
-		if _, legacy := object["check"]; legacy {
-			return everyOperands{}, fmt.Errorf("operands[0]: operator and check are mutually exclusive")
-		}
+	if err := rejectBothFields(object, "operator", "check"); err != nil {
+		return everyOperands{}, err
 	}
 	operatorValue, exists := object["operator"]
 	if !exists {
@@ -218,10 +210,8 @@ func parseEveryObject(object map[string]any) (everyOperands, error) {
 	}
 	parsed.operator = innerOperator
 
-	if _, modern := object["operands"]; modern {
-		if _, legacy := object["values"]; legacy {
-			return everyOperands{}, fmt.Errorf("operands[0]: operands and values are mutually exclusive")
-		}
+	if err := rejectBothFields(object, "operands", "values"); err != nil {
+		return everyOperands{}, err
 	}
 	if value, exists := object["operands"]; exists {
 		parsed.operands = NormalizeOperands(value)
@@ -238,4 +228,30 @@ func parseEveryObject(object map[string]any) (everyOperands, error) {
 		parsed.skipMissing = skipMissing
 	}
 	return parsed, nil
+}
+
+// rejectUnknownFields reports fields of a structured operand outside allowed.
+func rejectUnknownFields(object map[string]any, allowed ...string) error {
+	var unknown []string
+	for key := range object {
+		if !slices.Contains(allowed, key) {
+			unknown = append(unknown, key)
+		}
+	}
+	if len(unknown) == 0 {
+		return nil
+	}
+	sort.Strings(unknown)
+	return fmt.Errorf("operands[0]: unknown field(s) %s", strings.Join(unknown, ", "))
+}
+
+// rejectBothFields reports a structured operand that sets two alternative
+// spellings of the same field.
+func rejectBothFields(object map[string]any, first, second string) error {
+	_, firstSet := object[first]
+	_, secondSet := object[second]
+	if firstSet && secondSet {
+		return fmt.Errorf("operands[0]: %s and %s are mutually exclusive", first, second)
+	}
+	return nil
 }
