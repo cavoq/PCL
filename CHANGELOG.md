@@ -19,6 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   with a fixed evaluation time and check expected verdicts per input, policy
   and rule, or an expected error.
 
+### Fixed
+- Command errors are printed once, and runtime failures no longer print the
+  full usage text; usage is still shown for flag and argument errors.
+
 ## [5.0.0] - 2026-10-14
 
 ### Breaking Changes
