@@ -1,6 +1,8 @@
 package operator
 
 import (
+	cryptobyte_asn1 "golang.org/x/crypto/cryptobyte/asn1"
+
 	"github.com/cavoq/PCL/internal/node"
 )
 
@@ -11,22 +13,7 @@ type IsIA5String struct{}
 func (IsIA5String) Name() string { return "isIA5String" }
 
 func (IsIA5String) Evaluate(n *node.Node, _ *EvaluationContext, _ []any) (bool, error) {
-	if n == nil {
-		return false, nil
-	}
-
-	// Check encoding child from DN attribute encoding info
-	encodingNode := n.Children["encoding"]
-	if encodingNode == nil || encodingNode.Value == nil {
-		return false, nil
-	}
-
-	// IA5String tag is 22
-	if tag, ok := encodingNode.Value.(int); ok {
-		return tag == 22, nil
-	}
-
-	return false, nil
+	return hasEncodingTag(n, cryptobyte_asn1.IA5String), nil
 }
 
 // IsPrintableString checks if a string value uses PrintableString encoding.
@@ -36,22 +23,7 @@ type IsPrintableString struct{}
 func (IsPrintableString) Name() string { return "isPrintableString" }
 
 func (IsPrintableString) Evaluate(n *node.Node, _ *EvaluationContext, _ []any) (bool, error) {
-	if n == nil {
-		return false, nil
-	}
-
-	// Check encoding child from DN attribute encoding info
-	encodingNode := n.Children["encoding"]
-	if encodingNode == nil || encodingNode.Value == nil {
-		return false, nil
-	}
-
-	// PrintableString tag is 19
-	if tag, ok := encodingNode.Value.(int); ok {
-		return tag == 19, nil
-	}
-
-	return false, nil
+	return hasEncodingTag(n, cryptobyte_asn1.PrintableString), nil
 }
 
 // IsUTF8String checks if a string value uses UTF8String encoding.
@@ -60,22 +32,7 @@ type IsUTF8String struct{}
 func (IsUTF8String) Name() string { return "isUTF8String" }
 
 func (IsUTF8String) Evaluate(n *node.Node, _ *EvaluationContext, _ []any) (bool, error) {
-	if n == nil {
-		return false, nil
-	}
-
-	// Check encoding child from DN attribute encoding info
-	encodingNode := n.Children["encoding"]
-	if encodingNode == nil || encodingNode.Value == nil {
-		return false, nil
-	}
-
-	// UTF8String tag is 12
-	if tag, ok := encodingNode.Value.(int); ok {
-		return tag == 12, nil
-	}
-
-	return false, nil
+	return hasEncodingTag(n, cryptobyte_asn1.UTF8String), nil
 }
 
 // ValidIA5String checks that a string contains only valid IA5String characters.
@@ -138,6 +95,20 @@ func (ValidPrintableString) Evaluate(n *node.Node, _ *EvaluationContext, _ []any
 }
 
 // Helper functions
+
+// hasEncodingTag reports whether n carries the DN attribute encoding child
+// with the given universal string tag.
+func hasEncodingTag(n *node.Node, tag cryptobyte_asn1.Tag) bool {
+	if n == nil {
+		return false
+	}
+	encodingNode := n.Children["encoding"]
+	if encodingNode == nil {
+		return false
+	}
+	value, ok := encodingNode.Value.(int)
+	return ok && value == int(tag)
+}
 
 func isASCII(s string) bool {
 	for _, c := range s {

@@ -11,56 +11,42 @@ type Gte struct{}
 
 func (Gte) Name() string { return "gte" }
 
-func (Gte) Evaluate(n *node.Node, ctx *EvaluationContext, operands []any) (bool, error) {
-	if n == nil {
-		return false, nil
-	}
-	if len(operands) != 1 {
-		return false, fmt.Errorf("gte requires exactly 1 operand")
-	}
-	return compareNumbers(n.Value, operands[0], func(order int) bool { return order >= 0 })
+func (op Gte) Evaluate(n *node.Node, _ *EvaluationContext, operands []any) (bool, error) {
+	return evaluateComparison(op.Name(), n, operands, func(order int) bool { return order >= 0 })
 }
 
 type Gt struct{}
 
 func (Gt) Name() string { return "gt" }
 
-func (Gt) Evaluate(n *node.Node, ctx *EvaluationContext, operands []any) (bool, error) {
-	if n == nil {
-		return false, nil
-	}
-	if len(operands) != 1 {
-		return false, fmt.Errorf("gt requires exactly 1 operand")
-	}
-	return compareNumbers(n.Value, operands[0], func(order int) bool { return order > 0 })
+func (op Gt) Evaluate(n *node.Node, _ *EvaluationContext, operands []any) (bool, error) {
+	return evaluateComparison(op.Name(), n, operands, func(order int) bool { return order > 0 })
 }
 
 type Lte struct{}
 
 func (Lte) Name() string { return "lte" }
 
-func (Lte) Evaluate(n *node.Node, ctx *EvaluationContext, operands []any) (bool, error) {
-	if n == nil {
-		return false, nil
-	}
-	if len(operands) != 1 {
-		return false, fmt.Errorf("lte requires exactly 1 operand")
-	}
-	return compareNumbers(n.Value, operands[0], func(order int) bool { return order <= 0 })
+func (op Lte) Evaluate(n *node.Node, _ *EvaluationContext, operands []any) (bool, error) {
+	return evaluateComparison(op.Name(), n, operands, func(order int) bool { return order <= 0 })
 }
 
 type Lt struct{}
 
 func (Lt) Name() string { return "lt" }
 
-func (Lt) Evaluate(n *node.Node, ctx *EvaluationContext, operands []any) (bool, error) {
+func (op Lt) Evaluate(n *node.Node, _ *EvaluationContext, operands []any) (bool, error) {
+	return evaluateComparison(op.Name(), n, operands, func(order int) bool { return order < 0 })
+}
+
+func evaluateComparison(name string, n *node.Node, operands []any, accept func(order int) bool) (bool, error) {
 	if n == nil {
 		return false, nil
 	}
 	if len(operands) != 1 {
-		return false, fmt.Errorf("lt requires exactly 1 operand")
+		return false, fmt.Errorf("%s requires exactly 1 operand", name)
 	}
-	return compareNumbers(n.Value, operands[0], func(order int) bool { return order < 0 })
+	return compareNumbers(n.Value, operands[0], accept)
 }
 
 func compareNumbers(val, operand any, compare func(order int) bool) (bool, error) {

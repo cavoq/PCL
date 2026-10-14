@@ -1,9 +1,10 @@
 package operator
 
 import (
+	"errors"
 	"fmt"
 	"net"
-	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/cavoq/PCL/internal/node"
@@ -26,53 +27,9 @@ type ComponentMaxLength struct{}
 func (ComponentMaxLength) Name() string { return "componentMaxLength" }
 
 func (ComponentMaxLength) Evaluate(n *node.Node, _ *EvaluationContext, operands []any) (bool, error) {
-	if n == nil || len(operands) < 1 {
-		return false, nil
-	}
-
-	maxLen, err := parseIntegerOperand(operands[0])
-	if err != nil {
-		return false, fmt.Errorf("componentMaxLength requires integer max length operand")
-	}
-
-	delimiter := "."
-	if len(operands) >= 2 {
-		if d, ok := operands[1].(string); ok && d != "" {
-			delimiter = d
-		}
-	}
-
-	// Handle parent node with children (like dNSName with indexed children)
-	if n.Value == nil && len(n.Children) > 0 {
-		for _, child := range n.Children {
-			str, ok := child.Value.(string)
-			if !ok {
-				continue
-			}
-			if !validateComponentMaxLength(str, maxLen, delimiter) {
-				return false, nil
-			}
-		}
-		return true, nil
-	}
-
-	// Handle single string value
-	str, ok := n.Value.(string)
-	if !ok {
-		return false, nil
-	}
-
-	return validateComponentMaxLength(str, maxLen, delimiter), nil
-}
-
-func validateComponentMaxLength(str string, maxLen int, delimiter string) bool {
-	components := strings.Split(str, delimiter)
-	for _, comp := range components {
-		if len(comp) > maxLen {
-			return false
-		}
-	}
-	return true
+	return evaluateComponentLength(n, operands, "componentMaxLength requires integer max length operand", func(length, bound int) bool {
+		return length <= bound
+	})
 }
 
 // ComponentMinLength validates that each component of a delimited string
@@ -86,53 +43,9 @@ type ComponentMinLength struct{}
 func (ComponentMinLength) Name() string { return "componentMinLength" }
 
 func (ComponentMinLength) Evaluate(n *node.Node, _ *EvaluationContext, operands []any) (bool, error) {
-	if n == nil || len(operands) < 1 {
-		return false, nil
-	}
-
-	minLen, err := parseIntegerOperand(operands[0])
-	if err != nil {
-		return false, fmt.Errorf("componentMinLength requires integer min length operand")
-	}
-
-	delimiter := "."
-	if len(operands) >= 2 {
-		if d, ok := operands[1].(string); ok && d != "" {
-			delimiter = d
-		}
-	}
-
-	// Handle parent node with children
-	if n.Value == nil && len(n.Children) > 0 {
-		for _, child := range n.Children {
-			str, ok := child.Value.(string)
-			if !ok {
-				continue
-			}
-			if !validateComponentMinLength(str, minLen, delimiter) {
-				return false, nil
-			}
-		}
-		return true, nil
-	}
-
-	// Handle single string value
-	str, ok := n.Value.(string)
-	if !ok {
-		return false, nil
-	}
-
-	return validateComponentMinLength(str, minLen, delimiter), nil
-}
-
-func validateComponentMinLength(str string, minLen int, delimiter string) bool {
-	components := strings.Split(str, delimiter)
-	for _, comp := range components {
-		if len(comp) < minLen {
-			return false
-		}
-	}
-	return true
+	return evaluateComponentLength(n, operands, "componentMinLength requires integer min length operand", func(length, bound int) bool {
+		return length >= bound
+	})
 }
 
 // ComponentRegex validates that each component of one delimited string
@@ -147,21 +60,9 @@ func (ComponentRegex) Evaluate(n *node.Node, _ *EvaluationContext, operands []an
 		return false, nil
 	}
 
-	pattern, ok := operands[0].(string)
-	if !ok {
-		return false, fmt.Errorf("componentRegex requires string pattern operand")
-	}
-
-	re, err := getCompiledRegex(pattern)
+	re, err := compilePatternOperand(operands[0], "componentRegex requires string pattern operand")
 	if err != nil {
 		return false, err
-	}
-
-	delimiter := "."
-	if len(operands) >= 2 {
-		if d, ok := operands[1].(string); ok && d != "" {
-			delimiter = d
-		}
 	}
 
 	str, ok := n.Value.(string)
@@ -169,17 +70,7 @@ func (ComponentRegex) Evaluate(n *node.Node, _ *EvaluationContext, operands []an
 		return false, nil
 	}
 
-	return validateComponentRegex(str, re, delimiter), nil
-}
-
-func validateComponentRegex(str string, re *regexp.Regexp, delimiter string) bool {
-	components := strings.Split(str, delimiter)
-	for _, comp := range components {
-		if !re.MatchString(comp) {
-			return false
-		}
-	}
-	return true
+	return everyComponent(str, componentDelimiter(operands), re.MatchString), nil
 }
 
 // ComponentNotRegex validates that each component of a delimited string
@@ -197,54 +88,14 @@ func (ComponentNotRegex) Evaluate(n *node.Node, _ *EvaluationContext, operands [
 		return false, nil
 	}
 
-	pattern, ok := operands[0].(string)
-	if !ok {
-		return false, fmt.Errorf("componentNotRegex requires string pattern operand")
-	}
-
-	re, err := getCompiledRegex(pattern)
+	re, err := compilePatternOperand(operands[0], "componentNotRegex requires string pattern operand")
 	if err != nil {
 		return false, err
 	}
 
-	delimiter := "."
-	if len(operands) >= 2 {
-		if d, ok := operands[1].(string); ok && d != "" {
-			delimiter = d
-		}
-	}
-
-	// Handle parent node with children
-	if n.Value == nil && len(n.Children) > 0 {
-		for _, child := range n.Children {
-			str, ok := child.Value.(string)
-			if !ok {
-				continue
-			}
-			if !validateComponentNotRegex(str, re, delimiter) {
-				return false, nil
-			}
-		}
-		return true, nil
-	}
-
-	// Handle single string value
-	str, ok := n.Value.(string)
-	if !ok {
-		return false, nil
-	}
-
-	return validateComponentNotRegex(str, re, delimiter), nil
-}
-
-func validateComponentNotRegex(str string, re *regexp.Regexp, delimiter string) bool {
-	components := strings.Split(str, delimiter)
-	for _, comp := range components {
-		if re.MatchString(comp) {
-			return false
-		}
-	}
-	return true
+	return allComponents(n, componentDelimiter(operands), func(component string) bool {
+		return !re.MatchString(component)
+	}), nil
 }
 
 // ComponentInCIDR checks if any component (IP address) is within any of the specified CIDR ranges.
@@ -265,33 +116,16 @@ func (ComponentInCIDR) Evaluate(n *node.Node, _ *EvaluationContext, operands []a
 		return false, nil
 	}
 
-	// Parse CIDR ranges from operands
 	cidrs := parseCIDROperands(operands)
 	if len(cidrs) == 0 {
 		return false, fmt.Errorf("componentInCIDR requires valid CIDR operands")
 	}
 
-	// Handle parent node with children (iPAddress array)
-	if n.Value == nil && len(n.Children) > 0 {
-		for _, child := range n.Children {
-			str, ok := child.Value.(string)
-			if !ok {
-				continue
-			}
-			if ipInCIDRs(str, cidrs) {
-				return true, nil
-			}
-		}
-		return false, nil
-	}
-
-	// Handle single IP address string value
-	str, ok := n.Value.(string)
+	values, ok := candidateStrings(n)
 	if !ok {
 		return false, nil
 	}
-
-	return ipInCIDRs(str, cidrs), nil
+	return slices.ContainsFunc(values, func(ip string) bool { return ipInCIDRs(ip, cidrs) }), nil
 }
 
 // ComponentNotInCIDR checks if all components (IP addresses) are NOT within any of the specified CIDR ranges.
@@ -312,35 +146,16 @@ func (ComponentNotInCIDR) Evaluate(n *node.Node, _ *EvaluationContext, operands 
 		return false, nil
 	}
 
-	// Parse CIDR ranges from operands
 	cidrs := parseCIDROperands(operands)
 	if len(cidrs) == 0 {
 		return false, fmt.Errorf("componentNotInCIDR requires valid CIDR operands")
 	}
 
-	// Handle parent node with children (iPAddress array)
-	if n.Value == nil && len(n.Children) > 0 {
-		for _, child := range n.Children {
-			str, ok := child.Value.(string)
-			if !ok {
-				continue
-			}
-			if ipInCIDRs(str, cidrs) {
-				// Found an IP in a reserved range - validation fails
-				return false, nil
-			}
-		}
-		// All IPs are outside reserved ranges - validation passes
-		return true, nil
-	}
-
-	// Handle single IP address string value
-	str, ok := n.Value.(string)
+	values, ok := candidateStrings(n)
 	if !ok {
 		return false, nil
 	}
-
-	return !ipInCIDRs(str, cidrs), nil
+	return !slices.ContainsFunc(values, func(ip string) bool { return ipInCIDRs(ip, cidrs) }), nil
 }
 
 // parseCIDROperands converts operand list to CIDR network slices
@@ -394,37 +209,16 @@ func (AnyComponentMatches) Evaluate(n *node.Node, _ *EvaluationContext, operands
 		return false, nil
 	}
 
-	pattern, ok := operands[0].(string)
-	if !ok {
-		return false, fmt.Errorf("anyComponentMatches requires string pattern operand")
-	}
-
-	re, err := getCompiledRegex(pattern)
+	re, err := compilePatternOperand(operands[0], "anyComponentMatches requires string pattern operand")
 	if err != nil {
 		return false, err
 	}
 
-	// Handle parent node with children
-	if n.Value == nil && len(n.Children) > 0 {
-		for _, child := range n.Children {
-			str, ok := child.Value.(string)
-			if !ok {
-				continue
-			}
-			if re.MatchString(str) {
-				return true, nil
-			}
-		}
-		return false, nil
-	}
-
-	// Handle single string value
-	str, ok := n.Value.(string)
+	values, ok := candidateStrings(n)
 	if !ok {
 		return false, nil
 	}
-
-	return re.MatchString(str), nil
+	return slices.ContainsFunc(values, re.MatchString), nil
 }
 
 // NoComponentMatches checks if NO component (child value) matches the regex pattern.
@@ -444,35 +238,89 @@ func (NoComponentMatches) Evaluate(n *node.Node, _ *EvaluationContext, operands 
 		return false, nil
 	}
 
-	pattern, ok := operands[0].(string)
-	if !ok {
-		return false, fmt.Errorf("noComponentMatches requires string pattern operand")
-	}
-
-	re, err := getCompiledRegex(pattern)
+	re, err := compilePatternOperand(operands[0], "noComponentMatches requires string pattern operand")
 	if err != nil {
 		return false, err
 	}
 
-	// Handle parent node with children
-	if n.Value == nil && len(n.Children) > 0 {
-		for _, child := range n.Children {
-			str, ok := child.Value.(string)
-			if !ok {
-				continue
-			}
-			if re.MatchString(str) {
-				return false, nil
-			}
-		}
-		return true, nil
-	}
-
-	// Handle single string value
-	str, ok := n.Value.(string)
+	values, ok := candidateStrings(n)
 	if !ok {
 		return false, nil
 	}
+	return !slices.ContainsFunc(values, re.MatchString), nil
+}
 
-	return !re.MatchString(str), nil
+func evaluateComponentLength(
+	n *node.Node,
+	operands []any,
+	operandError string,
+	accept func(length, bound int) bool,
+) (bool, error) {
+	if n == nil || len(operands) < 1 {
+		return false, nil
+	}
+
+	bound, err := parseIntegerOperand(operands[0])
+	if err != nil {
+		return false, errors.New(operandError)
+	}
+
+	return allComponents(n, componentDelimiter(operands), func(component string) bool {
+		return accept(len(component), bound)
+	}), nil
+}
+
+// candidateStrings returns the string values a component operator inspects:
+// the string values of a value-less parent node's children, or the node's own
+// value. It reports false when a scalar node does not hold a string.
+func candidateStrings(n *node.Node) ([]string, bool) {
+	if n.Value == nil && len(n.Children) > 0 {
+		values := make([]string, 0, len(n.Children))
+		for _, child := range n.Children {
+			if str, ok := child.Value.(string); ok {
+				values = append(values, str)
+			}
+		}
+		return values, true
+	}
+
+	str, ok := n.Value.(string)
+	if !ok {
+		return nil, false
+	}
+	return []string{str}, true
+}
+
+// allComponents reports whether every delimited component of every candidate
+// string of n satisfies accept.
+func allComponents(n *node.Node, delimiter string, accept func(component string) bool) bool {
+	values, ok := candidateStrings(n)
+	if !ok {
+		return false
+	}
+	for _, value := range values {
+		if !everyComponent(value, delimiter, accept) {
+			return false
+		}
+	}
+	return true
+}
+
+func everyComponent(value, delimiter string, accept func(component string) bool) bool {
+	for _, component := range strings.Split(value, delimiter) {
+		if !accept(component) {
+			return false
+		}
+	}
+	return true
+}
+
+// componentDelimiter returns the optional delimiter operand, defaulting to ".".
+func componentDelimiter(operands []any) string {
+	if len(operands) >= 2 {
+		if delimiter, ok := operands[1].(string); ok && delimiter != "" {
+			return delimiter
+		}
+	}
+	return "."
 }

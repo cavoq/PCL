@@ -1,8 +1,10 @@
 package operator
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
+	"slices"
 	"sync"
 
 	"github.com/cavoq/PCL/internal/node"
@@ -59,35 +61,26 @@ func matchRegex(n *node.Node, operands []any) (bool, error) {
 		return false, nil
 	}
 
-	pattern, ok := operands[0].(string)
-	if !ok {
-		return false, fmt.Errorf("regex operator requires a string pattern operand")
-	}
-
-	re, err := getCompiledRegex(pattern)
+	re, err := compilePatternOperand(operands[0], "regex operator requires a string pattern operand")
 	if err != nil {
 		return false, err
 	}
 
-	// Handle parent node with children (like dNSName with indexed children)
-	// Returns true if ANY child matches (useful for presence checks)
-	if n.Value == nil && len(n.Children) > 0 {
-		for _, child := range n.Children {
-			str, ok := child.Value.(string)
-			if !ok {
-				continue
-			}
-			if re.MatchString(str) {
-				return true, nil
-			}
-		}
-		return false, nil
-	}
-
-	str, ok := n.Value.(string)
+	// A parent node (like dNSName with indexed children) matches when ANY
+	// child matches, which is useful for presence checks.
+	values, ok := candidateStrings(n)
 	if !ok {
 		return false, nil
 	}
+	return slices.ContainsFunc(values, re.MatchString), nil
+}
 
-	return re.MatchString(str), nil
+// compilePatternOperand compiles a regular expression operand. typeError is
+// returned when the operand is not a string.
+func compilePatternOperand(operand any, typeError string) (*regexp.Regexp, error) {
+	pattern, ok := operand.(string)
+	if !ok {
+		return nil, errors.New(typeError)
+	}
+	return getCompiledRegex(pattern)
 }
