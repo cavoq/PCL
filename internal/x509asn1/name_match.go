@@ -31,6 +31,27 @@ func NamesMatch(left, right []byte) bool {
 	return true
 }
 
+// NameWithinSubtree reports whether name lies within the directoryName
+// subtree base (RFC 5280 4.2.1.10): the RDNs of base are, in order, the first
+// RDNs of name, compared with the Section 7.1 rules. A base without RDNs
+// contains every name. Unparsable names are never within a subtree.
+func NameWithinSubtree(name, base []byte) bool {
+	parsedBase, err := ParseDistinguishedNameStrict(base)
+	if err != nil {
+		return false
+	}
+	parsedName, err := ParseDistinguishedNameStrict(name)
+	if err != nil || len(parsedBase.RDNs) > len(parsedName.RDNs) {
+		return false
+	}
+	for index, rdn := range parsedBase.RDNs {
+		if !rdnsMatch(parsedName.RDNs[index], rdn) {
+			return false
+		}
+	}
+	return true
+}
+
 // NamesMatchOrText compares encoded names with NamesMatch, or their string
 // forms when an encoding is unavailable, as for certificates constructed in
 // memory rather than parsed.

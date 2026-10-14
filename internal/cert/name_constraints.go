@@ -5,8 +5,12 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/cavoq/PCL/internal/oid"
 	"github.com/zmap/zcrypto/x509"
+
+	certzcrypto "github.com/cavoq/PCL/internal/cert/zcrypto"
+	"github.com/cavoq/PCL/internal/oid"
+	"github.com/cavoq/PCL/internal/x509asn1"
+	"github.com/cavoq/PCL/internal/x509ext"
 )
 
 // NameConstraintsValid applies the currently supported Name Constraints
@@ -53,10 +57,12 @@ func NameConstraintsValid(current *Info, chain []*Info) bool {
 		// emailAddress attributes in the subject DN when SAN is absent.
 		emailAddresses = append([]string(nil), certificate.Subject.EmailAddress...)
 	}
+	directoryNames := certificateDirectoryNames(certificate)
 	if !checkDNSNames(certificate.DNSNames, nil, excluded.dns) ||
 		!checkEmails(emailAddresses, nil, excluded.emails) ||
 		!checkURIs(certificate.URIs, nil, excluded.uris) ||
-		!checkIPs(certificate.IPAddresses, nil, excluded.ips) {
+		!checkIPs(certificate.IPAddresses, nil, excluded.ips) ||
+		!checkDirectoryNames(directoryNames, nil, excluded.directoryNames) {
 		return false
 	}
 
@@ -64,7 +70,8 @@ func NameConstraintsValid(current *Info, chain []*Info) bool {
 		if !checkDNSNames(certificate.DNSNames, permitted.dns, nil) ||
 			!checkEmails(emailAddresses, permitted.emails, nil) ||
 			!checkURIs(certificate.URIs, permitted.uris, nil) ||
-			!checkIPs(certificate.IPAddresses, permitted.ips, nil) {
+			!checkIPs(certificate.IPAddresses, permitted.ips, nil) ||
+			!checkDirectoryNames(directoryNames, permitted.directoryNames, nil) {
 			return false
 		}
 	}
@@ -76,51 +83,122 @@ type nameConstraints struct {
 	emails []string
 	uris   []string
 	ips    []net.IPNet
+	// directoryNames are DER-encoded Names of directoryName subtrees.
+	directoryNames [][]byte
 }
 
 func (constraints nameConstraints) empty() bool {
 	return len(constraints.dns) == 0 && len(constraints.emails) == 0 &&
-		len(constraints.uris) == 0 && len(constraints.ips) == 0
+		len(constraints.uris) == 0 && len(constraints.ips) == 0 && len(constraints.directoryNames) == 0
 }
 
 func (constraints nameConstraints) merge(other nameConstraints) nameConstraints {
 	return nameConstraints{
-		dns:    append(constraints.dns, other.dns...),
-		emails: append(constraints.emails, other.emails...),
-		uris:   append(constraints.uris, other.uris...),
-		ips:    append(constraints.ips, other.ips...),
+		dns:            append(constraints.dns, other.dns...),
+		emails:         append(constraints.emails, other.emails...),
+		uris:           append(constraints.uris, other.uris...),
+		ips:            append(constraints.ips, other.ips...),
+		directoryNames: append(constraints.directoryNames, other.directoryNames...),
 	}
+}
+
+// directoryNameSubtrees returns the directoryName bases of the certificate's
+// permitted or excluded subtrees. A name constraints extension that does not
+// decode yields none; its malformation is reported by profile rules.
+func directoryNameSubtrees(certificate *x509.Certificate, permitted bool) [][]byte {
+	value, present := certificateExtensionValue(certificate, oid.NameConstraints)
+	if !present {
+		return nil
+	}
+	facts, err := certzcrypto.DecodeNameConstraintsStrict(value)
+	if err != nil {
+		return nil
+	}
+	subtrees := facts.ExcludedSubtrees
+	if permitted {
+		subtrees = facts.PermittedSubtrees
+	}
+	var bases [][]byte
+	for _, subtree := range subtrees {
+		if subtree.BaseTag == 4 {
+			bases = append(bases, subtree.BaseRawValue)
+		}
+	}
+	return bases
+}
+
+// certificateDirectoryNames returns the names that directoryName constraints
+// apply to: a non-empty subject and every directoryName subject alternative
+// name (RFC 5280 4.2.1.10).
+func certificateDirectoryNames(certificate *x509.Certificate) [][]byte {
+	var names [][]byte
+	if subject, err := x509asn1.ParseDistinguishedNameStrict(certificate.RawSubject); err == nil && len(subject.RDNs) > 0 {
+		names = append(names, certificate.RawSubject)
+	}
+	if value, present := certificateExtensionValue(certificate, oid.SubjectAlternativeName); present {
+		if alternatives, err := x509ext.DecodeGeneralNames(value); err == nil {
+			for _, alternative := range alternatives {
+				if alternative.Tag == 4 {
+					names = append(names, alternative.RawValue)
+				}
+			}
+		}
+	}
+	return names
+}
+
+// checkDirectoryNames requires every name to be outside all excluded subtrees
+// and, when permitted subtrees exist, within at least one of them.
+func checkDirectoryNames(names, permitted, excluded [][]byte) bool {
+	for _, name := range names {
+		for _, base := range excluded {
+			if x509asn1.NameWithinSubtree(name, base) {
+				return false
+			}
+		}
+		if len(permitted) == 0 {
+			continue
+		}
+		within := false
+		for _, base := range permitted {
+			if x509asn1.NameWithinSubtree(name, base) {
+				within = true
+				break
+			}
+		}
+		if !within {
+			return false
+		}
+	}
+	return true
 }
 
 func extractPermittedNameConstraints(certificate *x509.Certificate) nameConstraints {
-	constraints := nameConstraints{}
-	for _, value := range certificate.PermittedDNSNames {
-		constraints.dns = append(constraints.dns, value.Data)
-	}
-	for _, value := range certificate.PermittedEmailAddresses {
-		constraints.emails = append(constraints.emails, value.Data)
-	}
-	for _, value := range certificate.PermittedURIs {
-		constraints.uris = append(constraints.uris, value.Data)
-	}
-	for _, value := range certificate.PermittedIPAddresses {
-		constraints.ips = append(constraints.ips, value.Data)
-	}
-	return constraints
+	return extractNameConstraints(certificate, true)
 }
 
 func extractExcludedNameConstraints(certificate *x509.Certificate) nameConstraints {
-	constraints := nameConstraints{}
-	for _, value := range certificate.ExcludedDNSNames {
+	return extractNameConstraints(certificate, false)
+}
+
+func extractNameConstraints(certificate *x509.Certificate, permitted bool) nameConstraints {
+	dns, emails, uris, ips := certificate.ExcludedDNSNames, certificate.ExcludedEmailAddresses,
+		certificate.ExcludedURIs, certificate.ExcludedIPAddresses
+	if permitted {
+		dns, emails, uris, ips = certificate.PermittedDNSNames, certificate.PermittedEmailAddresses,
+			certificate.PermittedURIs, certificate.PermittedIPAddresses
+	}
+	constraints := nameConstraints{directoryNames: directoryNameSubtrees(certificate, permitted)}
+	for _, value := range dns {
 		constraints.dns = append(constraints.dns, value.Data)
 	}
-	for _, value := range certificate.ExcludedEmailAddresses {
+	for _, value := range emails {
 		constraints.emails = append(constraints.emails, value.Data)
 	}
-	for _, value := range certificate.ExcludedURIs {
+	for _, value := range uris {
 		constraints.uris = append(constraints.uris, value.Data)
 	}
-	for _, value := range certificate.ExcludedIPAddresses {
+	for _, value := range ips {
 		constraints.ips = append(constraints.ips, value.Data)
 	}
 	return constraints

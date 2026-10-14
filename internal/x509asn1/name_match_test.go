@@ -98,3 +98,17 @@ func TestNamesMatchMultiValuedRDN(t *testing.T) {
 	}
 }
 
+func TestNameWithinSubtree(t *testing.T) {
+	subtree := testName(t, []testAttribute{{oidCountry, 19, "US"}}, []testAttribute{{oidOrg, 19, "Test Certificates 2011"}})
+	inside := testName(t, []testAttribute{{oidCountry, 19, "US"}}, []testAttribute{{oidOrg, 19, "test certificates 2011"}}, []testAttribute{{oidCommonName, 19, "EE"}})
+	outside := testName(t, []testAttribute{{oidCountry, 19, "US"}}, []testAttribute{{oidOrg, 19, "Other"}}, []testAttribute{{oidCommonName, 19, "EE"}})
+	if !NameWithinSubtree(inside, subtree) || !NameWithinSubtree(subtree, subtree) {
+		t.Fatal("names with the subtree as RDN prefix are within it")
+	}
+	if NameWithinSubtree(outside, subtree) || NameWithinSubtree(subtree, inside) {
+		t.Fatal("names without the subtree prefix are outside it")
+	}
+	if !NameWithinSubtree(inside, EncodeSequence(nil)) {
+		t.Fatal("an empty base contains every name")
+	}
+}

@@ -39,8 +39,11 @@ type NameConstraintsFacts struct {
 }
 
 type NameConstraintSubtreeFacts struct {
-	BaseTag        int
-	BaseRawDER     []byte
+	BaseTag    int
+	BaseRawDER []byte
+	// BaseRawValue holds the GeneralName contents; for a directoryName base
+	// it is the DER encoding of the Name.
+	BaseRawValue   []byte
 	Minimum        int
 	MinimumDecimal string
 	MinimumFitsInt bool
@@ -103,6 +106,7 @@ func nameConstraintSubtreeFacts(decoded decodedGeneralSubtree) NameConstraintSub
 	return NameConstraintSubtreeFacts{
 		BaseTag:        decoded.Base.Tag,
 		BaseRawDER:     append([]byte(nil), decoded.Base.RawDER...),
+		BaseRawValue:   append([]byte(nil), decoded.Base.RawValue...),
 		Minimum:        decoded.Minimum.Int,
 		MinimumDecimal: decoded.Minimum.Decimal,
 		MinimumFitsInt: decoded.Minimum.FitsInt,
@@ -256,7 +260,7 @@ func nameConstraintsContainUnsupportedNameForm(decoded decodedNameConstraints) b
 	for _, subtrees := range [][]decodedGeneralSubtree{decoded.Permitted, decoded.Excluded} {
 		for _, subtree := range subtrees {
 			switch subtree.Base.Tag {
-			case 1, 2, 6, 7: // rfc822Name, dNSName, URI, iPAddress
+			case 1, 2, 4, 6, 7: // rfc822Name, dNSName, directoryName, URI, iPAddress
 			default:
 				return true
 			}
