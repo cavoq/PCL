@@ -30,63 +30,25 @@ var stringTypesByTag = map[int]stringTypeDescriptor{
 	30: {encoding: EncodingBMPString, name: "bmpString"},
 }
 
-type EncodingInfo struct {
-	Type         EncodingType
-	TagName      string
-	RawBytes     []byte
-	StringValue  string
-	ValidChars   bool   // whether all characters are valid for the encoding type
-	InvalidChars []byte // characters that violate encoding rules
-}
-
-// ValidateIA5String validates that a byte sequence conforms to IA5String encoding.
-// IA5String is equivalent to ASCII (0x00-0x7F).
-func ValidateIA5String(derBytes []byte) (*EncodingInfo, error) {
-	info := newEncodingInfo(EncodingIA5String, "IA5String", derBytes)
-	valueBytes, err := readDERValue(derBytes, 22, "IA5String")
-	if err != nil {
-		return nil, err
-	}
-	info.StringValue = string(valueBytes)
-
-	for _, b := range valueBytes {
-		if b > 0x7F {
-			info.ValidChars = false
-			info.InvalidChars = append(info.InvalidChars, b)
+// IsPrintableString reports whether every character of s is in the ASN.1
+// PrintableString alphabet (RFC 5280 Appendix A.1).
+func IsPrintableString(s string) bool {
+	for index := 0; index < len(s); index++ {
+		if !isPrintableStringChar(s[index]) {
+			return false
 		}
 	}
-
-	return info, nil
+	return true
 }
 
-// ValidatePrintableString validates that a byte sequence conforms to PrintableString encoding.
-// PrintableString allows: A-Z, a-z, 0-9, space, '(),./:=?- and special chars
-// Per RFC 5280 Appendix A.1: PrintableString character set
-func ValidatePrintableString(derBytes []byte) (*EncodingInfo, error) {
-	info := newEncodingInfo(EncodingPrintableString, "PrintableString", derBytes)
-	valueBytes, err := readDERValue(derBytes, 19, "PrintableString")
-	if err != nil {
-		return nil, err
-	}
-	info.StringValue = string(valueBytes)
-
-	for _, b := range valueBytes {
-		if !isPrintableStringChar(b) {
-			info.ValidChars = false
-			info.InvalidChars = append(info.InvalidChars, b)
+// IsIA5String reports whether s contains only IA5 (7-bit ASCII) characters.
+func IsIA5String(s string) bool {
+	for index := 0; index < len(s); index++ {
+		if s[index] > 0x7f {
+			return false
 		}
 	}
-
-	return info, nil
-}
-
-func newEncodingInfo(encodingType EncodingType, tagName string, derBytes []byte) *EncodingInfo {
-	return &EncodingInfo{
-		Type:       encodingType,
-		TagName:    tagName,
-		RawBytes:   derBytes,
-		ValidChars: true,
-	}
+	return true
 }
 
 func isPrintableStringChar(b byte) bool {

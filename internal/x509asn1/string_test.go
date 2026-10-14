@@ -2,49 +2,23 @@ package x509asn1
 
 import "testing"
 
-func TestValidateIA5String(t *testing.T) {
-	info, err := ValidateIA5String([]byte{0x16, 0x03, 'a', 'b', 'c'})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+func TestIsIA5String(t *testing.T) {
+	if !IsIA5String("abc\x00\x7f") {
+		t.Fatal("ASCII must be IA5")
 	}
-	if info.Type != EncodingIA5String || info.TagName != "IA5String" {
-		t.Fatalf("unexpected encoding info: %+v", info)
-	}
-	if info.StringValue != "abc" || !info.ValidChars {
-		t.Fatalf("unexpected string validation: %+v", info)
+	if IsIA5String("caf\u00e9") || IsIA5String("\x80") {
+		t.Fatal("characters above 0x7f are not IA5")
 	}
 }
 
-func TestValidateIA5String_InvalidCharacter(t *testing.T) {
-	info, err := ValidateIA5String([]byte{0x16, 0x01, 0x80})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+func TestIsPrintableString(t *testing.T) {
+	if !IsPrintableString("Ab1 '()+,-./:=?") {
+		t.Fatal("PrintableString alphabet rejected")
 	}
-	if info.ValidChars {
-		t.Fatal("expected invalid IA5 character")
-	}
-	if len(info.InvalidChars) != 1 || info.InvalidChars[0] != 0x80 {
-		t.Fatalf("unexpected invalid chars: %v", info.InvalidChars)
-	}
-}
-
-func TestValidatePrintableString(t *testing.T) {
-	info, err := ValidatePrintableString([]byte{0x13, 0x05, 'A', 'b', '1', ' ', '?'})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if info.Type != EncodingPrintableString || info.StringValue != "Ab1 ?" || !info.ValidChars {
-		t.Fatalf("unexpected printable string info: %+v", info)
-	}
-}
-
-func TestValidatePrintableString_InvalidCharacter(t *testing.T) {
-	info, err := ValidatePrintableString([]byte{0x13, 0x01, 0x00})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if info.ValidChars {
-		t.Fatal("expected invalid PrintableString character")
+	for _, invalid := range []string{"&", "\x00", "a*b", "caf\u00e9", "@"} {
+		if IsPrintableString(invalid) {
+			t.Errorf("IsPrintableString(%q) = true", invalid)
+		}
 	}
 }
 
@@ -102,15 +76,5 @@ func TestDecodeDirectoryString(t *testing.T) {
 				t.Fatal("expected invalid DirectoryString")
 			}
 		})
-	}
-}
-
-func TestValidatePrintableString_RejectsNonAlphabetCharacter(t *testing.T) {
-	info, err := ValidatePrintableString([]byte{0x13, 0x01, '&'})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if info.ValidChars {
-		t.Fatal("ampersand is not part of the ASN.1 PrintableString alphabet")
 	}
 }

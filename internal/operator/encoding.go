@@ -4,6 +4,7 @@ import (
 	cryptobyte_asn1 "golang.org/x/crypto/cryptobyte/asn1"
 
 	"github.com/cavoq/PCL/internal/node"
+	"github.com/cavoq/PCL/internal/x509asn1"
 )
 
 // IsIA5String checks if a string value uses IA5String encoding (ASCII).
@@ -51,7 +52,7 @@ func (ValidIA5String) Evaluate(n *node.Node, _ *EvaluationContext, _ []any) (boo
 	if !ok {
 		return false, nil
 	}
-	return isASCII(str), nil
+	return x509asn1.IsIA5String(str), nil
 }
 
 // ValidPrintableString checks that a string contains only valid PrintableString characters.
@@ -71,7 +72,7 @@ func (ValidPrintableString) Evaluate(n *node.Node, _ *EvaluationContext, _ []any
 		if !ok {
 			return false, nil
 		}
-		return isPrintableStringCompatible(str), nil
+		return x509asn1.IsPrintableString(str), nil
 	}
 
 	// If node has children (array-like), check all children
@@ -84,7 +85,7 @@ func (ValidPrintableString) Evaluate(n *node.Node, _ *EvaluationContext, _ []any
 			if !ok {
 				return false, nil
 			}
-			if !isPrintableStringCompatible(str) {
+			if !x509asn1.IsPrintableString(str) {
 				return false, nil
 			}
 		}
@@ -108,43 +109,4 @@ func hasEncodingTag(n *node.Node, tag cryptobyte_asn1.Tag) bool {
 	}
 	value, ok := encodingNode.Value.(int)
 	return ok && value == int(tag)
-}
-
-func isASCII(s string) bool {
-	for _, c := range s {
-		if c > 0x7F {
-			return false
-		}
-	}
-	return true
-}
-
-func isPrintableStringCompatible(s string) bool {
-	for _, c := range s {
-		if !isPrintableChar(c) {
-			return false
-		}
-	}
-	return true
-}
-
-func isPrintableChar(c rune) bool {
-	// Upper case letters
-	if c >= 'A' && c <= 'Z' {
-		return true
-	}
-	// Lower case letters
-	if c >= 'a' && c <= 'z' {
-		return true
-	}
-	// Digits
-	if c >= '0' && c <= '9' {
-		return true
-	}
-	// Special characters allowed in PrintableString per ASN.1
-	switch c {
-	case ' ', '\'', '(', ')', '+', ',', '-', '.', '/', ':', '=', '?':
-		return true
-	}
-	return false
 }

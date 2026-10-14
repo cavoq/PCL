@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/cavoq/PCL/internal/node"
+	"github.com/cavoq/PCL/internal/x509asn1"
 )
 
 func TestIsIA5String(t *testing.T) {
@@ -388,8 +389,8 @@ func TestIsASCII(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := isASCII(tt.s); got != tt.want {
-				t.Errorf("isASCII(%q) = %v, want %v", tt.s, got, tt.want)
+			if got := x509asn1.IsIA5String(tt.s); got != tt.want {
+				t.Errorf("IsIA5String(%q) = %v, want %v", tt.s, got, tt.want)
 			}
 		})
 	}
@@ -470,8 +471,8 @@ func TestIsPrintableStringCompatible(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := isPrintableStringCompatible(tt.s); got != tt.want {
-				t.Errorf("isPrintableStringCompatible(%q) = %v, want %v", tt.s, got, tt.want)
+			if got := x509asn1.IsPrintableString(tt.s); got != tt.want {
+				t.Errorf("IsPrintableString(%q) = %v, want %v", tt.s, got, tt.want)
 			}
 		})
 	}
