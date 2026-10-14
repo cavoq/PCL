@@ -130,6 +130,18 @@ Target paths use dot notation to navigate the node tree structure. The tree root
 - `crl.xxx` - CRL fields
 - `ocsp.xxx` - OCSP response fields
 
+To see every path available for a concrete input, with its value and type,
+run `pcl inspect` with the same input flags you lint with:
+
+```bash
+pcl inspect --cert leaf.pem --issuer chain/ --paths
+# certificate.subjectAltName.dNSName.0 = leaf.example.test (string)
+# certificate.validity.notAfter = 2028-03-24T12:45:55Z (time)
+```
+
+Every listed path can be used as a rule `target`. Values typed `bytes` are
+shown as hex, `time` values in RFC 3339 UTC.
+
 ### Representative Target Paths
 
 | Target Path | Description |

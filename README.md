@@ -107,6 +107,27 @@ Fetch certificate chains from HTTPS endpoints:
 pcl --policy <path> --cert-url https://example.test --cert-url-timeout 10s --cert-url-save-dir ./downloads
 ```
 
+### Inspect the Node Tree
+
+`pcl inspect` prints the node tree that policies evaluate, after the same
+loading, chain building and automatic retrieval as a lint run. It accepts the
+same input flags (`--cert`, `--issuer`, `--crl`, `--ocsp`, `--purpose`,
+`--auto-validate`, ...) and needs no policy.
+
+```bash
+# Tree for every certificate in the chain
+pcl inspect --cert leaf.pem --issuer chain/
+
+# Every rule target path with its value and type, ready to copy into a rule
+pcl inspect --cert leaf.pem --paths | grep subjectAltName
+# certificate.subjectAltName.dNSName.0 = leaf.example.test (string)
+
+# Machine-readable tree or path list
+pcl inspect --crl list.crl --output json
+```
+
+Byte values are shown as hex (shortened in text output), times in RFC 3339 UTC.
+
 ## 📝 Policy Configuration
 
 Policies are YAML files defining validation rules with a simple declarative syntax.
@@ -496,7 +517,7 @@ An explicit `appliesTo` is authoritative. If it is omitted, PCL infers an order-
 
 ## 🌳 Node Tree Structure
 
-Rules target fields using a dot-separated path notation. The node tree structure mirrors the certificate/CRL/OCSP structure:
+Rules target fields using a dot-separated path notation. The node tree structure mirrors the certificate/CRL/OCSP structure. Run `pcl inspect --paths` to list every path for a concrete input:
 
 ### Certificate Node Tree
 

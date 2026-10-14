@@ -56,6 +56,12 @@ func (cfg Config) Validate() error {
 	if len(cfg.PolicyPaths) == 0 {
 		return errors.New("at least one policy path is required")
 	}
+	return cfg.validateInputs()
+}
+
+// validateInputs reports configurations without a certificate, CRL or OCSP
+// input. Issuer certificates alone are not evaluated.
+func (cfg Config) validateInputs() error {
 	if !cfg.hasCertificateInput() && cfg.CRLPath == "" && cfg.OCSPPath == "" {
 		return errors.New("no certificates, CRLs, or OCSP responses provided")
 	}

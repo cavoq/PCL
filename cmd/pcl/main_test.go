@@ -17,3 +17,18 @@ func TestRootCommandAcceptsApplicationPurpose(t *testing.T) {
 		t.Fatalf("ApplicationPurpose = %q, want serverAuth", config.ApplicationPurpose)
 	}
 }
+
+func TestInspectCommandSharesInputFlags(t *testing.T) {
+	command := newInspectCmd()
+	if err := command.ParseFlags([]string{"--cert", "leaf.pem", "--crl", "list.crl", "--purpose", "serverAuth", "--paths", "--output", "json"}); err != nil {
+		t.Fatalf("parse inspect flags: %v", err)
+	}
+	for _, name := range []string{"cert", "issuer", "crl", "ocsp", "auto-validate", "paths", "output"} {
+		if command.Flags().Lookup(name) == nil {
+			t.Errorf("inspect is missing --%s", name)
+		}
+	}
+	if command.Flags().Lookup("policy") != nil {
+		t.Error("inspect must not accept --policy")
+	}
+}

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `pcl inspect` prints the node tree that policies evaluate for each
+  certificate, CRL and OCSP response, using the same inputs and projections
+  as a lint run. `--paths` lists every rule target path with its value and
+  type; `--output json|yaml` emits the tree or path list as data.
+
 ## [5.0.0] - 2026-10-14
 
 ### Breaking Changes
