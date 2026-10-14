@@ -253,3 +253,25 @@ func TestDEREqualsHexNoOperands(t *testing.T) {
 		t.Error("should error with no operands")
 	}
 }
+
+func TestEqualIsStrictAcrossKinds(t *testing.T) {
+	tests := []struct {
+		name string
+		a, b any
+		want bool
+	}{
+		{name: "same string", a: "1.2.3", b: "1.2.3", want: true},
+		{name: "numeric kinds", a: uint16(5), b: 5, want: true},
+		{name: "number against numeric string", a: 1, b: "1", want: false},
+		{name: "bool against string", a: true, b: "true", want: false},
+		{name: "nil against nil string form", a: nil, b: "<nil>", want: false},
+		{name: "bytes against string", a: []byte("ab"), b: "[97 98]", want: false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := equal(test.a, test.b); got != test.want {
+				t.Fatalf("equal(%#v, %#v) = %v, want %v", test.a, test.b, got, test.want)
+			}
+		})
+	}
+}

@@ -157,12 +157,13 @@ func (DEREqualsHex) Evaluate(n *node.Node, _ *EvaluationContext, operands []any)
 	return false, nil
 }
 
+// equal reports whether a and b are deeply equal or are numerically equal
+// numbers of different Go types (YAML integers against uint16 node values,
+// for example). Values of different kinds never match by their string form.
 func equal(a, b any) bool {
 	if reflect.DeepEqual(a, b) {
 		return true
 	}
-	if order, ok := compareNumericValues(a, b); ok {
-		return order == 0
-	}
-	return fmt.Sprintf("%v", a) == fmt.Sprintf("%v", b)
+	order, ok := compareNumericValues(a, b)
+	return ok && order == 0
 }
