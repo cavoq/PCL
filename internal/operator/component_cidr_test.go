@@ -63,24 +63,14 @@ func TestComponentInCIDR(t *testing.T) {
 			want:     true,
 		},
 		{
-			name: "array of IPs - one in range",
-			node: func() *node.Node {
-				n := node.New("iPAddress", nil)
-				n.Children["0"] = node.New("0", "8.8.8.8")
-				n.Children["1"] = node.New("1", "10.0.0.1")
-				return n
-			}(),
+			name:     "array of IPs - one in range",
+			node:     collection("iPAddress", "8.8.8.8", "10.0.0.1"),
 			operands: []any{"10.0.0.0/8"},
 			want:     true,
 		},
 		{
-			name: "array of IPs - none in range",
-			node: func() *node.Node {
-				n := node.New("iPAddress", nil)
-				n.Children["0"] = node.New("0", "8.8.8.8")
-				n.Children["1"] = node.New("1", "1.1.1.1")
-				return n
-			}(),
+			name:     "array of IPs - none in range",
+			node:     collection("iPAddress", "8.8.8.8", "1.1.1.1"),
 			operands: []any{"10.0.0.0/8", "192.168.0.0/16"},
 			want:     false,
 		},
@@ -180,35 +170,20 @@ func TestComponentNotInCIDR(t *testing.T) {
 			want:     false,
 		},
 		{
-			name: "array of IPs - all outside - passes",
-			node: func() *node.Node {
-				n := node.New("iPAddress", nil)
-				n.Children["0"] = node.New("0", "8.8.8.8")
-				n.Children["1"] = node.New("1", "1.1.1.1")
-				return n
-			}(),
+			name:     "array of IPs - all outside - passes",
+			node:     collection("iPAddress", "8.8.8.8", "1.1.1.1"),
 			operands: []any{"10.0.0.0/8", "192.168.0.0/16"},
 			want:     true,
 		},
 		{
-			name: "array of IPs - one in range - fails",
-			node: func() *node.Node {
-				n := node.New("iPAddress", nil)
-				n.Children["0"] = node.New("0", "8.8.8.8")
-				n.Children["1"] = node.New("1", "192.168.1.1")
-				return n
-			}(),
+			name:     "array of IPs - one in range - fails",
+			node:     collection("iPAddress", "8.8.8.8", "192.168.1.1"),
 			operands: []any{"10.0.0.0/8", "192.168.0.0/16"},
 			want:     false,
 		},
 		{
-			name: "array of IPs - all in range - fails",
-			node: func() *node.Node {
-				n := node.New("iPAddress", nil)
-				n.Children["0"] = node.New("0", "10.0.0.1")
-				n.Children["1"] = node.New("1", "192.168.1.1")
-				return n
-			}(),
+			name:     "array of IPs - all in range - fails",
+			node:     collection("iPAddress", "10.0.0.1", "192.168.1.1"),
 			operands: []any{"10.0.0.0/8", "192.168.0.0/16"},
 			want:     false,
 		},

@@ -99,32 +99,17 @@ func TestEveryComposesTLDRegistered(t *testing.T) {
 	}{
 		{
 			name: "all domains have valid TLDs",
-			node: func() *node.Node {
-				n := node.New("dNSName", nil)
-				n.Children["0"] = node.New("0", "example.com")
-				n.Children["1"] = node.New("1", "test.org")
-				return n
-			}(),
+			node: collection("dNSName", "example.com", "test.org"),
 			want: true,
 		},
 		{
 			name: "one domain has invalid TLD",
-			node: func() *node.Node {
-				n := node.New("dNSName", nil)
-				n.Children["0"] = node.New("0", "example.com")
-				n.Children["1"] = node.New("1", "server.local")
-				return n
-			}(),
+			node: collection("dNSName", "example.com", "server.local"),
 			want: false,
 		},
 		{
 			name: "all domains have invalid TLDs",
-			node: func() *node.Node {
-				n := node.New("dNSName", nil)
-				n.Children["0"] = node.New("0", "server.test")
-				n.Children["1"] = node.New("1", "host.internal")
-				return n
-			}(),
+			node: collection("dNSName", "server.test", "host.internal"),
 			want: false,
 		},
 	}
