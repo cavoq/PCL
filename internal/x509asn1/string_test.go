@@ -15,7 +15,7 @@ func TestIsPrintableString(t *testing.T) {
 	if !IsPrintableString("Ab1 '()+,-./:=?") {
 		t.Fatal("PrintableString alphabet rejected")
 	}
-	for _, invalid := range []string{"&", "\x00", "a*b", "caf\u00e9", "@"} {
+	for _, invalid := range []string{"&", "\x00", "a*b", "caf\u00e9", "@", "_", "!"} {
 		if IsPrintableString(invalid) {
 			t.Errorf("IsPrintableString(%q) = true", invalid)
 		}

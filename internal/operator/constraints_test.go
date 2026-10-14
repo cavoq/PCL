@@ -12,13 +12,6 @@ import (
 	"github.com/zmap/zcrypto/x509/pkix"
 )
 
-func TestPathLenValidName(t *testing.T) {
-	op := PathLenValid{}
-	if op.Name() != "pathLenValid" {
-		t.Errorf("expected pathLenValid, got %s", op.Name())
-	}
-}
-
 func TestPathLenValidNilContext(t *testing.T) {
 	op := PathLenValid{}
 	got, err := op.Evaluate(nil, nil, nil)
@@ -47,13 +40,6 @@ func TestPathLenValidNilCert(t *testing.T) {
 	}
 }
 
-func TestValidityPeriodDaysName(t *testing.T) {
-	op := ValidityPeriodDays{}
-	if op.Name() != "validityDays" {
-		t.Errorf("expected validityDays, got %s", op.Name())
-	}
-}
-
 func TestValidityPeriodDaysNilContext(t *testing.T) {
 	op := ValidityPeriodDays{}
 	got, err := op.Evaluate(nil, nil, []any{1, 365})
@@ -62,13 +48,6 @@ func TestValidityPeriodDaysNilContext(t *testing.T) {
 	}
 	if got != false {
 		t.Error("nil context should return false")
-	}
-}
-
-func TestSerialNumberUniqueName(t *testing.T) {
-	op := SerialNumberUnique{}
-	if op.Name() != "serialNumberUnique" {
-		t.Errorf("expected serialNumberUnique, got %s", op.Name())
 	}
 }
 

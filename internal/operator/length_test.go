@@ -6,122 +6,33 @@ import (
 	"github.com/cavoq/PCL/internal/node"
 )
 
-func TestMaxLength(t *testing.T) {
-	tests := []struct {
-		name   string
-		value  any
-		maxLen int
-		want   bool
-	}{
-		{"string within limit", "hello", 10, true},
-		{"string at limit", "hello", 5, true},
-		{"string exceeds limit", "hello world", 5, false},
-		{"empty string", "", 0, true},
-		{"unicode string counts characters", "éé", 2, true},
-		{"unicode string exceeds character limit", "éé", 1, false},
-		{"bytes within limit", []byte{1, 2, 3}, 5, true},
-		{"bytes exceeds limit", []byte{1, 2, 3, 4, 5, 6}, 5, false},
-		{"slice within limit", []int{1, 2, 3}, 5, true},
-		{"slice exceeds limit", []int{1, 2, 3, 4, 5, 6}, 5, false},
+func TestLengthOperators(t *testing.T) {
+	length := func(name string, op Operator, value any, bound int, want bool) evaluationCase {
+		return evaluationCase{name: name, op: op, node: node.New("test", value), operands: []any{bound}, want: want}
 	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			n := node.New("test", tt.value)
-			op := MaxLength{}
-			got, err := op.Evaluate(n, nil, []any{tt.maxLen})
-			if err != nil {
-				t.Errorf("unexpected error: %v", err)
-			}
-			if got != tt.want {
-				t.Errorf("MaxLength.Evaluate() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestMaxLengthWithChildren(t *testing.T) {
-	n := node.New("test", nil)
-	n.Children["a"] = node.New("a", 1)
-	n.Children["b"] = node.New("b", 2)
-	n.Children["c"] = node.New("c", 3)
-
-	op := MaxLength{}
-	got, err := op.Evaluate(n, nil, []any{5})
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if got != true {
-		t.Errorf("MaxLength.Evaluate() = %v, want true", got)
-	}
-
-	got, err = op.Evaluate(n, nil, []any{2})
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if got != false {
-		t.Errorf("MaxLength.Evaluate() = %v, want false", got)
-	}
-}
-
-func TestMinLength(t *testing.T) {
-	tests := []struct {
-		name   string
-		value  any
-		minLen int
-		want   bool
-	}{
-		{"string meets minimum", "hello", 3, true},
-		{"string at minimum", "hello", 5, true},
-		{"string below minimum", "hi", 5, false},
-		{"empty string", "", 0, true},
-		{"unicode string counts characters", "日本", 2, true},
-		{"unicode string below character minimum", "日本", 3, false},
-		{"bytes meets minimum", []byte{1, 2, 3}, 2, true},
-		{"bytes below minimum", []byte{1}, 5, false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			n := node.New("test", tt.value)
-			op := MinLength{}
-			got, err := op.Evaluate(n, nil, []any{tt.minLen})
-			if err != nil {
-				t.Errorf("unexpected error: %v", err)
-			}
-			if got != tt.want {
-				t.Errorf("MinLength.Evaluate() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestMaxLengthNilNode(t *testing.T) {
-	op := MaxLength{}
-	got, _ := op.Evaluate(nil, nil, []any{10})
-	if got != false {
-		t.Errorf("MaxLength.Evaluate(nil) = %v, want false", got)
-	}
-}
-
-func TestMinLengthNilNode(t *testing.T) {
-	op := MinLength{}
-	got, _ := op.Evaluate(nil, nil, []any{10})
-	if got != false {
-		t.Errorf("MinLength.Evaluate(nil) = %v, want false", got)
-	}
-}
-
-func TestMaxLengthName(t *testing.T) {
-	op := MaxLength{}
-	if op.Name() != "maxLength" {
-		t.Errorf("MaxLength.Name() = %v, want maxLength", op.Name())
-	}
-}
-
-func TestMinLengthName(t *testing.T) {
-	op := MinLength{}
-	if op.Name() != "minLength" {
-		t.Errorf("MinLength.Name() = %v, want minLength", op.Name())
-	}
+	children := tree("test", nil, node.New("a", 1), node.New("b", 2), node.New("c", 3))
+	checkEvaluations(t, nil, []evaluationCase{
+		length("max: string within limit", MaxLength{}, "hello", 10, true),
+		length("max: string at limit", MaxLength{}, "hello", 5, true),
+		length("max: string exceeds limit", MaxLength{}, "hello world", 5, false),
+		length("max: empty string", MaxLength{}, "", 0, true),
+		length("max: unicode string counts characters", MaxLength{}, "éé", 2, true),
+		length("max: unicode string exceeds character limit", MaxLength{}, "éé", 1, false),
+		length("max: bytes within limit", MaxLength{}, []byte{1, 2, 3}, 5, true),
+		length("max: bytes exceeds limit", MaxLength{}, []byte{1, 2, 3, 4, 5, 6}, 5, false),
+		length("max: slice within limit", MaxLength{}, []int{1, 2, 3}, 5, true),
+		length("max: slice exceeds limit", MaxLength{}, []int{1, 2, 3, 4, 5, 6}, 5, false),
+		{name: "max: children within limit", op: MaxLength{}, node: children, operands: []any{5}, want: true},
+		{name: "max: children exceed limit", op: MaxLength{}, node: children, operands: []any{2}},
+		{name: "max: nil node", op: MaxLength{}, operands: []any{10}},
+		length("min: string meets minimum", MinLength{}, "hello", 3, true),
+		length("min: string at minimum", MinLength{}, "hello", 5, true),
+		length("min: string below minimum", MinLength{}, "hi", 5, false),
+		length("min: empty string", MinLength{}, "", 0, true),
+		length("min: unicode string counts characters", MinLength{}, "日本", 2, true),
+		length("min: unicode string below character minimum", MinLength{}, "日本", 3, false),
+		length("min: bytes meets minimum", MinLength{}, []byte{1, 2, 3}, 2, true),
+		length("min: bytes below minimum", MinLength{}, []byte{1}, 5, false),
+		{name: "min: nil node", op: MinLength{}, operands: []any{10}},
+	})
 }

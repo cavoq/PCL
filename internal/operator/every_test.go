@@ -2,6 +2,7 @@ package operator
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -52,6 +53,26 @@ func (operator everyRecordingOperator) Evaluate(
 
 func TestEvery(t *testing.T) {
 	op := Every{}
+	// elements is a collection whose children hold child under its name.
+	elements := func(children ...*node.Node) *node.Node {
+		n := node.New("test", nil)
+		for index, child := range children {
+			key := strconv.Itoa(index)
+			n.Children[key] = tree(key, nil, child)
+		}
+		return n
+	}
+	valueIn := func(path string, values ...any) []any {
+		return []any{map[string]any{"path": path, "check": "in", "values": values}}
+	}
+	reasons := func(code int) *node.Node {
+		return tree("extensions", nil, tree("2.5.29.21", nil, node.New("value", code)))
+	}
+	location := func(scheme string) *node.Node {
+		return tree("accessLocation", nil, node.New("scheme", scheme))
+	}
+	twoElementsOneMissing := collection("test", nil, nil)
+	twoElementsOneMissing.Children["0"].Children["value"] = node.New("value", 1)
 
 	tests := []struct {
 		name     string
@@ -60,266 +81,39 @@ func TestEvery(t *testing.T) {
 		want     bool
 		wantErr  bool
 	}{
-		{
-			name:     "nil node returns false",
-			node:     nil,
-			operands: []any{map[string]any{"check": "present"}},
-			want:     false,
-			wantErr:  false,
-		},
-		{
-			name:     "empty children returns true",
-			node:     node.New("test", nil),
-			operands: []any{map[string]any{"check": "present"}},
-			want:     true,
-			wantErr:  false,
-		},
-		{
-			name: "all children pass present check",
-			node: func() *node.Node {
-				n := node.New("test", nil)
-				n.Children["0"] = node.New("0", "value1")
-				n.Children["1"] = node.New("1", "value2")
-				return n
-			}(),
-			operands: []any{map[string]any{"check": "present"}},
-			want:     true,
-			wantErr:  false,
-		},
-		{
-			name: "some children fail notEmpty check",
-			node: func() *node.Node {
-				n := node.New("test", nil)
-				n.Children["0"] = node.New("0", "value1")
-				n.Children["1"] = node.New("1", nil) // nil value = empty
-				return n
-			}(),
-			operands: []any{map[string]any{"check": "notEmpty"}},
-			want:     false,
-			wantErr:  false,
-		},
-		{
-			name: "all children pass in check with values",
-			node: func() *node.Node {
-				n := node.New("test", nil)
-				n.Children["0"] = node.New("0", 1)
-				n.Children["1"] = node.New("1", 3)
-				n.Children["2"] = node.New("2", 5)
-				return n
-			}(),
-			operands: []any{map[string]any{
-				"check":  "in",
-				"values": []any{1, 3, 5, 7, 9},
-			}},
-			want:    true,
-			wantErr: false,
-		},
-		{
-			name: "one child fails in check",
-			node: func() *node.Node {
-				n := node.New("test", nil)
-				n.Children["0"] = node.New("0", 1)
-				n.Children["1"] = node.New("1", 2) // 2 not in allowed list
-				n.Children["2"] = node.New("2", 5)
-				return n
-			}(),
-			operands: []any{map[string]any{
-				"check":  "in",
-				"values": []any{1, 3, 5, 7, 9},
-			}},
-			want:    false,
-			wantErr: false,
-		},
-		{
-			name: "sub-path check - all pass",
-			node: func() *node.Node {
-				n := node.New("test", nil)
-				child0 := node.New("0", nil)
-				child0.Children["value"] = node.New("value", 1)
-				n.Children["0"] = child0
-				child1 := node.New("1", nil)
-				child1.Children["value"] = node.New("value", 3)
-				n.Children["1"] = child1
-				return n
-			}(),
-			operands: []any{map[string]any{
-				"path":   "value",
-				"check":  "in",
-				"values": []any{1, 3, 5},
-			}},
-			want:    true,
-			wantErr: false,
-		},
-		{
-			name: "sub-path check - one fails",
-			node: func() *node.Node {
-				n := node.New("test", nil)
-				child0 := node.New("0", nil)
-				child0.Children["value"] = node.New("value", 1)
-				n.Children["0"] = child0
-				child1 := node.New("1", nil)
-				child1.Children["value"] = node.New("value", 2) // 2 not allowed
-				n.Children["1"] = child1
-				return n
-			}(),
-			operands: []any{map[string]any{
-				"path":   "value",
-				"check":  "in",
-				"values": []any{1, 3, 5},
-			}},
-			want:    false,
-			wantErr: false,
-		},
-		{
-			name: "sub-path missing - fails by default",
-			node: func() *node.Node {
-				n := node.New("test", nil)
-				child0 := node.New("0", nil)
-				child0.Children["value"] = node.New("value", 1)
-				n.Children["0"] = child0
-				child1 := node.New("1", nil) // no value child
-				n.Children["1"] = child1
-				return n
-			}(),
-			operands: []any{map[string]any{
-				"path":  "value",
-				"check": "present",
-			}},
-			want:    false,
-			wantErr: false,
-		},
-		{
-			name: "sub-path missing - skip with skipMissing",
-			node: func() *node.Node {
-				n := node.New("test", nil)
-				child0 := node.New("0", nil)
-				child0.Children["value"] = node.New("value", 1)
-				n.Children["0"] = child0
-				child1 := node.New("1", nil) // no value child, skipped
-				n.Children["1"] = child1
-				return n
-			}(),
-			operands: []any{map[string]any{
-				"path":        "value",
-				"check":       "present",
-				"skipMissing": true,
-			}},
-			want:    true,
-			wantErr: false,
-		},
-		{
-			name: "nested sub-path check - simplified",
-			node: func() *node.Node {
-				n := node.New("test", nil)
-				child0 := node.New("0", nil)
-				child0.Children["a"] = node.New("a", nil)
-				child0.Children["a"].Children["b"] = node.New("b", 1)
-				n.Children["0"] = child0
-				child1 := node.New("1", nil)
-				child1.Children["a"] = node.New("a", nil)
-				child1.Children["a"].Children["b"] = node.New("b", 3)
-				n.Children["1"] = child1
-				return n
-			}(),
-			operands: []any{map[string]any{
-				"path":   "a.b",
-				"check":  "in",
-				"values": []any{1, 3, 5, 9},
-			}},
-			want:    true,
-			wantErr: false,
-		},
-		{
-			name: "nested sub-path check",
-			node: func() *node.Node {
-				n := node.New("test", nil)
-				child0 := node.New("0", nil)
-				ext0 := node.New("extensions", nil)
-				reason0 := node.New("2.5.29.21", nil)
-				reason0.Children["value"] = node.New("value", 1)
-				ext0.Children["2.5.29.21"] = reason0
-				child0.Children["extensions"] = ext0
-				n.Children["0"] = child0
-				child1 := node.New("1", nil)
-				ext1 := node.New("extensions", nil)
-				reason1 := node.New("2.5.29.21", nil)
-				reason1.Children["value"] = node.New("value", 3)
-				ext1.Children["2.5.29.21"] = reason1
-				child1.Children["extensions"] = ext1
-				n.Children["1"] = child1
-				return n
-			}(),
-			operands: []any{map[string]any{
-				"path":   "extensions.2.5.29.21.value",
-				"check":  "in",
-				"values": []any{1, 3, 5, 9},
-			}},
-			want:    true,
-			wantErr: false,
-		},
-		{
-			name:     "missing check operand returns error",
-			node:     node.New("test", nil),
-			operands: []any{map[string]any{"path": "value"}},
-			want:     false,
-			wantErr:  true,
-		},
-		{
-			name:     "unknown check operator returns error",
-			node:     node.New("test", nil),
-			operands: []any{map[string]any{"check": "unknownOperator"}},
-			want:     false,
-			wantErr:  true,
-		},
-		{
-			name:     "no operands returns error",
-			node:     node.New("test", nil),
-			operands: []any{},
-			want:     false,
-			wantErr:  true,
-		},
-		// Test new operator/operands syntax
-		{
-			name: "new syntax - operator and operands",
-			node: func() *node.Node {
-				n := node.New("test", nil)
-				n.Children["0"] = node.New("0", 1)
-				n.Children["1"] = node.New("1", 3)
-				n.Children["2"] = node.New("2", 5)
-				return n
-			}(),
-			operands: []any{map[string]any{
-				"operator": "in",
-				"operands": []any{1, 3, 5, 7, 9},
-			}},
-			want:    true,
-			wantErr: false,
-		},
-		// Test new syntax with wildcard path
-		{
-			name: "new syntax - wildcard path for AIA scheme",
-			node: func() *node.Node {
-				n := node.New("accessDescriptions", nil)
-				ad0 := node.New("0", nil)
-				loc0 := node.New("accessLocation", nil)
-				loc0.Children["scheme"] = node.New("scheme", "http")
-				ad0.Children["accessLocation"] = loc0
-				n.Children["0"] = ad0
-				ad1 := node.New("1", nil)
-				loc1 := node.New("accessLocation", nil)
-				loc1.Children["scheme"] = node.New("scheme", "http")
-				ad1.Children["accessLocation"] = loc1
-				n.Children["1"] = ad1
-				return n
-			}(),
-			operands: []any{map[string]any{
-				"path":     "*.accessLocation.scheme",
-				"operator": "eq",
-				"operands": []any{"http"},
-			}},
-			want:    true,
-			wantErr: false,
-		},
+		{"nil node returns false", nil, []any{map[string]any{"check": "present"}}, false, false},
+		{"empty children returns true", node.New("test", nil), []any{map[string]any{"check": "present"}}, true, false},
+		{"all children pass present check", collection("test", "value1", "value2"),
+			[]any{map[string]any{"check": "present"}}, true, false},
+		// A nil value is empty.
+		{"some children fail notEmpty check", collection("test", "value1", nil),
+			[]any{map[string]any{"check": "notEmpty"}}, false, false},
+		{"all children pass in check with values", collection("test", 1, 3, 5),
+			[]any{map[string]any{"check": "in", "values": []any{1, 3, 5, 7, 9}}}, true, false},
+		{"one child fails in check", collection("test", 1, 2, 5),
+			[]any{map[string]any{"check": "in", "values": []any{1, 3, 5, 7, 9}}}, false, false},
+		{"sub-path check - all pass", elements(node.New("value", 1), node.New("value", 3)),
+			valueIn("value", 1, 3, 5), true, false},
+		{"sub-path check - one fails", elements(node.New("value", 1), node.New("value", 2)),
+			valueIn("value", 1, 3, 5), false, false},
+		{"sub-path missing - fails by default", twoElementsOneMissing,
+			[]any{map[string]any{"path": "value", "check": "present"}}, false, false},
+		{"sub-path missing - skip with skipMissing", twoElementsOneMissing,
+			[]any{map[string]any{"path": "value", "check": "present", "skipMissing": true}}, true, false},
+		{"nested sub-path check - simplified",
+			elements(tree("a", nil, node.New("b", 1)), tree("a", nil, node.New("b", 3))),
+			valueIn("a.b", 1, 3, 5, 9), true, false},
+		{"nested sub-path check", elements(reasons(1), reasons(3)),
+			valueIn("extensions.2.5.29.21.value", 1, 3, 5, 9), true, false},
+		{"missing check operand returns error", node.New("test", nil), []any{map[string]any{"path": "value"}}, false, true},
+		{"unknown check operator returns error", node.New("test", nil),
+			[]any{map[string]any{"check": "unknownOperator"}}, false, true},
+		{"no operands returns error", node.New("test", nil), []any{}, false, true},
+		{"new syntax - operator and operands", collection("test", 1, 3, 5),
+			[]any{map[string]any{"operator": "in", "operands": []any{1, 3, 5, 7, 9}}}, true, false},
+		{"new syntax - wildcard path for AIA scheme",
+			elements(location("http"), location("http")),
+			[]any{map[string]any{"path": "*.accessLocation.scheme", "operator": "eq", "operands": []any{"http"}}}, true, false},
 	}
 
 	for _, tt := range tests {
@@ -339,13 +133,7 @@ func TestEvery(t *testing.T) {
 }
 
 func TestEveryValidatesStructuredOperands(t *testing.T) {
-	registry := DefaultRegistry()
-	tests := []struct {
-		name       string
-		operands   []any
-		wantErr    bool
-		wantDetail string
-	}{
+	checkOperandValidation(t, "every", []operandValidationCase{
 		{
 			name:     "modern form",
 			operands: []any{map[string]any{"operator": "eq", "operands": []any{"value"}}},
@@ -375,22 +163,7 @@ func TestEveryValidatesStructuredOperands(t *testing.T) {
 			operands: []any{map[string]any{"path": " value", "operator": "present"}},
 			wantErr:  true,
 		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			err := registry.Validate("every", test.operands)
-			if test.wantErr && err == nil {
-				t.Fatal("expected validation error")
-			}
-			if !test.wantErr && err != nil {
-				t.Fatalf("unexpected validation error: %v", err)
-			}
-			if test.wantDetail != "" && (err == nil || !strings.Contains(err.Error(), test.wantDetail)) {
-				t.Fatalf("validation error %q does not contain %q", err, test.wantDetail)
-			}
-		})
-	}
+	})
 }
 
 func TestEveryUsesActiveRegistryForNestedOperator(t *testing.T) {

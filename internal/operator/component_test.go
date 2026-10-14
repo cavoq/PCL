@@ -6,209 +6,54 @@ import (
 	"github.com/cavoq/PCL/internal/node"
 )
 
-func TestComponentMaxLength(t *testing.T) {
-	op := ComponentMaxLength{}
-
+func TestComponentOperators(t *testing.T) {
+	const dnsLabel = "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$"
 	tests := []struct {
-		name      string
-		value     string
-		maxLen    int
-		delimiter string
-		expected  bool
+		name     string
+		op       Operator
+		value    string
+		operands []any
+		want     bool
 	}{
-		{
-			name:      "valid DNS labels (all under 63)",
-			value:     "subdomain.example.test",
-			maxLen:    63,
-			delimiter: ".",
-			expected:  true,
-		},
-		{
-			name:      "label exceeds max 63",
-			value:     "thisisaverylonglabelthatdefinitelyexceedssixtythreecharactersaaa.example.test",
-			maxLen:    63,
-			delimiter: ".",
-			expected:  false,
-		},
-		{
-			name:      "exactly max length 63",
-			value:     "exactly63characterssssssssssssssssssssssssssssssssssss.example",
-			maxLen:    63,
-			delimiter: ".",
-			expected:  true,
-		},
-		{
-			name:      "single component valid",
-			value:     "short",
-			maxLen:    63,
-			delimiter: ".",
-			expected:  true,
-		},
-		{
-			name:      "empty component should pass maxLength (length 0 <= any max)",
-			value:     "example..test",
-			maxLen:    63,
-			delimiter: ".",
-			expected:  true,
-		},
-		{
-			name:      "custom delimiter slash",
-			value:     "path/to/resource",
-			maxLen:    10,
-			delimiter: "/",
-			expected:  true,
-		},
-		{
-			name:      "custom delimiter exceeds",
-			value:     "verylongpathsegment/to/resource",
-			maxLen:    10,
-			delimiter: "/",
-			expected:  false,
-		},
+		{"max length: valid DNS labels (all under 63)", ComponentMaxLength{}, "subdomain.example.test", []any{63, "."}, true},
+		{"max length: label exceeds max 63", ComponentMaxLength{},
+			"thisisaverylonglabelthatdefinitelyexceedssixtythreecharactersaaa.example.test", []any{63, "."}, false},
+		{"max length: exactly max length 63", ComponentMaxLength{},
+			"exactly63characterssssssssssssssssssssssssssssssssssss.example", []any{63, "."}, true},
+		{"max length: single component valid", ComponentMaxLength{}, "short", []any{63, "."}, true},
+		{"max length: empty component passes (length 0 <= any max)", ComponentMaxLength{}, "example..test", []any{63, "."}, true},
+		{"max length: custom delimiter slash", ComponentMaxLength{}, "path/to/resource", []any{10, "/"}, true},
+		{"max length: custom delimiter exceeds", ComponentMaxLength{}, "verylongpathsegment/to/resource", []any{10, "/"}, false},
+		{"max length: default delimiter", ComponentMaxLength{}, "subdomain.example.test", []any{63}, true},
+		{"min length: all labels meet minimum", ComponentMinLength{}, "subdomain.example.test", []any{1, "."}, true},
+		{"min length: empty label fails minimum", ComponentMinLength{}, "example..test", []any{1, "."}, false},
+		{"min length: single char labels", ComponentMinLength{}, "a.b.c", []any{1, "."}, true},
+		{"min length: label too short", ComponentMinLength{}, "ab.c.d", []any{3, "."}, false},
+		{"regex: valid DNS labels (alphanumeric and hyphen)", ComponentRegex{}, "sub-domain.example.test", []any{dnsLabel, "."}, true},
+		{"regex: DNS label with underscore fails", ComponentRegex{}, "invalid_label.example.test", []any{dnsLabel, "."}, false},
+		{"regex: IDN A-label format", ComponentRegex{}, "xn--pss25c.xn--abc.example",
+			[]any{"^(xn--[a-z0-9-]+|[a-z0-9]([a-z0-9-]*[a-z0-9])?)$", "."}, true},
+		{"regex: label starts with hyphen fails", ComponentRegex{}, "-invalid.example.test", []any{dnsLabel, "."}, false},
+		{"not regex: no underscore in labels", ComponentNotRegex{}, "valid.example.test", []any{"_", "."}, true},
+		{"not regex: underscore present fails", ComponentNotRegex{}, "invalid_label.example.test", []any{"_", "."}, false},
+		{"not regex: no forbidden chars", ComponentNotRegex{}, "clean.example", []any{"[*?]", "."}, true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			n := node.New("test", tt.value)
-			operands := []any{tt.maxLen, tt.delimiter}
-			result, err := op.Evaluate(n, nil, operands)
+			got, err := tt.op.Evaluate(node.New("test", tt.value), nil, tt.operands)
 			if err != nil {
-				t.Errorf("unexpected error: %v", err)
+				t.Fatalf("unexpected error: %v", err)
 			}
-			if result != tt.expected {
-				t.Errorf("expected %v, got %v", tt.expected, result)
-			}
-		})
-	}
-
-	// Test with default delimiter
-	t.Run("default delimiter", func(t *testing.T) {
-		n := node.New("test", "subdomain.example.test")
-		result, err := op.Evaluate(n, nil, []any{63})
-		if err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-		if !result {
-			t.Errorf("expected true for valid DNS with default delimiter")
-		}
-	})
-}
-
-func TestComponentMinLength(t *testing.T) {
-	op := ComponentMinLength{}
-
-	tests := []struct {
-		name      string
-		value     string
-		minLen    int
-		delimiter string
-		expected  bool
-	}{
-		{
-			name:      "all labels meet minimum",
-			value:     "subdomain.example.test",
-			minLen:    1,
-			delimiter: ".",
-			expected:  true,
-		},
-		{
-			name:      "empty label fails minimum",
-			value:     "example..test",
-			minLen:    1,
-			delimiter: ".",
-			expected:  false,
-		},
-		{
-			name:      "single char labels",
-			value:     "a.b.c",
-			minLen:    1,
-			delimiter: ".",
-			expected:  true,
-		},
-		{
-			name:      "label too short",
-			value:     "ab.c.d",
-			minLen:    3,
-			delimiter: ".",
-			expected:  false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			n := node.New("test", tt.value)
-			operands := []any{tt.minLen, tt.delimiter}
-			result, err := op.Evaluate(n, nil, operands)
-			if err != nil {
-				t.Errorf("unexpected error: %v", err)
-			}
-			if result != tt.expected {
-				t.Errorf("expected %v, got %v", tt.expected, result)
-			}
-		})
-	}
-}
-
-func TestComponentRegex(t *testing.T) {
-	op := ComponentRegex{}
-
-	tests := []struct {
-		name      string
-		value     string
-		pattern   string
-		delimiter string
-		expected  bool
-	}{
-		{
-			name:      "valid DNS labels (alphanumeric and hyphen)",
-			value:     "sub-domain.example.test",
-			pattern:   "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$",
-			delimiter: ".",
-			expected:  true,
-		},
-		{
-			name:      "DNS label with underscore fails",
-			value:     "invalid_label.example.test",
-			pattern:   "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$",
-			delimiter: ".",
-			expected:  false,
-		},
-		{
-			name:      "IDN A-label format",
-			value:     "xn--pss25c.xn--abc.example",
-			pattern:   "^(xn--[a-z0-9-]+|[a-z0-9]([a-z0-9-]*[a-z0-9])?)$",
-			delimiter: ".",
-			expected:  true,
-		},
-		{
-			name:      "label starts with hyphen fails",
-			value:     "-invalid.example.test",
-			pattern:   "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$",
-			delimiter: ".",
-			expected:  false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			n := node.New("test", tt.value)
-			operands := []any{tt.pattern, tt.delimiter}
-			result, err := op.Evaluate(n, nil, operands)
-			if err != nil {
-				t.Errorf("unexpected error: %v", err)
-			}
-			if result != tt.expected {
-				t.Errorf("expected %v, got %v", tt.expected, result)
+			if got != tt.want {
+				t.Fatalf("%s = %v, want %v", tt.op.Name(), got, tt.want)
 			}
 		})
 	}
 }
 
 func TestComponentRegexRejectsCollectionNode(t *testing.T) {
-	collection := node.New("dNSName", nil)
-	collection.Children["0"] = node.New("0", "example.com")
-
-	got, err := (ComponentRegex{}).Evaluate(collection, nil, []any{"^[a-z]+$"})
+	got, err := (ComponentRegex{}).Evaluate(collection("dNSName", "example.com"), nil, []any{"^[a-z]+$"})
 	if err != nil {
 		t.Fatalf("ComponentRegex.Evaluate() error = %v", err)
 	}
@@ -218,15 +63,13 @@ func TestComponentRegexRejectsCollectionNode(t *testing.T) {
 }
 
 func TestEveryComposesComponentRegex(t *testing.T) {
-	collection := node.New("dNSName", nil)
-	collection.Children["0"] = node.New("0", "example.com")
-	collection.Children["1"] = node.New("1", "invalid_label.example")
+	names := collection("dNSName", "example.com", "invalid_label.example")
 
 	operands := []any{map[string]any{
 		"operator": "componentRegex",
 		"operands": []any{"^[a-z]([a-z0-9-]*[a-z0-9])?$"},
 	}}
-	got, err := DefaultRegistry().Evaluate("every", collection, nil, operands)
+	got, err := DefaultRegistry().Evaluate("every", names, nil, operands)
 	if err != nil {
 		t.Fatalf("every(componentRegex) error = %v", err)
 	}
@@ -234,8 +77,8 @@ func TestEveryComposesComponentRegex(t *testing.T) {
 		t.Fatal("every(componentRegex) accepted an invalid value after a valid value")
 	}
 
-	collection.Children["1"] = node.New("1", "valid-label.example")
-	got, err = DefaultRegistry().Evaluate("every", collection, nil, operands)
+	names.Children["1"] = node.New("1", "valid-label.example")
+	got, err = DefaultRegistry().Evaluate("every", names, nil, operands)
 	if err != nil {
 		t.Fatalf("every(componentRegex) error = %v", err)
 	}
@@ -244,72 +87,24 @@ func TestEveryComposesComponentRegex(t *testing.T) {
 	}
 }
 
-func TestComponentNotRegex(t *testing.T) {
-	op := ComponentNotRegex{}
-
-	tests := []struct {
-		name      string
-		value     string
-		pattern   string
-		delimiter string
-		expected  bool
-	}{
-		{
-			name:      "no underscore in labels",
-			value:     "valid.example.test",
-			pattern:   "_",
-			delimiter: ".",
-			expected:  true,
-		},
-		{
-			name:      "underscore present fails",
-			value:     "invalid_label.example.test",
-			pattern:   "_",
-			delimiter: ".",
-			expected:  false,
-		},
-		{
-			name:      "no forbidden chars",
-			value:     "clean.example",
-			pattern:   "[*?]",
-			delimiter: ".",
-			expected:  true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			n := node.New("test", tt.value)
-			operands := []any{tt.pattern, tt.delimiter}
-			result, err := op.Evaluate(n, nil, operands)
-			if err != nil {
-				t.Errorf("unexpected error: %v", err)
-			}
-			if result != tt.expected {
-				t.Errorf("expected %v, got %v", tt.expected, result)
-			}
-		})
-	}
-}
-
 func TestComponentOperatorsUseCollectionElements(t *testing.T) {
-	collection := node.New("dNSName", nil)
-	collection.AddElement(node.New("0", "example.com"))
-	collection.AddElement(node.New("1", "*.example.com"))
+	names := node.New("dNSName", nil)
+	names.AddElement(node.New("0", "example.com"))
+	names.AddElement(node.New("1", "*.example.com"))
 	// Named metadata beside indexed elements is not an element.
-	collection.Children["type"] = node.New("type", "*")
+	names.Children["type"] = node.New("type", "*")
 
-	matched, err := AnyComponentMatches{}.Evaluate(collection, nil, []any{`^\*$`})
+	matched, err := AnyComponentMatches{}.Evaluate(names, nil, []any{`^\*$`})
 	if err != nil || matched {
 		t.Fatalf("anyComponentMatches matched metadata: %v, %v", matched, err)
 	}
 
-	matched, err = AnyComponentMatches{}.Evaluate(collection, nil, []any{`^\*\.`})
+	matched, err = AnyComponentMatches{}.Evaluate(names, nil, []any{`^\*\.`})
 	if err != nil || !matched {
 		t.Fatalf("anyComponentMatches missed an element: %v, %v", matched, err)
 	}
 
-	valid, err := ComponentMinLength{}.Evaluate(collection, nil, []any{2})
+	valid, err := ComponentMinLength{}.Evaluate(names, nil, []any{2})
 	if err != nil || valid {
 		t.Fatalf("componentMinLength = %v, %v; want false for the one-character wildcard label", valid, err)
 	}

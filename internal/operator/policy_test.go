@@ -22,12 +22,6 @@ const (
 	policyC = "1.2.3.6"
 )
 
-func TestCertificatePolicyValidName(t *testing.T) {
-	if (CertificatePolicyValid{}).Name() != "certificatePolicyValid" {
-		t.Error("wrong name")
-	}
-}
-
 func TestCertificatePolicyValidNilContext(t *testing.T) {
 	got, err := CertificatePolicyValid{}.Evaluate(nil, nil, []any{policyA})
 	if err != nil || got {

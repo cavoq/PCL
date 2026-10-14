@@ -1,6 +1,7 @@
 package operator
 
 import (
+	"strconv"
 	"testing"
 
 	"github.com/cavoq/PCL/internal/node"
@@ -8,195 +9,81 @@ import (
 
 func TestNoDuplicateAttributes(t *testing.T) {
 	op := NoDuplicateAttributes{}
+	// attribute is a subject attribute node with an oid child unless oid is
+	// empty.
+	attribute := func(name, value, oid string) *node.Node {
+		n := node.New(name, value)
+		if oid != "" {
+			n.Children["oid"] = node.New("oid", oid)
+		}
+		return n
+	}
+	// subject keys each attribute by its name and position, as for repeated
+	// attributes.
+	subject := func(attributes ...*node.Node) *node.Node {
+		n := node.New("subject", nil)
+		for index, attribute := range attributes {
+			n.Children[attribute.Name+strconv.Itoa(index)] = attribute
+		}
+		return n
+	}
+	canonical := func() *node.Node {
+		commonNames := attribute("commonName", "example.com", "2.5.4.3")
+		for _, value := range []string{"example.com", "example.org"} {
+			commonNames.AddElement(attribute("attribute", value, "2.5.4.3"))
+		}
+		attributes := tree("attributes", nil, commonNames)
+		attributes.Children["2.5.4.3"] = commonNames
+		return tree("subject", "CN=example.com,CN=example.org", attributes)
+	}
 
 	tests := []struct {
 		name string
 		node *node.Node
 		want bool
 	}{
-		{
-			name: "nil node returns false",
-			node: nil,
-			want: false,
-		},
-		{
-			name: "malformed name returns false",
-			node: func() *node.Node {
-				n := node.New("subject", "CN=fallback")
-				n.Children["malformed"] = node.New("malformed", true)
-				return n
-			}(),
-			want: false,
-		},
-		{
-			name: "canonical attribute collection detects duplicate commonName",
-			node: func() *node.Node {
-				n := node.New("subject", "CN=example.com,CN=example.org")
-				attributes := node.New("attributes", nil)
-				commonNames := node.New("commonName", "example.com")
-				commonNames.Children["oid"] = node.New("oid", "2.5.4.3")
-				for _, value := range []string{"example.com", "example.org"} {
-					attribute := node.New("attribute", value)
-					attribute.Children["oid"] = node.New("oid", "2.5.4.3")
-					commonNames.AddElement(attribute)
-				}
-				attributes.Children["commonName"] = commonNames
-				attributes.Children["2.5.4.3"] = commonNames
-				n.Children["attributes"] = attributes
-				return n
-			}(),
-			want: false,
-		},
-		{
-			name: "single commonName returns true",
-			node: func() *node.Node {
-				n := node.New("subject", nil)
-				cn := node.New("commonName", "example.com")
-				cn.Children["oid"] = node.New("oid", "2.5.4.3")
-				n.Children["commonName"] = cn
-				return n
-			}(),
-			want: true,
-		},
-		{
-			name: "multiple domainComponent returns true (exempt)",
-			node: func() *node.Node {
-				n := node.New("subject", nil)
-				dc1 := node.New("domainComponent", "example")
-				dc1.Children["oid"] = node.New("oid", "0.9.2342.19200300.100.1.25")
-				dc2 := node.New("domainComponent", "com")
-				dc2.Children["oid"] = node.New("oid", "0.9.2342.19200300.100.1.25")
-				n.Children["domainComponent0"] = dc1
-				n.Children["domainComponent1"] = dc2
-				return n
-			}(),
-			want: true,
-		},
-		{
-			name: "multiple streetAddress returns true (exempt)",
-			node: func() *node.Node {
-				n := node.New("subject", nil)
-				sa1 := node.New("streetAddress", "Street 1")
-				sa1.Children["oid"] = node.New("oid", "2.5.4.9")
-				sa2 := node.New("streetAddress", "Street 2")
-				sa2.Children["oid"] = node.New("oid", "2.5.4.9")
-				n.Children["streetAddress0"] = sa1
-				n.Children["streetAddress1"] = sa2
-				return n
-			}(),
-			want: true,
-		},
-		{
-			name: "multiple organizationalUnit returns true (exempt)",
-			node: func() *node.Node {
-				n := node.New("subject", nil)
-				ou1 := node.New("organizationalUnitName", "OU1")
-				ou1.Children["oid"] = node.New("oid", "2.5.4.11")
-				ou2 := node.New("organizationalUnitName", "OU2")
-				ou2.Children["oid"] = node.New("oid", "2.5.4.11")
-				n.Children["organizationalUnitName0"] = ou1
-				n.Children["organizationalUnitName1"] = ou2
-				return n
-			}(),
-			want: true,
-		},
-		{
-			name: "duplicate commonName by OID returns false",
-			node: func() *node.Node {
-				n := node.New("subject", nil)
-				cn1 := node.New("commonName", "example.com")
-				cn1.Children["oid"] = node.New("oid", "2.5.4.3")
-				cn2 := node.New("commonName", "example.org")
-				cn2.Children["oid"] = node.New("oid", "2.5.4.3")
-				n.Children["commonName0"] = cn1
-				n.Children["commonName1"] = cn2
-				return n
-			}(),
-			want: false,
-		},
-		{
-			name: "duplicate commonName without OID info - only name matches",
-			node: func() *node.Node {
-				n := node.New("subject", nil)
-				// When parsed with different keys but both named "commonName"
-				// and no OID info, detection relies on name matching
-				cn1 := node.New("commonName", "example.com")
-				cn2 := node.New("commonName", "example.org")
-				n.Children["commonName"] = cn1
-				n.Children["commonName_1"] = cn2
-				return n
-			}(),
-			// The node name, rather than its potentially suffixed parent key,
-			// supplies the attribute identity when no explicit OID is present.
-			want: false,
-		},
-		{
-			name: "duplicate organizationName returns false",
-			node: func() *node.Node {
-				n := node.New("subject", nil)
-				o1 := node.New("organizationName", "Org1")
-				o1.Children["oid"] = node.New("oid", "2.5.4.10")
-				o2 := node.New("organizationName", "Org2")
-				o2.Children["oid"] = node.New("oid", "2.5.4.10")
-				n.Children["organizationName0"] = o1
-				n.Children["organizationName1"] = o2
-				return n
-			}(),
-			want: false,
-		},
-		{
-			name: "duplicate countryName returns false",
-			node: func() *node.Node {
-				n := node.New("subject", nil)
-				c1 := node.New("countryName", "US")
-				c1.Children["oid"] = node.New("oid", "2.5.4.6")
-				c2 := node.New("countryName", "GB")
-				c2.Children["oid"] = node.New("oid", "2.5.4.6")
-				n.Children["countryName0"] = c1
-				n.Children["countryName1"] = c2
-				return n
-			}(),
-			want: false,
-		},
-		{
-			name: "different attributes return true",
-			node: func() *node.Node {
-				n := node.New("subject", nil)
-				cn := node.New("commonName", "example.com")
-				cn.Children["oid"] = node.New("oid", "2.5.4.3")
-				o := node.New("organizationName", "Example Org")
-				o.Children["oid"] = node.New("oid", "2.5.4.10")
-				c := node.New("countryName", "US")
-				c.Children["oid"] = node.New("oid", "2.5.4.6")
-				n.Children["commonName"] = cn
-				n.Children["organizationName"] = o
-				n.Children["countryName"] = c
-				return n
-			}(),
-			want: true,
-		},
-		{
-			name: "single child without OID uses node name",
-			node: func() *node.Node {
-				n := node.New("subject", nil)
-				cn := node.New("commonName", "example.com")
-				// No OID child
-				n.Children["commonName"] = cn
-				return n
-			}(),
-			want: true,
-		},
-		{
-			name: "child with OID but not in single instance list returns true",
-			node: func() *node.Node {
-				n := node.New("subject", nil)
-				attr := node.New("unknownAttribute", "value")
-				attr.Children["oid"] = node.New("oid", "1.2.3.4.5.6")
-				n.Children["unknownAttribute"] = attr
-				return n
-			}(),
-			want: true,
-		},
+		{"nil node returns false", nil, false},
+		{"malformed name returns false", tree("subject", "CN=fallback", node.New("malformed", true)), false},
+		{"canonical attribute collection detects duplicate commonName", canonical(), false},
+		{"single commonName returns true", subject(attribute("commonName", "example.com", "2.5.4.3")), true},
+		{"multiple domainComponent returns true (exempt)", subject(
+			attribute("domainComponent", "example", "0.9.2342.19200300.100.1.25"),
+			attribute("domainComponent", "com", "0.9.2342.19200300.100.1.25"),
+		), true},
+		{"multiple streetAddress returns true (exempt)", subject(
+			attribute("streetAddress", "Street 1", "2.5.4.9"),
+			attribute("streetAddress", "Street 2", "2.5.4.9"),
+		), true},
+		{"multiple organizationalUnit returns true (exempt)", subject(
+			attribute("organizationalUnitName", "OU1", "2.5.4.11"),
+			attribute("organizationalUnitName", "OU2", "2.5.4.11"),
+		), true},
+		{"duplicate commonName by OID returns false", subject(
+			attribute("commonName", "example.com", "2.5.4.3"),
+			attribute("commonName", "example.org", "2.5.4.3"),
+		), false},
+		// Without an OID, the node name rather than its suffixed parent key
+		// supplies the attribute identity.
+		{"duplicate commonName without OID info - only name matches", subject(
+			attribute("commonName", "example.com", ""),
+			attribute("commonName", "example.org", ""),
+		), false},
+		{"duplicate organizationName returns false", subject(
+			attribute("organizationName", "Org1", "2.5.4.10"),
+			attribute("organizationName", "Org2", "2.5.4.10"),
+		), false},
+		{"duplicate countryName returns false", subject(
+			attribute("countryName", "US", "2.5.4.6"),
+			attribute("countryName", "GB", "2.5.4.6"),
+		), false},
+		{"different attributes return true", subject(
+			attribute("commonName", "example.com", "2.5.4.3"),
+			attribute("organizationName", "Example Org", "2.5.4.10"),
+			attribute("countryName", "US", "2.5.4.6"),
+		), true},
+		{"single child without OID uses node name", subject(attribute("commonName", "example.com", "")), true},
+		{"child with OID but not in single instance list returns true",
+			subject(attribute("unknownAttribute", "value", "1.2.3.4.5.6")), true},
 	}
 
 	for _, tt := range tests {

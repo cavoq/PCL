@@ -11,13 +11,6 @@ import (
 	"github.com/cavoq/PCL/internal/cert"
 )
 
-func TestNameConstraintsValidName(t *testing.T) {
-	op := NameConstraintsValid{}
-	if op.Name() != "nameConstraintsValid" {
-		t.Error("wrong name")
-	}
-}
-
 func TestNameConstraintsValidNilContext(t *testing.T) {
 	op := NameConstraintsValid{}
 	got, err := op.Evaluate(nil, nil, nil)
@@ -44,381 +37,79 @@ func TestNameConstraintsValidNoChain(t *testing.T) {
 	}
 }
 
-func TestNameConstraintsValidNoConstraints(t *testing.T) {
-	op := NameConstraintsValid{}
-	leafCert := &x509.Certificate{
-		DNSNames: []string{"example.com"},
+func TestNameConstraintsValidChains(t *testing.T) {
+	subtrees := func(names ...string) []x509.GeneralSubtreeString {
+		result := make([]x509.GeneralSubtreeString, len(names))
+		for index, name := range names {
+			result[index] = x509.GeneralSubtreeString{Data: name}
+		}
+		return result
 	}
-	caCert := &x509.Certificate{}
-
-	ctx := &EvaluationContext{
-		Cert: &cert.Info{Cert: leafCert, Position: 0},
-		Chain: []*cert.Info{
-			{Cert: leafCert, Position: 0},
-			{Cert: caCert, Position: 1},
-		},
+	ipSubtree := func(cidr string) []x509.GeneralSubtreeIP {
+		_, network, err := net.ParseCIDR(cidr)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return []x509.GeneralSubtreeIP{{Data: *network}}
 	}
-	got, err := op.Evaluate(nil, ctx, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if !got {
-		t.Error("no constraints should pass")
-	}
-}
-
-func TestNameConstraintsValidDNSPermitted(t *testing.T) {
-	op := NameConstraintsValid{}
-	leafCert := &x509.Certificate{
-		DNSNames: []string{"foo.example.com"},
-	}
-	caCert := &x509.Certificate{
-		PermittedDNSNames: []x509.GeneralSubtreeString{
-			{Data: ".example.com"},
-		},
+	emailLeaf := func(address string) *x509.Certificate {
+		return &x509.Certificate{
+			EmailAddresses: []string{address},
+			Extensions:     []pkix.Extension{{Id: zasn1.ObjectIdentifier{2, 5, 29, 17}}},
+		}
 	}
 
-	ctx := &EvaluationContext{
-		Cert: &cert.Info{Cert: leafCert, Position: 0},
-		Chain: []*cert.Info{
-			{Cert: leafCert, Position: 0},
-			{Cert: caCert, Position: 1},
-		},
-	}
-	got, err := op.Evaluate(nil, ctx, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if !got {
-		t.Error("DNS within permitted should pass")
-	}
-}
-
-func TestNameConstraintsValidDNSNotPermitted(t *testing.T) {
-	op := NameConstraintsValid{}
-	leafCert := &x509.Certificate{
-		DNSNames: []string{"foo.other.com"},
-	}
-	caCert := &x509.Certificate{
-		PermittedDNSNames: []x509.GeneralSubtreeString{
-			{Data: ".example.com"},
-		},
-	}
-
-	ctx := &EvaluationContext{
-		Cert: &cert.Info{Cert: leafCert, Position: 0},
-		Chain: []*cert.Info{
-			{Cert: leafCert, Position: 0},
-			{Cert: caCert, Position: 1},
-		},
-	}
-	got, err := op.Evaluate(nil, ctx, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if got {
-		t.Error("DNS outside permitted should fail")
-	}
-}
-
-func TestNameConstraintsValidDNSExcluded(t *testing.T) {
-	op := NameConstraintsValid{}
-	leafCert := &x509.Certificate{
-		DNSNames: []string{"foo.bad.com"},
-	}
-	caCert := &x509.Certificate{
-		ExcludedDNSNames: []x509.GeneralSubtreeString{
-			{Data: ".bad.com"},
-		},
+	tests := []struct {
+		name string
+		leaf *x509.Certificate
+		// cas are the issuers of leaf, nearest first.
+		cas  []*x509.Certificate
+		want bool
+	}{
+		{"no constraints pass", &x509.Certificate{DNSNames: []string{"example.com"}},
+			[]*x509.Certificate{{}}, true},
+		{"DNS within permitted passes", &x509.Certificate{DNSNames: []string{"foo.example.com"}},
+			[]*x509.Certificate{{PermittedDNSNames: subtrees(".example.com")}}, true},
+		{"DNS outside permitted fails", &x509.Certificate{DNSNames: []string{"foo.other.com"}},
+			[]*x509.Certificate{{PermittedDNSNames: subtrees(".example.com")}}, false},
+		{"DNS in excluded fails", &x509.Certificate{DNSNames: []string{"foo.bad.com"}},
+			[]*x509.Certificate{{ExcludedDNSNames: subtrees(".bad.com")}}, false},
+		{"email within permitted passes", emailLeaf("user@example.com"),
+			[]*x509.Certificate{{PermittedEmailAddresses: subtrees("example.com")}}, true},
+		{"email outside permitted fails", emailLeaf("user@other.com"),
+			[]*x509.Certificate{{PermittedEmailAddresses: subtrees("example.com")}}, false},
+		{"IP within permitted passes", &x509.Certificate{IPAddresses: []net.IP{net.ParseIP("192.168.1.100")}},
+			[]*x509.Certificate{{PermittedIPAddresses: ipSubtree("192.168.0.0/16")}}, true},
+		{"IP outside permitted fails", &x509.Certificate{IPAddresses: []net.IP{net.ParseIP("10.0.0.1")}},
+			[]*x509.Certificate{{PermittedIPAddresses: ipSubtree("192.168.0.0/16")}}, false},
+		{"IP in excluded fails", &x509.Certificate{IPAddresses: []net.IP{net.ParseIP("192.168.1.100")}},
+			[]*x509.Certificate{{ExcludedIPAddresses: ipSubtree("192.168.1.0/24")}}, false},
+		{"URI within permitted passes", &x509.Certificate{URIs: []string{"https://foo.example.com/path"}},
+			[]*x509.Certificate{{PermittedURIs: subtrees(".example.com")}}, true},
+		{"multiple CA constraints pass", &x509.Certificate{DNSNames: []string{"foo.example.com"}},
+			[]*x509.Certificate{{PermittedDNSNames: subtrees(".example.com")}, {ExcludedDNSNames: subtrees(".bad.com")}}, true},
+		// A name within the intermediate's permitted set but not the root's
+		// fails; under union semantics it would pass.
+		{"name outside the root's permitted set fails", &x509.Certificate{DNSNames: []string{"foo.other.com"}},
+			[]*x509.Certificate{{PermittedDNSNames: subtrees(".other.com")}, {PermittedDNSNames: subtrees(".example.com")}}, false},
+		{"name within both permitted sets passes", &x509.Certificate{DNSNames: []string{"foo.sub.example.com"}},
+			[]*x509.Certificate{{PermittedDNSNames: subtrees(".sub.example.com")}, {PermittedDNSNames: subtrees(".example.com")}}, true},
 	}
 
-	ctx := &EvaluationContext{
-		Cert: &cert.Info{Cert: leafCert, Position: 0},
-		Chain: []*cert.Info{
-			{Cert: leafCert, Position: 0},
-			{Cert: caCert, Position: 1},
-		},
-	}
-	got, err := op.Evaluate(nil, ctx, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if got {
-		t.Error("DNS in excluded should fail")
-	}
-}
-
-func TestNameConstraintsValidEmailPermitted(t *testing.T) {
-	op := NameConstraintsValid{}
-	leafCert := &x509.Certificate{
-		EmailAddresses: []string{"user@example.com"},
-		Extensions: []pkix.Extension{{
-			Id: zasn1.ObjectIdentifier{2, 5, 29, 17},
-		}},
-	}
-	caCert := &x509.Certificate{
-		PermittedEmailAddresses: []x509.GeneralSubtreeString{
-			{Data: "example.com"},
-		},
-	}
-
-	ctx := &EvaluationContext{
-		Cert: &cert.Info{Cert: leafCert, Position: 0},
-		Chain: []*cert.Info{
-			{Cert: leafCert, Position: 0},
-			{Cert: caCert, Position: 1},
-		},
-	}
-	got, err := op.Evaluate(nil, ctx, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if !got {
-		t.Error("email within permitted should pass")
-	}
-}
-
-func TestNameConstraintsValidEmailNotPermitted(t *testing.T) {
-	op := NameConstraintsValid{}
-	leafCert := &x509.Certificate{
-		EmailAddresses: []string{"user@other.com"},
-		Extensions: []pkix.Extension{{
-			Id: zasn1.ObjectIdentifier{2, 5, 29, 17},
-		}},
-	}
-	caCert := &x509.Certificate{
-		PermittedEmailAddresses: []x509.GeneralSubtreeString{
-			{Data: "example.com"},
-		},
-	}
-
-	ctx := &EvaluationContext{
-		Cert: &cert.Info{Cert: leafCert, Position: 0},
-		Chain: []*cert.Info{
-			{Cert: leafCert, Position: 0},
-			{Cert: caCert, Position: 1},
-		},
-	}
-	got, err := op.Evaluate(nil, ctx, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if got {
-		t.Error("email outside permitted should fail")
-	}
-}
-
-func TestNameConstraintsValidIPPermitted(t *testing.T) {
-	op := NameConstraintsValid{}
-	leafCert := &x509.Certificate{
-		IPAddresses: []net.IP{net.ParseIP("192.168.1.100")},
-	}
-	_, ipnet, _ := net.ParseCIDR("192.168.0.0/16")
-	caCert := &x509.Certificate{
-		PermittedIPAddresses: []x509.GeneralSubtreeIP{
-			{Data: *ipnet},
-		},
-	}
-
-	ctx := &EvaluationContext{
-		Cert: &cert.Info{Cert: leafCert, Position: 0},
-		Chain: []*cert.Info{
-			{Cert: leafCert, Position: 0},
-			{Cert: caCert, Position: 1},
-		},
-	}
-	got, err := op.Evaluate(nil, ctx, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if !got {
-		t.Error("IP within permitted should pass")
-	}
-}
-
-func TestNameConstraintsValidIPNotPermitted(t *testing.T) {
-	op := NameConstraintsValid{}
-	leafCert := &x509.Certificate{
-		IPAddresses: []net.IP{net.ParseIP("10.0.0.1")},
-	}
-	_, ipnet, _ := net.ParseCIDR("192.168.0.0/16")
-	caCert := &x509.Certificate{
-		PermittedIPAddresses: []x509.GeneralSubtreeIP{
-			{Data: *ipnet},
-		},
-	}
-
-	ctx := &EvaluationContext{
-		Cert: &cert.Info{Cert: leafCert, Position: 0},
-		Chain: []*cert.Info{
-			{Cert: leafCert, Position: 0},
-			{Cert: caCert, Position: 1},
-		},
-	}
-	got, err := op.Evaluate(nil, ctx, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if got {
-		t.Error("IP outside permitted should fail")
-	}
-}
-
-func TestNameConstraintsValidIPExcluded(t *testing.T) {
-	op := NameConstraintsValid{}
-	leafCert := &x509.Certificate{
-		IPAddresses: []net.IP{net.ParseIP("192.168.1.100")},
-	}
-	_, ipnet, _ := net.ParseCIDR("192.168.1.0/24")
-	caCert := &x509.Certificate{
-		ExcludedIPAddresses: []x509.GeneralSubtreeIP{
-			{Data: *ipnet},
-		},
-	}
-
-	ctx := &EvaluationContext{
-		Cert: &cert.Info{Cert: leafCert, Position: 0},
-		Chain: []*cert.Info{
-			{Cert: leafCert, Position: 0},
-			{Cert: caCert, Position: 1},
-		},
-	}
-	got, err := op.Evaluate(nil, ctx, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if got {
-		t.Error("IP in excluded should fail")
-	}
-}
-
-func TestNameConstraintsValidURIPermitted(t *testing.T) {
-	op := NameConstraintsValid{}
-	leafCert := &x509.Certificate{
-		URIs: []string{"https://foo.example.com/path"},
-	}
-	caCert := &x509.Certificate{
-		PermittedURIs: []x509.GeneralSubtreeString{
-			{Data: ".example.com"},
-		},
-	}
-
-	ctx := &EvaluationContext{
-		Cert: &cert.Info{Cert: leafCert, Position: 0},
-		Chain: []*cert.Info{
-			{Cert: leafCert, Position: 0},
-			{Cert: caCert, Position: 1},
-		},
-	}
-	got, err := op.Evaluate(nil, ctx, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if !got {
-		t.Error("URI within permitted should pass")
-	}
-}
-
-func TestNameConstraintsValidMultipleCAConstraints(t *testing.T) {
-	op := NameConstraintsValid{}
-	leafCert := &x509.Certificate{
-		DNSNames: []string{"foo.example.com"},
-	}
-	intermediateCert := &x509.Certificate{
-		PermittedDNSNames: []x509.GeneralSubtreeString{
-			{Data: ".example.com"},
-		},
-	}
-	rootCert := &x509.Certificate{
-		ExcludedDNSNames: []x509.GeneralSubtreeString{
-			{Data: ".bad.com"},
-		},
-	}
-
-	ctx := &EvaluationContext{
-		Cert: &cert.Info{Cert: leafCert, Position: 0},
-		Chain: []*cert.Info{
-			{Cert: leafCert, Position: 0},
-			{Cert: intermediateCert, Position: 1},
-			{Cert: rootCert, Position: 2},
-		},
-	}
-	got, err := op.Evaluate(nil, ctx, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if !got {
-		t.Error("should pass with multiple CA constraints")
-	}
-}
-
-// TestNameConstraintsIntersection verifies that a leaf satisfying an
-// intermediate's permitted set but NOT the root's is rejected.
-// Under the old union semantics this would incorrectly pass.
-func TestNameConstraintsIntersectionFail(t *testing.T) {
-	op := NameConstraintsValid{}
-	leafCert := &x509.Certificate{
-		DNSNames: []string{"foo.other.com"},
-	}
-	intermediateCert := &x509.Certificate{
-		PermittedDNSNames: []x509.GeneralSubtreeString{
-			{Data: ".other.com"},
-		},
-	}
-	rootCert := &x509.Certificate{
-		PermittedDNSNames: []x509.GeneralSubtreeString{
-			{Data: ".example.com"},
-		},
-	}
-
-	ctx := &EvaluationContext{
-		Cert: &cert.Info{Cert: leafCert, Position: 0},
-		Chain: []*cert.Info{
-			{Cert: leafCert, Position: 0},
-			{Cert: intermediateCert, Position: 1},
-			{Cert: rootCert, Position: 2},
-		},
-	}
-	got, err := op.Evaluate(nil, ctx, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if got {
-		t.Error("name outside root's permitted set must fail (intersection semantics)")
-	}
-}
-
-// TestNameConstraintsIntersectionPass verifies that a leaf satisfying both
-// root's and intermediate's permitted sets (intermediate narrows root) passes.
-func TestNameConstraintsIntersectionPass(t *testing.T) {
-	op := NameConstraintsValid{}
-	leafCert := &x509.Certificate{
-		DNSNames: []string{"foo.sub.example.com"},
-	}
-	intermediateCert := &x509.Certificate{
-		PermittedDNSNames: []x509.GeneralSubtreeString{
-			{Data: ".sub.example.com"},
-		},
-	}
-	rootCert := &x509.Certificate{
-		PermittedDNSNames: []x509.GeneralSubtreeString{
-			{Data: ".example.com"},
-		},
-	}
-
-	ctx := &EvaluationContext{
-		Cert: &cert.Info{Cert: leafCert, Position: 0},
-		Chain: []*cert.Info{
-			{Cert: leafCert, Position: 0},
-			{Cert: intermediateCert, Position: 1},
-			{Cert: rootCert, Position: 2},
-		},
-	}
-	got, err := op.Evaluate(nil, ctx, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if !got {
-		t.Error("name within both permitted sets should pass (intersection semantics)")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			chain := []*cert.Info{{Cert: tt.leaf, Position: 0}}
+			for index, ca := range tt.cas {
+				chain = append(chain, &cert.Info{Cert: ca, Position: index + 1})
+			}
+			ctx := &EvaluationContext{Cert: &cert.Info{Cert: tt.leaf, Position: 0}, Chain: chain}
+			got, err := NameConstraintsValid{}.Evaluate(nil, ctx, nil)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != tt.want {
+				t.Fatalf("nameConstraintsValid = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }

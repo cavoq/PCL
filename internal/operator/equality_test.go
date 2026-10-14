@@ -132,10 +132,3 @@ func TestMatches(t *testing.T) {
 		})
 	}
 }
-
-func TestMatchesName(t *testing.T) {
-	op := Matches{}
-	if op.Name() != "matches" {
-		t.Errorf("Matches.Name() = %v, want matches", op.Name())
-	}
-}

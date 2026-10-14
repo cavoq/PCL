@@ -14,13 +14,6 @@ import (
 	"github.com/cavoq/PCL/internal/crl"
 )
 
-func TestCRLValidName(t *testing.T) {
-	op := CRLValid{}
-	if op.Name() != "crlValid" {
-		t.Error("wrong name")
-	}
-}
-
 func TestCRLValidNilContext(t *testing.T) {
 	op := CRLValid{}
 	got, err := op.Evaluate(nil, nil, nil)
@@ -150,13 +143,6 @@ func TestCRLValidNilCRLInInfo(t *testing.T) {
 	}
 }
 
-func TestCRLNotExpiredName(t *testing.T) {
-	op := CRLNotExpired{}
-	if op.Name() != "crlNotExpired" {
-		t.Error("wrong name")
-	}
-}
-
 func TestCRLNotExpiredNilContext(t *testing.T) {
 	op := CRLNotExpired{}
 	got, err := op.Evaluate(nil, nil, nil)
@@ -227,13 +213,6 @@ func TestCRLNotExpiredExpired(t *testing.T) {
 	}
 	if got {
 		t.Error("expired CRL should return false")
-	}
-}
-
-func TestCRLSignedByName(t *testing.T) {
-	op := CRLSignedBy{}
-	if op.Name() != "crlSignedBy" {
-		t.Error("wrong name")
 	}
 }
 
@@ -329,13 +308,6 @@ func TestCRLSignedByIssuerMismatch(t *testing.T) {
 	}
 	if got {
 		t.Error("issuer not in chain must not count as a verified signature")
-	}
-}
-
-func TestNotRevokedName(t *testing.T) {
-	op := NotRevoked{}
-	if op.Name() != "notRevoked" {
-		t.Error("wrong name")
 	}
 }
 

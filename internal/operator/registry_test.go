@@ -161,3 +161,39 @@ func TestRegistryEvaluateEnforcesOperandValidation(t *testing.T) {
 		t.Fatal("Evaluate accepted operands rejected by the registered contract")
 	}
 }
+
+func TestOperatorNames(t *testing.T) {
+	names := map[Operator]string{
+		AKIMatchesSKI{}:          "akiMatchesSki",
+		CRLNotExpired{}:          "crlNotExpired",
+		CRLSignedBy{}:            "crlSignedBy",
+		CRLValid{}:               "crlValid",
+		CertificatePolicyValid{}: "certificatePolicyValid",
+		EKUClientAuth{}:          "ekuClientAuth",
+		EKUContains{}:            "ekuContains",
+		EKUNotContains{}:         "ekuNotContains",
+		EKUServerAuth{}:          "ekuServerAuth",
+		IsCritical{}:             "isCritical",
+		IsEmpty{}:                "isEmpty",
+		IssuedBy{}:               "issuedBy",
+		Matches{}:                "matches",
+		MaxLength{}:              "maxLength",
+		MinLength{}:              "minLength",
+		NameConstraintsValid{}:   "nameConstraintsValid",
+		NotCritical{}:            "notCritical",
+		NotEmpty{}:               "notEmpty",
+		NotRegex{}:               "notRegex",
+		NotRevoked{}:             "notRevoked",
+		PathLenValid{}:           "pathLenValid",
+		Positive{}:               "positive",
+		Regex{}:                  "regex",
+		SerialNumberUnique{}:     "serialNumberUnique",
+		SignatureValid{}:         "signatureValid",
+		ValidityPeriodDays{}:     "validityDays",
+	}
+	for op, want := range names {
+		if got := op.Name(); got != want {
+			t.Errorf("%T.Name() = %q, want %q", op, got, want)
+		}
+	}
+}

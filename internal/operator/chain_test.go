@@ -7,13 +7,6 @@ import (
 	"github.com/cavoq/PCL/internal/node"
 )
 
-func TestSignatureValidName(t *testing.T) {
-	op := SignatureValid{}
-	if op.Name() != "signatureValid" {
-		t.Error("wrong name")
-	}
-}
-
 func TestSignatureValidNilContext(t *testing.T) {
 	op := SignatureValid{}
 	got, err := op.Evaluate(nil, nil, nil)
@@ -37,13 +30,6 @@ func TestSignatureValidNilCert(t *testing.T) {
 	}
 }
 
-func TestIssuedByName(t *testing.T) {
-	op := IssuedBy{}
-	if op.Name() != "issuedBy" {
-		t.Error("wrong name")
-	}
-}
-
 func TestIssuedByNilContext(t *testing.T) {
 	op := IssuedBy{}
 	got, err := op.Evaluate(nil, nil, nil)
@@ -52,13 +38,6 @@ func TestIssuedByNilContext(t *testing.T) {
 	}
 	if got != false {
 		t.Error("nil context should return false")
-	}
-}
-
-func TestAKIMatchesSKIName(t *testing.T) {
-	op := AKIMatchesSKI{}
-	if op.Name() != "akiMatchesSki" {
-		t.Error("wrong name")
 	}
 }
 

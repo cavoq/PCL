@@ -4,256 +4,59 @@ import (
 	"testing"
 
 	"github.com/cavoq/PCL/internal/node"
-	"github.com/cavoq/PCL/internal/x509asn1"
 )
 
-func TestIsIA5String(t *testing.T) {
-	op := IsIA5String{}
-
-	tests := []struct {
-		name string
-		node *node.Node
-		want bool
-	}{
-		{
-			name: "nil node returns false",
-			node: nil,
-			want: false,
-		},
-		{
-			name: "encoding tag 22 (IA5String) returns true",
-			node: func() *node.Node {
-				n := node.New("test", "test@example.com")
-				n.Children["encoding"] = node.New("encoding", 22)
-				return n
-			}(),
-			want: true,
-		},
-		{
-			name: "encoding tag 19 (PrintableString) returns false",
-			node: func() *node.Node {
-				n := node.New("test", "Test")
-				n.Children["encoding"] = node.New("encoding", 19)
-				return n
-			}(),
-			want: false,
-		},
-		{
-			name: "encoding tag 12 (UTF8String) returns false",
-			node: func() *node.Node {
-				n := node.New("test", "Test")
-				n.Children["encoding"] = node.New("encoding", 12)
-				return n
-			}(),
-			want: false,
-		},
-		{
-			name: "no encoding child with ASCII value returns false",
-			node: node.New("test", "example.com"),
-			want: false,
-		},
-		{
-			name: "no encoding child with non-ASCII value returns false",
-			node: node.New("test", "exampleé.com"),
-			want: false,
-		},
-		{
-			name: "no encoding child with non-string value returns false",
-			node: node.New("test", 123),
-			want: false,
-		},
+func TestStringEncodingOperators(t *testing.T) {
+	encoded := func(value string, tag int) *node.Node {
+		return tree("test", value, node.New("encoding", tag))
 	}
+	checkEvaluations(t, nil, []evaluationCase{
+		{name: "IA5String: nil node returns false", op: IsIA5String{}},
+		{name: "IA5String: encoding tag 22 returns true", op: IsIA5String{}, node: encoded("test@example.com", 22), want: true},
+		{name: "IA5String: encoding tag 19 returns false", op: IsIA5String{}, node: encoded("Test", 19)},
+		{name: "IA5String: encoding tag 12 returns false", op: IsIA5String{}, node: encoded("Test", 12)},
+		{name: "IA5String: no encoding child with ASCII value returns false", op: IsIA5String{}, node: node.New("test", "example.com")},
+		{name: "IA5String: no encoding child with non-ASCII value returns false", op: IsIA5String{}, node: node.New("test", "exampleé.com")},
+		{name: "IA5String: no encoding child with non-string value returns false", op: IsIA5String{}, node: node.New("test", 123)},
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := op.Evaluate(tt.node, nil, nil)
-			if err != nil {
-				t.Errorf("IsIA5String.Evaluate() error = %v", err)
-			}
-			if got != tt.want {
-				t.Errorf("IsIA5String.Evaluate() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
+		{name: "PrintableString: nil node returns false", op: IsPrintableString{}},
+		{name: "PrintableString: encoding tag 19 returns true", op: IsPrintableString{}, node: encoded("Test-Org", 19), want: true},
+		{name: "PrintableString: encoding tag 22 returns false", op: IsPrintableString{}, node: encoded("test@example.com", 22)},
+		{name: "PrintableString: no encoding child with printable value returns false", op: IsPrintableString{}, node: node.New("test", "Test-Org-123")},
+		{name: "PrintableString: no encoding child with non-printable value returns false", op: IsPrintableString{}, node: node.New("test", "Test@Org")},
+		{name: "PrintableString: no encoding child with unicode value returns false", op: IsPrintableString{}, node: node.New("test", "Testé")},
 
-func TestIsPrintableString(t *testing.T) {
-	op := IsPrintableString{}
+		{name: "UTF8String: nil node returns false", op: IsUTF8String{}},
+		{name: "UTF8String: encoding tag 12 returns true", op: IsUTF8String{}, node: encoded("Testé", 12), want: true},
+		{name: "UTF8String: encoding tag 19 returns false", op: IsUTF8String{}, node: encoded("Test", 19)},
+		{name: "UTF8String: no encoding child returns false", op: IsUTF8String{}, node: node.New("test", "Test")},
 
-	tests := []struct {
-		name string
-		node *node.Node
-		want bool
-	}{
-		{
-			name: "nil node returns false",
-			node: nil,
-			want: false,
-		},
-		{
-			name: "encoding tag 19 (PrintableString) returns true",
-			node: func() *node.Node {
-				n := node.New("test", "Test-Org")
-				n.Children["encoding"] = node.New("encoding", 19)
-				return n
-			}(),
-			want: true,
-		},
-		{
-			name: "encoding tag 22 (IA5String) returns false",
-			node: func() *node.Node {
-				n := node.New("test", "test@example.com")
-				n.Children["encoding"] = node.New("encoding", 22)
-				return n
-			}(),
-			want: false,
-		},
-		{
-			name: "no encoding child with printable value returns false",
-			node: node.New("test", "Test-Org-123"),
-			want: false,
-		},
-		{
-			name: "no encoding child with non-printable value returns false",
-			node: node.New("test", "Test@Org"),
-			want: false,
-		},
-		{
-			name: "no encoding child with unicode value returns false",
-			node: node.New("test", "Testé"),
-			want: false,
-		},
-	}
+		{name: "valid IA5String: nil node returns false", op: ValidIA5String{}},
+		{name: "valid IA5String: pure ASCII string returns true", op: ValidIA5String{}, node: node.New("test", "example.com"), want: true},
+		{name: "valid IA5String: string with non-ASCII returns false", op: ValidIA5String{}, node: node.New("test", "exampleé.com")},
+		{name: "valid IA5String: string with 0x80 returns false", op: ValidIA5String{}, node: node.New("test", "test\x80")},
+		{name: "valid IA5String: non-string value returns false", op: ValidIA5String{}, node: node.New("test", 123)},
+		{name: "valid IA5String: collection node returns false", op: ValidIA5String{}, node: collection("test", "example.com", "test.org")},
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := op.Evaluate(tt.node, nil, nil)
-			if err != nil {
-				t.Errorf("IsPrintableString.Evaluate() error = %v", err)
-			}
-			if got != tt.want {
-				t.Errorf("IsPrintableString.Evaluate() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestIsUTF8String(t *testing.T) {
-	op := IsUTF8String{}
-
-	tests := []struct {
-		name string
-		node *node.Node
-		want bool
-	}{
-		{
-			name: "nil node returns false",
-			node: nil,
-			want: false,
-		},
-		{
-			name: "encoding tag 12 (UTF8String) returns true",
-			node: func() *node.Node {
-				n := node.New("test", "Testé")
-				n.Children["encoding"] = node.New("encoding", 12)
-				return n
-			}(),
-			want: true,
-		},
-		{
-			name: "encoding tag 19 (PrintableString) returns false",
-			node: func() *node.Node {
-				n := node.New("test", "Test")
-				n.Children["encoding"] = node.New("encoding", 19)
-				return n
-			}(),
-			want: false,
-		},
-		{
-			name: "no encoding child returns false",
-			node: node.New("test", "Test"),
-			want: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := op.Evaluate(tt.node, nil, nil)
-			if err != nil {
-				t.Errorf("IsUTF8String.Evaluate() error = %v", err)
-			}
-			if got != tt.want {
-				t.Errorf("IsUTF8String.Evaluate() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestValidIA5String(t *testing.T) {
-	op := ValidIA5String{}
-
-	tests := []struct {
-		name string
-		node *node.Node
-		want bool
-	}{
-		{
-			name: "nil node returns false",
-			node: nil,
-			want: false,
-		},
-		{
-			name: "pure ASCII string returns true",
-			node: node.New("test", "example.com"),
-			want: true,
-		},
-		{
-			name: "string with non-ASCII returns false",
-			node: node.New("test", "exampleé.com"),
-			want: false,
-		},
-		{
-			name: "string with 0x80 returns false",
-			node: node.New("test", "test\x80"),
-			want: false,
-		},
-		{
-			name: "non-string value returns false",
-			node: node.New("test", 123),
-			want: false,
-		},
-		{
-			name: "collection node returns false",
-			node: func() *node.Node {
-				n := node.New("test", nil)
-				n.Children["0"] = node.New("0", "example.com")
-				n.Children["1"] = node.New("1", "test.org")
-				return n
-			}(),
-			want: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := op.Evaluate(tt.node, nil, nil)
-			if err != nil {
-				t.Errorf("ValidIA5String.Evaluate() error = %v", err)
-			}
-			if got != tt.want {
-				t.Errorf("ValidIA5String.Evaluate() = %v, want %v", got, tt.want)
-			}
-		})
-	}
+		{name: "valid PrintableString: nil node returns false", op: ValidPrintableString{}},
+		{name: "valid PrintableString: valid printable string returns true", op: ValidPrintableString{}, node: node.New("test", "Test-Org-123"), want: true},
+		{name: "valid PrintableString: letters digits space returns true", op: ValidPrintableString{}, node: node.New("test", "Test Org 123"), want: true},
+		{name: "valid PrintableString: special chars returns true", op: ValidPrintableString{}, node: node.New("test", "Test's (Org)+123,-./:=?"), want: true},
+		{name: "valid PrintableString: @ returns false", op: ValidPrintableString{}, node: node.New("test", "test@example.com")},
+		{name: "valid PrintableString: unicode returns false", op: ValidPrintableString{}, node: node.New("test", "Testé")},
+		{name: "valid PrintableString: underscore returns false", op: ValidPrintableString{}, node: node.New("test", "test_org")},
+		{name: "valid PrintableString: non-string value returns false", op: ValidPrintableString{}, node: node.New("test", 123)},
+		{name: "valid PrintableString: children with all printable returns true", op: ValidPrintableString{},
+			node: collection("test", "Test-Org", "Org-123"), want: true},
+		{name: "valid PrintableString: children with non-printable returns false", op: ValidPrintableString{},
+			node: collection("test", "Test-Org", "test@example.com")},
+	})
 }
 
 func TestEveryComposesValidIA5String(t *testing.T) {
-	collection := node.New("dNSName", nil)
-	collection.Children["0"] = node.New("0", "example.com")
-	collection.Children["1"] = node.New("1", "exampleé.test")
-
+	names := collection("dNSName", "example.com", "exampleé.test")
 	operands := []any{map[string]any{"operator": "validIA5String"}}
-	got, err := DefaultRegistry().Evaluate("every", collection, nil, operands)
+	got, err := DefaultRegistry().Evaluate("every", names, nil, operands)
 	if err != nil {
 		t.Fatalf("every(validIA5String) error = %v", err)
 	}
@@ -261,219 +64,12 @@ func TestEveryComposesValidIA5String(t *testing.T) {
 		t.Fatal("every(validIA5String) accepted a non-ASCII value after an ASCII value")
 	}
 
-	collection.Children["1"] = node.New("1", "example.test")
-	got, err = DefaultRegistry().Evaluate("every", collection, nil, operands)
+	names.Children["1"] = node.New("1", "example.test")
+	got, err = DefaultRegistry().Evaluate("every", names, nil, operands)
 	if err != nil {
 		t.Fatalf("every(validIA5String) error = %v", err)
 	}
 	if !got {
 		t.Fatal("every(validIA5String) rejected ASCII values")
-	}
-}
-
-func TestValidPrintableString(t *testing.T) {
-	op := ValidPrintableString{}
-
-	tests := []struct {
-		name string
-		node *node.Node
-		want bool
-	}{
-		{
-			name: "nil node returns false",
-			node: nil,
-			want: false,
-		},
-		{
-			name: "valid printable string returns true",
-			node: node.New("test", "Test-Org-123"),
-			want: true,
-		},
-		{
-			name: "string with letters digits space returns true",
-			node: node.New("test", "Test Org 123"),
-			want: true,
-		},
-		{
-			name: "string with special chars returns true",
-			node: node.New("test", "Test's (Org)+123,-./:=?"),
-			want: true,
-		},
-		{
-			name: "string with @ returns false",
-			node: node.New("test", "test@example.com"),
-			want: false,
-		},
-		{
-			name: "string with unicode returns false",
-			node: node.New("test", "Testé"),
-			want: false,
-		},
-		{
-			name: "string with underscore returns false",
-			node: node.New("test", "test_org"),
-			want: false,
-		},
-		{
-			name: "non-string value returns false",
-			node: node.New("test", 123),
-			want: false,
-		},
-		{
-			name: "children with all printable returns true",
-			node: func() *node.Node {
-				n := node.New("test", nil)
-				n.Children["0"] = node.New("0", "Test-Org")
-				n.Children["1"] = node.New("1", "Org-123")
-				return n
-			}(),
-			want: true,
-		},
-		{
-			name: "children with non-printable returns false",
-			node: func() *node.Node {
-				n := node.New("test", nil)
-				n.Children["0"] = node.New("0", "Test-Org")
-				n.Children["1"] = node.New("1", "test@example.com")
-				return n
-			}(),
-			want: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := op.Evaluate(tt.node, nil, nil)
-			if err != nil {
-				t.Errorf("ValidPrintableString.Evaluate() error = %v", err)
-			}
-			if got != tt.want {
-				t.Errorf("ValidPrintableString.Evaluate() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestIsASCII(t *testing.T) {
-	tests := []struct {
-		name string
-		s    string
-		want bool
-	}{
-		{
-			name: "empty string is ASCII",
-			s:    "",
-			want: true,
-		},
-		{
-			name: "simple ASCII string",
-			s:    "example.com",
-			want: true,
-		},
-		{
-			name: "string with unicode",
-			s:    "exampleé.com",
-			want: false,
-		},
-		{
-			name: "string with 0x80",
-			s:    "test\x80",
-			want: false,
-		},
-		{
-			name: "all printable ASCII",
-			s:    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789",
-			want: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := x509asn1.IsIA5String(tt.s); got != tt.want {
-				t.Errorf("IsIA5String(%q) = %v, want %v", tt.s, got, tt.want)
-			}
-		})
-	}
-}
-
-func TestIsPrintableStringCompatible(t *testing.T) {
-	tests := []struct {
-		name string
-		s    string
-		want bool
-	}{
-		{
-			name: "empty string is printable",
-			s:    "",
-			want: true,
-		},
-		{
-			name: "letters and digits",
-			s:    "TestOrg123",
-			want: true,
-		},
-		{
-			name: "with space",
-			s:    "Test Org",
-			want: true,
-		},
-		{
-			name: "with apostrophe",
-			s:    "Test's",
-			want: true,
-		},
-		{
-			name: "with parentheses",
-			s:    "(Test)",
-			want: true,
-		},
-		{
-			name: "with plus comma dash",
-			s:    "Test+Org-123,",
-			want: true,
-		},
-		{
-			name: "with dot slash colon",
-			s:    "Test./:123",
-			want: true,
-		},
-		{
-			name: "with equals question",
-			s:    "Test=?123",
-			want: true,
-		},
-		{
-			name: "with @ is not printable",
-			s:    "test@example.com",
-			want: false,
-		},
-		{
-			name: "with underscore is not printable",
-			s:    "test_org",
-			want: false,
-		},
-		{
-			name: "with unicode is not printable",
-			s:    "Testé",
-			want: false,
-		},
-		{
-			name: "with exclamation is not printable",
-			s:    "Test!",
-			want: false,
-		},
-		{
-			name: "with ampersand is not printable",
-			s:    "Test&Org",
-			want: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := x509asn1.IsPrintableString(tt.s); got != tt.want {
-				t.Errorf("IsPrintableString(%q) = %v, want %v", tt.s, got, tt.want)
-			}
-		})
 	}
 }

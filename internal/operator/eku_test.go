@@ -8,13 +8,6 @@ import (
 	"github.com/cavoq/PCL/internal/cert"
 )
 
-func TestEKUContainsName(t *testing.T) {
-	op := EKUContains{}
-	if op.Name() != "ekuContains" {
-		t.Errorf("expected ekuContains, got %s", op.Name())
-	}
-}
-
 func TestEKUContainsNilContext(t *testing.T) {
 	op := EKUContains{}
 	got, err := op.Evaluate(nil, nil, []any{"serverAuth"})
@@ -26,20 +19,6 @@ func TestEKUContainsNilContext(t *testing.T) {
 	}
 }
 
-func TestEKUNotContainsName(t *testing.T) {
-	op := EKUNotContains{}
-	if op.Name() != "ekuNotContains" {
-		t.Errorf("expected ekuNotContains, got %s", op.Name())
-	}
-}
-
-func TestEKUServerAuthName(t *testing.T) {
-	op := EKUServerAuth{}
-	if op.Name() != "ekuServerAuth" {
-		t.Errorf("expected ekuServerAuth, got %s", op.Name())
-	}
-}
-
 func TestEKUServerAuthNilContext(t *testing.T) {
 	op := EKUServerAuth{}
 	got, err := op.Evaluate(nil, nil, nil)
@@ -48,13 +27,6 @@ func TestEKUServerAuthNilContext(t *testing.T) {
 	}
 	if got != false {
 		t.Error("nil context should return false")
-	}
-}
-
-func TestEKUClientAuthName(t *testing.T) {
-	op := EKUClientAuth{}
-	if op.Name() != "ekuClientAuth" {
-		t.Errorf("expected ekuClientAuth, got %s", op.Name())
 	}
 }
 

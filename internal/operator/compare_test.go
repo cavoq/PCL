@@ -7,82 +7,26 @@ import (
 	"github.com/cavoq/PCL/internal/node"
 )
 
-func TestGteOperator(t *testing.T) {
-	tests := []struct {
-		name     string
-		value    any
-		operand  any
-		expected bool
-		wantErr  bool
-	}{
-		{"10 >= 5", 10, 5, true, false},
-		{"5 >= 5", 5, 5, true, false},
-		{"3 >= 5", 3, 5, false, false},
-		{"float 10.5 >= 10", 10.5, 10, true, false},
-		{"int vs float", 10, 10.0, true, false},
+func TestNumericComparisons(t *testing.T) {
+	compare := func(name string, op Operator, value, operand any, want bool) evaluationCase {
+		return evaluationCase{name: name, op: op, node: node.New("test", value), operands: []any{operand}, want: want}
 	}
-
-	op := Gte{}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			n := node.New("test", tt.value)
-			got, err := op.Evaluate(n, nil, []any{tt.operand})
-			if (err != nil) != tt.wantErr {
-				t.Errorf("error = %v, wantErr %v", err, tt.wantErr)
-			}
-			if got != tt.expected {
-				t.Errorf("got %v, want %v", got, tt.expected)
-			}
-		})
-	}
-}
-
-func TestLteOperator(t *testing.T) {
-	tests := []struct {
-		name     string
-		value    any
-		operand  any
-		expected bool
-	}{
-		{"5 <= 10", 5, 10, true},
-		{"5 <= 5", 5, 5, true},
-		{"10 <= 5", 10, 5, false},
-	}
-
-	op := Lte{}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			n := node.New("test", tt.value)
-			got, _ := op.Evaluate(n, nil, []any{tt.operand})
-			if got != tt.expected {
-				t.Errorf("got %v, want %v", got, tt.expected)
-			}
-		})
-	}
-}
-
-func TestGtOperator(t *testing.T) {
-	tests := []struct {
-		name     string
-		value    any
-		operand  any
-		expected bool
-	}{
-		{"10 > 5", 10, 5, true},
-		{"5 > 5", 5, 5, false},
-		{"3 > 5", 3, 5, false},
-	}
-
-	op := Gt{}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			n := node.New("test", tt.value)
-			got, _ := op.Evaluate(n, nil, []any{tt.operand})
-			if got != tt.expected {
-				t.Errorf("got %v, want %v", got, tt.expected)
-			}
-		})
-	}
+	checkEvaluations(t, nil, []evaluationCase{
+		compare("10 >= 5", Gte{}, 10, 5, true),
+		compare("5 >= 5", Gte{}, 5, 5, true),
+		compare("3 >= 5", Gte{}, 3, 5, false),
+		compare("float 10.5 >= 10", Gte{}, 10.5, 10, true),
+		compare("int vs float", Gte{}, 10, 10.0, true),
+		compare("5 <= 10", Lte{}, 5, 10, true),
+		compare("5 <= 5", Lte{}, 5, 5, true),
+		compare("10 <= 5", Lte{}, 10, 5, false),
+		compare("10 > 5", Gt{}, 10, 5, true),
+		compare("5 > 5", Gt{}, 5, 5, false),
+		compare("3 > 5", Gt{}, 3, 5, false),
+		compare("5 < 10", Lt{}, 5, 10, true),
+		compare("5 < 5", Lt{}, 5, 5, false),
+		compare("10 < 5", Lt{}, 10, 5, false),
+	})
 }
 
 func TestNumericComparisonPreservesLargeIntegerPrecision(t *testing.T) {
@@ -103,30 +47,6 @@ func TestNumericComparisonPreservesLargeIntegerPrecision(t *testing.T) {
 	}
 	if got {
 		t.Fatal("integer was treated as equal to a rounded float64 value")
-	}
-}
-
-func TestLtOperator(t *testing.T) {
-	tests := []struct {
-		name     string
-		value    any
-		operand  any
-		expected bool
-	}{
-		{"5 < 10", 5, 10, true},
-		{"5 < 5", 5, 5, false},
-		{"10 < 5", 10, 5, false},
-	}
-
-	op := Lt{}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			n := node.New("test", tt.value)
-			got, _ := op.Evaluate(n, nil, []any{tt.operand})
-			if got != tt.expected {
-				t.Errorf("got %v, want %v", got, tt.expected)
-			}
-		})
 	}
 }
 
@@ -156,60 +76,28 @@ func TestCompareWrongOperands(t *testing.T) {
 }
 
 func TestPositive(t *testing.T) {
-	tests := []struct {
-		name  string
-		value any
-		want  bool
-	}{
-		{"positive int", 42, true},
-		{"zero int", 0, false},
-		{"negative int", -5, false},
-		{"positive int64", int64(100), true},
-		{"zero int64", int64(0), false},
-		{"negative int64", int64(-100), false},
-		{"positive float64", 3.14, true},
-		{"zero float64", 0.0, false},
-		{"negative float64", -3.14, false},
-		{"positive big.Int", big.NewInt(999), true},
-		{"zero big.Int", big.NewInt(0), false},
-		{"negative big.Int", big.NewInt(-999), false},
-		{"positive string", "12345", true},
-		{"zero string", "0", false},
-		{"negative string", "-123", false},
-		{"invalid string", "abc", false},
-		{"nil value", nil, false},
-		{"unsupported type", struct{}{}, false},
+	positive := func(name string, value any, want bool) evaluationCase {
+		return evaluationCase{name: name, op: Positive{}, node: node.New("test", value), want: want}
 	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			n := node.New("test", tt.value)
-			op := Positive{}
-			got, err := op.Evaluate(n, nil, nil)
-			if err != nil {
-				t.Errorf("unexpected error: %v", err)
-			}
-			if got != tt.want {
-				t.Errorf("Positive.Evaluate() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestPositiveNilNode(t *testing.T) {
-	op := Positive{}
-	got, err := op.Evaluate(nil, nil, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if got != false {
-		t.Errorf("Positive.Evaluate(nil) = %v, want false", got)
-	}
-}
-
-func TestPositiveName(t *testing.T) {
-	op := Positive{}
-	if op.Name() != "positive" {
-		t.Errorf("Positive.Name() = %v, want positive", op.Name())
-	}
+	checkEvaluations(t, nil, []evaluationCase{
+		positive("positive int", 42, true),
+		positive("zero int", 0, false),
+		positive("negative int", -5, false),
+		positive("positive int64", int64(100), true),
+		positive("zero int64", int64(0), false),
+		positive("negative int64", int64(-100), false),
+		positive("positive float64", 3.14, true),
+		positive("zero float64", 0.0, false),
+		positive("negative float64", -3.14, false),
+		positive("positive big.Int", big.NewInt(999), true),
+		positive("zero big.Int", big.NewInt(0), false),
+		positive("negative big.Int", big.NewInt(-999), false),
+		positive("positive string", "12345", true),
+		positive("zero string", "0", false),
+		positive("negative string", "-123", false),
+		positive("invalid string", "abc", false),
+		positive("nil value", nil, false),
+		positive("unsupported type", struct{}{}, false),
+		{name: "nil node", op: Positive{}},
+	})
 }

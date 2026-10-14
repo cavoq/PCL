@@ -1,94 +1,39 @@
 package operator
 
 import (
-	"strings"
+	"maps"
 	"testing"
 	"time"
 
 	"github.com/cavoq/PCL/internal/node"
 )
 
-func TestBeforeOperator(t *testing.T) {
-	now := time.Now()
-	past := now.Add(-24 * time.Hour)
-	future := now.Add(24 * time.Hour)
-
-	ctx := &EvaluationContext{Now: now}
-
-	tests := []struct {
-		name     string
-		value    time.Time
-		expected bool
-	}{
-		{"past is before now", past, true},
-		{"future is not before now", future, false},
-	}
-
-	op := Before{}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			n := node.New("test", tt.value)
-			got, err := op.Evaluate(n, ctx, []any{})
-			if err != nil {
-				t.Errorf("unexpected error: %v", err)
-			}
-			if got != tt.expected {
-				t.Errorf("got %v, want %v", got, tt.expected)
-			}
-		})
-	}
-}
-
-func TestAfterOperator(t *testing.T) {
-	now := time.Now()
-	past := now.Add(-24 * time.Hour)
-	future := now.Add(24 * time.Hour)
-
-	ctx := &EvaluationContext{Now: now}
-
-	tests := []struct {
-		name     string
-		value    time.Time
-		expected bool
-	}{
-		{"future is after now", future, true},
-		{"past is not after now", past, false},
-	}
-
-	op := After{}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			n := node.New("test", tt.value)
-			got, err := op.Evaluate(n, ctx, []any{})
-			if err != nil {
-				t.Errorf("unexpected error: %v", err)
-			}
-			if got != tt.expected {
-				t.Errorf("got %v, want %v", got, tt.expected)
-			}
-		})
-	}
-}
-
-func TestInclusiveDateOperators(t *testing.T) {
+func TestDateOperators(t *testing.T) {
 	now := time.Date(2026, time.July, 18, 12, 0, 0, 0, time.UTC)
-	n := node.New("boundary", now)
+	past, future := now.Add(-24*time.Hour), now.Add(24*time.Hour)
 	ctx := &EvaluationContext{Now: now}
 
 	tests := []struct {
-		name string
-		op   Operator
-		want bool
+		name     string
+		op       Operator
+		value    time.Time
+		operands []any
+		want     bool
 	}{
-		{name: "strict before excludes equality", op: Before{}},
-		{name: "strict after excludes equality", op: After{}},
-		{name: "on or before includes equality", op: OnOrBefore{}, want: true},
-		{name: "on or after includes equality", op: OnOrAfter{}, want: true},
+		{"past is before now", Before{}, past, nil, true},
+		{"future is not before now", Before{}, future, nil, false},
+		{"past is before explicit now", Before{}, past, []any{"now"}, true},
+		{"future is after now", After{}, future, nil, true},
+		{"past is not after now", After{}, past, nil, false},
+		{"strict before excludes equality", Before{}, now, nil, false},
+		{"strict after excludes equality", After{}, now, nil, false},
+		{"on or before includes equality", OnOrBefore{}, now, nil, true},
+		{"on or after includes equality", OnOrAfter{}, now, nil, true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := tt.op.Evaluate(n, ctx, nil)
+			got, err := tt.op.Evaluate(node.New("test", tt.value), ctx, tt.operands)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -96,23 +41,6 @@ func TestInclusiveDateOperators(t *testing.T) {
 				t.Fatalf("%s = %v, want %v", tt.op.Name(), got, tt.want)
 			}
 		})
-	}
-}
-
-func TestBeforeWithExplicitNow(t *testing.T) {
-	now := time.Now()
-	past := now.Add(-24 * time.Hour)
-
-	ctx := &EvaluationContext{Now: now}
-
-	op := Before{}
-	n := node.New("test", past)
-	got, err := op.Evaluate(n, ctx, []any{"now"})
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if !got {
-		t.Error("past should be before now")
 	}
 }
 
@@ -129,6 +57,24 @@ func TestDateOperatorNilNode(t *testing.T) {
 func TestDateDiff(t *testing.T) {
 	op := DateDiff{}
 	now := time.Now()
+	days := func(count int) time.Time { return now.Add(time.Duration(count) * 24 * time.Hour) }
+	hours := func(count int) time.Time { return now.Add(time.Duration(count) * time.Hour) }
+	// updates is a node whose thisUpdate is now.
+	updates := func(nextUpdate time.Time) *node.Node {
+		n := node.New("test", nil)
+		n.Children["thisUpdate"] = node.New("thisUpdate", now)
+		n.Children["nextUpdate"] = node.New("nextUpdate", nextUpdate)
+		return n
+	}
+	// between bounds the interval from thisUpdate to nextUpdate.
+	between := func(bounds map[string]any) []any {
+		operand := map[string]any{"start": "thisUpdate", "end": "nextUpdate"}
+		maps.Copy(operand, bounds)
+		return []any{operand}
+	}
+	missingStart := node.New("test", nil)
+	missingStart.Children["nextUpdate"] = node.New("nextUpdate", days(5))
+	ocspInterval := map[string]any{"minHours": 8, "maxDays": 10}
 
 	tests := []struct {
 		name     string
@@ -137,288 +83,28 @@ func TestDateDiff(t *testing.T) {
 		want     bool
 		wantErr  bool
 	}{
-		{
-			name:     "nil node returns false",
-			node:     nil,
-			operands: []any{map[string]any{"start": "thisUpdate", "end": "nextUpdate", "maxDays": 10}},
-			want:     false,
-			wantErr:  false,
-		},
-		{
-			name: "maxDays within limit",
-			node: func() *node.Node {
-				n := node.New("test", nil)
-				thisUpdate := node.New("thisUpdate", now)
-				nextUpdate := node.New("nextUpdate", now.Add(5*24*time.Hour))
-				n.Children["thisUpdate"] = thisUpdate
-				n.Children["nextUpdate"] = nextUpdate
-				return n
-			}(),
-			operands: []any{map[string]any{"start": "thisUpdate", "end": "nextUpdate", "maxDays": 10}},
-			want:     true,
-			wantErr:  false,
-		},
-		{
-			name: "maxDays exceeds limit",
-			node: func() *node.Node {
-				n := node.New("test", nil)
-				thisUpdate := node.New("thisUpdate", now)
-				nextUpdate := node.New("nextUpdate", now.Add(15*24*time.Hour))
-				n.Children["thisUpdate"] = thisUpdate
-				n.Children["nextUpdate"] = nextUpdate
-				return n
-			}(),
-			operands: []any{map[string]any{"start": "thisUpdate", "end": "nextUpdate", "maxDays": 10}},
-			want:     false,
-			wantErr:  false,
-		},
-		{
-			name: "maxMonths within limit",
-			node: func() *node.Node {
-				n := node.New("test", nil)
-				thisUpdate := node.New("thisUpdate", now)
-				nextUpdate := node.New("nextUpdate", now.AddDate(0, 6, 0))
-				n.Children["thisUpdate"] = thisUpdate
-				n.Children["nextUpdate"] = nextUpdate
-				return n
-			}(),
-			operands: []any{map[string]any{"start": "thisUpdate", "end": "nextUpdate", "maxMonths": 12}},
-			want:     true,
-			wantErr:  false,
-		},
-		{
-			name: "maxMonths exceeds limit",
-			node: func() *node.Node {
-				n := node.New("test", nil)
-				thisUpdate := node.New("thisUpdate", now)
-				nextUpdate := node.New("nextUpdate", now.AddDate(0, 13, 0))
-				n.Children["thisUpdate"] = thisUpdate
-				n.Children["nextUpdate"] = nextUpdate
-				return n
-			}(),
-			operands: []any{map[string]any{"start": "thisUpdate", "end": "nextUpdate", "maxMonths": 12}},
-			want:     false,
-			wantErr:  false,
-		},
-		{
-			name: "minDays within limit",
-			node: func() *node.Node {
-				n := node.New("test", nil)
-				thisUpdate := node.New("thisUpdate", now)
-				nextUpdate := node.New("nextUpdate", now.Add(5*24*time.Hour))
-				n.Children["thisUpdate"] = thisUpdate
-				n.Children["nextUpdate"] = nextUpdate
-				return n
-			}(),
-			operands: []any{map[string]any{"start": "thisUpdate", "end": "nextUpdate", "minDays": 3}},
-			want:     true,
-			wantErr:  false,
-		},
-		{
-			name: "minDays below limit",
-			node: func() *node.Node {
-				n := node.New("test", nil)
-				thisUpdate := node.New("thisUpdate", now)
-				nextUpdate := node.New("nextUpdate", now.Add(2*24*time.Hour))
-				n.Children["thisUpdate"] = thisUpdate
-				n.Children["nextUpdate"] = nextUpdate
-				return n
-			}(),
-			operands: []any{map[string]any{"start": "thisUpdate", "end": "nextUpdate", "minDays": 3}},
-			want:     false,
-			wantErr:  false,
-		},
-		{
-			name:     "no operands returns error",
-			node:     node.New("test", nil),
-			operands: []any{},
-			want:     false,
-			wantErr:  true,
-		},
-		{
-			name:     "missing start returns error",
-			node:     node.New("test", nil),
-			operands: []any{map[string]any{"end": "nextUpdate", "maxDays": 10}},
-			want:     false,
-			wantErr:  true,
-		},
-		{
-			name: "missing start node returns false",
-			node: func() *node.Node {
-				n := node.New("test", nil)
-				n.Children["nextUpdate"] = node.New("nextUpdate", now.Add(5*24*time.Hour))
-				return n
-			}(),
-			operands: []any{map[string]any{"start": "thisUpdate", "end": "nextUpdate", "maxDays": 10}},
-			want:     false,
-			wantErr:  false,
-		},
-		{
-			name: "from alias for start",
-			node: func() *node.Node {
-				n := node.New("test", nil)
-				thisUpdate := node.New("thisUpdate", now)
-				nextUpdate := node.New("nextUpdate", now.Add(5*24*time.Hour))
-				n.Children["thisUpdate"] = thisUpdate
-				n.Children["nextUpdate"] = nextUpdate
-				return n
-			}(),
-			operands: []any{map[string]any{"from": "thisUpdate", "end": "nextUpdate", "maxDays": 10}},
-			want:     true,
-			wantErr:  false,
-		},
-		{
-			name: "int64 and float64 for maxDays",
-			node: func() *node.Node {
-				n := node.New("test", nil)
-				thisUpdate := node.New("thisUpdate", now)
-				nextUpdate := node.New("nextUpdate", now.Add(5*24*time.Hour))
-				n.Children["thisUpdate"] = thisUpdate
-				n.Children["nextUpdate"] = nextUpdate
-				return n
-			}(),
-			operands: []any{map[string]any{"start": "thisUpdate", "end": "nextUpdate", "maxDays": int64(10)}},
-			want:     true,
-			wantErr:  false,
-		},
-		{
-			name: "minHours within limit",
-			node: func() *node.Node {
-				n := node.New("test", nil)
-				thisUpdate := node.New("thisUpdate", now)
-				nextUpdate := node.New("nextUpdate", now.Add(12*time.Hour))
-				n.Children["thisUpdate"] = thisUpdate
-				n.Children["nextUpdate"] = nextUpdate
-				return n
-			}(),
-			operands: []any{map[string]any{"start": "thisUpdate", "end": "nextUpdate", "minHours": 8}},
-			want:     true,
-			wantErr:  false,
-		},
-		{
-			name: "minHours below limit",
-			node: func() *node.Node {
-				n := node.New("test", nil)
-				thisUpdate := node.New("thisUpdate", now)
-				nextUpdate := node.New("nextUpdate", now.Add(4*time.Hour))
-				n.Children["thisUpdate"] = thisUpdate
-				n.Children["nextUpdate"] = nextUpdate
-				return n
-			}(),
-			operands: []any{map[string]any{"start": "thisUpdate", "end": "nextUpdate", "minHours": 8}},
-			want:     false,
-			wantErr:  false,
-		},
-		{
-			name: "maxHours within limit",
-			node: func() *node.Node {
-				n := node.New("test", nil)
-				thisUpdate := node.New("thisUpdate", now)
-				nextUpdate := node.New("nextUpdate", now.Add(6*time.Hour))
-				n.Children["thisUpdate"] = thisUpdate
-				n.Children["nextUpdate"] = nextUpdate
-				return n
-			}(),
-			operands: []any{map[string]any{"start": "thisUpdate", "end": "nextUpdate", "maxHours": 8}},
-			want:     true,
-			wantErr:  false,
-		},
-		{
-			name: "maxHours exceeds limit",
-			node: func() *node.Node {
-				n := node.New("test", nil)
-				thisUpdate := node.New("thisUpdate", now)
-				nextUpdate := node.New("nextUpdate", now.Add(12*time.Hour))
-				n.Children["thisUpdate"] = thisUpdate
-				n.Children["nextUpdate"] = nextUpdate
-				return n
-			}(),
-			operands: []any{map[string]any{"start": "thisUpdate", "end": "nextUpdate", "maxHours": 8}},
-			want:     false,
-			wantErr:  false,
-		},
-		{
-			name: "OCSP validity interval 8 hours to 10 days - valid",
-			node: func() *node.Node {
-				n := node.New("test", nil)
-				thisUpdate := node.New("thisUpdate", now)
-				nextUpdate := node.New("nextUpdate", now.Add(5*24*time.Hour))
-				n.Children["thisUpdate"] = thisUpdate
-				n.Children["nextUpdate"] = nextUpdate
-				return n
-			}(),
-			operands: []any{map[string]any{"start": "thisUpdate", "end": "nextUpdate", "minHours": 8, "maxDays": 10}},
-			want:     true,
-			wantErr:  false,
-		},
-		{
-			name: "OCSP validity interval 8 hours to 10 days - too short",
-			node: func() *node.Node {
-				n := node.New("test", nil)
-				thisUpdate := node.New("thisUpdate", now)
-				nextUpdate := node.New("nextUpdate", now.Add(4*time.Hour))
-				n.Children["thisUpdate"] = thisUpdate
-				n.Children["nextUpdate"] = nextUpdate
-				return n
-			}(),
-			operands: []any{map[string]any{"start": "thisUpdate", "end": "nextUpdate", "minHours": 8, "maxDays": 10}},
-			want:     false,
-			wantErr:  false,
-		},
-		{
-			name: "OCSP validity interval 8 hours to 10 days - too long",
-			node: func() *node.Node {
-				n := node.New("test", nil)
-				thisUpdate := node.New("thisUpdate", now)
-				nextUpdate := node.New("nextUpdate", now.Add(12*24*time.Hour))
-				n.Children["thisUpdate"] = thisUpdate
-				n.Children["nextUpdate"] = nextUpdate
-				return n
-			}(),
-			operands: []any{map[string]any{"start": "thisUpdate", "end": "nextUpdate", "minHours": 8, "maxDays": 10}},
-			want:     false,
-			wantErr:  false,
-		},
-		{
-			name: "int64 for minHours",
-			node: func() *node.Node {
-				n := node.New("test", nil)
-				thisUpdate := node.New("thisUpdate", now)
-				nextUpdate := node.New("nextUpdate", now.Add(12*time.Hour))
-				n.Children["thisUpdate"] = thisUpdate
-				n.Children["nextUpdate"] = nextUpdate
-				return n
-			}(),
-			operands: []any{map[string]any{"start": "thisUpdate", "end": "nextUpdate", "minHours": int64(8)}},
-			want:     true,
-			wantErr:  false,
-		},
-		{
-			name: "float64 for maxHours",
-			node: func() *node.Node {
-				n := node.New("test", nil)
-				thisUpdate := node.New("thisUpdate", now)
-				nextUpdate := node.New("nextUpdate", now.Add(6*time.Hour))
-				n.Children["thisUpdate"] = thisUpdate
-				n.Children["nextUpdate"] = nextUpdate
-				return n
-			}(),
-			operands: []any{map[string]any{"start": "thisUpdate", "end": "nextUpdate", "maxHours": float64(8)}},
-			want:     true,
-			wantErr:  false,
-		},
-		{
-			name: "reversed interval fails maximum-only rule",
-			node: func() *node.Node {
-				n := node.New("test", nil)
-				n.Children["thisUpdate"] = node.New("thisUpdate", now)
-				n.Children["nextUpdate"] = node.New("nextUpdate", now.Add(-time.Hour))
-				return n
-			}(),
-			operands: []any{map[string]any{"start": "thisUpdate", "end": "nextUpdate", "maxDays": 10}},
-			want:     false,
-			wantErr:  false,
-		},
+		{"nil node returns false", nil, between(map[string]any{"maxDays": 10}), false, false},
+		{"maxDays within limit", updates(days(5)), between(map[string]any{"maxDays": 10}), true, false},
+		{"maxDays exceeds limit", updates(days(15)), between(map[string]any{"maxDays": 10}), false, false},
+		{"maxMonths within limit", updates(now.AddDate(0, 6, 0)), between(map[string]any{"maxMonths": 12}), true, false},
+		{"maxMonths exceeds limit", updates(now.AddDate(0, 13, 0)), between(map[string]any{"maxMonths": 12}), false, false},
+		{"minDays within limit", updates(days(5)), between(map[string]any{"minDays": 3}), true, false},
+		{"minDays below limit", updates(days(2)), between(map[string]any{"minDays": 3}), false, false},
+		{"no operands returns error", node.New("test", nil), []any{}, false, true},
+		{"missing start returns error", node.New("test", nil), []any{map[string]any{"end": "nextUpdate", "maxDays": 10}}, false, true},
+		{"missing start node returns false", missingStart, between(map[string]any{"maxDays": 10}), false, false},
+		{"from alias for start", updates(days(5)), []any{map[string]any{"from": "thisUpdate", "end": "nextUpdate", "maxDays": 10}}, true, false},
+		{"int64 for maxDays", updates(days(5)), between(map[string]any{"maxDays": int64(10)}), true, false},
+		{"minHours within limit", updates(hours(12)), between(map[string]any{"minHours": 8}), true, false},
+		{"minHours below limit", updates(hours(4)), between(map[string]any{"minHours": 8}), false, false},
+		{"maxHours within limit", updates(hours(6)), between(map[string]any{"maxHours": 8}), true, false},
+		{"maxHours exceeds limit", updates(hours(12)), between(map[string]any{"maxHours": 8}), false, false},
+		{"OCSP validity interval 8 hours to 10 days - valid", updates(days(5)), between(ocspInterval), true, false},
+		{"OCSP validity interval 8 hours to 10 days - too short", updates(hours(4)), between(ocspInterval), false, false},
+		{"OCSP validity interval 8 hours to 10 days - too long", updates(days(12)), between(ocspInterval), false, false},
+		{"int64 for minHours", updates(hours(12)), between(map[string]any{"minHours": int64(8)}), true, false},
+		{"float64 for maxHours", updates(hours(6)), between(map[string]any{"maxHours": float64(8)}), true, false},
+		{"reversed interval fails maximum-only rule", updates(hours(-1)), between(map[string]any{"maxDays": 10}), false, false},
 	}
 
 	for _, tt := range tests {
@@ -438,13 +124,7 @@ func TestDateDiff(t *testing.T) {
 }
 
 func TestDateDiffValidatesStructuredOperands(t *testing.T) {
-	registry := DefaultRegistry()
-	tests := []struct {
-		name       string
-		operands   []any
-		wantErr    bool
-		wantDetail string
-	}{
+	checkOperandValidation(t, "dateDiff", []operandValidationCase{
 		{
 			name:     "start and maximum",
 			operands: []any{map[string]any{"start": "thisUpdate", "maxDays": 10}},
@@ -508,20 +188,5 @@ func TestDateDiffValidatesStructuredOperands(t *testing.T) {
 			wantErr:    true,
 			wantDetail: "operands[0].from",
 		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			err := registry.Validate("dateDiff", test.operands)
-			if test.wantErr && err == nil {
-				t.Fatal("expected validation error")
-			}
-			if !test.wantErr && err != nil {
-				t.Fatalf("unexpected validation error: %v", err)
-			}
-			if test.wantDetail != "" && (err == nil || !strings.Contains(err.Error(), test.wantDetail)) {
-				t.Fatalf("validation error %q does not contain %q", err, test.wantDetail)
-			}
-		})
-	}
+	})
 }
