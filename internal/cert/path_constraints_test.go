@@ -114,7 +114,7 @@ func TestPathLenConstraintValidAcceptsStrictCounterBeyondNativeInt(t *testing.T)
 	if !KeyUsageDependenciesValid(root.Cert) {
 		t.Fatal("strict large CA Basic Constraints did not authorize keyCertSign")
 	}
-	if got := GetCertType(root.Cert, 2, 3); got != "root" {
+	if got := GetCertType(root.Cert); got != "root" {
 		t.Fatalf("GetCertType() = %q, want root for strict large CA Basic Constraints", got)
 	}
 	if !PathLenConstraintValid(root, []*Info{leaf, intermediate, root}) {

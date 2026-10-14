@@ -3,6 +3,7 @@ package policy
 import (
 	"github.com/zmap/zcrypto/x509"
 
+	certpkg "github.com/cavoq/PCL/internal/cert"
 	"github.com/cavoq/PCL/internal/crl"
 	"github.com/cavoq/PCL/internal/oid"
 )
@@ -52,24 +53,26 @@ func AppliesToCertificate(p Policy, cert *x509.Certificate) bool {
 		return true
 	}
 
+	isCA := certpkg.IsCA(cert)
+	selfSigned := certpkg.IsSelfSigned(cert)
 	for _, ct := range p.CertType {
 		ct = oid.NormalizeOID(ct)
 
 		switch ct {
 		case "ca":
-			if cert.BasicConstraintsValid && cert.IsCA {
+			if isCA {
 				return true
 			}
 		case "root":
-			if cert.BasicConstraintsValid && cert.IsCA && cert.Subject.String() == cert.Issuer.String() {
+			if isCA && selfSigned {
 				return true
 			}
 		case "intermediate":
-			if cert.BasicConstraintsValid && cert.IsCA && cert.Subject.String() != cert.Issuer.String() {
+			if isCA && !selfSigned {
 				return true
 			}
 		case "leaf":
-			if !cert.BasicConstraintsValid || !cert.IsCA {
+			if !isCA {
 				return true
 			}
 		default:

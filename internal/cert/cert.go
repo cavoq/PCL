@@ -52,13 +52,21 @@ func IsSelfSigned(cert *x509.Certificate) bool {
 	return cert.Subject.String() == cert.Issuer.String()
 }
 
-func GetCertType(cert *x509.Certificate, _, _ int) string {
+// IsCA reports whether the certificate's strictly decoded basicConstraints
+// extension asserts cA. Certificate roles and policy certType filters share
+// this decision so a malformed extension classifies the same everywhere.
+func IsCA(cert *x509.Certificate) bool {
+	basicConstraints, valid := basicConstraintsProfileFacts(cert)
+	return valid && basicConstraints.CA
+}
+
+// GetCertType classifies a certificate's role from its own contents.
+func GetCertType(cert *x509.Certificate) string {
 	if cert == nil {
 		return ""
 	}
 
-	basicConstraints, valid := basicConstraintsProfileFacts(cert)
-	if valid && basicConstraints.CA {
+	if IsCA(cert) {
 		if IsSelfSigned(cert) {
 			return "root"
 		}

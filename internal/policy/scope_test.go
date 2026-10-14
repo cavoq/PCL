@@ -5,6 +5,7 @@ import (
 
 	stdasn1 "github.com/zmap/zcrypto/encoding/asn1"
 	"github.com/zmap/zcrypto/x509"
+	"github.com/zmap/zcrypto/x509/pkix"
 
 	"github.com/cavoq/PCL/internal/cert"
 	"github.com/cavoq/PCL/internal/node"
@@ -206,5 +207,32 @@ func TestPolicyCertificateScopeMatchesUnknownEKUOID(t *testing.T) {
 
 	if !AppliesToCertificate(policy, certificate) {
 		t.Fatal("custom EKU OID accepted by policy validation must match UnknownExtKeyUsage")
+	}
+}
+
+func TestAppliesToCertificateUsesStrictCAClassification(t *testing.T) {
+	// zcrypto reports a CA, but the basicConstraints value is not valid DER.
+	certificate := &x509.Certificate{
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+		Extensions: []pkix.Extension{{
+			Id:    stdasn1.ObjectIdentifier{2, 5, 29, 19},
+			Value: []byte{0xff},
+		}},
+	}
+	if got := cert.GetCertType(certificate); got != "leaf" {
+		t.Fatalf("GetCertType() = %q, want leaf", got)
+	}
+
+	for certType, want := range map[string]bool{
+		"leaf":         true,
+		"ca":           false,
+		"intermediate": false,
+		"root":         false,
+	} {
+		policy := Policy{ID: "role", CertType: []string{certType}}
+		if got := AppliesToCertificate(policy, certificate); got != want {
+			t.Errorf("AppliesToCertificate(certType=%s) = %v, want %v", certType, got, want)
+		}
 	}
 }

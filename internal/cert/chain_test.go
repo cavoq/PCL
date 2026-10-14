@@ -160,7 +160,7 @@ func TestGetCertType_ClassifiesIndependentOfPosition(t *testing.T) {
 		BasicConstraintsValid: true,
 		IsCA:                  true,
 	}
-	if got := GetCertType(root, 0, 3); got != "root" {
+	if got := GetCertType(root); got != "root" {
 		t.Fatalf("expected root independent of position, got %q", got)
 	}
 
@@ -170,7 +170,7 @@ func TestGetCertType_ClassifiesIndependentOfPosition(t *testing.T) {
 		BasicConstraintsValid: true,
 		IsCA:                  true,
 	}
-	if got := GetCertType(intermediate, 0, 1); got != "intermediate" {
+	if got := GetCertType(intermediate); got != "intermediate" {
 		t.Fatalf("expected intermediate independent of position, got %q", got)
 	}
 
@@ -179,7 +179,7 @@ func TestGetCertType_ClassifiesIndependentOfPosition(t *testing.T) {
 		Issuer:      pkix.Name{CommonName: "Intermediate"},
 		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageOcspSigning},
 	}
-	if got := GetCertType(ocspSigner, 2, 3); got != "ocspSigning" {
+	if got := GetCertType(ocspSigner); got != "ocspSigning" {
 		t.Fatalf("expected ocspSigning independent of position, got %q", got)
 	}
 
@@ -187,7 +187,7 @@ func TestGetCertType_ClassifiesIndependentOfPosition(t *testing.T) {
 		Subject: pkix.Name{CommonName: "Leaf"},
 		Issuer:  pkix.Name{CommonName: "Intermediate"},
 	}
-	if got := GetCertType(leaf, 2, 3); got != "leaf" {
+	if got := GetCertType(leaf); got != "leaf" {
 		t.Fatalf("expected leaf independent of position, got %q", got)
 	}
 }

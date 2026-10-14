@@ -64,7 +64,7 @@ func BuildChain(certs []*Info) ([]*Info, error) {
 
 	if len(certs) == 1 {
 		certs[0].Position = 0
-		certs[0].Type = GetCertType(certs[0].Cert, 0, 1)
+		certs[0].Type = GetCertType(certs[0].Cert)
 		return certs, nil
 	}
 
@@ -105,7 +105,7 @@ func BuildChain(certs []*Info) ([]*Info, error) {
 
 	for i, c := range longestChain {
 		c.Position = i
-		c.Type = GetCertType(c.Cert, i, len(longestChain))
+		c.Type = GetCertType(c.Cert)
 	}
 
 	return longestChain, nil
@@ -143,7 +143,7 @@ func ClimbChainWithPool(chain, pool []*Info, timeout time.Duration, maxDepth int
 				break
 			}
 			parent.Position = len(result)
-			parent.Type = GetCertType(parent.Cert, parent.Position, len(result)+1)
+			parent.Type = GetCertType(parent.Cert)
 			result = append(result, parent)
 			continue
 		}
@@ -165,7 +165,7 @@ func ClimbChainWithPool(chain, pool []*Info, timeout time.Duration, maxDepth int
 		result = append(result, &Info{
 			Cert:     issuerCert,
 			FilePath: url,
-			Type:     GetCertType(issuerCert, len(result), len(result)+1),
+			Type:     GetCertType(issuerCert),
 			Position: len(result),
 			Source:   sourceInfo,
 			Format:   sourceInfo.Format,
@@ -203,7 +203,7 @@ func findSigningParentInPool(child *x509.Certificate, pool []*Info, seen *Certif
 func RebuildChainMetadata(chain []*Info) {
 	for i, c := range chain {
 		c.Position = i
-		c.Type = GetCertType(c.Cert, i, len(chain))
+		c.Type = GetCertType(c.Cert)
 	}
 }
 
