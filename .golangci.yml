@@ -66,8 +66,8 @@ linters:
       # Known complexity debt. Strict DER decoders and revocation assessment
       # are refactored separately with golden fixtures.
       - linters: [gocognit]
-        path: internal/crl/(assessment|entries)\.go
-        text: "func `\\(\\*Catalog\\)\\.assessCertificate`|func `prepareEntryIndex`"
+        path: internal/crl/assessment\.go
+        text: "func `\\(\\*Catalog\\)\\.assessCertificate`"
 
 issues:
   max-issues-per-linter: 0

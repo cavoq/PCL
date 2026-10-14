@@ -67,35 +67,16 @@ func prepareEntryIndex(record decodedList) entryIndex {
 		rawListIssuer = record.list.RawIssuer
 	}
 	currentIssuers := []entryIssuerKey{entryIssuerKey(string(rawListIssuer))}
-	indirect := record.facts.IssuingDistributionPoint != nil &&
-		record.facts.IssuingDistributionPoint.IndirectCRL
-	reasonPartitioned := record.facts.IssuingDistributionPoint != nil &&
-		record.facts.IssuingDistributionPoint.OnlySomeReasons != nil
+	idp := record.facts.IssuingDistributionPoint
+	indirect := idp != nil && idp.IndirectCRL
+	reasonPartitioned := idp != nil && idp.OnlySomeReasons != nil
 
 	for position, entry := range record.facts.Entries {
 		if len(entry.UnsupportedCriticalExtensionOIDs) > 0 {
 			index.semanticInvalid = true
 		}
-		if entry.CertificateIssuer != nil {
-			issuers := directoryNameIssuerKeys(entry.CertificateIssuer.Names)
-			if !indirect || len(issuers) == 0 {
-				index.issuerChainInvalid = true
-				index.semanticInvalid = true
-				currentIssuers = nil
-			} else {
-				currentIssuers = issuers
-			}
-		}
-
-		if entry.ReasonCode != nil {
-			if reasonPartitioned &&
-				entry.ReasonCode.Value == crlzcrypto.CRLReasonUnspecified {
-				index.semanticInvalid = true
-			}
-			if entry.ReasonCode.Value == crlzcrypto.CRLReasonRemoveFromCRL {
-				index.containsRemoveFromCRL = true
-			}
-		}
+		currentIssuers = index.inheritIssuers(entry, currentIssuers, indirect)
+		index.noteReasonCode(entry, reasonPartitioned)
 
 		serial, present := newEntrySerialKey(entry.SerialNumber)
 		if !present {
@@ -105,25 +86,64 @@ func prepareEntryIndex(record decodedList) entryIndex {
 		if entry.ReasonCode != nil {
 			reason = int(entry.ReasonCode.Value)
 		}
-		match := entryMatch{
+		index.add(currentIssuers, serial, entryMatch{
 			found:          true,
 			index:          position,
 			reasonCode:     reason,
 			revocationTime: entry.RevocationTime,
-		}
-		for _, issuer := range currentIssuers {
-			key := entryKey{issuer: issuer, serial: serial}
-			indexed, duplicate := index.byCertificate[key]
-			if duplicate {
-				indexed.duplicate = true
-				index.byCertificate[key] = indexed
-				continue
-			}
-			index.byCertificate[key] = indexedEntry{match: match}
-		}
+		})
 	}
 
 	return index
+}
+
+// inheritIssuers returns the issuers that address entry and the entries
+// after it. A certificateIssuer outside an indirect CRL, or one without a
+// directoryName, invalidates the issuer chain for the rest of the list.
+func (index *entryIndex) inheritIssuers(
+	entry crlzcrypto.EntryFacts,
+	current []entryIssuerKey,
+	indirect bool,
+) []entryIssuerKey {
+	if entry.CertificateIssuer == nil {
+		return current
+	}
+	issuers := directoryNameIssuerKeys(entry.CertificateIssuer.Names)
+	if !indirect || len(issuers) == 0 {
+		index.issuerChainInvalid = true
+		index.semanticInvalid = true
+		return nil
+	}
+	return issuers
+}
+
+// noteReasonCode records list-wide facts carried by an entry reasonCode:
+// unspecified is not allowed in a reason-partitioned CRL, and removeFromCRL
+// marks delta semantics.
+func (index *entryIndex) noteReasonCode(entry crlzcrypto.EntryFacts, reasonPartitioned bool) {
+	if entry.ReasonCode == nil {
+		return
+	}
+	if reasonPartitioned && entry.ReasonCode.Value == crlzcrypto.CRLReasonUnspecified {
+		index.semanticInvalid = true
+	}
+	if entry.ReasonCode.Value == crlzcrypto.CRLReasonRemoveFromCRL {
+		index.containsRemoveFromCRL = true
+	}
+}
+
+// add registers match under every issuer key. A second entry for the same
+// key keeps the first match and marks it duplicate.
+func (index *entryIndex) add(issuers []entryIssuerKey, serial entrySerialKey, match entryMatch) {
+	for _, issuer := range issuers {
+		key := entryKey{issuer: issuer, serial: serial}
+		if indexed, duplicate := index.byCertificate[key]; duplicate {
+			indexed.duplicate = true
+			index.byCertificate[key] = indexed
+			continue
+		}
+		index.byCertificate[key] = indexedEntry{match: match}
+	}
 }
 
 func directoryNameIssuerKeys(names []x509ext.GeneralName) []entryIssuerKey {
