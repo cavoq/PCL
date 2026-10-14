@@ -16,6 +16,14 @@ pcl --policy <path> [--policy <path>...] --cert <path> [--crl <path>] [--ocsp <p
 
 Multiple policies can be specified with repeatable `--policy` flags. All rules from all policies will be applied.
 
+Subcommands help with writing policies:
+
+```bash
+pcl inspect --cert <path> --paths   # list every rule target path with its value
+pcl test <suite-or-directory>       # run policy test suites (*.test.yaml)
+pcl schema                          # print the policy JSON Schema for editors
+```
+
 By default, only failed rules are shown. Use `-v` to include passed rules and `-vv` to include skipped rules.
 
 Use `--purpose serverAuth` (or another supported friendly EKU name or dotted
@@ -444,6 +452,12 @@ Related profiles used by selected rules and acquisition features include:
 | `ocspValid` | At least one response is bound to the certificate and issuer, current, and signed by the issuer or an authorized responder |
 | `notRevokedOCSP` | Accepted aggregate status is Good; absent, unknown, stale, unrelated, invalidly signed, and revoked evidence fail |
 | `ocspGood` | At least one accepted response explicitly reports Good |
+
+### Combined Revocation Operators
+
+| Operator | Description |
+|----------|-------------|
+| `notRevokedByAvailableEvidence` | Combines the CRL and OCSP assessments: revoked evidence wins, otherwise at least one mechanism must establish Good |
 
 ### Path Validation Operators
 

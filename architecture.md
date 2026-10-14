@@ -21,7 +21,7 @@ graph LR
     end
     
     subgraph Validate["✓ Validation"]
-        Engine["Rule Evaluation Engine<br/>40+ Operators<br/>Field Resolution"]
+        Engine["Rule Evaluation Engine<br/>80+ Operators<br/>Field Resolution"]
     end
     
     subgraph Export["📤 Export"]
@@ -57,7 +57,7 @@ graph LR
 |-----------|---------|
 | **Data Acquisition** | Load certificates from files, directories, or HTTPS endpoints |
 | **Policy Engine** | Parse YAML policies and extract validation rules |
-| **Evaluation Engine** | Apply rules to certificates using a registry of 40+ operators |
+| **Evaluation Engine** | Apply rules to certificates using a registry of 80+ operators |
 | **Certificate Abstraction** | Unified node-tree representation for flexible field access |
 | **Output Formatter** | Generate results in text, JSON, or YAML format |
 
@@ -75,3 +75,17 @@ malformed main, conditional, or nested operands before processing inputs.
 that construct policies or invocations programmatically. Composite operators
 such as `every` resolve and invoke inner operators through that same registry,
 including custom registrations.
+
+Each built-in operand contract pairs the Go validator with a JSON Schema
+fragment. `pcl schema` assembles the policy schema from the registry, and
+tests require schema and validator to agree on every contract case, so editor
+validation cannot drift from execution.
+
+### One pipeline for lint, inspect and test
+
+The linter acquires inputs once (loading, chain building, automatic CRL/OCSP
+retrieval) and turns them into evaluator subjects: one per certificate, CRL and
+OCSP response, each with the node tree policies see, its operator context and
+the selected policies. `pcl` evaluates the subjects, `pcl inspect` prints
+their trees, and `pcl test` evaluates them against expected verdicts, so all
+three commands see exactly the same inputs and projections.
