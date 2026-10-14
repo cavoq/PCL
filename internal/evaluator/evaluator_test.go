@@ -54,29 +54,6 @@ func TestOCSPOnlyWithEmptyOCSPs(t *testing.T) {
 	}
 }
 
-func TestExtractCertsFromInfoEmpty(t *testing.T) {
-	certs := ExtractCertsFromInfo(nil)
-	if len(certs) != 0 {
-		t.Errorf("expected 0 certs for nil input, got %d", len(certs))
-	}
-
-	certs = ExtractCertsFromInfo([]*cert.Info{})
-	if len(certs) != 0 {
-		t.Errorf("expected 0 certs for empty slice, got %d", len(certs))
-	}
-}
-
-func TestExtractCertsFromInfoWithNilCert(t *testing.T) {
-	infos := []*cert.Info{
-		{Cert: nil},
-		{Cert: nil, FilePath: "test.pem"},
-	}
-	certs := ExtractCertsFromInfo(infos)
-	if len(certs) != 0 {
-		t.Errorf("expected 0 certs for nil certs in info, got %d", len(certs))
-	}
-}
-
 func TestContextDefaults(t *testing.T) {
 	evalCtx := Context{}
 

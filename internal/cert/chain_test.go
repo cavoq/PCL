@@ -1,13 +1,12 @@
 package cert
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/zmap/zcrypto/x509"
 	"github.com/zmap/zcrypto/x509/pkix"
-
-	"github.com/cavoq/PCL/internal/loader"
 )
 
 func TestLoadCertificates_Chain(t *testing.T) {
@@ -59,7 +58,11 @@ func TestLoadCertificates_SingleCert(t *testing.T) {
 }
 
 func TestParseCertificate(t *testing.T) {
-	cert, err := loader.Load("../../tests/certs/leaf.pem", ParseCertificate)
+	data, err := os.ReadFile("../../tests/certs/leaf.pem")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cert, err := ParseCertificate(data)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

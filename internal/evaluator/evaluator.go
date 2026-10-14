@@ -351,8 +351,3 @@ func combinedCRLIssuerPool(ctx Context) []*x509.Certificate {
 	}
 	return pool
 }
-
-// ExtractCertsFromInfo extracts x509 certificates from cert.Info values.
-func ExtractCertsFromInfo(infos []*cert.Info) []*x509.Certificate {
-	return cert.CertsFromInfos(infos)
-}

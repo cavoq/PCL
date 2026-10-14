@@ -9,12 +9,22 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cavoq/PCL/internal/loader"
+	"github.com/zmap/zcrypto/x509"
+
 	"github.com/cavoq/PCL/internal/source"
 )
 
+func parseCRLFile(t *testing.T, path string) (*x509.RevocationList, error) {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return ParseCRL(data)
+}
+
 func TestParseCRL_PEM(t *testing.T) {
-	crl, err := loader.Load(filepath.Join("testdata", "test.pem"), ParseCRL)
+	crl, err := parseCRLFile(t, filepath.Join("testdata", "test.pem"))
 	if err != nil {
 		t.Fatalf("failed to load PEM CRL: %v", err)
 	}
@@ -27,7 +37,7 @@ func TestParseCRL_PEM(t *testing.T) {
 }
 
 func TestParseCRL_DER(t *testing.T) {
-	crl, err := loader.Load(filepath.Join("testdata", "test.crl"), ParseCRL)
+	crl, err := parseCRLFile(t, filepath.Join("testdata", "test.crl"))
 	if err != nil {
 		t.Fatalf("failed to load DER CRL: %v", err)
 	}

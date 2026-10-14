@@ -1,6 +1,7 @@
 package operator
 
 import (
+	"bytes"
 	"encoding/hex"
 	"fmt"
 	"reflect"
@@ -148,25 +149,12 @@ func (DEREqualsHex) Evaluate(n *node.Node, _ *EvaluationContext, operands []any)
 		if err != nil {
 			continue
 		}
-		if bytesEqual(rawDER, expected) {
+		if bytes.Equal(rawDER, expected) {
 			return true, nil
 		}
 	}
 
 	return false, nil
-}
-
-// bytesEqual compares two byte slices
-func bytesEqual(a, b []byte) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
 }
 
 func equal(a, b any) bool {
