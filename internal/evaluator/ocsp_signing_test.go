@@ -33,12 +33,12 @@ func TestOCSP_skipsNilInfoAndResponse(t *testing.T) {
 
 func TestOcspSigningCert_invalidEmbeddedCert(t *testing.T) {
 	ctx := Context{Registry: operator.DefaultRegistry()}
-	results := ocspSigningCert(ctx, &ocsp.Info{
+	_, ok := ocspSignerSubject(ctx, &ocsp.Info{
 		Response: &stdocsp.Response{Certificate: &cryptox509.Certificate{}},
 		FilePath: "bad.ocsp",
 	}, time.Now())
-	if len(results) != 0 {
-		t.Fatalf("invalid embedded cert should yield no results, got %d", len(results))
+	if ok {
+		t.Fatal("invalid embedded cert should yield no signer subject")
 	}
 }
 

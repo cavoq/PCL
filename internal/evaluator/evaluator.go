@@ -50,9 +50,45 @@ type Context struct {
 	crlIssuerPools map[*crl.Info][]*x509.Certificate
 }
 
+// Subject is one evaluated input: the node tree policies see, the context
+// operators receive, and the policies selected for it.
+type Subject struct {
+	Info     *cert.Info
+	Tree     *node.Node
+	Context  *operator.EvaluationContext
+	Policies []policy.Policy
+}
+
+// Evaluate applies each subject's policies to its tree.
+func Evaluate(subjects []Subject, registry *operator.Registry) []policy.Result {
+	count := 0
+	for _, subject := range subjects {
+		count += len(subject.Policies)
+	}
+	results := make([]policy.Result, 0, count)
+	for _, subject := range subjects {
+		results = append(results, evaluatePolicies(subject.Policies, subject.Tree, registry, subject.Context)...)
+	}
+	return results
+}
+
 func Chain(ctx Context) []policy.Result {
+	return Evaluate(ChainSubjects(ctx), ctx.Registry)
+}
+
+func OCSP(ctx Context) []policy.Result {
+	return Evaluate(OCSPSubjects(ctx), ctx.Registry)
+}
+
+func CRL(ctx Context) []policy.Result {
+	return Evaluate(CRLSubjects(ctx), ctx.Registry)
+}
+
+// ChainSubjects returns one subject per certificate in the chain, with the
+// application purpose, download metadata and revocation assessment projected
+// into its tree.
+func ChainSubjects(ctx Context) []Subject {
 	ctx = PrepareCRLIssuers(ctx)
-	var results []policy.Result
 	now := evaluationTime(ctx.ValidationTime)
 	lists := revocationLists(ctx.CRLs)
 	allCRLIssuers := combinedCRLIssuerPool(ctx)
@@ -64,6 +100,7 @@ func Chain(ctx Context) []policy.Result {
 		AuthorizeSigner: ctx.CRLSignerAuthorizer,
 	})
 
+	var subjects []Subject
 	for _, c := range ctx.Chain {
 		if c == nil || c.Cert == nil {
 			continue
@@ -91,16 +128,20 @@ func Chain(ctx Context) []policy.Result {
 			operator.WithEvaluationTime(now),
 			operator.WithCRLIssuers(allCRLIssuers),
 		}
-		evalCtx := operator.NewEvaluationContext(tree, c, ctx.Chain, evalOpts...)
-
-		results = append(results, evaluatePolicies(policy.ByCertificate(ctx.Policies, c.Cert), tree, ctx.Registry, evalCtx)...)
+		subjects = append(subjects, Subject{
+			Info:     c,
+			Tree:     tree,
+			Context:  operator.NewEvaluationContext(tree, c, ctx.Chain, evalOpts...),
+			Policies: policy.ByCertificate(ctx.Policies, c.Cert),
+		})
 	}
-
-	return results
+	return subjects
 }
 
-func OCSP(ctx Context) []policy.Result {
-	var results []policy.Result
+// OCSPSubjects returns one subject per OCSP response, each followed by its
+// embedded delegated signer certificate, if any.
+func OCSPSubjects(ctx Context) []Subject {
+	var subjects []Subject
 	now := evaluationTime(ctx.ValidationTime)
 	filteredPolicies := policy.ByInput(ctx.Policies, policy.InputOCSP)
 
@@ -124,21 +165,27 @@ func OCSP(ctx Context) []policy.Result {
 			operator.WithOCSPs(ctx.OCSPs),
 			operator.WithEvaluationTime(now),
 		}
-		evalCtx := operator.NewEvaluationContext(tree, ocspCertInfo, ctx.Chain, evalOpts...)
-
-		results = append(results, evaluatePolicies(filteredPolicies, tree, ctx.Registry, evalCtx)...)
+		subjects = append(subjects, Subject{
+			Info:     ocspCertInfo,
+			Tree:     tree,
+			Context:  operator.NewEvaluationContext(tree, ocspCertInfo, ctx.Chain, evalOpts...),
+			Policies: filteredPolicies,
+		})
 
 		if ocspInfo.Response.Certificate != nil {
-			results = append(results, ocspSigningCert(ctx, ocspInfo, now)...)
+			if signer, ok := ocspSignerSubject(ctx, ocspInfo, now); ok {
+				subjects = append(subjects, signer)
+			}
 		}
 	}
 
-	return results
+	return subjects
 }
 
-func CRL(ctx Context) []policy.Result {
+// CRLSubjects returns one subject per CRL.
+func CRLSubjects(ctx Context) []Subject {
 	ctx = PrepareCRLIssuers(ctx)
-	var results []policy.Result
+	var subjects []Subject
 	now := evaluationTime(ctx.ValidationTime)
 
 	for _, crlInfo := range ctx.CRLs {
@@ -165,12 +212,15 @@ func CRL(ctx Context) []policy.Result {
 			operator.WithCRLIssuers(issuerCerts),
 			operator.WithEvaluationTime(now),
 		}
-		evalCtx := operator.NewEvaluationContext(tree, crlCertInfo, ctx.Chain, evalOpts...)
-
-		results = append(results, evaluatePolicies(policy.ByCRL(ctx.Policies, crlInfo.CRL), tree, ctx.Registry, evalCtx)...)
+		subjects = append(subjects, Subject{
+			Info:     crlCertInfo,
+			Tree:     tree,
+			Context:  operator.NewEvaluationContext(tree, crlCertInfo, ctx.Chain, evalOpts...),
+			Policies: policy.ByCRL(ctx.Policies, crlInfo.CRL),
+		})
 	}
 
-	return results
+	return subjects
 }
 
 func CRLOnly(policies []policy.Policy, registry *operator.Registry, crls []*crl.Info, issuers []*cert.Info) []policy.Result {
@@ -190,10 +240,10 @@ func OCSPOnly(policies []policy.Policy, registry *operator.Registry, ocsps []*oc
 	})
 }
 
-func ocspSigningCert(ctx Context, ocspInfo *ocsp.Info, now time.Time) []policy.Result {
+func ocspSignerSubject(ctx Context, ocspInfo *ocsp.Info, now time.Time) (Subject, bool) {
 	zcryptoSignerCert, err := x509node.FromStdCert(ocspInfo.Response.Certificate)
 	if err != nil || zcryptoSignerCert == nil {
-		return nil
+		return Subject{}, false
 	}
 
 	ocspSignerTree := certzcrypto.BuildTree(zcryptoSignerCert)
@@ -226,10 +276,12 @@ func ocspSigningCert(ctx Context, ocspInfo *ocsp.Info, now time.Time) []policy.R
 		operator.WithOCSPAssessment(&ocspAssessment),
 		operator.WithEvaluationTime(now),
 	}
-	evalCtx := operator.NewEvaluationContext(ocspSignerTree, ocspSignerInfo, signerChain, evalOpts...)
-
-	signerPolicies := policy.ByCertificate(ctx.Policies, zcryptoSignerCert)
-	return evaluatePolicies(signerPolicies, ocspSignerTree, ctx.Registry, evalCtx)
+	return Subject{
+		Info:     ocspSignerInfo,
+		Tree:     ocspSignerTree,
+		Context:  operator.NewEvaluationContext(ocspSignerTree, ocspSignerInfo, signerChain, evalOpts...),
+		Policies: policy.ByCertificate(ctx.Policies, zcryptoSignerCert),
+	}, true
 }
 
 func evaluatePolicies(
