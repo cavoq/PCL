@@ -7,6 +7,7 @@ import (
 
 	"github.com/cavoq/PCL/internal/node"
 	"github.com/cavoq/PCL/internal/oid"
+	nameprojector "github.com/cavoq/PCL/internal/zcrypto"
 	"golang.org/x/crypto/cryptobyte"
 	cryptobyte_asn1 "golang.org/x/crypto/cryptobyte/asn1"
 )
@@ -102,7 +103,7 @@ func projectAuthorityInformationAccess(descriptions []decodedAccessDescription) 
 		key := strconv.Itoa(index)
 		descriptionNode := node.New(key, nil)
 		descriptionNode.Children["accessMethod"] = node.New("accessMethod", description.Method)
-		descriptionNode.Children["accessLocation"] = buildParsedGeneralName("accessLocation", description.Location)
+		descriptionNode.Children["accessLocation"] = nameprojector.BuildGeneralName("accessLocation", description.Location)
 		descriptionsNode.Children[key] = descriptionNode
 
 		containsOCSP = containsOCSP || description.Method == oid.AccessMethodOCSP

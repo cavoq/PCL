@@ -219,7 +219,7 @@ func projectCRLDistributionPoint(name string, decoded decodedCRLDistributionPoin
 	if decoded.CRLIssuer != nil {
 		issuerNode := node.New("cRLIssuer", nil)
 		issuerNode.Children["present"] = node.New("present", true)
-		addParsedGeneralNames(issuerNode, decoded.CRLIssuer)
+		nameprojector.AddGeneralNames(issuerNode, decoded.CRLIssuer)
 		issuerNode.Children["count"] = node.New("count", len(decoded.CRLIssuer))
 		n.Children["cRLIssuer"] = issuerNode
 	}
@@ -237,7 +237,7 @@ func projectDistributionPointName(decoded decodedDistributionPointName) *node.No
 	case decodedFullName:
 		fullNameNode := node.New("fullName", nil)
 		generalNamesNode := node.New("generalNames", nil)
-		addParsedGeneralNames(generalNamesNode, decoded.GeneralNames)
+		nameprojector.AddGeneralNames(generalNamesNode, decoded.GeneralNames)
 		fullNameNode.Children["generalNames"] = generalNamesNode
 		fullNameNode.Children["count"] = node.New("count", len(decoded.GeneralNames))
 		n.Children["fullName"] = fullNameNode

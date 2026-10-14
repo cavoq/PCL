@@ -1,9 +1,7 @@
 package zcrypto
 
 import (
-	"net"
 	"strconv"
-	"strings"
 
 	"github.com/cavoq/PCL/internal/node"
 	"github.com/cavoq/PCL/internal/oid"
@@ -84,7 +82,7 @@ func projectEntryExtension(extension pkix.Extension) (*node.Node, error) {
 		n := node.New("certificateIssuer", len(facts.Names))
 		n.Children["raw"] = node.New("raw", append([]byte(nil), facts.RawDER...))
 		entries := node.New("entries", nil)
-		addGeneralNames(entries, facts.Names)
+		nameprojector.AddGeneralNames(entries, facts.Names)
 		n.Children["entries"] = entries
 		n.Children["count"] = node.New("count", len(facts.Names))
 		return n, nil
@@ -104,7 +102,7 @@ func projectAuthorityKeyIdentifier(facts *AuthorityKeyIdentifierFacts) *node.Nod
 	}
 	if facts.AuthorityIssuer != nil {
 		issuer := node.New("authorityCertIssuer", nil)
-		addGeneralNames(issuer, facts.AuthorityIssuer)
+		nameprojector.AddGeneralNames(issuer, facts.AuthorityIssuer)
 		issuer.Children["count"] = node.New("count", len(facts.AuthorityIssuer))
 		n.Children["authorityCertIssuer"] = issuer
 	}
@@ -165,7 +163,7 @@ func projectDistributionPoints(name string, raw []byte, points []x509ext.Distrib
 		}
 		if point.CRLIssuer != nil {
 			issuer := node.New("cRLIssuer", nil)
-			addGeneralNames(issuer, point.CRLIssuer)
+			nameprojector.AddGeneralNames(issuer, point.CRLIssuer)
 			issuer.Children["count"] = node.New("count", len(point.CRLIssuer))
 			pointNode.Children["cRLIssuer"] = issuer
 		}
@@ -183,7 +181,7 @@ func projectDistributionPointName(name *x509ext.DistributionPointName) *node.Nod
 	case x509ext.DistributionPointNameFullName:
 		fullName := node.New("fullName", nil)
 		generalNames := node.New("generalNames", nil)
-		addGeneralNames(generalNames, name.FullName)
+		nameprojector.AddGeneralNames(generalNames, name.FullName)
 		fullName.Children["generalNames"] = generalNames
 		fullName.Children["count"] = node.New("count", len(name.FullName))
 		n.Children["fullName"] = fullName
@@ -220,51 +218,4 @@ func projectReasonFlags(name string, reasons *x509ext.ReasonFlags) *node.Node {
 		)
 	}
 	return n
-}
-
-func addGeneralNames(parent *node.Node, names []x509ext.GeneralName) {
-	for index, name := range names {
-		key := strconv.Itoa(index)
-		parent.Children[key] = projectGeneralName(key, name)
-	}
-}
-
-func projectGeneralName(name string, value x509ext.GeneralName) *node.Node {
-	var scalar any = append([]byte(nil), value.RawValue...)
-	switch value.Tag {
-	case 1, 2, 6:
-		scalar = string(value.RawValue)
-	case 4:
-		directoryName := nameprojector.BuildRawName("directoryName", value.RawValue)
-		scalar = directoryName.Value
-	case 7:
-		scalar = net.IP(value.RawValue).String()
-	case 8:
-		if identifier, err := x509ext.DecodeRegisteredID(value.RawDER); err == nil {
-			scalar = identifier
-		}
-	}
-	n := node.New(name, cloneScalar(scalar))
-	n.Children["value"] = node.New("value", cloneScalar(scalar))
-	n.Children["type"] = node.New("type", x509ext.GeneralNameType(value.Tag))
-	n.Children["tag"] = node.New("tag", value.Tag)
-	n.Children["raw"] = node.New("raw", append([]byte(nil), value.RawDER...))
-	n.Children["rawValue"] = node.New("rawValue", append([]byte(nil), value.RawValue...))
-	if value.Tag == 4 {
-		n.Children["directoryName"] = nameprojector.BuildRawName("directoryName", value.RawValue)
-	}
-	if value.Tag == 6 {
-		uri := string(value.RawValue)
-		if separator := strings.IndexByte(uri, ':'); separator >= 0 {
-			n.Children["scheme"] = node.New("scheme", uri[:separator])
-		}
-	}
-	return n
-}
-
-func cloneScalar(value any) any {
-	if bytes, ok := value.([]byte); ok {
-		return append([]byte(nil), bytes...)
-	}
-	return value
 }
