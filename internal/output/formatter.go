@@ -2,6 +2,13 @@ package output
 
 import "io"
 
+// Output formats accepted by GetFormatter. Unknown formats render as text.
+const (
+	FormatText = "text"
+	FormatJSON = "json"
+	FormatYAML = "yaml"
+)
+
 type Options struct {
 	ShowPassed  bool
 	ShowFailed  bool
@@ -15,9 +22,9 @@ type Formatter interface {
 
 func GetFormatter(format string, opts Options) Formatter {
 	switch format {
-	case "json":
+	case FormatJSON:
 		return NewJSONFormatter(opts)
-	case "yaml":
+	case FormatYAML:
 		return NewYAMLFormatter(opts)
 	default:
 		return NewTextFormatter(opts)

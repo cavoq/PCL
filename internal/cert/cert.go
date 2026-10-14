@@ -61,6 +61,18 @@ func IsCA(cert *x509.Certificate) bool {
 	return valid && basicConstraints.CA
 }
 
+// Evaluation-context types. GetCertType assigns the certificate roles, and
+// rule-level certType filters match against all of them.
+const (
+	TypeRoot         = "root"
+	TypeIntermediate = "intermediate"
+	TypeLeaf         = "leaf"
+	TypeOCSPSigning  = "ocspSigning"
+	// TypeCRL and TypeOCSP mark contexts for CRL and OCSP response inputs.
+	TypeCRL  = "crl"
+	TypeOCSP = "ocsp"
+)
+
 // GetCertType classifies a certificate's role from its own contents.
 func GetCertType(cert *x509.Certificate) string {
 	if cert == nil {
@@ -69,16 +81,16 @@ func GetCertType(cert *x509.Certificate) string {
 
 	if IsCA(cert) {
 		if IsSelfSigned(cert) {
-			return "root"
+			return TypeRoot
 		}
-		return "intermediate"
+		return TypeIntermediate
 	}
 
 	for _, eku := range cert.ExtKeyUsage {
 		if eku == x509.ExtKeyUsageOcspSigning {
-			return "ocspSigning"
+			return TypeOCSPSigning
 		}
 	}
 
-	return "leaf"
+	return TypeLeaf
 }

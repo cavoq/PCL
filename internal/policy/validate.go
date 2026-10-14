@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/cavoq/PCL/internal/cert"
 	"github.com/cavoq/PCL/internal/oid"
 	"github.com/cavoq/PCL/internal/rule"
 )
@@ -19,10 +20,10 @@ var (
 		InputAttrCert,
 	)
 	validPolicyCertTypes = stringSet(
-		"ca",
-		"root",
-		"intermediate",
-		"leaf",
+		policyCertTypeCA,
+		cert.TypeRoot,
+		cert.TypeIntermediate,
+		cert.TypeLeaf,
 		"serverAuth",
 		"clientAuth",
 		"codeSigning",
@@ -31,10 +32,10 @@ var (
 		"ocspSigning",
 	)
 	validRuleCertTypes = stringSet(
-		"root",
-		"intermediate",
-		"leaf",
-		"ocspSigning",
+		cert.TypeRoot,
+		cert.TypeIntermediate,
+		cert.TypeLeaf,
+		cert.TypeOCSPSigning,
 		InputCRL,
 		InputOCSP,
 		InputTST,

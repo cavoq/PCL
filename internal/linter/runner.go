@@ -248,7 +248,7 @@ func diagnosticsWriter(cfg Config, w io.Writer) io.Writer {
 	switch {
 	case cfg.Diagnostics != nil:
 		return cfg.Diagnostics
-	case cfg.OutputFmt == "json" || cfg.OutputFmt == "yaml":
+	case cfg.OutputFmt == output.FormatJSON || cfg.OutputFmt == output.FormatYAML:
 		return io.Discard
 	default:
 		return w
@@ -299,7 +299,7 @@ func applyDefaults(cfg *Config) {
 		cfg.OCSPTimeout = 5 * time.Second
 	}
 	if cfg.OutputFmt == "" {
-		cfg.OutputFmt = "text"
+		cfg.OutputFmt = output.FormatText
 	}
 
 	// Auto-validate defaults

@@ -116,7 +116,7 @@ func OCSP(ctx Context) []policy.Result {
 
 		ocspCertInfo := &cert.Info{
 			FilePath: ocspInfo.FilePath,
-			Type:     "ocsp",
+			Type:     cert.TypeOCSP,
 			Source:   ocspInfo.Source,
 		}
 
@@ -155,7 +155,7 @@ func CRL(ctx Context) []policy.Result {
 
 		crlCertInfo := &cert.Info{
 			FilePath: crlInfo.FilePath,
-			Type:     "crl",
+			Type:     cert.TypeCRL,
 			Source:   crlInfo.Source,
 		}
 
@@ -200,7 +200,7 @@ func ocspSigningCert(ctx Context, ocspInfo *ocsp.Info, now time.Time) []policy.R
 	ocspSignerInfo := &cert.Info{
 		Cert:     zcryptoSignerCert,
 		FilePath: ocspInfo.FilePath + " (signing cert)",
-		Type:     "ocspSigning",
+		Type:     cert.TypeOCSPSigning,
 		Source:   source.Info{Type: source.Extracted, Description: "extracted from OCSP response"},
 	}
 

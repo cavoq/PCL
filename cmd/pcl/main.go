@@ -9,6 +9,7 @@ import (
 
 	"github.com/cavoq/PCL/internal/data"
 	"github.com/cavoq/PCL/internal/linter"
+	"github.com/cavoq/PCL/internal/output"
 )
 
 var version = "4.0.0"
@@ -45,7 +46,7 @@ func newRootCmd(opts *linter.Config) *cobra.Command {
 	root.Flags().StringVar(&opts.CRLPath, "crl", "", "Path to CRL file or directory (PEM/DER)")
 	root.Flags().StringVar(&opts.OCSPPath, "ocsp", "", "Path to OCSP response file or directory (DER/PEM)")
 	root.Flags().DurationVar(&opts.OCSPTimeout, "ocsp-url-timeout", 5*time.Second, "OCSP request timeout (e.g. 5s, 10s)")
-	root.Flags().StringVar(&opts.OutputFmt, "output", "text", "Output format: text, json, or yaml")
+	root.Flags().StringVar(&opts.OutputFmt, "output", output.FormatText, "Output format: text, json, or yaml")
 	root.Flags().CountVarP(&opts.Verbosity, "verbose", "v", "Increase output detail: -v shows passed, -vv includes skipped")
 	root.Flags().BoolVar(&opts.ShowMeta, "show-meta", true, "Show lint meta information")
 	root.Flags().StringVar(&opts.ApplicationPurpose, "purpose", "", "Application purpose for RFC 5280 EKU evaluation (friendly name or OID)")

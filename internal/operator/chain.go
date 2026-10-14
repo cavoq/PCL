@@ -3,6 +3,7 @@ package operator
 import (
 	"bytes"
 
+	certpkg "github.com/cavoq/PCL/internal/cert"
 	"github.com/cavoq/PCL/internal/node"
 )
 
@@ -18,7 +19,7 @@ func (SignatureValid) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (b
 	cert := ctx.Cert.Cert
 	position := ctx.Cert.Position
 
-	if ctx.Cert.Type == "root" {
+	if ctx.Cert.Type == certpkg.TypeRoot {
 		err := cert.CheckSignatureFrom(cert)
 		return err == nil, nil
 	}
@@ -48,7 +49,7 @@ func (IssuedBy) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (bool, e
 	cert := ctx.Cert.Cert
 	position := ctx.Cert.Position
 
-	if ctx.Cert.Type == "root" {
+	if ctx.Cert.Type == certpkg.TypeRoot {
 		return cert.Issuer.String() == cert.Subject.String(), nil
 	}
 
@@ -82,7 +83,7 @@ func (AKIMatchesSKI) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (bo
 	}
 
 	// Root certificates: AKI should match own SKI (if present)
-	if ctx.Cert.Type == "root" {
+	if ctx.Cert.Type == certpkg.TypeRoot {
 		if len(cert.SubjectKeyId) == 0 {
 			return true, nil
 		}

@@ -63,17 +63,21 @@ func AppliesToCertificate(p Policy, cert *x509.Certificate) bool {
 	return false
 }
 
+// policyCertTypeCA selects any CA certificate, root or intermediate. It is
+// only meaningful as a policy-level certType.
+const policyCertTypeCA = "ca"
+
 // certificateMatchesType reports whether cert has the policy-level role
 // certType: ca, root, intermediate, leaf, or an extended key usage OID.
 func certificateMatchesType(cert *x509.Certificate, certType string, isCA, selfSigned bool) bool {
 	switch certType {
-	case "ca":
+	case policyCertTypeCA:
 		return isCA
-	case "root":
+	case certpkg.TypeRoot:
 		return isCA && selfSigned
-	case "intermediate":
+	case certpkg.TypeIntermediate:
 		return isCA && !selfSigned
-	case "leaf":
+	case certpkg.TypeLeaf:
 		return !isCA
 	default:
 		return hasExtendedKeyUsage(cert, certType)
