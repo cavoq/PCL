@@ -291,3 +291,26 @@ func TestComponentNotRegex(t *testing.T) {
 		})
 	}
 }
+
+func TestComponentOperatorsUseCollectionElements(t *testing.T) {
+	collection := node.New("dNSName", nil)
+	collection.AddElement(node.New("0", "example.com"))
+	collection.AddElement(node.New("1", "*.example.com"))
+	// Named metadata beside indexed elements is not an element.
+	collection.Children["type"] = node.New("type", "*")
+
+	matched, err := AnyComponentMatches{}.Evaluate(collection, nil, []any{`^\*$`})
+	if err != nil || matched {
+		t.Fatalf("anyComponentMatches matched metadata: %v, %v", matched, err)
+	}
+
+	matched, err = AnyComponentMatches{}.Evaluate(collection, nil, []any{`^\*\.`})
+	if err != nil || !matched {
+		t.Fatalf("anyComponentMatches missed an element: %v, %v", matched, err)
+	}
+
+	valid, err := ComponentMinLength{}.Evaluate(collection, nil, []any{2})
+	if err != nil || valid {
+		t.Fatalf("componentMinLength = %v, %v; want false for the one-character wildcard label", valid, err)
+	}
+}

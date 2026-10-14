@@ -271,12 +271,15 @@ func evaluateComponentLength(
 }
 
 // candidateStrings returns the string values a component operator inspects:
-// the string values of a value-less parent node's children, or the node's own
-// value. It reports false when a scalar node does not hold a string.
+// the string values of a value-less parent node's collection elements, or the
+// node's own value. It reports false when a scalar node does not hold a string.
+// Elements follow node.CollectionElements, so named metadata beside indexed
+// elements is not treated as an element, matching every.
 func candidateStrings(n *node.Node) ([]string, bool) {
 	if n.Value == nil && len(n.Children) > 0 {
-		values := make([]string, 0, len(n.Children))
-		for _, child := range n.Children {
+		elements := node.CollectionElements(n)
+		values := make([]string, 0, len(elements))
+		for _, child := range elements {
 			if str, ok := child.Value.(string); ok {
 				values = append(values, str)
 			}
