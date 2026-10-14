@@ -52,17 +52,11 @@ func (catalog *Catalog) assessCertificate(
 	freshest bool,
 	pointError error,
 ) Assessment {
-	var assessment Assessment
 	if pointError != nil {
-		for index := range catalog.records {
-			record := &catalog.records[index]
-			assessment.Evidence = append(assessment.Evidence, Evidence{
-				CRL: record.list, DistributionPoint: -1,
-				Rejection: EvidenceCertificateDistributionPoint,
-			})
-		}
-		return assessment
+		return catalog.unusableDistributionPointsAssessment()
 	}
+
+	var assessment Assessment
 	for _, record := range catalog.malformed {
 		assessment.Evidence = append(assessment.Evidence, Evidence{
 			CRL: record.list, DistributionPoint: -1,
@@ -84,37 +78,65 @@ func (catalog *Catalog) assessCertificate(
 		if point.fallback && assessment.Status() != RevocationUnknown {
 			break
 		}
-		for _, candidate := range complete {
-			if assessment.Status() != RevocationUnknown {
-				break
-			}
-			base := candidate.record
-			if point.fallback {
-				if _, advertised := seenAdvertised[base.fingerprint]; advertised {
-					continue
-				}
-			}
-			evidence, revocation := run.assessCompleteCRL(
-				point,
-				candidate,
-				freshest,
-				assessment.CoveredReasons,
-			)
-			assessment.Evidence = append(assessment.Evidence, evidence)
-			if !point.fallback && evidence.Applicable {
-				seenAdvertised[base.fingerprint] = struct{}{}
-			}
-			if !evidence.Accepted {
-				continue
-			}
-			assessment.CoveredReasons |= evidence.Reasons
-			if revocation != nil && assessment.Revocation == nil {
-				assessment.Revocation = revocation
-			}
-		}
+		run.assessPoint(&assessment, point, complete, freshest, seenAdvertised)
 	}
 
 	return assessment
+}
+
+// unusableDistributionPointsAssessment rejects every list when the target's
+// distribution points could not be decoded.
+func (catalog *Catalog) unusableDistributionPointsAssessment() Assessment {
+	var assessment Assessment
+	for index := range catalog.records {
+		record := &catalog.records[index]
+		assessment.Evidence = append(assessment.Evidence, Evidence{
+			CRL: record.list, DistributionPoint: -1,
+			Rejection: EvidenceCertificateDistributionPoint,
+		})
+	}
+	return assessment
+}
+
+// assessPoint evaluates the complete CRL candidates for one distribution
+// point until the status is decided, accumulating evidence, covered reasons
+// and the first revocation. Lists that applied to an advertised point are not
+// reconsidered for the fallback point.
+func (run *assessmentRun) assessPoint(
+	assessment *Assessment,
+	point revocationPoint,
+	complete []completeCandidate,
+	freshest bool,
+	seenAdvertised map[listFingerprint]struct{},
+) {
+	for _, candidate := range complete {
+		if assessment.Status() != RevocationUnknown {
+			return
+		}
+		base := candidate.record
+		if point.fallback {
+			if _, advertised := seenAdvertised[base.fingerprint]; advertised {
+				continue
+			}
+		}
+		evidence, revocation := run.assessCompleteCRL(
+			point,
+			candidate,
+			freshest,
+			assessment.CoveredReasons,
+		)
+		assessment.Evidence = append(assessment.Evidence, evidence)
+		if !point.fallback && evidence.Applicable {
+			seenAdvertised[base.fingerprint] = struct{}{}
+		}
+		if !evidence.Accepted {
+			continue
+		}
+		assessment.CoveredReasons |= evidence.Reasons
+		if revocation != nil && assessment.Revocation == nil {
+			assessment.Revocation = revocation
+		}
+	}
 }
 
 func (run *assessmentRun) assessCompleteCRL(
