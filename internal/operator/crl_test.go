@@ -14,501 +14,99 @@ import (
 	"github.com/cavoq/PCL/internal/crl"
 )
 
-func TestCRLValidNilContext(t *testing.T) {
-	op := CRLValid{}
-	got, err := op.Evaluate(nil, nil, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if got {
-		t.Error("nil context should return false")
-	}
-}
-
-func TestCRLValidNoCRLs(t *testing.T) {
-	op := CRLValid{}
-	ctx := &EvaluationContext{CRLs: nil}
-	got, err := op.Evaluate(nil, ctx, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if got {
-		t.Error("empty CRLs should return false")
-	}
-}
-
-func TestCRLValidWithinWindow(t *testing.T) {
-	op := CRLValid{}
+func TestCRLOperators(t *testing.T) {
 	now := time.Now()
-	ctx := &EvaluationContext{
-		Now: now,
-		CRLs: []*crl.Info{{
-			CRL: &x509.RevocationList{
-				ThisUpdate: now.Add(-time.Hour),
-				NextUpdate: now.Add(time.Hour),
-			},
-		}},
+	window := func(thisUpdate, nextUpdate time.Duration) *crl.Info {
+		return &crl.Info{CRL: &x509.RevocationList{ThisUpdate: now.Add(thisUpdate), NextUpdate: now.Add(nextUpdate)}}
 	}
-	got, err := op.Evaluate(nil, ctx, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if !got {
-		t.Error("CRL within window should be valid")
-	}
-}
+	lists := func(infos ...*crl.Info) *EvaluationContext { return &EvaluationContext{Now: now, CRLs: infos} }
 
-func TestCRLValidBeforeThisUpdate(t *testing.T) {
-	op := CRLValid{}
-	now := time.Now()
-	ctx := &EvaluationContext{
-		Now: now,
-		CRLs: []*crl.Info{{
-			CRL: &x509.RevocationList{
-				ThisUpdate: now.Add(time.Hour),
-				NextUpdate: now.Add(2 * time.Hour),
-			},
-		}},
-	}
-	got, err := op.Evaluate(nil, ctx, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if got {
-		t.Error("CRL before thisUpdate should be invalid")
-	}
-}
-
-func TestCRLValidAfterNextUpdate(t *testing.T) {
-	op := CRLValid{}
-	now := time.Now()
-	ctx := &EvaluationContext{
-		Now: now,
-		CRLs: []*crl.Info{{
-			CRL: &x509.RevocationList{
-				ThisUpdate: now.Add(-2 * time.Hour),
-				NextUpdate: now.Add(-time.Hour),
-			},
-		}},
-	}
-	got, err := op.Evaluate(nil, ctx, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if got {
-		t.Error("CRL after nextUpdate should be invalid")
-	}
-}
-
-func TestCRLValidRejectsMissingNextUpdate(t *testing.T) {
-	op := CRLValid{}
-	now := time.Now()
-	ctx := &EvaluationContext{
-		Now: now,
-		CRLs: []*crl.Info{{
-			CRL: &x509.RevocationList{
-				ThisUpdate: now.Add(-time.Hour),
-			},
-		}},
-	}
-	got, err := op.Evaluate(nil, ctx, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if got {
-		t.Error("RFC 5280 CRL without nextUpdate must be invalid")
-	}
-}
-
-func TestCRLValidNilCRLInInfo(t *testing.T) {
-	op := CRLValid{}
-	now := time.Now()
-	ctx := &EvaluationContext{
-		Now: now,
-		CRLs: []*crl.Info{{
-			CRL: nil,
-		}, {
-			CRL: &x509.RevocationList{
-				ThisUpdate: now.Add(-time.Hour),
-				NextUpdate: now.Add(time.Hour),
-			},
-		}},
-	}
-	got, err := op.Evaluate(nil, ctx, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if !got {
-		t.Error("should skip nil CRL and validate others")
-	}
-}
-
-func TestCRLNotExpiredNilContext(t *testing.T) {
-	op := CRLNotExpired{}
-	got, err := op.Evaluate(nil, nil, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if got {
-		t.Error("nil context should return false")
-	}
-}
-
-func TestCRLNotExpiredValid(t *testing.T) {
-	op := CRLNotExpired{}
-	now := time.Now()
-	ctx := &EvaluationContext{
-		Now: now,
-		CRLs: []*crl.Info{{
-			CRL: &x509.RevocationList{
-				ThisUpdate: now.Add(-time.Hour),
-				NextUpdate: now.Add(time.Hour),
-			},
-		}},
-	}
-	got, err := op.Evaluate(nil, ctx, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if !got {
-		t.Error("CRL not expired should return true")
-	}
-}
-
-func TestCRLNotExpiredDoesNotDuplicateFullCurrentness(t *testing.T) {
-	now := time.Now()
-	ctx := &EvaluationContext{
-		Now: now,
-		CRLs: []*crl.Info{{
-			CRL: &x509.RevocationList{
-				ThisUpdate: now.Add(time.Hour),
-				NextUpdate: now.Add(2 * time.Hour),
-			},
-		}},
+	issuer := pkix.Name{CommonName: "Test CA"}
+	serial := big.NewInt(123)
+	subject := &cert.Info{Cert: &x509.Certificate{SerialNumber: serial, Issuer: issuer}}
+	revoking := func(name pkix.Name) *crl.Info {
+		return &crl.Info{CRL: &x509.RevocationList{
+			Issuer:              name,
+			RevokedCertificates: []x509.RevokedCertificate{{SerialNumber: serial}},
+		}}
 	}
 
-	got, err := (CRLNotExpired{}).Evaluate(nil, ctx, nil)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !got {
-		t.Fatal("future nextUpdate is not expired even when the CRL is not yet current")
-	}
-}
-
-func TestCRLNotExpiredExpired(t *testing.T) {
-	op := CRLNotExpired{}
-	now := time.Now()
-	ctx := &EvaluationContext{
-		Now: now,
-		CRLs: []*crl.Info{{
-			CRL: &x509.RevocationList{
-				NextUpdate: now.Add(-time.Hour),
-			},
-		}},
-	}
-	got, err := op.Evaluate(nil, ctx, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if got {
-		t.Error("expired CRL should return false")
-	}
-}
-
-func TestCRLSignedByNilContext(t *testing.T) {
-	op := CRLSignedBy{}
-	got, err := op.Evaluate(nil, nil, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if got {
-		t.Error("nil context should return false")
-	}
-}
-
-func TestCRLSignedByNoCRLs(t *testing.T) {
-	op := CRLSignedBy{}
-	ctx := &EvaluationContext{
-		CRLs:  nil,
-		Chain: []*cert.Info{{}},
-	}
-	got, err := op.Evaluate(nil, ctx, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if got {
-		t.Error("no CRLs should return false")
-	}
-}
-
-func TestCRLSignedByNoChain(t *testing.T) {
-	op := CRLSignedBy{}
-	ctx := &EvaluationContext{
-		CRLs:  []*crl.Info{{}},
-		Chain: nil,
-	}
-	got, err := op.Evaluate(nil, ctx, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if got {
-		t.Error("no chain should return false")
-	}
-}
-
-func TestCRLSignedBy_rejectsInvalidSignature(t *testing.T) {
-	crlDER, err := os.ReadFile(filepath.Join("..", "..", "internal", "crl", "testdata", "test.crl"))
+	fixtureDER, err := os.ReadFile(filepath.Join("..", "..", "internal", "crl", "testdata", "test.crl"))
 	if err != nil {
 		t.Fatalf("read CRL: %v", err)
 	}
-	revocationList, err := crl.ParseCRL(crlDER)
+	fixture, err := crl.ParseCRL(fixtureDER)
 	if err != nil {
 		t.Fatalf("parse CRL: %v", err)
 	}
+	// The signer hint matches the fixture's issuer but holds no key.
+	unverifiable := &EvaluationContext{
+		CRLs: []*crl.Info{{CRL: fixture}},
+		Chain: []*cert.Info{{Cert: &x509.Certificate{
+			Subject:      fixture.Issuer,
+			SubjectKeyId: fixture.AuthorityKeyId,
+			IsCA:         true,
+			SerialNumber: big.NewInt(1),
+		}}},
+	}
 
-	signer := &x509.Certificate{
-		Subject:      revocationList.Issuer,
-		SubjectKeyId: revocationList.AuthorityKeyId,
-		IsCA:         true,
-		SerialNumber: big.NewInt(1),
-	}
-	ctx := &EvaluationContext{
-		CRLs:  []*crl.Info{{CRL: revocationList}},
-		Chain: []*cert.Info{{Cert: signer}},
-	}
-
-	op := CRLSignedBy{}
-	got, err := op.Evaluate(nil, ctx, nil)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if got {
-		t.Error("expected false when CRL signature cannot be verified")
-	}
-}
-
-func TestCRLSignedByIssuerMismatch(t *testing.T) {
-	op := CRLSignedBy{}
-	ctx := &EvaluationContext{
-		CRLs: []*crl.Info{{
-			CRL: &x509.RevocationList{
-				Issuer: pkix.Name{CommonName: "CRL Issuer"},
-			},
-		}},
-		Chain: []*cert.Info{{
-			Cert: &x509.Certificate{
-				Subject: pkix.Name{CommonName: "Different CA"},
-			},
-		}},
-	}
-	got, err := op.Evaluate(nil, ctx, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if got {
-		t.Error("issuer not in chain must not count as a verified signature")
-	}
-}
-
-func TestNotRevokedNilContext(t *testing.T) {
-	op := NotRevoked{}
-	got, err := op.Evaluate(nil, nil, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if got {
-		t.Error("nil context should return false")
-	}
-}
-
-func TestNotRevokedNilCert(t *testing.T) {
-	op := NotRevoked{}
-	ctx := &EvaluationContext{Cert: nil}
-	got, err := op.Evaluate(nil, ctx, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if got {
-		t.Error("nil cert should return false")
-	}
-}
-
-func TestNotRevokedNoCRLs(t *testing.T) {
-	op := NotRevoked{}
-	ctx := &EvaluationContext{
-		Cert: &cert.Info{
-			Cert: &x509.Certificate{
-				SerialNumber: big.NewInt(123),
-				Issuer:       pkix.Name{CommonName: "Test CA"},
-			},
-		},
-		CRLs: nil,
-	}
-	got, err := op.Evaluate(nil, ctx, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if got {
-		t.Error("no CRLs should return false because revocation status is unknown")
-	}
-}
-
-func TestNotRevokedUsesDomainAssessmentWithoutReprocessing(t *testing.T) {
+	signedList, _, ca := signedCRLWithCA(t)
+	current, notYetCurrent := window(-time.Hour, time.Hour), window(time.Hour, 2*time.Hour)
 	certificate := &cert.Info{Cert: &x509.Certificate{SerialNumber: big.NewInt(123)}}
-	good := crl.Assessment{CoveredReasons: crl.AllReasons}
-	revoked := crl.Assessment{Revocation: &crl.Revocation{ReasonCode: 1}}
 
-	for _, test := range []struct {
-		name       string
-		assessment *crl.Assessment
-		want       bool
-	}{
-		{name: "good", assessment: &good, want: true},
-		{name: "revoked", assessment: &revoked},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			got, err := (NotRevoked{}).Evaluate(nil, &EvaluationContext{
-				Cert: certificate,
-				// No CRLs or issuer pool are supplied. A pass here can only come
-				// from reusing the domain assessment selected by the evaluator.
-				CRLAssessment: test.assessment,
-			}, nil)
-			if err != nil {
-				t.Fatalf("NotRevoked: %v", err)
-			}
-			if got != test.want {
-				t.Fatalf("NotRevoked = %v, want %v", got, test.want)
-			}
-		})
-	}
-}
+	checkEvaluations(t, nil, []evaluationCase{
+		{name: "crlValid: nil context", op: CRLValid{}},
+		{name: "crlValid: no CRLs", op: CRLValid{}, ctx: &EvaluationContext{}},
+		{name: "crlValid: within window", op: CRLValid{}, ctx: lists(window(-time.Hour, time.Hour)), want: true},
+		{name: "crlValid: before thisUpdate", op: CRLValid{}, ctx: lists(window(time.Hour, 2*time.Hour))},
+		{name: "crlValid: after nextUpdate", op: CRLValid{}, ctx: lists(window(-2*time.Hour, -time.Hour))},
+		{name: "crlValid: RFC 5280 CRL without nextUpdate is invalid", op: CRLValid{},
+			ctx: lists(&crl.Info{CRL: &x509.RevocationList{ThisUpdate: now.Add(-time.Hour)}})},
+		{name: "crlValid: skips nil CRL and validates others", op: CRLValid{},
+			ctx: lists(&crl.Info{}, window(-time.Hour, time.Hour)), want: true},
+		{name: "crlValid: unrelated CRL does not contaminate the current CRL", op: CRLValid{},
+			ctx: &EvaluationContext{Now: now, CRLs: []*crl.Info{current, notYetCurrent}, CurrentCRL: current}, want: true},
 
-func TestNotRevokedCertNotInCRL(t *testing.T) {
-	op := NotRevoked{}
-	revocationList, _, issuer := signedCRLWithCA(t)
-	ctx := &EvaluationContext{
-		Now:   time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC),
-		Cert:  &cert.Info{Cert: issuer},
-		Chain: []*cert.Info{{Cert: issuer}},
-		CRLs:  []*crl.Info{{CRL: revocationList}},
-	}
-	got, err := op.Evaluate(nil, ctx, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if !got {
-		t.Error("accepted CRL that does not list the certificate should return true")
-	}
-}
+		{name: "crlNotExpired: nil context", op: CRLNotExpired{}},
+		{name: "crlNotExpired: valid", op: CRLNotExpired{}, ctx: lists(window(-time.Hour, time.Hour)), want: true},
+		{name: "crlNotExpired: future nextUpdate is not expired even when not yet current", op: CRLNotExpired{},
+			ctx: lists(window(time.Hour, 2*time.Hour)), want: true},
+		{name: "crlNotExpired: expired", op: CRLNotExpired{},
+			ctx: lists(&crl.Info{CRL: &x509.RevocationList{NextUpdate: now.Add(-time.Hour)}})},
 
-func TestNotRevokedCertInCRL(t *testing.T) {
-	op := NotRevoked{}
-	issuer := pkix.Name{CommonName: "Test CA"}
-	serial := big.NewInt(123)
-	ctx := &EvaluationContext{
-		Cert: &cert.Info{
-			Cert: &x509.Certificate{
-				SerialNumber: serial,
-				Issuer:       issuer,
-			},
-		},
-		CRLs: []*crl.Info{{
-			CRL: &x509.RevocationList{
-				Issuer: issuer,
-				RevokedCertificates: []x509.RevokedCertificate{
-					{SerialNumber: serial},
-				},
-			},
+		{name: "crlSignedBy: nil context", op: CRLSignedBy{}},
+		{name: "crlSignedBy: no CRLs", op: CRLSignedBy{}, ctx: &EvaluationContext{Chain: []*cert.Info{{}}}},
+		{name: "crlSignedBy: no chain", op: CRLSignedBy{}, ctx: &EvaluationContext{CRLs: []*crl.Info{{}}}},
+		{name: "crlSignedBy: unverifiable signature", op: CRLSignedBy{}, ctx: unverifiable},
+		{name: "crlSignedBy: issuer not in chain", op: CRLSignedBy{}, ctx: &EvaluationContext{
+			CRLs:  []*crl.Info{{CRL: &x509.RevocationList{Issuer: pkix.Name{CommonName: "CRL Issuer"}}}},
+			Chain: []*cert.Info{{Cert: &x509.Certificate{Subject: pkix.Name{CommonName: "Different CA"}}}},
 		}},
-	}
-	got, err := op.Evaluate(nil, ctx, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if got {
-		t.Error("revoked cert should return false")
-	}
-}
 
-func TestNotRevokedDifferentIssuer(t *testing.T) {
-	op := NotRevoked{}
-	serial := big.NewInt(123)
-	ctx := &EvaluationContext{
-		Cert: &cert.Info{
-			Cert: &x509.Certificate{
-				SerialNumber: serial,
-				Issuer:       pkix.Name{CommonName: "CA A"},
-			},
-		},
-		CRLs: []*crl.Info{{
-			CRL: &x509.RevocationList{
-				Issuer: pkix.Name{CommonName: "CA B"},
-				RevokedCertificates: []x509.RevokedCertificate{
-					{SerialNumber: serial},
-				},
-			},
-		}},
-	}
-	got, err := op.Evaluate(nil, ctx, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if got {
-		t.Error("only unrelated CRLs should leave revocation status unknown")
-	}
-}
-
-func TestNotRevokedNilCRLInInfo(t *testing.T) {
-	op := NotRevoked{}
-	issuer := pkix.Name{CommonName: "Test CA"}
-	ctx := &EvaluationContext{
-		Cert: &cert.Info{
-			Cert: &x509.Certificate{
-				SerialNumber: big.NewInt(123),
-				Issuer:       issuer,
-			},
-		},
-		CRLs: []*crl.Info{
-			{CRL: nil},
-			{
-				CRL: &x509.RevocationList{
-					Issuer:              issuer,
-					RevokedCertificates: []x509.RevokedCertificate{},
-				},
-			},
-		},
-	}
-	got, err := op.Evaluate(nil, ctx, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if got {
-		t.Error("unsigned synthetic CRL cannot prove a good revocation status")
-	}
-}
-
-func TestCRLProfileOperatorsUseCurrentCRL(t *testing.T) {
-	now := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)
-	current := &crl.Info{CRL: &x509.RevocationList{
-		ThisUpdate: now.Add(-time.Hour),
-		NextUpdate: now.Add(time.Hour),
-	}}
-	other := &crl.Info{CRL: &x509.RevocationList{
-		ThisUpdate: now.Add(time.Hour),
-		NextUpdate: now.Add(2 * time.Hour),
-	}}
-	ctx := &EvaluationContext{
-		Now:        now,
-		CRLs:       []*crl.Info{current, other},
-		CurrentCRL: current,
-	}
-
-	got, err := (CRLValid{}).Evaluate(nil, ctx, nil)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !got {
-		t.Fatal("unrelated CRL must not contaminate current CRL evaluation")
-	}
+		{name: "notRevoked: nil context", op: NotRevoked{}},
+		{name: "notRevoked: nil cert", op: NotRevoked{}, ctx: &EvaluationContext{}},
+		{name: "notRevoked: no CRLs leave the status unknown", op: NotRevoked{}, ctx: &EvaluationContext{Cert: subject}},
+		{name: "notRevoked: listed certificate", op: NotRevoked{},
+			ctx: &EvaluationContext{Cert: subject, CRLs: []*crl.Info{revoking(issuer)}}},
+		{name: "notRevoked: only unrelated CRLs leave the status unknown", op: NotRevoked{},
+			ctx: &EvaluationContext{Cert: subject, CRLs: []*crl.Info{revoking(pkix.Name{CommonName: "CA B"})}}},
+		{name: "notRevoked: unsigned synthetic CRL cannot prove a good status", op: NotRevoked{},
+			ctx: &EvaluationContext{Cert: subject, CRLs: []*crl.Info{
+				{CRL: nil},
+				{CRL: &x509.RevocationList{Issuer: issuer, RevokedCertificates: []x509.RevokedCertificate{}}},
+			}}},
+		{name: "notRevoked: accepted CRL that does not list the certificate", op: NotRevoked{},
+			ctx: &EvaluationContext{
+				Now:   time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC),
+				Cert:  &cert.Info{Cert: ca},
+				Chain: []*cert.Info{{Cert: ca}},
+				CRLs:  []*crl.Info{{CRL: signedList}},
+			}, want: true},
+		// No CRLs or issuer pool are supplied, so a pass can only come from
+		// reusing the domain assessment selected by the evaluator.
+		{name: "notRevoked: reuses a good domain assessment", op: NotRevoked{},
+			ctx: &EvaluationContext{Cert: certificate, CRLAssessment: &crl.Assessment{CoveredReasons: crl.AllReasons}}, want: true},
+		{name: "notRevoked: reuses a revoked domain assessment", op: NotRevoked{},
+			ctx: &EvaluationContext{Cert: certificate, CRLAssessment: &crl.Assessment{Revocation: &crl.Revocation{ReasonCode: 1}}}},
+	})
 }

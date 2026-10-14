@@ -92,7 +92,9 @@ func TestOperandSchemasAgreeWithValidators(t *testing.T) {
 	}
 }
 
-func TestOperandSchemaScalarShorthand(t *testing.T) {
+// TestOperandSchemaExamples checks scalar shorthand and structured operands
+// against both the JSON Schema and the Go validator.
+func TestOperandSchemaExamples(t *testing.T) {
 	registry := DefaultRegistry()
 	tests := []struct {
 		operator string
@@ -110,25 +112,7 @@ func TestOperandSchemaScalarShorthand(t *testing.T) {
 		{"present", true, false},
 		{"present", []any{}, true},
 		{"before", "now", true},
-	}
-	for _, test := range tests {
-		err := compileOperandSchema(t, registry, test.operator).Validate(decodeJSONValue(t, test.operands))
-		if (err == nil) != test.valid {
-			t.Errorf("%s operands %#v: schema error = %v, want valid %v", test.operator, test.operands, err, test.valid)
-		}
-		if goErr := registry.Validate(test.operator, NormalizeOperands(test.operands)); (goErr == nil) != test.valid {
-			t.Errorf("%s operands %#v: validator error = %v, want valid %v", test.operator, test.operands, goErr, test.valid)
-		}
-	}
-}
-
-func TestStructuredOperandSchemasAgreeWithValidators(t *testing.T) {
-	registry := DefaultRegistry()
-	tests := []struct {
-		operator string
-		operands any
-		valid    bool
-	}{
+		// Structured operands.
 		{"every", map[string]any{"path": "value", "operator": "maxLength", "operands": []any{64}}, true},
 		{"every", map[string]any{"check": "present"}, true},
 		{"every", []any{"value", "present"}, true},

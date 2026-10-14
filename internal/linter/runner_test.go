@@ -294,54 +294,33 @@ rules:
 	}
 }
 
-func TestLoadPoliciesRejectsUnknownOperator(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "unknown-operator.yaml")
-	data := []byte(`
-id: invalid-policy
-rules:
-  - id: typo
-    target: certificate.version
-    operator: doesNotExist
-    severity: error
-`)
-	if err := os.WriteFile(path, data, 0644); err != nil {
-		t.Fatal(err)
+func TestLoadPoliciesRejectsInvalidRules(t *testing.T) {
+	tests := []struct {
+		name string
+		rule string
+		want string
+	}{
+		{"unknown operator", "operator: doesNotExist", `unknown operator "doesNotExist"`},
+		{"invalid operands", "operator: gte\n    operands: [not-a-number]", `operator "gte"`},
 	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "invalid.yaml")
+			data := "id: invalid-policy\nrules:\n  - id: invalid\n    target: certificate.version\n    " +
+				tt.rule + "\n    severity: error\n"
+			if err := os.WriteFile(path, []byte(data), 0o600); err != nil {
+				t.Fatal(err)
+			}
 
-	_, err := loadPolicies([]string{path}, operator.DefaultRegistry())
-	if err == nil || !strings.Contains(err.Error(), `unknown operator "doesNotExist"`) {
-		t.Fatalf("expected executable-policy validation error, got %v", err)
-	}
-
-	err = Run(Config{PolicyPaths: []string{path}, CertPath: filepath.Join(t.TempDir(), "missing.pem")}, &bytes.Buffer{})
-	if err == nil || !strings.Contains(err.Error(), `unknown operator "doesNotExist"`) {
-		t.Fatalf("Run should reject the policy before loading inputs, got %v", err)
-	}
-}
-
-func TestLoadPoliciesRejectsInvalidOperands(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "invalid-operands.yaml")
-	data := []byte(`
-id: invalid-policy
-rules:
-  - id: invalid-operands
-    target: certificate.version
-    operator: gte
-    operands: [not-a-number]
-    severity: error
-`)
-	if err := os.WriteFile(path, data, 0o600); err != nil {
-		t.Fatal(err)
-	}
-
-	_, err := loadPolicies([]string{path}, operator.DefaultRegistry())
-	if err == nil || !strings.Contains(err.Error(), `operator "gte"`) {
-		t.Fatalf("expected operand validation error, got %v", err)
-	}
-
-	err = Run(Config{PolicyPaths: []string{path}, CertPath: filepath.Join(t.TempDir(), "missing.pem")}, &bytes.Buffer{})
-	if err == nil || !strings.Contains(err.Error(), `operator "gte"`) {
-		t.Fatalf("Run should reject operands before loading inputs, got %v", err)
+			_, err := loadPolicies([]string{path}, operator.DefaultRegistry())
+			if err == nil || !strings.Contains(err.Error(), tt.want) {
+				t.Fatalf("expected executable-policy validation error, got %v", err)
+			}
+			err = Run(Config{PolicyPaths: []string{path}, CertPath: filepath.Join(t.TempDir(), "missing.pem")}, &bytes.Buffer{})
+			if err == nil || !strings.Contains(err.Error(), tt.want) {
+				t.Fatalf("Run should reject the policy before loading inputs, got %v", err)
+			}
+		})
 	}
 }
 

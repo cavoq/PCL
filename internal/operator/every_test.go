@@ -52,7 +52,6 @@ func (operator everyRecordingOperator) Evaluate(
 }
 
 func TestEvery(t *testing.T) {
-	op := Every{}
 	// elements is a collection whose children hold child under its name.
 	elements := func(children ...*node.Node) *node.Node {
 		n := node.New("test", nil)
@@ -74,62 +73,44 @@ func TestEvery(t *testing.T) {
 	twoElementsOneMissing := collection("test", nil, nil)
 	twoElementsOneMissing.Children["0"].Children["value"] = node.New("value", 1)
 
-	tests := []struct {
-		name     string
-		node     *node.Node
-		operands []any
-		want     bool
-		wantErr  bool
-	}{
-		{"nil node returns false", nil, []any{map[string]any{"check": "present"}}, false, false},
-		{"empty children returns true", node.New("test", nil), []any{map[string]any{"check": "present"}}, true, false},
-		{"all children pass present check", collection("test", "value1", "value2"),
-			[]any{map[string]any{"check": "present"}}, true, false},
+	evaluate := func(name string, n *node.Node, operands []any, want, wantErr bool) evaluationCase {
+		return evaluationCase{name: name, op: Every{}, node: n, operands: operands, want: want, wantErr: wantErr}
+	}
+	checkEvaluations(t, nil, []evaluationCase{
+		evaluate("nil node returns false", nil, []any{map[string]any{"check": "present"}}, false, false),
+		evaluate("empty children returns true", node.New("test", nil), []any{map[string]any{"check": "present"}}, true, false),
+		evaluate("all children pass present check", collection("test", "value1", "value2"),
+			[]any{map[string]any{"check": "present"}}, true, false),
 		// A nil value is empty.
-		{"some children fail notEmpty check", collection("test", "value1", nil),
-			[]any{map[string]any{"check": "notEmpty"}}, false, false},
-		{"all children pass in check with values", collection("test", 1, 3, 5),
-			[]any{map[string]any{"check": "in", "values": []any{1, 3, 5, 7, 9}}}, true, false},
-		{"one child fails in check", collection("test", 1, 2, 5),
-			[]any{map[string]any{"check": "in", "values": []any{1, 3, 5, 7, 9}}}, false, false},
-		{"sub-path check - all pass", elements(node.New("value", 1), node.New("value", 3)),
-			valueIn("value", 1, 3, 5), true, false},
-		{"sub-path check - one fails", elements(node.New("value", 1), node.New("value", 2)),
-			valueIn("value", 1, 3, 5), false, false},
-		{"sub-path missing - fails by default", twoElementsOneMissing,
-			[]any{map[string]any{"path": "value", "check": "present"}}, false, false},
-		{"sub-path missing - skip with skipMissing", twoElementsOneMissing,
-			[]any{map[string]any{"path": "value", "check": "present", "skipMissing": true}}, true, false},
-		{"nested sub-path check - simplified",
+		evaluate("some children fail notEmpty check", collection("test", "value1", nil),
+			[]any{map[string]any{"check": "notEmpty"}}, false, false),
+		evaluate("all children pass in check with values", collection("test", 1, 3, 5),
+			[]any{map[string]any{"check": "in", "values": []any{1, 3, 5, 7, 9}}}, true, false),
+		evaluate("one child fails in check", collection("test", 1, 2, 5),
+			[]any{map[string]any{"check": "in", "values": []any{1, 3, 5, 7, 9}}}, false, false),
+		evaluate("sub-path check - all pass", elements(node.New("value", 1), node.New("value", 3)),
+			valueIn("value", 1, 3, 5), true, false),
+		evaluate("sub-path check - one fails", elements(node.New("value", 1), node.New("value", 2)),
+			valueIn("value", 1, 3, 5), false, false),
+		evaluate("sub-path missing - fails by default", twoElementsOneMissing,
+			[]any{map[string]any{"path": "value", "check": "present"}}, false, false),
+		evaluate("sub-path missing - skip with skipMissing", twoElementsOneMissing,
+			[]any{map[string]any{"path": "value", "check": "present", "skipMissing": true}}, true, false),
+		evaluate("nested sub-path check - simplified",
 			elements(tree("a", nil, node.New("b", 1)), tree("a", nil, node.New("b", 3))),
-			valueIn("a.b", 1, 3, 5, 9), true, false},
-		{"nested sub-path check", elements(reasons(1), reasons(3)),
-			valueIn("extensions.2.5.29.21.value", 1, 3, 5, 9), true, false},
-		{"missing check operand returns error", node.New("test", nil), []any{map[string]any{"path": "value"}}, false, true},
-		{"unknown check operator returns error", node.New("test", nil),
-			[]any{map[string]any{"check": "unknownOperator"}}, false, true},
-		{"no operands returns error", node.New("test", nil), []any{}, false, true},
-		{"new syntax - operator and operands", collection("test", 1, 3, 5),
-			[]any{map[string]any{"operator": "in", "operands": []any{1, 3, 5, 7, 9}}}, true, false},
-		{"new syntax - wildcard path for AIA scheme",
+			valueIn("a.b", 1, 3, 5, 9), true, false),
+		evaluate("nested sub-path check", elements(reasons(1), reasons(3)),
+			valueIn("extensions.2.5.29.21.value", 1, 3, 5, 9), true, false),
+		evaluate("missing check operand returns error", node.New("test", nil), []any{map[string]any{"path": "value"}}, false, true),
+		evaluate("unknown check operator returns error", node.New("test", nil),
+			[]any{map[string]any{"check": "unknownOperator"}}, false, true),
+		evaluate("no operands returns error", node.New("test", nil), []any{}, false, true),
+		evaluate("new syntax - operator and operands", collection("test", 1, 3, 5),
+			[]any{map[string]any{"operator": "in", "operands": []any{1, 3, 5, 7, 9}}}, true, false),
+		evaluate("new syntax - wildcard path for AIA scheme",
 			elements(location("http"), location("http")),
-			[]any{map[string]any{"path": "*.accessLocation.scheme", "operator": "eq", "operands": []any{"http"}}}, true, false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := op.Evaluate(tt.node, nil, tt.operands)
-			if tt.wantErr && err == nil {
-				t.Errorf("Every.Evaluate() expected error, got nil")
-			}
-			if !tt.wantErr && err != nil {
-				t.Errorf("Every.Evaluate() unexpected error: %v", err)
-			}
-			if got != tt.want {
-				t.Errorf("Every.Evaluate() = %v, want %v", got, tt.want)
-			}
-		})
-	}
+			[]any{map[string]any{"path": "*.accessLocation.scheme", "operator": "eq", "operands": []any{"http"}}}, true, false),
+	})
 }
 
 func TestEveryValidatesStructuredOperands(t *testing.T) {

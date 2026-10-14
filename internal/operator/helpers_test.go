@@ -55,20 +55,26 @@ func checkOperandValidation(t *testing.T, operator string, tests []operandValida
 	}
 }
 
-// evaluationCase is an operator evaluation and its expected result.
+// evaluationCase is an operator evaluation and its expected result. ctx
+// replaces the context shared by the cases when set.
 type evaluationCase struct {
 	name     string
 	op       Operator
 	node     *node.Node
+	ctx      *EvaluationContext
 	operands []any
 	want     bool
 	wantErr  bool
 }
 
-func checkEvaluations(t *testing.T, ctx *EvaluationContext, tests []evaluationCase) {
+func checkEvaluations(t *testing.T, shared *EvaluationContext, tests []evaluationCase) {
 	t.Helper()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			ctx := shared
+			if tt.ctx != nil {
+				ctx = tt.ctx
+			}
 			got, err := tt.op.Evaluate(tt.node, ctx, tt.operands)
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("%s error = %v, want error %v", tt.op.Name(), err, tt.wantErr)

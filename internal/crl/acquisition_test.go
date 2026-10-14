@@ -4,7 +4,6 @@ import (
 	"context"
 	cryptox509 "crypto/x509"
 	cryptopkix "crypto/x509/pkix"
-	stdasn1 "encoding/asn1"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
@@ -19,8 +18,6 @@ import (
 	zasn1 "github.com/zmap/zcrypto/encoding/asn1"
 	"github.com/zmap/zcrypto/x509"
 	"github.com/zmap/zcrypto/x509/pkix"
-	"golang.org/x/crypto/cryptobyte"
-	cryptobyte_asn1 "golang.org/x/crypto/cryptobyte/asn1"
 )
 
 func TestFetchSessionCachesURLSuccessAndDeduplicatesObjects(t *testing.T) {
@@ -149,14 +146,14 @@ func TestFetchSessionRejectsPEMOversizeAndUnsupportedSchemes(t *testing.T) {
 }
 
 func TestFetchSessionDiscoversCertificateAndCRLFreshest(t *testing.T) {
-	directDeltaDER := makeAcquisitionCRL(t, 2, []cryptopkix.Extension{deltaIndicatorExtension()})
+	directDeltaDER := makeAcquisitionCRL(t, 2, []cryptopkix.Extension{deltaCRLIndicator(t, 1)})
 	directDeltaURL, directDeltaHits := testpki.ServeCounted(t, directDeltaDER)
 
-	secondDeltaDER := makeAcquisitionCRL(t, 3, []cryptopkix.Extension{deltaIndicatorExtension()})
+	secondDeltaDER := makeAcquisitionCRL(t, 3, []cryptopkix.Extension{deltaCRLIndicator(t, 1)})
 	secondDeltaURL, secondDeltaHits := testpki.ServeCounted(t, secondDeltaDER)
 
 	baseDER := makeAcquisitionCRL(t, 1, []cryptopkix.Extension{
-		freshestExtension(distributionPointsForURL(t, secondDeltaURL)),
+		freshestCRL(t, secondDeltaURL),
 	})
 	baseURL, baseHits := testpki.ServeCounted(t, baseDER)
 
@@ -164,11 +161,11 @@ func TestFetchSessionDiscoversCertificateAndCRLFreshest(t *testing.T) {
 		Extensions: []pkix.Extension{
 			{
 				Id:    zasn1.ObjectIdentifier{2, 5, 29, 31},
-				Value: distributionPointsForURL(t, baseURL),
+				Value: distributionPointsURIs(t, baseURL),
 			},
 			{
 				Id:    zasn1.ObjectIdentifier{2, 5, 29, 46},
-				Value: distributionPointsForURL(t, directDeltaURL),
+				Value: distributionPointsURIs(t, directDeltaURL),
 			},
 		},
 	}
@@ -192,8 +189,8 @@ func TestFetchSessionNeverFollowsFreshestOnDelta(t *testing.T) {
 	trapURL, trapHits := testpki.ServeCounted(t, trapDER)
 
 	deltaDER := makeAcquisitionCRL(t, 2, []cryptopkix.Extension{
-		deltaIndicatorExtension(),
-		freshestExtension(distributionPointsForURL(t, trapURL)),
+		deltaCRLIndicator(t, 1),
+		freshestCRL(t, trapURL),
 	})
 	deltaURL := testpki.Serve(t, deltaDER)
 
@@ -210,7 +207,7 @@ func TestFetchSessionNeverFollowsFreshestOnDelta(t *testing.T) {
 func TestCertificateDistributionPointURLsPreservesDuplicateError(t *testing.T) {
 	extension := pkix.Extension{
 		Id:    zasn1.ObjectIdentifier{2, 5, 29, 31},
-		Value: distributionPointsForURL(t, "https://example.test/list.crl"),
+		Value: distributionPointsURIs(t, "https://example.test/list.crl"),
 	}
 	certificate := &x509.Certificate{
 		Extensions:            []pkix.Extension{extension, extension},
@@ -261,47 +258,4 @@ func makeAcquisitionCRL(t *testing.T, number int64, extensions []cryptopkix.Exte
 		NextUpdate:      now.Add(time.Hour),
 		ExtraExtensions: extensions,
 	})
-}
-
-func deltaIndicatorExtension() cryptopkix.Extension {
-	return cryptopkix.Extension{
-		Id:       stdasn1.ObjectIdentifier{2, 5, 29, 27},
-		Critical: true,
-		Value:    []byte{0x02, 0x01, 0x01},
-	}
-}
-
-func freshestExtension(value []byte) cryptopkix.Extension {
-	return cryptopkix.Extension{
-		Id:    stdasn1.ObjectIdentifier{2, 5, 29, 46},
-		Value: value,
-	}
-}
-
-func distributionPointsForURL(t *testing.T, resourceURL string) []byte {
-	t.Helper()
-	var builder cryptobyte.Builder
-	builder.AddASN1(cryptobyte_asn1.SEQUENCE, func(points *cryptobyte.Builder) {
-		points.AddASN1(cryptobyte_asn1.SEQUENCE, func(point *cryptobyte.Builder) {
-			point.AddASN1(
-				cryptobyte_asn1.Tag(0).ContextSpecific().Constructed(),
-				func(name *cryptobyte.Builder) {
-					name.AddASN1(
-						cryptobyte_asn1.Tag(0).ContextSpecific().Constructed(),
-						func(fullName *cryptobyte.Builder) {
-							fullName.AddASN1(
-								cryptobyte_asn1.Tag(6).ContextSpecific(),
-								func(uri *cryptobyte.Builder) { uri.AddBytes([]byte(resourceURL)) },
-							)
-						},
-					)
-				},
-			)
-		})
-	})
-	der, err := builder.Bytes()
-	if err != nil {
-		t.Fatalf("build DistributionPoints: %v", err)
-	}
-	return der
 }

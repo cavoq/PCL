@@ -102,8 +102,8 @@ func TestCRLDistributionPointRejectsReasonsWithoutNameOrIssuer(t *testing.T) {
 
 func TestCRLDistributionPointRejectsNonCanonicalOrUndefinedReasonBits(t *testing.T) {
 	tests := map[string][]byte{
-		"trailing zero named bits": buildCRLDPWithEncodedReasons([]byte{0x00, 0x40}),
-		"undefined bit nine":       buildCRLDPWithEncodedReasons([]byte{0x06, 0x00, 0x40}),
+		"trailing zero named bits": detailedCRLDP([]byte{0x00, 0x40}),
+		"undefined bit nine":       detailedCRLDP([]byte{0x06, 0x00, 0x40}),
 	}
 	for name, der := range tests {
 		t.Run(name, func(t *testing.T) {
@@ -138,34 +138,53 @@ func buildRelativeNameCRLDP(attribute []byte, directoryIssuerCount int) []byte {
 }
 
 func buildCRLDPFactsValue() []byte {
-	return buildCRLDPWithEncodedReasons([]byte{0x06, 0x40})
+	return detailedCRLDP([]byte{0x06, 0x40})
 }
 
-func buildCRLDPWithEncodedReasons(encodedReasons []byte) []byte {
+// buildCRLDP encodes one distribution point whose full name is uri, with
+// the reasons BIT STRING contents and the cRLIssuer GeneralNames contents
+// when they are not nil.
+func buildCRLDP(uri string, encodedReasons, crlIssuer []byte) []byte {
 	var builder cryptobyte.Builder
 	builder.AddASN1(cryptobyte_asn1.SEQUENCE, func(points *cryptobyte.Builder) {
 		points.AddASN1(cryptobyte_asn1.SEQUENCE, func(point *cryptobyte.Builder) {
 			point.AddASN1(cryptobyte_asn1.Tag(0).ContextSpecific().Constructed(), func(name *cryptobyte.Builder) {
 				name.AddASN1(cryptobyte_asn1.Tag(0).ContextSpecific().Constructed(), func(fullName *cryptobyte.Builder) {
-					fullName.AddASN1(cryptobyte_asn1.Tag(6).ContextSpecific(), func(uri *cryptobyte.Builder) {
-						uri.AddBytes([]byte("http://crl.example.test/root.crl"))
+					fullName.AddASN1(cryptobyte_asn1.Tag(6).ContextSpecific(), func(location *cryptobyte.Builder) {
+						location.AddBytes([]byte(uri))
 					})
 				})
 			})
-			point.AddASN1(cryptobyte_asn1.Tag(1).ContextSpecific(), func(reasons *cryptobyte.Builder) {
-				reasons.AddBytes(encodedReasons)
-			})
-			point.AddASN1(cryptobyte_asn1.Tag(2).ContextSpecific().Constructed(), func(issuer *cryptobyte.Builder) {
-				issuer.AddASN1(cryptobyte_asn1.Tag(2).ContextSpecific(), func(dns *cryptobyte.Builder) {
-					dns.AddBytes([]byte("issuer.example.test"))
+			if encodedReasons != nil {
+				point.AddASN1(cryptobyte_asn1.Tag(1).ContextSpecific(), func(reasons *cryptobyte.Builder) {
+					reasons.AddBytes(encodedReasons)
 				})
-				issuer.AddASN1(cryptobyte_asn1.Tag(4).ContextSpecific().Constructed(), func(name *cryptobyte.Builder) {
-					name.AddBytes(directoryNameConstraintContent())
+			}
+			if crlIssuer != nil {
+				point.AddASN1(cryptobyte_asn1.Tag(2).ContextSpecific().Constructed(), func(issuer *cryptobyte.Builder) {
+					issuer.AddBytes(crlIssuer)
 				})
-			})
+			}
 		})
 	})
 	return builder.BytesOrPanic()
+}
+
+// generalName encodes a GeneralName with the given context tag and contents.
+func generalName(tag cryptobyte_asn1.Tag, contents []byte) []byte {
+	var builder cryptobyte.Builder
+	builder.AddASN1(tag.ContextSpecific(), func(name *cryptobyte.Builder) { name.AddBytes(contents) })
+	return builder.BytesOrPanic()
+}
+
+const rootCRLURI = "http://crl.example.test/root.crl"
+
+// detailedCRLDP has reasons and a cRLIssuer naming a DNS name and a
+// directory name.
+func detailedCRLDP(encodedReasons []byte) []byte {
+	issuer := generalName(2, []byte("issuer.example.test"))
+	issuer = append(issuer, generalName(cryptobyte_asn1.Tag(4).Constructed(), directoryNameConstraintContent())...)
+	return buildCRLDP(rootCRLURI, encodedReasons, issuer)
 }
 
 func commonNameAttributeDER(value string) []byte {

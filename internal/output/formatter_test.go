@@ -3,6 +3,7 @@ package output
 import (
 	"bytes"
 	"encoding/json"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -13,114 +14,54 @@ import (
 	"github.com/cavoq/PCL/internal/rule"
 )
 
-func TestGetFormatter_Text(t *testing.T) {
-	formatter := GetFormatter("text", Options{})
-	if _, ok := formatter.(*TextFormatter); !ok {
-		t.Errorf("expected TextFormatter, got %T", formatter)
+func TestGetFormatter(t *testing.T) {
+	tests := map[string]Formatter{
+		"text":    &TextFormatter{},
+		"json":    &JSONFormatter{},
+		"yaml":    &YAMLFormatter{},
+		"unknown": &TextFormatter{},
+		"":        &TextFormatter{},
+	}
+	for format, want := range tests {
+		if got := GetFormatter(format, Options{}); reflect.TypeOf(got) != reflect.TypeOf(want) {
+			t.Errorf("GetFormatter(%q) = %T, want %T", format, got, want)
+		}
 	}
 }
 
-func TestGetFormatter_JSON(t *testing.T) {
-	formatter := GetFormatter("json", Options{})
-	if _, ok := formatter.(*JSONFormatter); !ok {
-		t.Errorf("expected JSONFormatter, got %T", formatter)
-	}
-}
+func TestStructuredFormatters(t *testing.T) {
+	for _, tt := range []struct {
+		name      string
+		formatter func(Options) Formatter
+		unmarshal func([]byte, any) error
+	}{
+		{"JSON", func(opts Options) Formatter { return NewJSONFormatter(opts) }, json.Unmarshal},
+		{"YAML", func(opts Options) Formatter { return NewYAMLFormatter(opts) }, yaml.Unmarshal},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			format := func(showMeta bool, into any) {
+				t.Helper()
+				var buf bytes.Buffer
+				if err := tt.formatter(Options{ShowMeta: showMeta}).Format(&buf, createTestOutput()); err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+				if err := tt.unmarshal(buf.Bytes(), into); err != nil {
+					t.Fatalf("failed to parse output: %v", err)
+				}
+			}
 
-func TestGetFormatter_YAML(t *testing.T) {
-	formatter := GetFormatter("yaml", Options{})
-	if _, ok := formatter.(*YAMLFormatter); !ok {
-		t.Errorf("expected YAMLFormatter, got %T", formatter)
-	}
-}
+			var withMeta LintOutput
+			format(true, &withMeta)
+			if withMeta.Meta.TotalCerts != 1 {
+				t.Errorf("expected meta.total_certs=1, got %d", withMeta.Meta.TotalCerts)
+			}
 
-func TestGetFormatter_Unknown(t *testing.T) {
-	formatter := GetFormatter("unknown", Options{})
-	if _, ok := formatter.(*TextFormatter); !ok {
-		t.Errorf("unknown format should default to TextFormatter, got %T", formatter)
-	}
-}
-
-func TestGetFormatter_Empty(t *testing.T) {
-	formatter := GetFormatter("", Options{})
-	if _, ok := formatter.(*TextFormatter); !ok {
-		t.Errorf("empty format should default to TextFormatter, got %T", formatter)
-	}
-}
-
-func TestJSONFormatter_WithMeta(t *testing.T) {
-	formatter := NewJSONFormatter(Options{ShowMeta: true})
-	output := createTestOutput()
-
-	var buf bytes.Buffer
-	if err := formatter.Format(&buf, output); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	var result LintOutput
-	if err := json.Unmarshal(buf.Bytes(), &result); err != nil {
-		t.Fatalf("failed to parse JSON output: %v", err)
-	}
-
-	if result.Meta.TotalCerts != 1 {
-		t.Errorf("expected meta.total_certs=1, got %d", result.Meta.TotalCerts)
-	}
-}
-
-func TestJSONFormatter_WithoutMeta(t *testing.T) {
-	formatter := NewJSONFormatter(Options{ShowMeta: false})
-	output := createTestOutput()
-
-	var buf bytes.Buffer
-	if err := formatter.Format(&buf, output); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	var results []policy.Result
-	if err := json.Unmarshal(buf.Bytes(), &results); err != nil {
-		t.Fatalf("failed to parse JSON output: %v", err)
-	}
-
-	if len(results) != 1 {
-		t.Errorf("expected 1 result, got %d", len(results))
-	}
-}
-
-func TestYAMLFormatter_WithMeta(t *testing.T) {
-	formatter := NewYAMLFormatter(Options{ShowMeta: true})
-	output := createTestOutput()
-
-	var buf bytes.Buffer
-	if err := formatter.Format(&buf, output); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	var result LintOutput
-	if err := yaml.Unmarshal(buf.Bytes(), &result); err != nil {
-		t.Fatalf("failed to parse YAML output: %v", err)
-	}
-
-	if result.Meta.TotalCerts != 1 {
-		t.Errorf("expected meta.total_certs=1, got %d", result.Meta.TotalCerts)
-	}
-}
-
-func TestYAMLFormatter_WithoutMeta(t *testing.T) {
-	formatter := NewYAMLFormatter(Options{ShowMeta: false})
-	output := createTestOutput()
-
-	var buf bytes.Buffer
-	if err := formatter.Format(&buf, output); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	var results []policy.Result
-	if err := yaml.Unmarshal(buf.Bytes(), &results); err != nil {
-		t.Fatalf("failed to parse YAML output: %v", err)
-	}
-
-	if len(results) != 1 {
-		t.Errorf("expected 1 result, got %d", len(results))
+			var results []policy.Result
+			format(false, &results)
+			if len(results) != 1 {
+				t.Errorf("expected 1 result, got %d", len(results))
+			}
+		})
 	}
 }
 

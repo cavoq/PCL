@@ -51,7 +51,7 @@ func TestParseAIAStrictNodeSchema(t *testing.T) {
 }
 
 func TestParseCRLDPStrictGeneralNamesNodeSchema(t *testing.T) {
-	n, err := ParseCRLDPStrict(buildExtensionSchemaCRLDP(nil, true))
+	n, err := ParseCRLDPStrict(buildCRLDP(rootCRLURI, nil, generalName(2, []byte("issuer.example.test"))))
 	if err != nil {
 		t.Fatalf("ParseCRLDPStrict() error = %v", err)
 	}
@@ -139,7 +139,7 @@ func TestParseCRLDPStrictReasonFlagsRFC5280BitMapping(t *testing.T) {
 	for bit, reasonName := range reasonNames {
 		t.Run(reasonName, func(t *testing.T) {
 			encodedReasons, value, unusedBits := extensionSchemaSingleReasonBit(bit)
-			n, err := ParseCRLDPStrict(buildExtensionSchemaCRLDP(encodedReasons, false))
+			n, err := ParseCRLDPStrict(buildCRLDP(rootCRLURI, encodedReasons, nil))
 			if err != nil {
 				t.Fatalf("ParseCRLDPStrict() error = %v", err)
 			}
@@ -170,7 +170,7 @@ func TestParseCRLDPStrictReasonFlagsRFC5280BitMapping(t *testing.T) {
 }
 
 func TestParseCRLDPStrictAcceptsEmptyReasonFlagsBitString(t *testing.T) {
-	n, err := ParseCRLDPStrict(buildExtensionSchemaCRLDP([]byte{0x00}, false))
+	n, err := ParseCRLDPStrict(buildCRLDP(rootCRLURI, []byte{0x00}, nil))
 	if err != nil {
 		t.Fatalf("ParseCRLDPStrict() error = %v", err)
 	}
@@ -217,34 +217,6 @@ func addExtensionSchemaAccessDescription(
 			builder.AddBytes([]byte(uri))
 		})
 	})
-}
-
-func buildExtensionSchemaCRLDP(encodedReasons []byte, includeCRLIssuer bool) []byte {
-	var builder cryptobyte.Builder
-	builder.AddASN1(cryptobyte_asn1.SEQUENCE, func(builder *cryptobyte.Builder) {
-		builder.AddASN1(cryptobyte_asn1.SEQUENCE, func(builder *cryptobyte.Builder) {
-			builder.AddASN1(cryptobyte_asn1.Tag(0).ContextSpecific().Constructed(), func(builder *cryptobyte.Builder) {
-				builder.AddASN1(cryptobyte_asn1.Tag(0).ContextSpecific().Constructed(), func(builder *cryptobyte.Builder) {
-					builder.AddASN1(cryptobyte_asn1.Tag(6).ContextSpecific(), func(builder *cryptobyte.Builder) {
-						builder.AddBytes([]byte("http://crl.example.test/root.crl"))
-					})
-				})
-			})
-			if encodedReasons != nil {
-				builder.AddASN1(cryptobyte_asn1.Tag(1).ContextSpecific(), func(builder *cryptobyte.Builder) {
-					builder.AddBytes(encodedReasons)
-				})
-			}
-			if includeCRLIssuer {
-				builder.AddASN1(cryptobyte_asn1.Tag(2).ContextSpecific().Constructed(), func(builder *cryptobyte.Builder) {
-					builder.AddASN1(cryptobyte_asn1.Tag(2).ContextSpecific(), func(builder *cryptobyte.Builder) {
-						builder.AddBytes([]byte("issuer.example.test"))
-					})
-				})
-			}
-		})
-	})
-	return builder.BytesOrPanic()
 }
 
 func extensionSchemaSingleReasonBit(bit int) (encoded, value []byte, unusedBits int) {

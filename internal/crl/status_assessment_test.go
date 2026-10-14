@@ -58,7 +58,7 @@ func TestAssessmentDeltaRemoveFromCRLOverridesStaleBase(t *testing.T) {
 		[]cryptox509.RevocationListEntry{{
 			SerialNumber: material.leaf.SerialNumber, RevocationTime: material.now.Add(-36 * time.Hour),
 			ReasonCode: hold,
-		}}, []cryptopkix.Extension{freshestCRLExtension(t)})
+		}}, []cryptopkix.Extension{freshestCRL(t, "http://example.test/delta.crl")})
 	delta := makeAssessmentCRL(t, material.ca, 21,
 		material.now.Add(-time.Hour), material.now.Add(time.Hour),
 		[]cryptox509.RevocationListEntry{{
@@ -85,7 +85,7 @@ func TestAssessmentDeltaRemoveFromCRLOverridesStaleBase(t *testing.T) {
 
 	deltaWithFreshest := makeAssessmentCRL(t, material.ca, 22,
 		material.now.Add(-30*time.Minute), material.now.Add(time.Hour), nil,
-		[]cryptopkix.Extension{deltaCRLIndicator(t, 20), freshestCRLExtension(t)})
+		[]cryptopkix.Extension{deltaCRLIndicator(t, 20), freshestCRL(t, "http://example.test/delta.crl")})
 	illegalDelta := AssessCertificate(
 		material.leaf,
 		[]*x509.RevocationList{base, deltaWithFreshest},
@@ -302,7 +302,7 @@ func TestAssessmentFallsBackAfterAdvertisedDistributionPointMismatch(t *testing.
 		append([]zpkix.Extension(nil), material.leaf.Extensions...),
 		zpkix.Extension{
 			Id:    zasn1.ObjectIdentifier{2, 5, 29, 31},
-			Value: distributionPointsURI(t, "http://example.test/advertised.crl"),
+			Value: distributionPointsURIs(t, "http://example.test/advertised.crl"),
 		},
 	)
 	list := makeAssessmentCRL(
@@ -588,36 +588,28 @@ func issuingDistributionPointReasons(t *testing.T, reasons ReasonSet) cryptopkix
 	return cryptopkix.Extension{Id: stdasn1.ObjectIdentifier{2, 5, 29, 28}, Critical: true, Value: value}
 }
 
-func indirectIssuingDistributionPoint(t *testing.T) cryptopkix.Extension {
+// issuingDistributionPointFlag is an IDP extension that sets the BOOLEAN
+// field with the given context tag.
+func issuingDistributionPointFlag(t *testing.T, tag cryptobyte_asn1.Tag) cryptopkix.Extension {
 	t.Helper()
 	value := marshalASN1(t, cryptobyte_asn1.SEQUENCE, func(builder *cryptobyte.Builder) {
-		builder.AddASN1(cryptobyte_asn1.Tag(4).ContextSpecific(), func(builder *cryptobyte.Builder) {
+		builder.AddASN1(tag.ContextSpecific(), func(builder *cryptobyte.Builder) {
 			builder.AddBytes([]byte{0xff})
 		})
 	})
 	return cryptopkix.Extension{Id: stdasn1.ObjectIdentifier{2, 5, 29, 28}, Critical: true, Value: value}
+}
+
+func indirectIssuingDistributionPoint(t *testing.T) cryptopkix.Extension {
+	return issuingDistributionPointFlag(t, 4)
 }
 
 func onlyCACertificatesIDP(t *testing.T) cryptopkix.Extension {
-	t.Helper()
-	value := marshalASN1(t, cryptobyte_asn1.SEQUENCE, func(builder *cryptobyte.Builder) {
-		builder.AddASN1(cryptobyte_asn1.Tag(2).ContextSpecific(), func(builder *cryptobyte.Builder) {
-			builder.AddBytes([]byte{0xff})
-		})
-	})
-	return cryptopkix.Extension{Id: stdasn1.ObjectIdentifier{2, 5, 29, 28}, Critical: true, Value: value}
+	return issuingDistributionPointFlag(t, 2)
 }
 
 func onlyUserCertificatesIDP(t *testing.T) cryptopkix.Extension {
-	t.Helper()
-	value := marshalASN1(t, cryptobyte_asn1.SEQUENCE, func(builder *cryptobyte.Builder) {
-		builder.AddASN1(cryptobyte_asn1.Tag(1).ContextSpecific(), func(builder *cryptobyte.Builder) {
-			builder.AddBytes([]byte{0xff})
-		})
-	})
-	return cryptopkix.Extension{
-		Id: stdasn1.ObjectIdentifier{2, 5, 29, 28}, Critical: true, Value: value,
-	}
+	return issuingDistributionPointFlag(t, 1)
 }
 
 func issuingDistributionPointName(t *testing.T, rawName []byte) cryptopkix.Extension {
@@ -636,14 +628,6 @@ func issuingDistributionPointName(t *testing.T, rawName []byte) cryptopkix.Exten
 	}
 }
 
-func freshestCRLExtension(t *testing.T) cryptopkix.Extension {
-	t.Helper()
-	return cryptopkix.Extension{
-		Id:    stdasn1.ObjectIdentifier{2, 5, 29, 46},
-		Value: distributionPointsURI(t, "http://example.test/delta.crl"),
-	}
-}
-
 func deltaCRLIndicator(t *testing.T, baseNumber int64) cryptopkix.Extension {
 	t.Helper()
 	var builder cryptobyte.Builder
@@ -657,18 +641,27 @@ func deltaCRLIndicator(t *testing.T, baseNumber int64) cryptopkix.Extension {
 	}
 }
 
-func distributionPointsURI(t *testing.T, uri string) []byte {
+func freshestCRL(t *testing.T, uris ...string) cryptopkix.Extension {
+	t.Helper()
+	return cryptopkix.Extension{Id: stdasn1.ObjectIdentifier{2, 5, 29, 46}, Value: distributionPointsURIs(t, uris...)}
+}
+
+// distributionPointsURIs encodes CRLDistributionPoints with one point per
+// URI, each naming the URI as its full name.
+func distributionPointsURIs(t *testing.T, uris ...string) []byte {
 	t.Helper()
 	return marshalASN1(t, cryptobyte_asn1.SEQUENCE, func(builder *cryptobyte.Builder) {
-		builder.AddASN1(cryptobyte_asn1.SEQUENCE, func(builder *cryptobyte.Builder) {
-			builder.AddASN1(cryptobyte_asn1.Tag(0).Constructed().ContextSpecific(), func(builder *cryptobyte.Builder) {
+		for _, uri := range uris {
+			builder.AddASN1(cryptobyte_asn1.SEQUENCE, func(builder *cryptobyte.Builder) {
 				builder.AddASN1(cryptobyte_asn1.Tag(0).Constructed().ContextSpecific(), func(builder *cryptobyte.Builder) {
-					builder.AddASN1(cryptobyte_asn1.Tag(6).ContextSpecific(), func(builder *cryptobyte.Builder) {
-						builder.AddBytes([]byte(uri))
+					builder.AddASN1(cryptobyte_asn1.Tag(0).Constructed().ContextSpecific(), func(builder *cryptobyte.Builder) {
+						builder.AddASN1(cryptobyte_asn1.Tag(6).ContextSpecific(), func(builder *cryptobyte.Builder) {
+							builder.AddBytes([]byte(uri))
+						})
 					})
 				})
 			})
-		})
+		}
 	})
 }
 

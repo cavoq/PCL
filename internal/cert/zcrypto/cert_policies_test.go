@@ -4,7 +4,6 @@ import (
 	stdasn1 "encoding/asn1"
 	"testing"
 
-	"github.com/cavoq/PCL/internal/node"
 	"golang.org/x/crypto/cryptobyte"
 	cryptobyte_asn1 "golang.org/x/crypto/cryptobyte/asn1"
 )
@@ -61,147 +60,34 @@ func buildCertPoliciesValue(policyOID string, cpsURI string, explicitText string
 }
 
 func TestParseCertPolicies(t *testing.T) {
+	const policy, cps = "2.23.140.1.2.1", "http://cps.example.com/policy"
 	tests := []struct {
-		name      string
-		extValue  []byte
-		checkFunc func(n *node.Node) bool
-		expected  bool
+		name  string
+		value []byte
+		want  map[string]any
 	}{
-		{
-			name:     "policy with CPS URI",
-			extValue: buildCertPoliciesValue("2.23.140.1.2.1", "http://cps.example.com/policy", ""),
-			checkFunc: func(n *node.Node) bool {
-				pi, ok := n.Children["policyInformations"]
-				if !ok {
-					return false
-				}
-				p0, ok := pi.Children["0"]
-				if !ok {
-					return false
-				}
-				pq, ok := p0.Children["policyQualifiers"]
-				if !ok {
-					return false
-				}
-				// Check CPS qualifier exists
-				cps, ok := pq.Children["1.3.6.1.5.5.7.2.1"]
-				return ok && cps != nil
-			},
-			expected: true,
-		},
-		{
-			name:     "policy with userNotice explicitText",
-			extValue: buildCertPoliciesValue("2.23.140.1.2.1", "", "This is a test notice"),
-			checkFunc: func(n *node.Node) bool {
-				pi, ok := n.Children["policyInformations"]
-				if !ok {
-					return false
-				}
-				p0, ok := pi.Children["0"]
-				if !ok {
-					return false
-				}
-				pq, ok := p0.Children["policyQualifiers"]
-				if !ok {
-					return false
-				}
-				// Check userNotice qualifier exists
-				un, ok := pq.Children["1.3.6.1.5.5.7.2.2"]
-				return ok && un != nil
-			},
-			expected: true,
-		},
-		{
-			name:     "policy with both CPS and userNotice",
-			extValue: buildCertPoliciesValue("2.23.140.1.2.1", "http://cps.example.com/policy", "Test notice"),
-			checkFunc: func(n *node.Node) bool {
-				pi, ok := n.Children["policyInformations"]
-				if !ok {
-					return false
-				}
-				// Check that there's exactly 1 policyInformation
-				return len(pi.Children) == 1 && pi.Children["0"] != nil
-			},
-			expected: true,
-		},
-		{
-			name:     "CPS URI encoding is ia5String",
-			extValue: buildCertPoliciesValue("2.23.140.1.2.1", "http://cps.example.com/policy", ""),
-			checkFunc: func(n *node.Node) bool {
-				pi, ok := n.Children["policyInformations"]
-				if !ok {
-					return false
-				}
-				p0, ok := pi.Children["0"]
-				if !ok {
-					return false
-				}
-				pq, ok := p0.Children["policyQualifiers"]
-				if !ok {
-					return false
-				}
-				q0, ok := pq.Children["0"]
-				if !ok {
-					return false
-				}
-				encoding, ok := q0.Children["encoding"]
-				if !ok {
-					return false
-				}
-				s, ok := encoding.Value.(string)
-				return ok && s == "ia5String"
-			},
-			expected: true,
-		},
-		{
-			name:     "userNotice explicitText encoding",
-			extValue: buildCertPoliciesValue("2.23.140.1.2.1", "", "Test notice"),
-			checkFunc: func(n *node.Node) bool {
-				pi, ok := n.Children["policyInformations"]
-				if !ok {
-					return false
-				}
-				p0, ok := pi.Children["0"]
-				if !ok {
-					return false
-				}
-				pq, ok := p0.Children["policyQualifiers"]
-				if !ok {
-					return false
-				}
-				q0, ok := pq.Children["0"]
-				if !ok {
-					return false
-				}
-				un, ok := q0.Children["userNotice"]
-				if !ok {
-					return false
-				}
-				et, ok := un.Children["explicitText"]
-				if !ok {
-					return false
-				}
-				encoding, ok := et.Children["encoding"]
-				if !ok {
-					return false
-				}
-				s, ok := encoding.Value.(string)
-				return ok && s == "utf8String"
-			},
-			expected: true,
-		},
+		{"policy with CPS URI", buildCertPoliciesValue(policy, cps, ""),
+			map[string]any{"policyInformations.0.policyQualifiers.1.3.6.1.5.5.7.2.1": nil}},
+		{"policy with userNotice explicitText", buildCertPoliciesValue(policy, "", "This is a test notice"),
+			map[string]any{"policyInformations.0.policyQualifiers.1.3.6.1.5.5.7.2.2": nil}},
+		{"CPS URI encoding is ia5String", buildCertPoliciesValue(policy, cps, ""),
+			map[string]any{"policyInformations.0.policyQualifiers.0.encoding": "ia5String"}},
+		{"userNotice explicitText encoding", buildCertPoliciesValue(policy, "", "Test notice"),
+			map[string]any{"policyInformations.0.policyQualifiers.0.userNotice.explicitText.encoding": "utf8String"}},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			n := ParseCertPolicies(tt.extValue)
+			n := ParseCertPolicies(tt.value)
 			if n == nil {
 				t.Fatalf("ParseCertPolicies returned nil")
 			}
-			got := tt.checkFunc(n)
-			if got != tt.expected {
-				t.Errorf("check failed: got %v, want %v", got, tt.expected)
-			}
+			checkNodeValues(t, n, tt.want)
 		})
+	}
+
+	both := ParseCertPolicies(buildCertPoliciesValue(policy, cps, "Test notice"))
+	if informations, ok := both.Resolve("policyInformations"); !ok || len(informations.Children) != 1 || informations.Children["0"] == nil {
+		t.Fatal("a policy with CPS and userNotice qualifiers must be one policyInformation")
 	}
 }

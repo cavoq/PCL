@@ -1,6 +1,7 @@
 package output
 
 import (
+	"slices"
 	"testing"
 	"time"
 
@@ -96,7 +97,7 @@ func TestFromPolicyResults_MultiplePolicies(t *testing.T) {
 	}
 }
 
-func TestFilterRules_ShowPassed(t *testing.T) {
+func TestFilterRules(t *testing.T) {
 	output := LintOutput{
 		Results: []policy.Result{
 			{
@@ -110,108 +111,27 @@ func TestFilterRules_ShowPassed(t *testing.T) {
 		},
 	}
 
-	opts := Options{ShowPassed: true, ShowFailed: false, ShowSkipped: false}
-	filtered := FilterRules(output, opts)
-
-	if len(filtered.Results[0].Results) != 1 {
-		t.Fatalf("expected 1 result, got %d", len(filtered.Results[0].Results))
+	tests := []struct {
+		name string
+		opts Options
+		want []string
+	}{
+		{"passed", Options{ShowPassed: true}, []string{"r1"}},
+		{"failed", Options{ShowFailed: true}, []string{"r2"}},
+		{"skipped", Options{ShowSkipped: true}, []string{"r3"}},
+		{"all", Options{ShowPassed: true, ShowFailed: true, ShowSkipped: true}, []string{"r1", "r2", "r3"}},
+		{"none", Options{}, nil},
 	}
-	if filtered.Results[0].Results[0].Verdict != rule.VerdictPass {
-		t.Errorf("expected pass verdict, got %s", filtered.Results[0].Results[0].Verdict)
-	}
-}
-
-func TestFilterRules_ShowFailed(t *testing.T) {
-	output := LintOutput{
-		Results: []policy.Result{
-			{
-				PolicyID: "test",
-				Results: []rule.Result{
-					{RuleID: "r1", Verdict: rule.VerdictPass},
-					{RuleID: "r2", Verdict: rule.VerdictFail},
-					{RuleID: "r3", Verdict: rule.VerdictSkip},
-				},
-			},
-		},
-	}
-
-	opts := Options{ShowPassed: false, ShowFailed: true, ShowSkipped: false}
-	filtered := FilterRules(output, opts)
-
-	if len(filtered.Results[0].Results) != 1 {
-		t.Fatalf("expected 1 result, got %d", len(filtered.Results[0].Results))
-	}
-	if filtered.Results[0].Results[0].Verdict != rule.VerdictFail {
-		t.Errorf("expected fail verdict, got %s", filtered.Results[0].Results[0].Verdict)
-	}
-}
-
-func TestFilterRules_ShowSkipped(t *testing.T) {
-	output := LintOutput{
-		Results: []policy.Result{
-			{
-				PolicyID: "test",
-				Results: []rule.Result{
-					{RuleID: "r1", Verdict: rule.VerdictPass},
-					{RuleID: "r2", Verdict: rule.VerdictFail},
-					{RuleID: "r3", Verdict: rule.VerdictSkip},
-				},
-			},
-		},
-	}
-
-	opts := Options{ShowPassed: false, ShowFailed: false, ShowSkipped: true}
-	filtered := FilterRules(output, opts)
-
-	if len(filtered.Results[0].Results) != 1 {
-		t.Fatalf("expected 1 result, got %d", len(filtered.Results[0].Results))
-	}
-	if filtered.Results[0].Results[0].Verdict != rule.VerdictSkip {
-		t.Errorf("expected skip verdict, got %s", filtered.Results[0].Results[0].Verdict)
-	}
-}
-
-func TestFilterRules_ShowAll(t *testing.T) {
-	output := LintOutput{
-		Results: []policy.Result{
-			{
-				PolicyID: "test",
-				Results: []rule.Result{
-					{RuleID: "r1", Verdict: rule.VerdictPass},
-					{RuleID: "r2", Verdict: rule.VerdictFail},
-					{RuleID: "r3", Verdict: rule.VerdictSkip},
-				},
-			},
-		},
-	}
-
-	opts := Options{ShowPassed: true, ShowFailed: true, ShowSkipped: true}
-	filtered := FilterRules(output, opts)
-
-	if len(filtered.Results[0].Results) != 3 {
-		t.Errorf("expected 3 results, got %d", len(filtered.Results[0].Results))
-	}
-}
-
-func TestFilterRules_ShowNone(t *testing.T) {
-	output := LintOutput{
-		Results: []policy.Result{
-			{
-				PolicyID: "test",
-				Results: []rule.Result{
-					{RuleID: "r1", Verdict: rule.VerdictPass},
-					{RuleID: "r2", Verdict: rule.VerdictFail},
-					{RuleID: "r3", Verdict: rule.VerdictSkip},
-				},
-			},
-		},
-	}
-
-	opts := Options{ShowPassed: false, ShowFailed: false, ShowSkipped: false}
-	filtered := FilterRules(output, opts)
-
-	if len(filtered.Results[0].Results) != 0 {
-		t.Errorf("expected 0 results, got %d", len(filtered.Results[0].Results))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var got []string
+			for _, result := range FilterRules(output, tt.opts).Results[0].Results {
+				got = append(got, result.RuleID)
+			}
+			if !slices.Equal(got, tt.want) {
+				t.Fatalf("filtered rules = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
 

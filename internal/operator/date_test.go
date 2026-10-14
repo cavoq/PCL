@@ -55,7 +55,6 @@ func TestDateOperatorNilNode(t *testing.T) {
 }
 
 func TestDateDiff(t *testing.T) {
-	op := DateDiff{}
 	now := time.Now()
 	days := func(count int) time.Time { return now.Add(time.Duration(count) * 24 * time.Hour) }
 	hours := func(count int) time.Time { return now.Add(time.Duration(count) * time.Hour) }
@@ -76,51 +75,33 @@ func TestDateDiff(t *testing.T) {
 	missingStart.Children["nextUpdate"] = node.New("nextUpdate", days(5))
 	ocspInterval := map[string]any{"minHours": 8, "maxDays": 10}
 
-	tests := []struct {
-		name     string
-		node     *node.Node
-		operands []any
-		want     bool
-		wantErr  bool
-	}{
-		{"nil node returns false", nil, between(map[string]any{"maxDays": 10}), false, false},
-		{"maxDays within limit", updates(days(5)), between(map[string]any{"maxDays": 10}), true, false},
-		{"maxDays exceeds limit", updates(days(15)), between(map[string]any{"maxDays": 10}), false, false},
-		{"maxMonths within limit", updates(now.AddDate(0, 6, 0)), between(map[string]any{"maxMonths": 12}), true, false},
-		{"maxMonths exceeds limit", updates(now.AddDate(0, 13, 0)), between(map[string]any{"maxMonths": 12}), false, false},
-		{"minDays within limit", updates(days(5)), between(map[string]any{"minDays": 3}), true, false},
-		{"minDays below limit", updates(days(2)), between(map[string]any{"minDays": 3}), false, false},
-		{"no operands returns error", node.New("test", nil), []any{}, false, true},
-		{"missing start returns error", node.New("test", nil), []any{map[string]any{"end": "nextUpdate", "maxDays": 10}}, false, true},
-		{"missing start node returns false", missingStart, between(map[string]any{"maxDays": 10}), false, false},
-		{"from alias for start", updates(days(5)), []any{map[string]any{"from": "thisUpdate", "end": "nextUpdate", "maxDays": 10}}, true, false},
-		{"int64 for maxDays", updates(days(5)), between(map[string]any{"maxDays": int64(10)}), true, false},
-		{"minHours within limit", updates(hours(12)), between(map[string]any{"minHours": 8}), true, false},
-		{"minHours below limit", updates(hours(4)), between(map[string]any{"minHours": 8}), false, false},
-		{"maxHours within limit", updates(hours(6)), between(map[string]any{"maxHours": 8}), true, false},
-		{"maxHours exceeds limit", updates(hours(12)), between(map[string]any{"maxHours": 8}), false, false},
-		{"OCSP validity interval 8 hours to 10 days - valid", updates(days(5)), between(ocspInterval), true, false},
-		{"OCSP validity interval 8 hours to 10 days - too short", updates(hours(4)), between(ocspInterval), false, false},
-		{"OCSP validity interval 8 hours to 10 days - too long", updates(days(12)), between(ocspInterval), false, false},
-		{"int64 for minHours", updates(hours(12)), between(map[string]any{"minHours": int64(8)}), true, false},
-		{"float64 for maxHours", updates(hours(6)), between(map[string]any{"maxHours": float64(8)}), true, false},
-		{"reversed interval fails maximum-only rule", updates(hours(-1)), between(map[string]any{"maxDays": 10}), false, false},
+	evaluate := func(name string, n *node.Node, operands []any, want, wantErr bool) evaluationCase {
+		return evaluationCase{name: name, op: DateDiff{}, node: n, operands: operands, want: want, wantErr: wantErr}
 	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := op.Evaluate(tt.node, nil, tt.operands)
-			if tt.wantErr && err == nil {
-				t.Errorf("DateDiff.Evaluate() expected error, got nil")
-			}
-			if !tt.wantErr && err != nil {
-				t.Errorf("DateDiff.Evaluate() unexpected error: %v", err)
-			}
-			if got != tt.want {
-				t.Errorf("DateDiff.Evaluate() = %v, want %v", got, tt.want)
-			}
-		})
-	}
+	checkEvaluations(t, nil, []evaluationCase{
+		evaluate("nil node returns false", nil, between(map[string]any{"maxDays": 10}), false, false),
+		evaluate("maxDays within limit", updates(days(5)), between(map[string]any{"maxDays": 10}), true, false),
+		evaluate("maxDays exceeds limit", updates(days(15)), between(map[string]any{"maxDays": 10}), false, false),
+		evaluate("maxMonths within limit", updates(now.AddDate(0, 6, 0)), between(map[string]any{"maxMonths": 12}), true, false),
+		evaluate("maxMonths exceeds limit", updates(now.AddDate(0, 13, 0)), between(map[string]any{"maxMonths": 12}), false, false),
+		evaluate("minDays within limit", updates(days(5)), between(map[string]any{"minDays": 3}), true, false),
+		evaluate("minDays below limit", updates(days(2)), between(map[string]any{"minDays": 3}), false, false),
+		evaluate("no operands returns error", node.New("test", nil), []any{}, false, true),
+		evaluate("missing start returns error", node.New("test", nil), []any{map[string]any{"end": "nextUpdate", "maxDays": 10}}, false, true),
+		evaluate("missing start node returns false", missingStart, between(map[string]any{"maxDays": 10}), false, false),
+		evaluate("from alias for start", updates(days(5)), []any{map[string]any{"from": "thisUpdate", "end": "nextUpdate", "maxDays": 10}}, true, false),
+		evaluate("int64 for maxDays", updates(days(5)), between(map[string]any{"maxDays": int64(10)}), true, false),
+		evaluate("minHours within limit", updates(hours(12)), between(map[string]any{"minHours": 8}), true, false),
+		evaluate("minHours below limit", updates(hours(4)), between(map[string]any{"minHours": 8}), false, false),
+		evaluate("maxHours within limit", updates(hours(6)), between(map[string]any{"maxHours": 8}), true, false),
+		evaluate("maxHours exceeds limit", updates(hours(12)), between(map[string]any{"maxHours": 8}), false, false),
+		evaluate("OCSP validity interval 8 hours to 10 days - valid", updates(days(5)), between(ocspInterval), true, false),
+		evaluate("OCSP validity interval 8 hours to 10 days - too short", updates(hours(4)), between(ocspInterval), false, false),
+		evaluate("OCSP validity interval 8 hours to 10 days - too long", updates(days(12)), between(ocspInterval), false, false),
+		evaluate("int64 for minHours", updates(hours(12)), between(map[string]any{"minHours": int64(8)}), true, false),
+		evaluate("float64 for maxHours", updates(hours(6)), between(map[string]any{"maxHours": float64(8)}), true, false),
+		evaluate("reversed interval fails maximum-only rule", updates(hours(-1)), between(map[string]any{"maxDays": 10}), false, false),
+	})
 }
 
 func TestDateDiffValidatesStructuredOperands(t *testing.T) {

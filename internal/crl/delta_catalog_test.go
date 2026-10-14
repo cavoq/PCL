@@ -98,7 +98,7 @@ func makeDeltaCatalogFixture(t *testing.T) deltaCatalogFixture {
 		material.now.Add(-2*time.Hour),
 		material.now.Add(2*time.Hour),
 		nil,
-		[]cryptopkix.Extension{freshestCRLExtension(t)},
+		[]cryptopkix.Extension{freshestCRL(t, "http://example.test/delta.crl")},
 	)
 	return deltaCatalogFixture{
 		material: material,

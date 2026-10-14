@@ -12,8 +12,6 @@ import (
 	zasn1 "github.com/zmap/zcrypto/encoding/asn1"
 	"github.com/zmap/zcrypto/x509"
 	"github.com/zmap/zcrypto/x509/pkix"
-	"golang.org/x/crypto/cryptobyte"
-	cryptobyte_asn1 "golang.org/x/crypto/cryptobyte/asn1"
 )
 
 func TestCatalogAndOneShotProduceExpectedAssessment(t *testing.T) {
@@ -118,12 +116,8 @@ func TestCatalogCachesSignerAuthorizationWithinAssessment(t *testing.T) {
 	target.Extensions = append(
 		append([]pkix.Extension(nil), material.leaf.Extensions...),
 		pkix.Extension{
-			Id: zasn1.ObjectIdentifier{2, 5, 29, 31},
-			Value: catalogDistributionPointsURIs(
-				t,
-				"http://example.test/first.crl",
-				"http://example.test/second.crl",
-			),
+			Id:    zasn1.ObjectIdentifier{2, 5, 29, 31},
+			Value: distributionPointsURIs(t, "http://example.test/first.crl", "http://example.test/second.crl"),
 		},
 	)
 
@@ -286,30 +280,4 @@ func makeCatalogTargetFixture(t *testing.T) catalogTargetFixture {
 			Issuers: []*x509.Certificate{material.issuer},
 		},
 	}
-}
-
-func catalogDistributionPointsURIs(t *testing.T, uris ...string) []byte {
-	t.Helper()
-	return marshalASN1(t, cryptobyte_asn1.SEQUENCE, func(builder *cryptobyte.Builder) {
-		for _, uri := range uris {
-			builder.AddASN1(cryptobyte_asn1.SEQUENCE, func(builder *cryptobyte.Builder) {
-				builder.AddASN1(
-					cryptobyte_asn1.Tag(0).Constructed().ContextSpecific(),
-					func(builder *cryptobyte.Builder) {
-						builder.AddASN1(
-							cryptobyte_asn1.Tag(0).Constructed().ContextSpecific(),
-							func(builder *cryptobyte.Builder) {
-								builder.AddASN1(
-									cryptobyte_asn1.Tag(6).ContextSpecific(),
-									func(builder *cryptobyte.Builder) {
-										builder.AddBytes([]byte(uri))
-									},
-								)
-							},
-						)
-					},
-				)
-			})
-		}
-	})
 }
