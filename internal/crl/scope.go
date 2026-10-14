@@ -104,18 +104,19 @@ func listAppliesToPoint(
 		return EvidenceUnrelated, 0
 	}
 
-	if point.fallback {
+	switch {
+	case point.fallback:
 		if !namesEqual(list.RawIssuer, certificate.RawIssuer, list.Issuer.String(), certificate.Issuer.String()) {
 			return EvidenceUnrelated, 0
 		}
-	} else if len(point.point.CRLIssuer) > 0 {
+	case len(point.point.CRLIssuer) > 0:
 		if !generalNamesContainDirectoryName(point.point.CRLIssuer, list.RawIssuer) {
 			return EvidenceUnrelated, 0
 		}
 		if idp == nil || !idp.IndirectCRL {
 			return EvidenceScopeMismatch, 0
 		}
-	} else if !namesEqual(list.RawIssuer, certificate.RawIssuer, list.Issuer.String(), certificate.Issuer.String()) {
+	case !namesEqual(list.RawIssuer, certificate.RawIssuer, list.Issuer.String(), certificate.Issuer.String()):
 		return EvidenceUnrelated, 0
 	}
 

@@ -35,12 +35,13 @@ func printOCSPResponseDebug(w io.Writer, ocspInfo *ocsp.Info, nonceOpts *ocsp.No
 	}
 
 	// Print nonce request info
-	if requestInfo != nil && requestInfo.NonceLen > 0 {
+	switch {
+	case requestInfo != nil && requestInfo.NonceLen > 0:
 		_, _ = fmt.Fprintf(w, "    Nonce Length: %d bytes\n", requestInfo.NonceLen)
 		_, _ = fmt.Fprintf(w, "    Nonce (hex): %s\n", requestInfo.NonceHex)
-	} else if nonceOpts != nil && nonceOpts.Disabled {
+	case nonceOpts != nil && nonceOpts.Disabled:
 		_, _ = fmt.Fprintf(w, "    Nonce: disabled\n")
-	} else {
+	default:
 		_, _ = fmt.Fprintf(w, "    Nonce: (not requested)\n")
 	}
 

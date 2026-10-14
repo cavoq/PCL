@@ -94,11 +94,12 @@ func (l *Loader) LoadPSL(filename string) error {
 
 	// Resolve file path
 	var filePath string
-	if filename != "" {
+	switch {
+	case filename != "":
 		filePath = filename
-	} else if l.dataDir != "" {
+	case l.dataDir != "":
 		filePath = filepath.Join(l.dataDir, "public_suffix_list.dat")
-	} else {
+	default:
 		return fmt.Errorf("no PSL file specified and no data directory found")
 	}
 

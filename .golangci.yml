@@ -15,8 +15,18 @@ linters:
     - unconvert
     - gosec
     - prealloc
+    - gocritic
+    - gocognit
+    - dupl
+    - unparam
 
   settings:
+    gocognit:
+      min-complexity: 30
+
+    dupl:
+      threshold: 100
+
     errcheck:
       check-type-assertions: true
       check-blank: false
@@ -50,6 +60,24 @@ linters:
           - unparam
           - errcheck
           - prealloc
+          - gocognit
+          - dupl
+
+      # Known complexity debt. Strict DER decoders and revocation assessment
+      # are refactored separately with golden fixtures; certificatePolicyValid
+      # needs an RFC 5280 6.1 rework rather than a restructuring.
+      - linters: [gocognit]
+        path: internal/crl/(assessment|entries)\.go
+        text: "func `\\(\\*Catalog\\)\\.assessCertificate`|func `prepareEntryIndex`"
+      - linters: [gocognit]
+        path: internal/crl/zcrypto/extensions\.go
+        text: "func `decode(AuthorityKeyIdentifier|IssuingDistributionPoint)Extension`"
+      - linters: [gocognit]
+        path: internal/x509ext/general_names\.go
+        text: "func `validateGeneralName`"
+      - linters: [gocognit]
+        path: internal/operator/policy\.go
+        text: "func `\\(CertificatePolicyValid\\)\\.Evaluate`"
 
 issues:
   max-issues-per-linter: 0

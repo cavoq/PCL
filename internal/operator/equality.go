@@ -66,11 +66,9 @@ func (Matches) Evaluate(n *node.Node, ctx *EvaluationContext, operands []any) (b
 					return true, nil
 				}
 			}
-		} else {
+		} else if reflect.DeepEqual(n.Value, target.Value) {
 			// Single value comparison
-			if reflect.DeepEqual(n.Value, target.Value) {
-				return true, nil
-			}
+			return true, nil
 		}
 	}
 

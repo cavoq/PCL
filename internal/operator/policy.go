@@ -64,11 +64,12 @@ func (CertificatePolicyValid) Evaluate(_ *node.Node, ctx *EvaluationContext, ope
 			delete(certPolicies, oid.AnyPolicy)
 		}
 
-		if len(certPolicies) == 0 {
+		switch {
+		case len(certPolicies) == 0:
 			validPolicies = make(map[string]bool)
-		} else if validPolicies[oid.AnyPolicy] {
+		case validPolicies[oid.AnyPolicy]:
 			validPolicies = certPolicies
-		} else {
+		default:
 			newValid := make(map[string]bool)
 			for p := range certPolicies {
 				if validPolicies[p] || p == oid.AnyPolicy {
