@@ -134,7 +134,7 @@ func projectCRLDistributionPoint(name string, decoded x509ext.DistributionPoint)
 		n.Children["distributionPoint"] = projectDistributionPointName(*decoded.Name)
 	}
 	if decoded.Reasons != nil {
-		n.Children["reasons"] = projectReasonFlags(decoded.Reasons)
+		n.Children["reasons"] = x509node.BuildReasonFlags("reasons", decoded.Reasons)
 	}
 	if decoded.CRLIssuer != nil {
 		issuerNode := node.New("cRLIssuer", nil)

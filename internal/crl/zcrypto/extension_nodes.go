@@ -137,7 +137,7 @@ func projectIssuingDistributionPoint(facts *IssuingDistributionPointFacts) *node
 		facts.OnlyContainsAttributeCerts,
 	)
 	if facts.OnlySomeReasons != nil {
-		n.Children["onlySomeReasons"] = projectReasonFlags("onlySomeReasons", facts.OnlySomeReasons)
+		n.Children["onlySomeReasons"] = x509node.BuildReasonFlags("onlySomeReasons", facts.OnlySomeReasons)
 	}
 	return n
 }
@@ -157,7 +157,7 @@ func projectDistributionPoints(name string, raw []byte, points []x509ext.Distrib
 			pointNode.Children["distributionPoint"] = projectDistributionPointName(point.Name)
 		}
 		if point.Reasons != nil {
-			pointNode.Children["reasons"] = projectReasonFlags("reasons", point.Reasons)
+			pointNode.Children["reasons"] = x509node.BuildReasonFlags("reasons", point.Reasons)
 		}
 		if point.CRLIssuer != nil {
 			issuer := node.New("cRLIssuer", nil)
@@ -188,20 +188,6 @@ func projectDistributionPointName(name *x509ext.DistributionPointName) *node.Nod
 		relative.Children["raw"] = node.New("raw", append([]byte(nil), name.RelativeRDN...))
 		relative.Children["encoded"] = node.New("encoded", append([]byte(nil), name.RawDER...))
 		n.Children["nameRelativeToCRLIssuer"] = relative
-	}
-	return n
-}
-
-func projectReasonFlags(name string, reasons *x509ext.ReasonFlags) *node.Node {
-	n := node.New(name, uint16(reasons.Mask))
-	n.Children["raw"] = node.New("raw", append([]byte(nil), reasons.RawDER...))
-	n.Children["value"] = node.New("value", append([]byte(nil), reasons.Value...))
-	n.Children["unusedBits"] = node.New("unusedBits", reasons.UnusedBits)
-	for _, descriptor := range x509ext.ReasonFlagDescriptors() {
-		n.Children[descriptor.CanonicalName] = node.New(
-			descriptor.CanonicalName,
-			reasons.Mask&descriptor.Mask != 0,
-		)
 	}
 	return n
 }

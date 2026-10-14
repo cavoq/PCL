@@ -300,7 +300,8 @@ certificate.extensions.cRLDistributionPoints           # CRL DP extension node
 certificate.extensions.cRLDistributionPoints.distributionPoints  # DistributionPoints array
 certificate.extensions.cRLDistributionPoints.distributionPoints.0.distributionPoint.fullName.generalNames.0.scheme  # URI scheme
 certificate.extensions.cRLDistributionPoints.distributionPoints.0.distributionPoint.nameRelativeToCRLIssuer.rdns # lossless RDN
-certificate.extensions.cRLDistributionPoints.distributionPoints.0.reasons.keyCompromise # ReasonFlags boolean
+certificate.extensions.cRLDistributionPoints.distributionPoints.0.reasons.keyCompromise # ReasonFlags boolean (every flag is true or false)
+certificate.extensions.cRLDistributionPoints.distributionPoints.0.reasons      # value: reason mask; also present, raw, value, unusedBits
 certificate.extensions.cRLDistributionPoints.distributionPoints.0.cRLIssuer.entries # ordered GeneralNames
 ```
 

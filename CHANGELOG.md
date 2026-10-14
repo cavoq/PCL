@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Breaking Changes
+- ReasonFlags nodes share one shape in certificate and CRL trees
+  (`cRLDistributionPoints` and `freshestCRL` `reasons`,
+  `issuingDistributionPoint.onlySomeReasons`). Every defined flag is an
+  explicit boolean, the node value is the reason mask, `present` is set, and
+  `raw`/`value` are plain bytes. Certificate policies that tested a single
+  flag with `present` or `absent` should use `eq: true` or `eq: false`.
+
 ## [4.0.0] - 2026-09-20
 
 ### Breaking Changes

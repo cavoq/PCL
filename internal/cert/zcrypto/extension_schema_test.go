@@ -148,12 +148,18 @@ func TestParseCRLDPStrictReasonFlagsRFC5280BitMapping(t *testing.T) {
 			distributionPoint := requireExtensionSchemaChild(t, distributionPoints, "0")
 			assertExtensionSchemaValue(t, distributionPoint, "hasReasons", true)
 			reasons := requireExtensionSchemaChild(t, distributionPoint, "reasons")
-			assertExtensionSchemaNode(t, reasons, "reasons", nil,
-				reasonName, "present", "raw", "unusedBits", "value")
+			assertExtensionSchemaNode(t, reasons, "reasons", uint16(1)<<bit,
+				append([]string{"present", "raw", "unusedBits", "value"}, reasonNames...)...)
 			assertExtensionSchemaValue(t, reasons, "present", true)
 			assertExtensionSchemaValue(t, reasons, "unusedBits", unusedBits)
-			assertExtensionSchemaValue(t, reasons, reasonName, true)
-			assertExtensionSchemaBytes(t, requireExtensionSchemaChild(t, reasons, "raw").Value, encodedReasons)
+			for _, otherName := range reasonNames {
+				assertExtensionSchemaValue(t, reasons, otherName, otherName == reasonName)
+			}
+			raw := requireExtensionSchemaChild(t, reasons, "raw").Value
+			if _, plainBytes := raw.([]byte); !plainBytes {
+				t.Fatalf("reasons.raw has type %T, want []byte", raw)
+			}
+			assertExtensionSchemaBytes(t, raw, encodedReasons)
 			assertExtensionSchemaBytes(t, requireExtensionSchemaChild(t, reasons, "value").Value, value)
 
 			if _, exists := reasons.Children["removeFromCRL"]; exists {
@@ -179,9 +185,7 @@ func TestParseCRLDPStrictAcceptsEmptyReasonFlagsBitString(t *testing.T) {
 		"superseded", "cessationOfOperation", "certificateHold",
 		"privilegeWithdrawn", "aACompromise",
 	} {
-		if _, exists := reasons.Children[name]; exists {
-			t.Fatalf("empty ReasonFlags unexpectedly set %s", name)
-		}
+		assertExtensionSchemaValue(t, reasons, name, false)
 	}
 }
 
