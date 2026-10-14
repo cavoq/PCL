@@ -63,10 +63,15 @@ func Run(cfg Config, w io.Writer) error {
 		if err != nil {
 			return err
 		}
-	case len(crls) > 0:
-		results = evaluator.CRLOnly(policies, reg, crls, issuers)
-	case len(ocsps) > 0:
-		results = evaluator.OCSPOnly(policies, reg, ocsps)
+	case len(crls) > 0 || len(ocsps) > 0:
+		// Without certificates every supplied CRL and OCSP input is linted
+		// on its own.
+		if len(crls) > 0 {
+			results = append(results, evaluator.CRLOnly(policies, reg, crls, issuers)...)
+		}
+		if len(ocsps) > 0 {
+			results = append(results, evaluator.OCSPOnly(policies, reg, ocsps)...)
+		}
 	default:
 		return fmt.Errorf("no certificates, CRLs, or OCSP responses provided")
 	}

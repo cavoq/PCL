@@ -1,0 +1,13 @@
+id: integration-crl-and-ocsp-present
+version: 1.0
+
+rules:
+  - id: crl-present
+    target: crl
+    operator: present
+    severity: error
+
+  - id: ocsp-present
+    target: ocsp
+    operator: present
+    severity: error

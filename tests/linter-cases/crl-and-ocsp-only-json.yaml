@@ -1,0 +1,22 @@
+name: crl-and-ocsp-only-json
+policy: policies/crl-and-ocsp-present.yaml
+crl: ../internal/crl/testdata/test.crl
+ocsp: ocsps/good-leaf.ocsp
+output: json
+verbosity: 2
+show_meta: true
+expected:
+  total_certs: 2
+  total_rules: 4
+  pass: 2
+  fail: 0
+  skip: 2
+  results:
+    - cert_type: crl
+      policy: integration-crl-and-ocsp-present
+      verdict: pass
+      rules: 2
+    - cert_type: ocsp
+      policy: integration-crl-and-ocsp-present
+      verdict: pass
+      rules: 2

@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `raw`/`value` are plain bytes. Certificate policies that tested a single
   flag with `present` or `absent` should use `eq: true` or `eq: false`.
 
+### Fixed
+- Running with `--crl` and `--ocsp` but no certificate now lints the OCSP
+  responses as well; previously only the CRLs were evaluated.
+
 ## [4.0.0] - 2026-09-20
 
 ### Breaking Changes
