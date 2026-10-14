@@ -4,6 +4,7 @@ import (
 	stdasn1 "encoding/asn1"
 	"fmt"
 	"net"
+	"slices"
 
 	"github.com/cavoq/PCL/internal/x509asn1"
 	"golang.org/x/crypto/cryptobyte"
@@ -112,67 +113,87 @@ func validateGeneralName(
 	encoded, content cryptobyte.String,
 	ipLengths ...int,
 ) error {
-	tagValue := int(tag)
-	if tagValue&0xc0 != 0x80 || tagValue&0x1f > 8 {
-		return fmt.Errorf("invalid GeneralName tag %d", tagValue)
-	}
-	if len(content) == 0 {
-		return fmt.Errorf("GeneralName tag %d is empty", tagValue&0x1f)
-	}
-
-	tagNumber := tagValue & 0x1f
-	constructed := tagValue&0x20 != 0
-	wantConstructed := tagNumber == 0 || tagNumber == 3 || tagNumber == 4 || tagNumber == 5
-	if constructed != wantConstructed {
-		return fmt.Errorf("GeneralName tag %d has invalid primitive/constructed form", tagNumber)
+	tagNumber, err := validateGeneralNameForm(tag, content)
+	if err != nil {
+		return err
 	}
 
 	switch tagNumber {
 	case 0:
-		if err := validateOtherName(content); err != nil {
+		if validateOtherName(content) != nil {
 			return fmt.Errorf("invalid otherName")
 		}
 	case 1, 2, 6:
-		for _, octet := range content {
-			if octet > 0x7f {
-				return fmt.Errorf("GeneralName tag %d contains a non-IA5 octet", tagNumber)
-			}
-		}
+		return validateIA5Octets(tagNumber, content)
 	case 3:
-		value := content
-		var builtIn cryptobyte.String
-		if !value.ReadASN1(&builtIn, cryptobyte_asn1.SEQUENCE) || (builtIn.Empty() && value.Empty()) {
-			return fmt.Errorf("invalid x400Address")
-		}
+		return validateX400Address(content)
 	case 4:
 		parsed, err := x509asn1.ParseDistinguishedNameStrict(content)
 		if err != nil || len(parsed.RDNs) == 0 {
 			return fmt.Errorf("invalid directoryName")
 		}
 	case 5:
-		if err := validateEDIPartyName(content); err != nil {
+		if validateEDIPartyName(content) != nil {
 			return fmt.Errorf("invalid ediPartyName")
 		}
 	case 7:
-		validLength := false
-		for _, length := range ipLengths {
-			if len(content) == length {
-				validLength = true
-				break
-			}
-		}
-		if !validLength {
-			return fmt.Errorf("invalid iPAddress length %d", len(content))
-		}
-		if len(content) == 8 || len(content) == 32 {
-			half := len(content) / 2
-			if _, bits := net.IPMask(content[half:]).Size(); bits == 0 {
-				return fmt.Errorf("invalid iPAddress constraint mask")
-			}
-		}
+		return validateIPAddressName(content, ipLengths)
 	case 8:
 		if _, err := DecodeRegisteredID(encoded); err != nil {
 			return fmt.Errorf("invalid registeredID")
+		}
+	}
+	return nil
+}
+
+// validateGeneralNameForm checks the context-specific tag number, non-empty
+// content and the primitive or constructed form each alternative requires,
+// and returns the tag number.
+func validateGeneralNameForm(tag cryptobyte_asn1.Tag, content cryptobyte.String) (int, error) {
+	tagValue := int(tag)
+	if tagValue&0xc0 != 0x80 || tagValue&0x1f > 8 {
+		return 0, fmt.Errorf("invalid GeneralName tag %d", tagValue)
+	}
+	tagNumber := tagValue & 0x1f
+	if len(content) == 0 {
+		return 0, fmt.Errorf("GeneralName tag %d is empty", tagNumber)
+	}
+
+	constructed := tagValue&0x20 != 0
+	wantConstructed := tagNumber == 0 || tagNumber == 3 || tagNumber == 4 || tagNumber == 5
+	if constructed != wantConstructed {
+		return 0, fmt.Errorf("GeneralName tag %d has invalid primitive/constructed form", tagNumber)
+	}
+	return tagNumber, nil
+}
+
+func validateIA5Octets(tagNumber int, content []byte) error {
+	for _, octet := range content {
+		if octet > 0x7f {
+			return fmt.Errorf("GeneralName tag %d contains a non-IA5 octet", tagNumber)
+		}
+	}
+	return nil
+}
+
+func validateX400Address(content cryptobyte.String) error {
+	var builtIn cryptobyte.String
+	if !content.ReadASN1(&builtIn, cryptobyte_asn1.SEQUENCE) || (builtIn.Empty() && content.Empty()) {
+		return fmt.Errorf("invalid x400Address")
+	}
+	return nil
+}
+
+// validateIPAddressName checks the iPAddress length against the lengths
+// allowed in this context; address-and-mask pairs need a contiguous mask.
+func validateIPAddressName(content []byte, ipLengths []int) error {
+	if !slices.Contains(ipLengths, len(content)) {
+		return fmt.Errorf("invalid iPAddress length %d", len(content))
+	}
+	if len(content) == 8 || len(content) == 32 {
+		half := len(content) / 2
+		if _, bits := net.IPMask(content[half:]).Size(); bits == 0 {
+			return fmt.Errorf("invalid iPAddress constraint mask")
 		}
 	}
 	return nil
