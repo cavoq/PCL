@@ -8,7 +8,7 @@
 CLAUDE.md
 .codex
 .claude
-data/
+/data/
 tests/certs/generated
 
 # Test binary, built with `go test -c`
