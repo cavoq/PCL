@@ -13,6 +13,7 @@ This document provides a comprehensive guide for writing policy rules in PCL (Po
 - [Severity Levels](#severity-levels)
 - [Certificate Type Filtering](#certificate-type-filtering)
 - [Conditional Rules (when)](#conditional-rules-when)
+- [Testing Policies](#testing-policies)
 - [Best Practices](#best-practices)
 - [P2 Migration Notes](#p2-migration-notes)
 - [Examples](#examples)
@@ -1125,6 +1126,54 @@ The `when` clause adds a precondition. If false, the rule is skipped.
 ```
 
 ---
+
+## Testing Policies
+
+`pcl test` runs policy test suites: YAML files (`*.test.yaml`) that lint
+example inputs with your policies and state the verdicts you expect. Each case
+is linted exactly like `pcl --policy ...`, and paths are relative to the suite
+file.
+
+```yaml
+policy: ../policies/my-profile.yaml   # one path or a list
+time: 2026-10-01                      # fixed evaluation time, so fixtures do not expire
+
+tests:
+  - name: compliant server certificate
+    cert: certs/good-leaf.pem
+    issuers: [certs/intermediate.pem, certs/root.pem]
+    expect:
+      - input: leaf                   # leaf, intermediate, root, ocspSigning, crl or ocsp
+        verdict: pass                 # optional: overall policy verdict
+        rules:                        # optional: verdict per rule id
+          san-present: pass
+          key-size-minimum: pass
+
+  - name: short RSA key is rejected
+    cert: certs/rsa1024-leaf.pem
+    issuers: [certs/intermediate.pem, certs/root.pem]
+    expect:
+      - input: leaf
+        policy: my-profile            # select one policy when several are loaded
+        rules:
+          key-size-minimum: fail
+
+  - name: unreadable input
+    cert: certs/missing.pem
+    error: failed to load certificates   # the lint must fail with this text
+```
+
+Cases also accept `crl`, `ocsp`, `purpose` and their own `time`. Run a file or
+a directory of suites; the command exits non-zero when any case fails:
+
+```bash
+pcl test policies/tests
+# PASS  policies/tests/my-profile.test.yaml  compliant server certificate
+# FAIL  policies/tests/my-profile.test.yaml  short RSA key is rejected
+#       leaf (my-profile): rule key-size-minimum pass, want fail
+```
+
+See [`tests/policy-suites`](../tests/policy-suites) for runnable examples.
 
 ## Best Practices
 

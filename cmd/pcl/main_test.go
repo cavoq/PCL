@@ -51,3 +51,16 @@ func TestSchemaCommandPrintsCommittedSchema(t *testing.T) {
 		t.Fatal("pcl schema output differs from schemas/policy.schema.json")
 	}
 }
+
+func TestTestCommandRunsExampleSuites(t *testing.T) {
+	var out bytes.Buffer
+	command := newTestCmd()
+	command.SetOut(&out)
+	command.SetArgs([]string{"../../tests/policy-suites"})
+	if err := command.Execute(); err != nil {
+		t.Fatalf("test command: %v\n%s", err, out.String())
+	}
+	if !bytes.Contains(out.Bytes(), []byte(" passed, 0 failed")) {
+		t.Fatalf("unexpected report:\n%s", out.String())
+	}
+}

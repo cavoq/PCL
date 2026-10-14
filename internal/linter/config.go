@@ -20,9 +20,11 @@ type Config struct {
 	OCSPPath    string
 	OCSPTimeout time.Duration
 	OutputFmt   string
-	Verbosity   int
-	ShowMeta    bool
-	Diagnostics io.Writer // Optional warning/debug stream, separate from formatted results.
+	// ValidationTime fixes the evaluation time; zero means the current time.
+	ValidationTime time.Time
+	Verbosity      int
+	ShowMeta       bool
+	Diagnostics    io.Writer // Optional warning/debug stream, separate from formatted results.
 
 	// ApplicationPurpose is the explicit RFC 5280 extended-key-usage purpose
 	// used while evaluating certificate profile semantics. It may be a stable

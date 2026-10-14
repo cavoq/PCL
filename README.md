@@ -145,6 +145,33 @@ a policy:
 performs the authoritative checks, including regular expression syntax and
 value ranges a schema cannot express.
 
+### Test Policies
+
+`pcl test` runs policy test suites (`*.test.yaml`) that lint example inputs
+and check the expected verdict per input and rule, so policy changes can be
+verified like code:
+
+```yaml
+policy: ../policies/my-profile.yaml
+time: 2026-10-01
+tests:
+  - name: compliant server certificate
+    cert: certs/good-leaf.pem
+    issuers: [certs/intermediate.pem, certs/root.pem]
+    expect:
+      - input: leaf
+        verdict: pass
+        rules: {san-present: pass, key-size-minimum: pass}
+```
+
+```bash
+pcl test policies/tests
+```
+
+See the [policy writing guide](docs/POLICY_WRITING_GUIDE.md#testing-policies)
+for the full format and [`tests/policy-suites`](tests/policy-suites) for
+examples.
+
 ## 📝 Policy Configuration
 
 Policies are YAML files defining validation rules with a simple declarative syntax.

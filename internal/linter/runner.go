@@ -131,17 +131,19 @@ func buildSubjects(
 		var subjects []evaluator.Subject
 		if len(inputs.crls) > 0 {
 			subjects = append(subjects, evaluator.CRLSubjects(evaluator.Context{
-				Policies: policies,
-				Registry: reg,
-				CRLs:     inputs.crls,
-				Chain:    inputs.issuers,
+				Policies:       policies,
+				Registry:       reg,
+				CRLs:           inputs.crls,
+				Chain:          inputs.issuers,
+				ValidationTime: cfg.ValidationTime,
 			})...)
 		}
 		if len(inputs.ocsps) > 0 {
 			subjects = append(subjects, evaluator.OCSPSubjects(evaluator.Context{
-				Policies: policies,
-				Registry: reg,
-				OCSPs:    inputs.ocsps,
+				Policies:       policies,
+				Registry:       reg,
+				OCSPs:          inputs.ocsps,
+				ValidationTime: cfg.ValidationTime,
 			})...)
 		}
 		return subjects
@@ -154,7 +156,7 @@ func buildSubjects(
 		OCSPs:               inputs.ocsps,
 		Chain:               inputs.chain,
 		RevocationRequested: crlRevocationRequested(cfg),
-		ValidationTime:      time.Now(),
+		ValidationTime:      validationTime(cfg),
 		ApplicationPurpose:  cfg.ApplicationPurpose,
 		CRLResolveTimeout:   crlResolveTimeout(cfg),
 		CRLResolveMaxDepth:  crlResolveMaxDepth(cfg),
@@ -303,6 +305,13 @@ func outputResults(cfg Config, results []policy.Result, w io.Writer) error {
 
 	formatter := output.GetFormatter(cfg.OutputFmt, outputOpts)
 	return formatter.Format(w, lintOutput)
+}
+
+func validationTime(cfg Config) time.Time {
+	if !cfg.ValidationTime.IsZero() {
+		return cfg.ValidationTime
+	}
+	return time.Now()
 }
 
 func crlResolveTimeout(cfg Config) time.Duration {

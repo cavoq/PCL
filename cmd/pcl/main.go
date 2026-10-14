@@ -130,6 +130,30 @@ validation. Reference the published copy from a policy with:
 	}
 }
 
+func newTestCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "test <file-or-directory>...",
+		Short: "Run policy test suites",
+		Long: `Run policy test suites: YAML files that lint example inputs with a policy
+and state the expected verdicts per input and rule. Directories are searched
+for *` + linter.PolicyTestSuffix + ` files. Paths inside a suite are relative to the suite file.`,
+		Example: `  pcl test policies/tests
+  pcl test my-profile.test.yaml`,
+		Args:         cobra.MinimumNArgs(1),
+		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			summary, err := linter.RunPolicyTests(args, cmd.OutOrStdout())
+			if err != nil {
+				return err
+			}
+			if summary.Failed > 0 {
+				return fmt.Errorf("%d policy test(s) failed", summary.Failed)
+			}
+			return nil
+		},
+	}
+}
+
 func newUpdateDataCmd() *cobra.Command {
 	var dataDir string
 
@@ -152,6 +176,7 @@ func main() {
 	root := newRootCmd(&opts)
 	root.AddCommand(newInspectCmd())
 	root.AddCommand(newSchemaCmd())
+	root.AddCommand(newTestCmd())
 	root.AddCommand(newUpdateDataCmd())
 
 	if err := root.Execute(); err != nil {

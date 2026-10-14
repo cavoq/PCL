@@ -15,6 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - JSON Schema for policy files (`schemas/policy.schema.json`, also printed by
   `pcl schema`) for editor completion and validation of fields, operator
   names and per-operator operands. Shipped policies reference it.
+- `pcl test` runs policy test suites (`*.test.yaml`) that lint example inputs
+  with a fixed evaluation time and check expected verdicts per input, policy
+  and rule, or an expected error.
 
 ## [5.0.0] - 2026-10-14
 
