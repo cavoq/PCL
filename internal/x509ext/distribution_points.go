@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"fmt"
 
-	internalasn1 "github.com/cavoq/PCL/internal/asn1"
+	"github.com/cavoq/PCL/internal/x509asn1"
 	"golang.org/x/crypto/cryptobyte"
 	cryptobyte_asn1 "golang.org/x/crypto/cryptobyte/asn1"
 )
@@ -163,7 +163,7 @@ func DecodeDistributionPointNameContents(encoded cryptobyte.String) (Distributio
 		if err != nil {
 			return DistributionPointName{}, err
 		}
-		parsed, err := internalasn1.ParseDistinguishedNameStrict(nameDER)
+		parsed, err := x509asn1.ParseDistinguishedNameStrict(nameDER)
 		if err != nil || len(parsed.RDNs) != 1 {
 			return DistributionPointName{}, fmt.Errorf("invalid nameRelativeToCRLIssuer")
 		}
@@ -229,7 +229,7 @@ func ExpandDistributionPointName(name *DistributionPointName, baseNameDER []byte
 	if name.Kind != DistributionPointNameRelative || len(name.RelativeRDN) == 0 {
 		return nil, fmt.Errorf("invalid relative distribution point name")
 	}
-	if _, err := internalasn1.ParseDistinguishedNameStrict(baseNameDER); err != nil {
+	if _, err := x509asn1.ParseDistinguishedNameStrict(baseNameDER); err != nil {
 		return nil, fmt.Errorf("invalid distribution point base Name: %w", err)
 	}
 	base := cryptobyte.String(baseNameDER)

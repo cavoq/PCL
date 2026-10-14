@@ -1,4 +1,4 @@
-package zcrypto
+package x509node
 
 import (
 	"bytes"
@@ -10,9 +10,9 @@ import (
 	zasn1 "github.com/zmap/zcrypto/encoding/asn1"
 	zpkix "github.com/zmap/zcrypto/x509/pkix"
 
-	internalasn1 "github.com/cavoq/PCL/internal/asn1"
 	"github.com/cavoq/PCL/internal/node"
 	"github.com/cavoq/PCL/internal/oid"
+	"github.com/cavoq/PCL/internal/x509asn1"
 )
 
 func TestBuildNameProjectsLosslessRDNsAndAttributeCollections(t *testing.T) {
@@ -22,11 +22,11 @@ func TestBuildNameProjectsLosslessRDNsAndAttributeCollections(t *testing.T) {
 	unknown := testNameAttributeDER(t, "1.2.3.4", 4, []byte{0xaa, 0xbb})
 	firstRDN := testNameRDN(firstCommonName, organization)
 	secondRDN := testNameRDN(secondCommonName, unknown)
-	rawName := internalasn1.EncodeSequence(append(append([]byte(nil), firstRDN...), secondRDN...))
+	rawName := x509asn1.EncodeSequence(append(append([]byte(nil), firstRDN...), secondRDN...))
 
 	projected := BuildName("subject", rawName, zpkix.Name{CommonName: "display"})
 	if malformed := projected.Children["malformed"]; malformed != nil {
-		if _, err := internalasn1.ParseDistinguishedNameStrict(rawName); err != nil {
+		if _, err := x509asn1.ParseDistinguishedNameStrict(rawName); err != nil {
 			t.Fatalf("test Name unexpectedly malformed: %v (DER %x)", err, rawName)
 		}
 		t.Fatal("BuildName marked a valid Name malformed")
@@ -172,7 +172,7 @@ func testNameAttributeDER(t *testing.T, identifier string, tag byte, content []b
 		t.Fatalf("marshal OID %s: %v", identifier, err)
 	}
 	valueDER := encodeNameElement(tag, content)
-	return internalasn1.EncodeSequence(append(oidDER, valueDER...))
+	return x509asn1.EncodeSequence(append(oidDER, valueDER...))
 }
 
 func testNameRDN(attributes ...[]byte) []byte {

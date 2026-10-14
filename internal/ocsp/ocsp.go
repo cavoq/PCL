@@ -10,7 +10,7 @@ import (
 
 	"golang.org/x/crypto/ocsp"
 
-	"github.com/cavoq/PCL/internal/io"
+	"github.com/cavoq/PCL/internal/fsutil"
 	"github.com/cavoq/PCL/internal/source"
 )
 
@@ -50,7 +50,7 @@ func parseOCSP(data []byte) (*ocsp.Response, source.Format, error) {
 }
 
 func GetOCSPFiles(path string) ([]string, error) {
-	return io.GetFilesWithExtensions(path, extensions...)
+	return fsutil.GetFilesWithExtensions(path, extensions...)
 }
 
 func GetOCSPs(path string) ([]*Info, error) {

@@ -8,7 +8,7 @@ import (
 	"github.com/cavoq/PCL/internal/source"
 	"github.com/zmap/zcrypto/x509"
 
-	"github.com/cavoq/PCL/internal/io"
+	"github.com/cavoq/PCL/internal/fsutil"
 )
 
 var extensions = []string{".pem", ".der", ".crt", ".cer"}
@@ -46,7 +46,7 @@ func parseCertificate(data []byte) (*x509.Certificate, source.Format, error) {
 }
 
 func GetCertFiles(path string) ([]string, error) {
-	return io.GetFilesWithExtensions(path, extensions...)
+	return fsutil.GetFilesWithExtensions(path, extensions...)
 }
 
 func IsSelfSigned(cert *x509.Certificate) bool {

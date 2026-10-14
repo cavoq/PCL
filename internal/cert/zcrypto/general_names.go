@@ -9,7 +9,7 @@ import (
 	"github.com/cavoq/PCL/internal/node"
 	"github.com/cavoq/PCL/internal/oid"
 	"github.com/cavoq/PCL/internal/x509ext"
-	nameprojector "github.com/cavoq/PCL/internal/zcrypto"
+	"github.com/cavoq/PCL/internal/x509node"
 	"golang.org/x/crypto/cryptobyte"
 )
 
@@ -59,7 +59,7 @@ func buildCertificateGeneralNames(
 	typeCounts := make(map[int]int)
 	for index, parsed := range names {
 		key := strconv.Itoa(index)
-		entry := nameprojector.BuildGeneralName(key, parsed)
+		entry := x509node.BuildGeneralName(key, parsed)
 		entries.Children[key] = entry
 
 		// Preserve the established direct directoryName paths while the shared

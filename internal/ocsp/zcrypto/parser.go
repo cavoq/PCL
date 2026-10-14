@@ -7,8 +7,8 @@ import (
 	"golang.org/x/crypto/cryptobyte"
 	cryptobyte_asn1 "golang.org/x/crypto/cryptobyte/asn1"
 
-	"github.com/cavoq/PCL/internal/asn1"
 	oidpkg "github.com/cavoq/PCL/internal/oid"
+	"github.com/cavoq/PCL/internal/x509asn1"
 )
 
 // NonceState represents the parsed nonce extension.
@@ -143,12 +143,12 @@ func ParseNonceFromRaw(rawOCSP []byte) NonceState {
 // ParseOCSPSignatureAlgorithmParams parses the signatureAlgorithm
 // from an OCSP response and returns the parameters state.
 // OCSP structure: OCSPResponse -> responseBytes -> BasicOCSPResponse -> signatureAlgorithm
-func ParseOCSPSignatureAlgorithmParams(rawOCSP []byte) asn1.ParamsState {
+func ParseOCSPSignatureAlgorithmParams(rawOCSP []byte) x509asn1.ParamsState {
 	basicDER, ok := readBasicOCSPResponse(rawOCSP)
 	if !ok {
-		return asn1.ParamsState{}
+		return x509asn1.ParamsState{}
 	}
-	return asn1.ParseSignedObjectAlgorithmParams(basicDER)
+	return x509asn1.ParseSignedObjectAlgorithmParams(basicDER)
 }
 
 // ParseCertID extracts the issuer name and key hashes from the first

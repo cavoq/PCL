@@ -5,8 +5,8 @@ import (
 	stdasn1 "encoding/asn1"
 	"testing"
 
-	der "github.com/cavoq/PCL/internal/asn1"
 	"github.com/cavoq/PCL/internal/oid"
+	"github.com/cavoq/PCL/internal/x509asn1"
 )
 
 func TestParseNonceFromRaw(t *testing.T) {
@@ -44,12 +44,12 @@ func TestReadBasicOCSPResponseValidatesResponseType(t *testing.T) {
 
 func marshalTestOCSPResponse(t *testing.T, responseType stdasn1.ObjectIdentifier, response []byte) []byte {
 	t.Helper()
-	responseTypeDER, err := der.EncodeObjectIdentifier(responseType)
+	responseTypeDER, err := x509asn1.EncodeObjectIdentifier(responseType)
 	if err != nil {
 		t.Fatalf("encode response type: %v", err)
 	}
-	responseBytes := der.EncodeSequence(append(responseTypeDER, der.EncodeOctetString(response)...))
-	responseBytesOuter := der.EncodeContextSpecificConstructed(0, responseBytes)
+	responseBytes := x509asn1.EncodeSequence(append(responseTypeDER, x509asn1.EncodeOctetString(response)...))
+	responseBytesOuter := x509asn1.EncodeContextSpecificConstructed(0, responseBytes)
 	status := []byte{0x0a, 0x01, 0x00}
-	return der.EncodeSequence(append(status, responseBytesOuter...))
+	return x509asn1.EncodeSequence(append(status, responseBytesOuter...))
 }

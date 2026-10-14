@@ -1,13 +1,13 @@
-package zcrypto
+package x509node
 
 import (
 	"testing"
 
-	internalasn1 "github.com/cavoq/PCL/internal/asn1"
+	"github.com/cavoq/PCL/internal/x509asn1"
 )
 
 func TestBuildAlgorithmIdentifier(t *testing.T) {
-	n := BuildAlgorithmIdentifier("signatureAlgorithm", "SHA256-RSA", internalasn1.ParamsState{
+	n := BuildAlgorithmIdentifier("signatureAlgorithm", "SHA256-RSA", x509asn1.ParamsState{
 		OID:    "1.2.840.113549.1.1.11",
 		IsNull: true,
 		RawDER: []byte{0x30, 0x0d},
@@ -28,7 +28,7 @@ func TestBuildAlgorithmIdentifier(t *testing.T) {
 		t.Fatal("raw AlgorithmIdentifier DER missing")
 	}
 
-	absent := BuildAlgorithmIdentifier("algorithm", "", internalasn1.ParamsState{
+	absent := BuildAlgorithmIdentifier("algorithm", "", x509asn1.ParamsState{
 		OID:      "1.3.101.112",
 		IsAbsent: true,
 	})
@@ -38,12 +38,12 @@ func TestBuildAlgorithmIdentifier(t *testing.T) {
 }
 
 func TestBuildAlgorithmIdentifier_PreservesNestedMGF1Identity(t *testing.T) {
-	n := BuildAlgorithmIdentifier("signatureAlgorithm", "RSASSA-PSS", internalasn1.ParamsState{
+	n := BuildAlgorithmIdentifier("signatureAlgorithm", "RSASSA-PSS", x509asn1.ParamsState{
 		OID: "1.2.840.113549.1.1.10",
-		PSS: &internalasn1.PSSParams{
-			MaskGenAlgorithm: internalasn1.AlgorithmIdentifier{
+		PSS: &x509asn1.PSSParams{
+			MaskGenAlgorithm: x509asn1.AlgorithmIdentifier{
 				OID: "1.2.840.113549.1.1.8",
-				Params: internalasn1.ParamsState{
+				Params: x509asn1.ParamsState{
 					OID:    "2.16.840.1.101.3.4.2.1",
 					IsNull: true,
 					RawDER: []byte{0x30, 0x0d},
@@ -69,7 +69,7 @@ func TestBuildAlgorithmIdentifier_PreservesNestedMGF1Identity(t *testing.T) {
 }
 
 func TestBuildAlgorithmIdentifier_ProjectsMalformedState(t *testing.T) {
-	n := BuildAlgorithmIdentifier("signatureAlgorithm", "", internalasn1.ParamsState{
+	n := BuildAlgorithmIdentifier("signatureAlgorithm", "", x509asn1.ParamsState{
 		Malformed: true,
 		RawDER:    []byte{0x30, 0x00},
 	})

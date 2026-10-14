@@ -5,7 +5,7 @@ import (
 	"encoding/asn1"
 	"fmt"
 
-	"github.com/cavoq/PCL/internal/zcrypto"
+	"github.com/cavoq/PCL/internal/x509node"
 	"github.com/zmap/zcrypto/x509"
 )
 
@@ -139,7 +139,7 @@ func parseCertificateSet(data []byte) ([]*x509.Certificate, error) {
 			if stdErr != nil {
 				return nil, fmt.Errorf("failed to parse certificate: %w", err)
 			}
-			cert, err = zcrypto.FromStdCert(stdCert)
+			cert, err = x509node.FromStdCert(stdCert)
 			if err != nil {
 				return nil, fmt.Errorf("failed to convert certificate: %w", err)
 			}

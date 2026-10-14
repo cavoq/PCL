@@ -1,5 +1,7 @@
-// Package zcrypto provides zcrypto conversion helpers.
-package zcrypto
+// Package x509node projects X.509 structures (names, extensions, algorithm
+// identifiers, general names) into node trees shared by the certificate, CRL
+// and OCSP builders, and converts between crypto/x509 and zcrypto certificates.
+package x509node
 
 import (
 	stdx509 "crypto/x509"

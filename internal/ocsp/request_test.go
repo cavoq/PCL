@@ -5,7 +5,7 @@ import (
 	"crypto"
 	"testing"
 
-	der "github.com/cavoq/PCL/internal/asn1"
+	"github.com/cavoq/PCL/internal/x509asn1"
 )
 
 func TestGenerateNonce(t *testing.T) {
@@ -65,9 +65,9 @@ func TestNonceBytes(t *testing.T) {
 }
 
 func TestAddNonceExtension(t *testing.T) {
-	requestList := der.EncodeSequence(der.EncodeSequence([]byte{}))
-	tbsRequest := der.EncodeSequence(requestList)
-	ocspRequest := der.EncodeSequence(tbsRequest)
+	requestList := x509asn1.EncodeSequence(x509asn1.EncodeSequence([]byte{}))
+	tbsRequest := x509asn1.EncodeSequence(requestList)
+	ocspRequest := x509asn1.EncodeSequence(tbsRequest)
 	nonce := []byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
 
 	result, err := addNonceToOCSPRequest(ocspRequest, nonce)
@@ -81,7 +81,7 @@ func TestAddNonceExtension(t *testing.T) {
 		t.Errorf("Expected SEQUENCE tag (0x30), got 0x%02x", result[0])
 	}
 
-	_, contentStart, err := der.ReadDERLength(result, 1)
+	_, contentStart, err := x509asn1.ReadDERLength(result, 1)
 	if err != nil {
 		t.Fatalf("Failed to parse result length: %v", err)
 	}
@@ -91,12 +91,12 @@ func TestAddNonceExtension(t *testing.T) {
 }
 
 func TestAddNonceExtensionDoesNotModifyRequest(t *testing.T) {
-	requestList := der.EncodeSequence(der.EncodeSequence([]byte{}))
-	tbsRequest := der.EncodeSequence(requestList)
+	requestList := x509asn1.EncodeSequence(x509asn1.EncodeSequence([]byte{}))
+	tbsRequest := x509asn1.EncodeSequence(requestList)
 	// An optionalSignature after the TBSRequest shares the input buffer with
 	// the TBSRequest contents and is longer than the added extensions.
-	optionalSignature := der.EncodeContextSpecificConstructed(0, der.EncodeOctetString(make([]byte, 64)))
-	ocspRequest := der.EncodeSequence(append(append([]byte{}, tbsRequest...), optionalSignature...))
+	optionalSignature := x509asn1.EncodeContextSpecificConstructed(0, x509asn1.EncodeOctetString(make([]byte, 64)))
+	ocspRequest := x509asn1.EncodeSequence(append(append([]byte{}, tbsRequest...), optionalSignature...))
 	original := bytes.Clone(ocspRequest)
 
 	if _, err := addNonceToOCSPRequest(ocspRequest, []byte{0x01, 0x02, 0x03, 0x04}); err != nil {

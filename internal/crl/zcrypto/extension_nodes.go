@@ -6,7 +6,7 @@ import (
 	"github.com/cavoq/PCL/internal/node"
 	"github.com/cavoq/PCL/internal/oid"
 	"github.com/cavoq/PCL/internal/x509ext"
-	nameprojector "github.com/cavoq/PCL/internal/zcrypto"
+	"github.com/cavoq/PCL/internal/x509node"
 	"github.com/zmap/zcrypto/x509/pkix"
 )
 
@@ -80,7 +80,7 @@ func projectEntryExtension(extension pkix.Extension) (*node.Node, error) {
 		n := node.New("certificateIssuer", len(facts.Names))
 		n.Children["raw"] = node.New("raw", append([]byte(nil), facts.RawDER...))
 		entries := node.New("entries", nil)
-		nameprojector.AddGeneralNames(entries, facts.Names)
+		x509node.AddGeneralNames(entries, facts.Names)
 		n.Children["entries"] = entries
 		n.Children["count"] = node.New("count", len(facts.Names))
 		return n, nil
@@ -100,7 +100,7 @@ func projectAuthorityKeyIdentifier(facts *AuthorityKeyIdentifierFacts) *node.Nod
 	}
 	if facts.AuthorityIssuer != nil {
 		issuer := node.New("authorityCertIssuer", nil)
-		nameprojector.AddGeneralNames(issuer, facts.AuthorityIssuer)
+		x509node.AddGeneralNames(issuer, facts.AuthorityIssuer)
 		issuer.Children["count"] = node.New("count", len(facts.AuthorityIssuer))
 		n.Children["authorityCertIssuer"] = issuer
 	}
@@ -161,7 +161,7 @@ func projectDistributionPoints(name string, raw []byte, points []x509ext.Distrib
 		}
 		if point.CRLIssuer != nil {
 			issuer := node.New("cRLIssuer", nil)
-			nameprojector.AddGeneralNames(issuer, point.CRLIssuer)
+			x509node.AddGeneralNames(issuer, point.CRLIssuer)
 			issuer.Children["count"] = node.New("count", len(point.CRLIssuer))
 			pointNode.Children["cRLIssuer"] = issuer
 		}
@@ -179,12 +179,12 @@ func projectDistributionPointName(name *x509ext.DistributionPointName) *node.Nod
 	case x509ext.DistributionPointNameFullName:
 		fullName := node.New("fullName", nil)
 		generalNames := node.New("generalNames", nil)
-		nameprojector.AddGeneralNames(generalNames, name.FullName)
+		x509node.AddGeneralNames(generalNames, name.FullName)
 		fullName.Children["generalNames"] = generalNames
 		fullName.Children["count"] = node.New("count", len(name.FullName))
 		n.Children["fullName"] = fullName
 	case x509ext.DistributionPointNameRelative:
-		relative := nameprojector.BuildRawName("nameRelativeToCRLIssuer", name.RelativeNameDER)
+		relative := x509node.BuildRawName("nameRelativeToCRLIssuer", name.RelativeNameDER)
 		relative.Children["raw"] = node.New("raw", append([]byte(nil), name.RelativeRDN...))
 		relative.Children["encoded"] = node.New("encoded", append([]byte(nil), name.RawDER...))
 		n.Children["nameRelativeToCRLIssuer"] = relative

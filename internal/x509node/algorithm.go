@@ -1,13 +1,13 @@
-package zcrypto
+package x509node
 
 import (
-	"github.com/cavoq/PCL/internal/asn1"
 	"github.com/cavoq/PCL/internal/node"
+	"github.com/cavoq/PCL/internal/x509asn1"
 )
 
 // BuildAlgorithmIdentifier converts parsed AlgorithmIdentifier facts into the
 // common node-tree representation used by certificates, CRLs, and OCSP.
-func BuildAlgorithmIdentifier(name, displayName string, params asn1.ParamsState) *node.Node {
+func BuildAlgorithmIdentifier(name, displayName string, params x509asn1.ParamsState) *node.Node {
 	n := node.New(name, nil)
 	if params.Malformed {
 		n.Children["malformed"] = node.New("malformed", true)
@@ -27,7 +27,7 @@ func BuildAlgorithmIdentifier(name, displayName string, params asn1.ParamsState)
 	return n
 }
 
-func buildAlgorithmIdentifierParams(params asn1.ParamsState) *node.Node {
+func buildAlgorithmIdentifierParams(params x509asn1.ParamsState) *node.Node {
 	if params.IsAbsent || params.Malformed {
 		return nil
 	}
@@ -48,7 +48,7 @@ func buildAlgorithmIdentifierParams(params asn1.ParamsState) *node.Node {
 	return n
 }
 
-func buildPSSParams(pss *asn1.PSSParams) *node.Node {
+func buildPSSParams(pss *x509asn1.PSSParams) *node.Node {
 	n := node.New("pss", nil)
 	n.Children["hashAlgorithm"] = buildNestedAlgorithmIdentifier(pss.HashAlgorithm)
 	n.Children["hashAlgorithmSet"] = node.New("hashAlgorithmSet", pss.HashAlgorithmSet)
@@ -61,7 +61,7 @@ func buildPSSParams(pss *asn1.PSSParams) *node.Node {
 	return n
 }
 
-func buildOAEPParams(oaep *asn1.OAEPParams) *node.Node {
+func buildOAEPParams(oaep *x509asn1.OAEPParams) *node.Node {
 	n := node.New("oaep", nil)
 	n.Children["hashAlgorithm"] = buildNestedAlgorithmIdentifier(oaep.HashAlgorithm)
 	n.Children["hashAlgorithmSet"] = node.New("hashAlgorithmSet", oaep.HashAlgorithmSet)
@@ -72,7 +72,7 @@ func buildOAEPParams(oaep *asn1.OAEPParams) *node.Node {
 	return n
 }
 
-func buildNestedAlgorithmIdentifier(algorithm asn1.AlgorithmIdentifier) *node.Node {
+func buildNestedAlgorithmIdentifier(algorithm x509asn1.AlgorithmIdentifier) *node.Node {
 	n := node.New("algorithm", nil)
 	if algorithm.OID != "" {
 		n.Children["oid"] = node.New("oid", algorithm.OID)

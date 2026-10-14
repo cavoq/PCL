@@ -4,9 +4,9 @@ import (
 	"strconv"
 	"strings"
 
-	internalasn1 "github.com/cavoq/PCL/internal/asn1"
 	"github.com/cavoq/PCL/internal/node"
 	"github.com/cavoq/PCL/internal/oid"
+	"github.com/cavoq/PCL/internal/x509asn1"
 )
 
 func buildCertificatePoliciesNode(decoded decodedCertificatePolicies) *node.Node {
@@ -126,7 +126,7 @@ func buildDisplayTextNode(name string, decoded decodedDisplayText) *node.Node {
 	displayTextNode.Children["value"] = node.New("value", decoded.Value)
 	displayTextNode.Children["encoding"] = node.New(
 		"encoding",
-		internalasn1.StringTypeName(int(decoded.Tag)),
+		x509asn1.StringTypeName(int(decoded.Tag)),
 	)
 	return displayTextNode
 }

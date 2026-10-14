@@ -1,4 +1,4 @@
-package asn1
+package x509asn1
 
 import (
 	"fmt"

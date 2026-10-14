@@ -1,4 +1,4 @@
-package zcrypto
+package x509node
 
 import (
 	stdasn1 "encoding/asn1"
@@ -10,8 +10,8 @@ import (
 	"golang.org/x/crypto/cryptobyte"
 	cryptobyte_asn1 "golang.org/x/crypto/cryptobyte/asn1"
 
-	internalasn1 "github.com/cavoq/PCL/internal/asn1"
 	"github.com/cavoq/PCL/internal/node"
+	"github.com/cavoq/PCL/internal/x509asn1"
 	"github.com/cavoq/PCL/internal/x509ext"
 )
 
@@ -189,7 +189,7 @@ func readExplicitDirectoryString(
 	if !element.ReadAnyASN1(&rawValue, &parsedTag) || !element.Empty() || parsedTag != stringTag {
 		return directoryString{}, false, fmt.Errorf("invalid %s DirectoryString", field)
 	}
-	decoded, err := internalasn1.DecodeDirectoryString(int(stringTag), rawValue)
+	decoded, err := x509asn1.DecodeDirectoryString(int(stringTag), rawValue)
 	if err != nil {
 		return directoryString{}, false, fmt.Errorf("invalid %s: %w", field, err)
 	}
@@ -204,7 +204,7 @@ func readExplicitDirectoryString(
 func buildDirectoryStringNode(name string, value directoryString) *node.Node {
 	n := node.New(name, value.Value)
 	n.Children["tag"] = node.New("tag", value.Tag)
-	n.Children["encoding"] = node.New("encoding", internalasn1.StringTypeName(value.Tag))
+	n.Children["encoding"] = node.New("encoding", x509asn1.StringTypeName(value.Tag))
 	n.Children["raw"] = node.New("raw", append([]byte(nil), value.RawDER...))
 	n.Children["rawValue"] = node.New("rawValue", append([]byte(nil), value.RawValue...))
 	return n

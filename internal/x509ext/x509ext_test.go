@@ -3,7 +3,7 @@ package x509ext
 import (
 	"testing"
 
-	internalasn1 "github.com/cavoq/PCL/internal/asn1"
+	"github.com/cavoq/PCL/internal/x509asn1"
 )
 
 func TestDecodeNonNegativeIntegerBoundaries(t *testing.T) {
@@ -159,7 +159,7 @@ func TestDecodeDistributionPointsFullAndRelative(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expand relative name: %v", err)
 	}
-	parsed, err := internalasn1.ParseDistinguishedNameStrict(expanded[0].RawValue)
+	parsed, err := x509asn1.ParseDistinguishedNameStrict(expanded[0].RawValue)
 	if err != nil || len(parsed.RDNs) != 2 {
 		t.Fatalf("expanded Name = %#v, err %v", parsed, err)
 	}

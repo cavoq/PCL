@@ -5,7 +5,7 @@ import (
 
 	"github.com/cavoq/PCL/internal/node"
 	"github.com/cavoq/PCL/internal/x509ext"
-	nameprojector "github.com/cavoq/PCL/internal/zcrypto"
+	"github.com/cavoq/PCL/internal/x509node"
 	"golang.org/x/crypto/cryptobyte"
 	cryptobyte_asn1 "golang.org/x/crypto/cryptobyte/asn1"
 )
@@ -139,7 +139,7 @@ func projectCRLDistributionPoint(name string, decoded x509ext.DistributionPoint)
 	if decoded.CRLIssuer != nil {
 		issuerNode := node.New("cRLIssuer", nil)
 		issuerNode.Children["present"] = node.New("present", true)
-		nameprojector.AddGeneralNames(issuerNode, decoded.CRLIssuer)
+		x509node.AddGeneralNames(issuerNode, decoded.CRLIssuer)
 		issuerNode.Children["count"] = node.New("count", len(decoded.CRLIssuer))
 		n.Children["cRLIssuer"] = issuerNode
 	}
@@ -157,7 +157,7 @@ func projectDistributionPointName(decoded x509ext.DistributionPointName) *node.N
 	case x509ext.DistributionPointNameFullName:
 		fullNameNode := node.New("fullName", nil)
 		generalNamesNode := node.New("generalNames", nil)
-		nameprojector.AddGeneralNames(generalNamesNode, decoded.FullName)
+		x509node.AddGeneralNames(generalNamesNode, decoded.FullName)
 		fullNameNode.Children["generalNames"] = generalNamesNode
 		fullNameNode.Children["count"] = node.New("count", len(decoded.FullName))
 		n.Children["fullName"] = fullNameNode
@@ -168,7 +168,7 @@ func projectDistributionPointName(decoded x509ext.DistributionPointName) *node.N
 		if !rdn.ReadASN1(&contents, cryptobyte_asn1.SET) || !rdn.Empty() {
 			break
 		}
-		relativeName := nameprojector.BuildRawName("nameRelativeToCRLIssuer", decoded.RelativeNameDER)
+		relativeName := x509node.BuildRawName("nameRelativeToCRLIssuer", decoded.RelativeNameDER)
 		relativeName.Children["raw"] = node.New("raw", append([]byte(nil), decoded.RelativeRDN...))
 		relativeName.Children["rawValue"] = node.New("rawValue", append([]byte(nil), contents...))
 		relativeName.Children["encoded"] = node.New(

@@ -17,7 +17,6 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	derasn1 "github.com/cavoq/PCL/internal/asn1"
 	"github.com/cavoq/PCL/internal/cert"
 	"github.com/cavoq/PCL/internal/crl"
 	"github.com/cavoq/PCL/internal/evaluator"
@@ -26,6 +25,7 @@ import (
 	"github.com/cavoq/PCL/internal/operator"
 	"github.com/cavoq/PCL/internal/policy"
 	"github.com/cavoq/PCL/internal/rule"
+	"github.com/cavoq/PCL/internal/x509asn1"
 )
 
 func TestIntegrationPolicies(t *testing.T) {
@@ -449,7 +449,7 @@ func materializeCaseFixture(t *testing.T, tc testCase) testCase {
 			template.SubjectKeyId = nil
 			template.ExtraExtensions = []cryptopkix.Extension{{
 				Id:    issuerAlternativeName,
-				Value: derasn1.EncodeSequence(append(validName, invalidName...)),
+				Value: x509asn1.EncodeSequence(append(validName, invalidName...)),
 			}}
 		})
 		tc.Certs = writePEMFixture(t, dir, "certificate.pem", "CERTIFICATE", der)
@@ -608,7 +608,7 @@ func makeIntegrationNonCanonicalName(t *testing.T) []byte {
 		first, second = second, first
 	}
 	rdn := encodeIntegrationElement(0x31, append(first, second...))
-	return derasn1.EncodeSequence(rdn)
+	return x509asn1.EncodeSequence(rdn)
 }
 
 func makeIntegrationNameAttribute(t *testing.T, attribute integrationNameAttribute) []byte {
@@ -698,7 +698,7 @@ func replaceOuterSignatureAlgorithm(t *testing.T, der []byte) []byte {
 	content := append([]byte(nil), envelope.TBS.FullBytes...)
 	content = append(content, outerDER...)
 	content = append(content, envelope.Signature.FullBytes...)
-	return derasn1.EncodeSequence(content)
+	return x509asn1.EncodeSequence(content)
 }
 
 func rewriteIntegrationTBSCertificate(
@@ -711,10 +711,10 @@ func rewriteIntegrationTBSCertificate(
 
 	fields := rewrite(splitIntegrationDERElements(t, envelope.TBS.Bytes))
 	tbsContent := bytes.Join(fields, nil)
-	content := append([]byte(nil), derasn1.EncodeSequence(tbsContent)...)
+	content := append([]byte(nil), x509asn1.EncodeSequence(tbsContent)...)
 	content = append(content, envelope.Algorithm.FullBytes...)
 	content = append(content, envelope.Signature.FullBytes...)
-	return derasn1.EncodeSequence(content)
+	return x509asn1.EncodeSequence(content)
 }
 
 func splitIntegrationDERElements(t *testing.T, content []byte) [][]byte {
@@ -764,5 +764,5 @@ func removeCRLRequiredFields(t *testing.T, der []byte) []byte {
 	content := append([]byte(nil), tbsDER...)
 	content = append(content, envelope.Algorithm.FullBytes...)
 	content = append(content, envelope.Signature.FullBytes...)
-	return derasn1.EncodeSequence(content)
+	return x509asn1.EncodeSequence(content)
 }

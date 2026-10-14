@@ -7,8 +7,8 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	der "github.com/cavoq/PCL/internal/asn1"
 	"github.com/cavoq/PCL/internal/oid"
+	"github.com/cavoq/PCL/internal/x509asn1"
 	"golang.org/x/crypto/ocsp"
 )
 
@@ -106,7 +106,7 @@ func addNonceToOCSPRequest(ocspRequest []byte, nonce []byte) ([]byte, error) {
 		return nil, fmt.Errorf("invalid OCSP request: expected SEQUENCE tag")
 	}
 
-	ocspLen, contentStart, err := der.ReadDERLength(ocspRequest, 1)
+	ocspLen, contentStart, err := x509asn1.ReadDERLength(ocspRequest, 1)
 	if err != nil {
 		return nil, fmt.Errorf("invalid OCSP request: %w", err)
 	}
@@ -119,7 +119,7 @@ func addNonceToOCSPRequest(ocspRequest []byte, nonce []byte) ([]byte, error) {
 		return nil, fmt.Errorf("invalid TBSRequest: expected SEQUENCE tag")
 	}
 
-	tbsLen, tbsContentStart, err := der.ReadDERLength(tbsBytes, 1)
+	tbsLen, tbsContentStart, err := x509asn1.ReadDERLength(tbsBytes, 1)
 	if err != nil {
 		return nil, fmt.Errorf("invalid TBSRequest: %w", err)
 	}
@@ -131,24 +131,24 @@ func addNonceToOCSPRequest(ocspRequest []byte, nonce []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	nonceOIDDER, err := der.EncodeObjectIdentifier(nonceOID)
+	nonceOIDDER, err := x509asn1.EncodeObjectIdentifier(nonceOID)
 	if err != nil {
 		return nil, err
 	}
 
 	tbsContent := tbsBytes[tbsContentStart : tbsContentStart+tbsLen]
-	nonceOctetString := der.EncodeOctetString(nonce)
+	nonceOctetString := x509asn1.EncodeOctetString(nonce)
 	extensionContent := make([]byte, 0, len(nonceOIDDER)+len(nonceOctetString))
 	extensionContent = append(extensionContent, nonceOIDDER...)
 	extensionContent = append(extensionContent, nonceOctetString...)
-	extension := der.EncodeSequence(extensionContent)
-	extensions := der.EncodeSequence(extension)
-	requestExtensions := der.EncodeContextSpecificConstructed(2, extensions)
+	extension := x509asn1.EncodeSequence(extensionContent)
+	extensions := x509asn1.EncodeSequence(extension)
+	requestExtensions := x509asn1.EncodeContextSpecificConstructed(2, extensions)
 
 	// tbsContent aliases the caller's request; build the new TBSRequest in a
 	// fresh buffer so appending never overwrites bytes that follow it.
 	newTbsContent := make([]byte, 0, len(tbsContent)+len(requestExtensions))
 	newTbsContent = append(newTbsContent, tbsContent...)
 	newTbsContent = append(newTbsContent, requestExtensions...)
-	return der.EncodeSequence(der.EncodeSequence(newTbsContent)), nil
+	return x509asn1.EncodeSequence(x509asn1.EncodeSequence(newTbsContent)), nil
 }

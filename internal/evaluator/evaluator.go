@@ -14,7 +14,7 @@ import (
 	"github.com/cavoq/PCL/internal/operator"
 	"github.com/cavoq/PCL/internal/policy"
 	"github.com/cavoq/PCL/internal/source"
-	"github.com/cavoq/PCL/internal/zcrypto"
+	"github.com/cavoq/PCL/internal/x509node"
 	"github.com/zmap/zcrypto/x509"
 )
 
@@ -191,7 +191,7 @@ func OCSPOnly(policies []policy.Policy, registry *operator.Registry, ocsps []*oc
 }
 
 func ocspSigningCert(ctx Context, ocspInfo *ocsp.Info, now time.Time) []policy.Result {
-	zcryptoSignerCert, err := zcrypto.FromStdCert(ocspInfo.Response.Certificate)
+	zcryptoSignerCert, err := x509node.FromStdCert(ocspInfo.Response.Certificate)
 	if err != nil || zcryptoSignerCert == nil {
 		return nil
 	}

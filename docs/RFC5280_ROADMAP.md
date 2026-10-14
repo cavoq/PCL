@@ -23,7 +23,7 @@ Status labels are intentionally date-free:
 | Area | Responsibility |
 |------|----------------|
 | Format adapters (`internal/{cert,crl,ocsp}/zcrypto`) | Decode and project format-specific data, including raw DER and extension presence. |
-| Representation helpers (`internal/zcrypto`, `internal/x509ext`, `internal/asn1`, `internal/oid`) | Reusable ASN.1, algorithm, extension, and OID mechanics; no policy decisions. |
+| Representation helpers (`internal/x509node`, `internal/x509ext`, `internal/x509asn1`, `internal/oid`) | Reusable ASN.1, algorithm, extension, and OID mechanics; no policy decisions. |
 | Domain packages (`internal/cert`, `internal/crl`, `internal/ocsp`, future `internal/path`) | Certificate, revocation, response, and path semantics with explicit status. |
 | Acquisition and orchestration (`internal/aia`, `internal/crl/acquisition.go`, `internal/evaluator`) | Gather, cache, and bind external evidence to the current evaluation. |
 | Operators (`internal/operator`) | Thin policy adapters over representation or domain behavior; no duplicate domain algorithms. |

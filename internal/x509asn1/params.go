@@ -1,4 +1,4 @@
-package asn1
+package x509asn1
 
 // ParamsState represents the state of an AlgorithmIdentifier parameters field.
 type ParamsState struct {

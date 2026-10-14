@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net"
 
-	internalasn1 "github.com/cavoq/PCL/internal/asn1"
+	"github.com/cavoq/PCL/internal/x509asn1"
 	"golang.org/x/crypto/cryptobyte"
 	cryptobyte_asn1 "golang.org/x/crypto/cryptobyte/asn1"
 )
@@ -145,7 +145,7 @@ func validateGeneralName(
 			return fmt.Errorf("invalid x400Address")
 		}
 	case 4:
-		parsed, err := internalasn1.ParseDistinguishedNameStrict(content)
+		parsed, err := x509asn1.ParseDistinguishedNameStrict(content)
 		if err != nil || len(parsed.RDNs) == 0 {
 			return fmt.Errorf("invalid directoryName")
 		}
@@ -237,7 +237,7 @@ func readExplicitDirectoryString(input *cryptobyte.String, tag cryptobyte_asn1.T
 	if !encoded.ReadAnyASN1(&rawValue, &parsedTag) || !encoded.Empty() || parsedTag != stringTag {
 		return fmt.Errorf("invalid DirectoryString")
 	}
-	if _, err := internalasn1.DecodeDirectoryString(int(stringTag), rawValue); err != nil {
+	if _, err := x509asn1.DecodeDirectoryString(int(stringTag), rawValue); err != nil {
 		return fmt.Errorf("invalid DirectoryString: %w", err)
 	}
 	return nil

@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"testing"
 
-	nameprojector "github.com/cavoq/PCL/internal/zcrypto"
+	"github.com/cavoq/PCL/internal/x509node"
 	"golang.org/x/crypto/cryptobyte"
 	cryptobyte_asn1 "golang.org/x/crypto/cryptobyte/asn1"
 )
@@ -49,7 +49,7 @@ func TestBuildParsedGeneralNamePreservesScalarAndEncodingMetadata(t *testing.T) 
 		RawDER:   append([]byte{0x82, byte(len(rawValue))}, rawValue...),
 		RawValue: rawValue,
 	}
-	built := nameprojector.BuildGeneralName("0", parsed)
+	built := x509node.BuildGeneralName("0", parsed)
 
 	if got, ok := built.Value.(string); !ok || got != string(rawValue) {
 		t.Fatalf("scalar value = %#v, want exact raw string %q", built.Value, string(rawValue))
@@ -71,7 +71,7 @@ func TestBuildParsedEDIPartyNameProjectsValidatedDirectoryStrings(t *testing.T) 
 	if err != nil {
 		t.Fatalf("parse ediPartyName: %v", err)
 	}
-	built := nameprojector.BuildGeneralName("0", parsed[0])
+	built := x509node.BuildGeneralName("0", parsed[0])
 	for child, want := range map[string]string{
 		"nameAssigner": "Earth",
 		"partyName":    "Party",

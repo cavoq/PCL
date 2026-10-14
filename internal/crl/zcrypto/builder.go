@@ -7,10 +7,10 @@ import (
 	"github.com/zmap/zcrypto/x509"
 	"github.com/zmap/zcrypto/x509/pkix"
 
-	internalasn1 "github.com/cavoq/PCL/internal/asn1"
 	"github.com/cavoq/PCL/internal/node"
 	"github.com/cavoq/PCL/internal/oid"
-	"github.com/cavoq/PCL/internal/zcrypto"
+	"github.com/cavoq/PCL/internal/x509asn1"
+	"github.com/cavoq/PCL/internal/x509node"
 )
 
 type CRLBuilder struct{}
@@ -30,7 +30,7 @@ func BuildTree(crl *x509.RevocationList) *node.Node {
 func buildCRL(crl *x509.RevocationList) *node.Node {
 	root := node.New("crl", nil)
 
-	root.Children["issuer"] = zcrypto.BuildName("issuer", crl.RawIssuer, crl.Issuer)
+	root.Children["issuer"] = x509node.BuildName("issuer", crl.RawIssuer, crl.Issuer)
 	root.Children["thisUpdate"] = node.New("thisUpdate", crl.ThisUpdate)
 	if !crl.NextUpdate.IsZero() {
 		root.Children["nextUpdate"] = node.New("nextUpdate", crl.NextUpdate)
@@ -43,7 +43,7 @@ func buildCRL(crl *x509.RevocationList) *node.Node {
 	}
 
 	if len(crl.Extensions) > 0 {
-		root.Children["extensions"] = zcrypto.BuildExtensions(crl.Extensions)
+		root.Children["extensions"] = x509node.BuildExtensions(crl.Extensions)
 		projectCRLExtensions(root, crl.Extensions)
 	} else {
 		// Preserve compatibility for manually constructed values that contain
@@ -123,13 +123,13 @@ func graftProjection(extension, projected *node.Node) {
 }
 
 func buildSignatureAlgorithm(crl *x509.RevocationList) *node.Node {
-	params := internalasn1.ParseSignedObjectAlgorithmParams(crl.Raw)
-	return zcrypto.BuildAlgorithmIdentifier("signatureAlgorithm", crl.SignatureAlgorithm.String(), params)
+	params := x509asn1.ParseSignedObjectAlgorithmParams(crl.Raw)
+	return x509node.BuildAlgorithmIdentifier("signatureAlgorithm", crl.SignatureAlgorithm.String(), params)
 }
 
 func buildTBSSignatureAlgorithm(crl *x509.RevocationList) *node.Node {
 	params := parseTBSCRLSignatureParams(crl.RawTBSRevocationList)
-	return zcrypto.BuildAlgorithmIdentifier("tbsSignatureAlgorithm", crl.SignatureAlgorithm.String(), params)
+	return x509node.BuildAlgorithmIdentifier("tbsSignatureAlgorithm", crl.SignatureAlgorithm.String(), params)
 }
 
 func buildRevokedCertificates(revoked []x509.RevokedCertificate) *node.Node {
@@ -146,7 +146,7 @@ func buildRevokedCertificates(revoked []x509.RevokedCertificate) *node.Node {
 		rcNode.Children["revocationDate"] = node.New("revocationDate", rc.RevocationTime)
 
 		if len(rc.Extensions) > 0 {
-			extsNode := zcrypto.BuildExtensions(rc.Extensions)
+			extsNode := x509node.BuildExtensions(rc.Extensions)
 			seen := make(map[string]struct{}, len(rc.Extensions))
 			for _, extension := range rc.Extensions {
 				identifier := extension.Id.String()

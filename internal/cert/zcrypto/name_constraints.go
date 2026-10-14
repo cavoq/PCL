@@ -7,7 +7,7 @@ import (
 
 	"github.com/cavoq/PCL/internal/node"
 	"github.com/cavoq/PCL/internal/x509ext"
-	nameprojector "github.com/cavoq/PCL/internal/zcrypto"
+	"github.com/cavoq/PCL/internal/x509node"
 	"golang.org/x/crypto/cryptobyte"
 	cryptobyte_asn1 "golang.org/x/crypto/cryptobyte/asn1"
 )
@@ -289,9 +289,9 @@ func projectGeneralSubtrees(name string, decoded []decodedGeneralSubtree) *node.
 
 func projectGeneralSubtree(name string, decoded decodedGeneralSubtree) *node.Node {
 	base := buildNameConstraintGeneralName("base", decoded.Base)
-	n := node.New(name, nameprojector.CloneScalar(base.Value))
+	n := node.New(name, x509node.CloneScalar(base.Value))
 	n.Children["base"] = base
-	n.Children["value"] = node.New("value", nameprojector.CloneScalar(base.Value))
+	n.Children["value"] = node.New("value", x509node.CloneScalar(base.Value))
 	n.Children["type"] = node.New("type", generalNameType(decoded.Base.Tag))
 	n.Children["tag"] = node.New("tag", decoded.Base.Tag)
 	n.Children["raw"] = node.New("raw", append([]byte(nil), decoded.RawDER...))
@@ -339,7 +339,7 @@ func integerFactNode(
 }
 
 func buildNameConstraintGeneralName(name string, parsed parsedGeneralName) *node.Node {
-	n := nameprojector.BuildGeneralName(name, parsed)
+	n := x509node.BuildGeneralName(name, parsed)
 	if parsed.Tag != 7 {
 		return n
 	}

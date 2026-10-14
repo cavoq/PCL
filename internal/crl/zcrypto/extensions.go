@@ -5,8 +5,8 @@ import (
 	"math/big"
 	"time"
 
-	internalasn1 "github.com/cavoq/PCL/internal/asn1"
 	"github.com/cavoq/PCL/internal/oid"
+	"github.com/cavoq/PCL/internal/x509asn1"
 	"github.com/cavoq/PCL/internal/x509ext"
 	"github.com/zmap/zcrypto/x509"
 	"github.com/zmap/zcrypto/x509/pkix"
@@ -79,7 +79,7 @@ type InvalidityDateExtensionFacts struct {
 	Critical bool
 	RawDER   []byte
 	Value    time.Time
-	Encoding internalasn1.TimeEncoding
+	Encoding x509asn1.TimeEncoding
 }
 
 type CertificateIssuerExtensionFacts struct {
@@ -410,7 +410,7 @@ func validCRLReason(value int) bool {
 func decodeInvalidityDateExtension(
 	extension pkix.Extension,
 ) (*InvalidityDateExtensionFacts, error) {
-	encoding, err := internalasn1.ParseGeneralizedTime(extension.Value)
+	encoding, err := x509asn1.ParseGeneralizedTime(extension.Value)
 	if err != nil || !encoding.HasSeconds || encoding.HasFraction || !encoding.HasZulu {
 		return nil, fmt.Errorf("invalid invalidityDate GeneralizedTime")
 	}

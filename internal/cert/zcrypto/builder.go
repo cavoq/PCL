@@ -15,10 +15,10 @@ import (
 	"github.com/zmap/zcrypto/x509/ct"
 	"github.com/zmap/zcrypto/x509/pkix"
 
-	internalasn1 "github.com/cavoq/PCL/internal/asn1"
 	"github.com/cavoq/PCL/internal/node"
 	"github.com/cavoq/PCL/internal/oid"
-	"github.com/cavoq/PCL/internal/zcrypto"
+	"github.com/cavoq/PCL/internal/x509asn1"
+	"github.com/cavoq/PCL/internal/x509node"
 )
 
 type ZCryptoBuilder struct{}
@@ -60,9 +60,9 @@ func buildCertificate(cert *x509.Certificate) *node.Node {
 
 	root.Children["signatureAlgorithm"] = buildSignatureAlgorithm(cert)
 	root.Children["tbsSignatureAlgorithm"] = buildTBSSignatureAlgorithm(cert)
-	root.Children["issuer"] = zcrypto.BuildName("issuer", cert.RawIssuer, cert.Issuer)
+	root.Children["issuer"] = x509node.BuildName("issuer", cert.RawIssuer, cert.Issuer)
 	root.Children["validity"] = buildValidity(cert, metadata)
-	root.Children["subject"] = zcrypto.BuildName("subject", cert.RawSubject, cert.Subject)
+	root.Children["subject"] = x509node.BuildName("subject", cert.RawSubject, cert.Subject)
 	root.Children["subjectPublicKeyInfo"] = buildSubjectPublicKeyInfo(cert)
 
 	if metadata != nil {
@@ -72,7 +72,7 @@ func buildCertificate(cert *x509.Certificate) *node.Node {
 
 	parsedExtensions := map[string]*node.Node{}
 	if len(cert.Extensions) > 0 {
-		root.Children["extensions"] = zcrypto.BuildExtensions(cert.Extensions)
+		root.Children["extensions"] = x509node.BuildExtensions(cert.Extensions)
 		parsedExtensions = parseCertificateExtensions(root.Children["extensions"], cert.Extensions)
 	}
 
@@ -252,13 +252,13 @@ func mirrorGeneralNamesMalformed(extensions *node.Node, identifier string, proje
 }
 
 func buildSignatureAlgorithm(cert *x509.Certificate) *node.Node {
-	params := internalasn1.ParseSignedObjectAlgorithmParams(cert.Raw)
-	return zcrypto.BuildAlgorithmIdentifier("signatureAlgorithm", cert.SignatureAlgorithm.String(), params)
+	params := x509asn1.ParseSignedObjectAlgorithmParams(cert.Raw)
+	return x509node.BuildAlgorithmIdentifier("signatureAlgorithm", cert.SignatureAlgorithm.String(), params)
 }
 
 func buildTBSSignatureAlgorithm(cert *x509.Certificate) *node.Node {
 	params := parseTBSCertSignatureParams(cert.RawTBSCertificate)
-	return zcrypto.BuildAlgorithmIdentifier("tbsSignatureAlgorithm", cert.SignatureAlgorithm.String(), params)
+	return x509node.BuildAlgorithmIdentifier("tbsSignatureAlgorithm", cert.SignatureAlgorithm.String(), params)
 }
 
 func projectTBSCertificateMetadata(root *node.Node, rawTBSCertificate []byte) *tbsCertificateMetadata {
@@ -294,7 +294,7 @@ func buildValidity(cert *x509.Certificate, metadata *tbsCertificateMetadata) *no
 	return n
 }
 
-func addTimeEncoding(target *node.Node, encoding internalasn1.TimeEncoding) {
+func addTimeEncoding(target *node.Node, encoding x509asn1.TimeEncoding) {
 	target.Children["encoding"] = node.New("encoding", encoding.Tag)
 	target.Children["raw"] = node.New("raw", append([]byte(nil), encoding.RawDER...))
 	target.Children["rawValue"] = node.New("rawValue", encoding.RawValue)
@@ -321,7 +321,7 @@ func buildSubjectPublicKeyInfo(cert *x509.Certificate) *node.Node {
 	n := node.New("subjectPublicKeyInfo", nil)
 
 	params := parseSubjectPublicKeyInfoParams(cert.RawSubjectPublicKeyInfo)
-	algo := zcrypto.BuildAlgorithmIdentifier("algorithm", cert.PublicKeyAlgorithm.String(), params)
+	algo := x509node.BuildAlgorithmIdentifier("algorithm", cert.PublicKeyAlgorithm.String(), params)
 	n.Children["algorithm"] = algo
 
 	if cert.PublicKey != nil {
@@ -548,7 +548,7 @@ func buildNameConstraintSubtrees(
 		return node.New("value", subtree.Data.String()), subtree.Min, subtree.Max
 	})
 	buildGeneralSubtrees(n, "directoryName", directoryNames, func(subtree x509.GeneralSubtreeName) (*node.Node, int, int) {
-		return zcrypto.BuildPkixName("value", subtree.Data), subtree.Min, subtree.Max
+		return x509node.BuildPkixName("value", subtree.Data), subtree.Min, subtree.Max
 	})
 	if len(n.Children) == 0 {
 		return nil

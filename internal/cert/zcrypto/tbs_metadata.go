@@ -6,7 +6,7 @@ import (
 	"golang.org/x/crypto/cryptobyte"
 	cryptobyte_asn1 "golang.org/x/crypto/cryptobyte/asn1"
 
-	internalasn1 "github.com/cavoq/PCL/internal/asn1"
+	"github.com/cavoq/PCL/internal/x509asn1"
 )
 
 type tbsCertificateMetadata struct {
@@ -22,8 +22,8 @@ type integerMetadata struct {
 }
 
 type validityMetadata struct {
-	NotBefore internalasn1.TimeEncoding
-	NotAfter  internalasn1.TimeEncoding
+	NotBefore x509asn1.TimeEncoding
+	NotAfter  x509asn1.TimeEncoding
 }
 
 type uniqueIdentifierMetadata struct {
@@ -141,27 +141,27 @@ func parseValidityMetadata(validity cryptobyte.String) (validityMetadata, error)
 	return validityMetadata{NotBefore: notBefore, NotAfter: notAfter}, nil
 }
 
-func readValidityTime(validity *cryptobyte.String, field string) (internalasn1.TimeEncoding, error) {
+func readValidityTime(validity *cryptobyte.String, field string) (x509asn1.TimeEncoding, error) {
 	var der cryptobyte.String
 	var tag cryptobyte_asn1.Tag
 	if !validity.ReadAnyASN1Element(&der, &tag) {
-		return internalasn1.TimeEncoding{}, fmt.Errorf("failed to read %s", field)
+		return x509asn1.TimeEncoding{}, fmt.Errorf("failed to read %s", field)
 	}
 
 	var (
-		info *internalasn1.TimeEncoding
+		info *x509asn1.TimeEncoding
 		err  error
 	)
 	switch tag {
 	case cryptobyte_asn1.UTCTime:
-		info, err = internalasn1.ParseUTCTime(der)
+		info, err = x509asn1.ParseUTCTime(der)
 	case cryptobyte_asn1.GeneralizedTime:
-		info, err = internalasn1.ParseGeneralizedTime(der)
+		info, err = x509asn1.ParseGeneralizedTime(der)
 	default:
-		return internalasn1.TimeEncoding{}, fmt.Errorf("unsupported %s tag %d", field, tag)
+		return x509asn1.TimeEncoding{}, fmt.Errorf("unsupported %s tag %d", field, tag)
 	}
 	if err != nil {
-		return internalasn1.TimeEncoding{}, fmt.Errorf("parse %s: %w", field, err)
+		return x509asn1.TimeEncoding{}, fmt.Errorf("parse %s: %w", field, err)
 	}
 	return *info, nil
 }

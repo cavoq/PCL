@@ -6,7 +6,7 @@ import (
 	"github.com/cavoq/PCL/internal/cert"
 	certzcrypto "github.com/cavoq/PCL/internal/cert/zcrypto"
 	"github.com/cavoq/PCL/internal/node"
-	sharedzcrypto "github.com/cavoq/PCL/internal/zcrypto"
+	"github.com/cavoq/PCL/internal/x509node"
 	zasn1 "github.com/zmap/zcrypto/encoding/asn1"
 	"github.com/zmap/zcrypto/x509"
 	"github.com/zmap/zcrypto/x509/pkix"
@@ -86,7 +86,7 @@ func TestSerialNumberUniqueNilContext(t *testing.T) {
 func TestNoUnknownCriticalExtensionsUsesProcessedRegistry(t *testing.T) {
 	buildTarget := func(name string, objectID zasn1.ObjectIdentifier, malformed bool) *node.Node {
 		target := node.New(name, nil)
-		target.Children["extensions"] = sharedzcrypto.BuildExtensions([]pkix.Extension{{
+		target.Children["extensions"] = x509node.BuildExtensions([]pkix.Extension{{
 			Id:       objectID,
 			Critical: true,
 		}})
@@ -158,7 +158,7 @@ func TestNoUnknownCriticalExtensionsUsesProcessedRegistry(t *testing.T) {
 
 	t.Run("duplicate extension OID fails before criticality lookup", func(t *testing.T) {
 		target := node.New("certificate", nil)
-		target.Children["extensions"] = sharedzcrypto.BuildExtensions([]pkix.Extension{
+		target.Children["extensions"] = x509node.BuildExtensions([]pkix.Extension{
 			{Id: zasn1.ObjectIdentifier{2, 5, 29, 15}, Critical: false},
 			{Id: zasn1.ObjectIdentifier{2, 5, 29, 15}, Critical: true},
 		})
@@ -175,7 +175,7 @@ func TestNoUnknownCriticalExtensionsUsesProcessedRegistry(t *testing.T) {
 		target := node.New("crl", nil)
 		revoked := node.New("revokedCertificates", nil)
 		entry := node.New("0", nil)
-		entry.Children["extensions"] = sharedzcrypto.BuildExtensions([]pkix.Extension{{
+		entry.Children["extensions"] = x509node.BuildExtensions([]pkix.Extension{{
 			Id:       zasn1.ObjectIdentifier{2, 5, 29, 21},
 			Critical: true,
 		}})
@@ -195,7 +195,7 @@ func TestNoUnknownCriticalExtensionsUsesProcessedRegistry(t *testing.T) {
 		target := node.New("crl", nil)
 		revoked := node.New("revokedCertificates", nil)
 		entry := node.New("0", nil)
-		entry.Children["extensions"] = sharedzcrypto.BuildExtensions([]pkix.Extension{{
+		entry.Children["extensions"] = x509node.BuildExtensions([]pkix.Extension{{
 			Id: zasn1.ObjectIdentifier{2, 5, 29, 21},
 		}})
 		revoked.Children["0"] = entry

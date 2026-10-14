@@ -1,4 +1,4 @@
-package zcrypto
+package x509node
 
 import (
 	"reflect"

@@ -1,5 +1,5 @@
-// Package io provides filesystem walker utilities.
-package io
+// Package fsutil provides filesystem walker utilities.
+package fsutil
 
 import (
 	"fmt"

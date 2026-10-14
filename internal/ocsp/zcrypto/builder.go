@@ -8,7 +8,7 @@ import (
 	"golang.org/x/crypto/ocsp"
 
 	"github.com/cavoq/PCL/internal/node"
-	sharedzcrypto "github.com/cavoq/PCL/internal/zcrypto"
+	"github.com/cavoq/PCL/internal/x509node"
 )
 
 type OCSPBuilder struct{}
@@ -52,10 +52,10 @@ func buildOCSP(resp *ocsp.Response) *node.Node {
 	// Signature algorithm (from BasicOCSPResponse)
 	// OCSP has only one signatureAlgorithm field, not separate TBS and outer like certificates/CRLs
 	params := ParseOCSPSignatureAlgorithmParams(resp.Raw)
-	root.Children["signatureAlgorithm"] = sharedzcrypto.BuildAlgorithmIdentifier("signatureAlgorithm", resp.SignatureAlgorithm.String(), params)
+	root.Children["signatureAlgorithm"] = x509node.BuildAlgorithmIdentifier("signatureAlgorithm", resp.SignatureAlgorithm.String(), params)
 	// For consistency with cert/CRL tree structure, we also create tbsSignatureAlgorithm
 	// pointing to the same signature algorithm
-	root.Children["tbsSignatureAlgorithm"] = sharedzcrypto.BuildAlgorithmIdentifier("tbsSignatureAlgorithm", resp.SignatureAlgorithm.String(), params)
+	root.Children["tbsSignatureAlgorithm"] = x509node.BuildAlgorithmIdentifier("tbsSignatureAlgorithm", resp.SignatureAlgorithm.String(), params)
 
 	// Responder ID
 	root.Children["responderID"] = buildResponderID(resp)
@@ -65,7 +65,7 @@ func buildOCSP(resp *ocsp.Response) *node.Node {
 
 	// Extensions
 	if len(resp.Extensions) > 0 {
-		root.Children["extensions"] = sharedzcrypto.BuildStandardExtensions(resp.Extensions)
+		root.Children["extensions"] = x509node.BuildStandardExtensions(resp.Extensions)
 	}
 
 	// Nonce extension (RFC 9654)

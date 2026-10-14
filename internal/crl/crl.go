@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/cavoq/PCL/internal/cert"
-	fileio "github.com/cavoq/PCL/internal/io"
+	"github.com/cavoq/PCL/internal/fsutil"
 	"github.com/cavoq/PCL/internal/source"
 	"github.com/zmap/zcrypto/x509"
 )
@@ -55,7 +55,7 @@ func parseCRL(data []byte) (*x509.RevocationList, source.Format, error) {
 }
 
 func GetCRLFiles(path string) ([]string, error) {
-	return fileio.GetFilesWithExtensions(path, extensions...)
+	return fsutil.GetFilesWithExtensions(path, extensions...)
 }
 
 func GetCRLs(path string) ([]*Info, error) {

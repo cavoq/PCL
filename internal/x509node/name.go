@@ -1,4 +1,4 @@
-package zcrypto
+package x509node
 
 import (
 	"encoding/hex"
@@ -7,9 +7,9 @@ import (
 
 	zpkix "github.com/zmap/zcrypto/x509/pkix"
 
-	internalasn1 "github.com/cavoq/PCL/internal/asn1"
 	"github.com/cavoq/PCL/internal/node"
 	"github.com/cavoq/PCL/internal/oid"
+	"github.com/cavoq/PCL/internal/x509asn1"
 )
 
 // BuildName projects the exact DER Name when it is available. The parsed
@@ -20,7 +20,7 @@ func BuildName(name string, rawDER []byte, fallback zpkix.Name) *node.Node {
 		return BuildPkixName(name, fallback)
 	}
 
-	parsed, err := internalasn1.ParseDistinguishedNameStrict(rawDER)
+	parsed, err := x509asn1.ParseDistinguishedNameStrict(rawDER)
 	if err != nil {
 		malformed := node.New(name, fallback.String())
 		malformed.Children["raw"] = node.New("raw", append([]byte(nil), rawDER...))
@@ -35,7 +35,7 @@ func BuildName(name string, rawDER []byte, fallback zpkix.Name) *node.Node {
 // as a directoryName GeneralName. Its display value is derived only for legacy
 // scalar consumers; canonical consumers use rdns and attribute collections.
 func BuildRawName(name string, rawDER []byte) *node.Node {
-	parsed, err := internalasn1.ParseDistinguishedNameStrict(rawDER)
+	parsed, err := x509asn1.ParseDistinguishedNameStrict(rawDER)
 	if err != nil {
 		malformed := node.New(name, "")
 		malformed.Children["raw"] = node.New("raw", append([]byte(nil), rawDER...))
@@ -49,11 +49,11 @@ func BuildRawName(name string, rawDER []byte) *node.Node {
 // raw Name DER. It preserves RDN grouping and every value exposed by pkix, but
 // correctly reports that their original encodings and raw bytes are unknown.
 func BuildPkixName(name string, pkixName zpkix.Name) *node.Node {
-	parsed := internalasn1.DistinguishedName{}
+	parsed := x509asn1.DistinguishedName{}
 	for _, sourceRDN := range pkixName.ToRDNSequence() {
-		rdn := internalasn1.RelativeDistinguishedName{}
+		rdn := x509asn1.RelativeDistinguishedName{}
 		for _, sourceAttribute := range sourceRDN {
-			rdn.Attributes = append(rdn.Attributes, internalasn1.NameAttribute{
+			rdn.Attributes = append(rdn.Attributes, x509asn1.NameAttribute{
 				OID:      sourceAttribute.Type.String(),
 				Encoding: "unknown",
 				Value:    fmt.Sprint(sourceAttribute.Value),
@@ -92,13 +92,13 @@ func valuesExceptOne(values []string, excluded string) []string {
 }
 
 func appendSyntheticNameAttributes(
-	name *internalasn1.DistinguishedName,
+	name *x509asn1.DistinguishedName,
 	identifier string,
 	values []string,
 ) {
 	for _, value := range values {
-		name.RDNs = append(name.RDNs, internalasn1.RelativeDistinguishedName{
-			Attributes: []internalasn1.NameAttribute{{
+		name.RDNs = append(name.RDNs, x509asn1.RelativeDistinguishedName{
+			Attributes: []x509asn1.NameAttribute{{
 				OID:      identifier,
 				Encoding: "unknown",
 				Value:    value,
@@ -108,7 +108,7 @@ func appendSyntheticNameAttributes(
 }
 
 func appendSyntheticParsedAttributes(
-	name *internalasn1.DistinguishedName,
+	name *x509asn1.DistinguishedName,
 	attributes []zpkix.AttributeTypeAndValue,
 ) {
 	existing := make(map[string]int)
@@ -134,7 +134,7 @@ func syntheticAttributeKey(identifier, value string) string {
 	return identifier + "\x00" + value
 }
 
-func distinguishedNameDisplay(parsed internalasn1.DistinguishedName) string {
+func distinguishedNameDisplay(parsed x509asn1.DistinguishedName) string {
 	rdns := make([]string, 0, len(parsed.RDNs))
 	for _, rdn := range parsed.RDNs {
 		attributes := make([]string, 0, len(rdn.Attributes))
@@ -157,7 +157,7 @@ func distinguishedNameDisplay(parsed internalasn1.DistinguishedName) string {
 func buildDistinguishedNameNode(
 	name string,
 	displayValue string,
-	parsed internalasn1.DistinguishedName,
+	parsed x509asn1.DistinguishedName,
 ) *node.Node {
 	result := node.New(name, displayValue)
 	if parsed.RawDER != nil {
@@ -207,7 +207,7 @@ func buildDistinguishedNameNode(
 	return result
 }
 
-func buildNameAttributeNode(index int, parsed internalasn1.NameAttribute) *node.Node {
+func buildNameAttributeNode(index int, parsed x509asn1.NameAttribute) *node.Node {
 	value := any(parsed.Value)
 	if parsed.Encoding == "unknown" && parsed.RawDER != nil {
 		value = append([]byte(nil), parsed.RawValue...)

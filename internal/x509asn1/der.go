@@ -1,5 +1,5 @@
-// Package asn1 provides DER encoding/decoding helpers for X.509 ASN.1 structures.
-package asn1
+// Package x509asn1 provides DER encoding/decoding helpers for X.509 ASN.1 structures.
+package x509asn1
 
 import (
 	stdasn1 "encoding/asn1"

@@ -11,7 +11,7 @@ import (
 	xocsp "golang.org/x/crypto/ocsp"
 
 	ocspzcrypto "github.com/cavoq/PCL/internal/ocsp/zcrypto"
-	sharedzcrypto "github.com/cavoq/PCL/internal/zcrypto"
+	"github.com/cavoq/PCL/internal/x509node"
 )
 
 // Status is the accepted revocation state for a certificate. NotApplicable
@@ -155,7 +155,7 @@ func matchingIssuer(response *xocsp.Response, candidates []*x509.Certificate) *s
 	}
 
 	for _, candidate := range candidates {
-		standard, err := sharedzcrypto.ToStdCert(candidate)
+		standard, err := x509node.ToStdCert(candidate)
 		if err != nil || standard == nil {
 			continue
 		}
