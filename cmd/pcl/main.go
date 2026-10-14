@@ -19,6 +19,7 @@ func newRootCmd(opts *linter.Config) *cobra.Command {
 		Short:   "Policy-based X.509 certificate linter",
 		Version: version,
 		PreRunE: func(cmd *cobra.Command, args []string) error {
+			data.DefaultLoader.SetDataDir(opts.DataDir)
 			// Load PSL if specified or if file exists in default location
 			if opts.PSLFile != "" || opts.UsePSL {
 				if err := data.DefaultLoader.LoadPSL(opts.PSLFile); err != nil {

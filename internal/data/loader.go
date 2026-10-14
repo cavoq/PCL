@@ -75,6 +75,17 @@ func getDefaultDataDir() string {
 	return ""
 }
 
+// SetDataDir overrides the directory searched for data files. An empty
+// directory keeps the default lookup result.
+func (l *Loader) SetDataDir(dir string) {
+	if dir == "" {
+		return
+	}
+	l.pslMutex.Lock()
+	defer l.pslMutex.Unlock()
+	l.dataDir = dir
+}
+
 // LoadPSL loads the Public Suffix List from file.
 // If file doesn't exist, returns error (caller should handle fallback).
 func (l *Loader) LoadPSL(filename string) error {

@@ -147,6 +147,28 @@ co.uk
 	}
 }
 
+func TestSetDataDirIsUsedForDefaultPSLPath(t *testing.T) {
+	tmpDir := t.TempDir()
+	content := "// ===BEGIN ICANN DOMAINS===\ncom\n// ===END ICANN DOMAINS===\n"
+	if err := os.WriteFile(filepath.Join(tmpDir, "public_suffix_list.dat"), []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	loader := &Loader{}
+	loader.SetDataDir(tmpDir)
+	if err := loader.LoadPSL(""); err != nil {
+		t.Fatalf("LoadPSL from data dir: %v", err)
+	}
+	if !loader.IsPublicSuffix("com") {
+		t.Error("PSL from configured data dir was not loaded")
+	}
+
+	loader.SetDataDir("")
+	if loader.dataDir != tmpDir {
+		t.Errorf("SetDataDir(\"\") changed dataDir to %q", loader.dataDir)
+	}
+}
+
 func TestLoaderWithoutPSL(t *testing.T) {
 	loader := &Loader{dataDir: ""}
 
