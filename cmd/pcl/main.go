@@ -12,7 +12,7 @@ import (
 	"github.com/cavoq/PCL/internal/output"
 )
 
-var version = "4.0.0"
+var version = "5.0.0"
 
 func newRootCmd(opts *linter.Config) *cobra.Command {
 	root := &cobra.Command{

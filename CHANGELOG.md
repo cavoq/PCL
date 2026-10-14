@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.0.0] - 2026-10-14
+
 ### Breaking Changes
 - ReasonFlags nodes share one shape in certificate and CRL trees
   (`cRLDistributionPoints` and `freshestCRL` `reasons`,
@@ -17,6 +19,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `in`, `notIn` and `contains` compare strictly: values of different kinds
   no longer match by their string form (`1` and `"1"`, `true` and `"true"`).
   Numbers of different Go types still compare numerically.
+
+### Added
+- BSI TR-03116 TLS server certificate profile
+  (`policies/TR03116-TLS-SERVER.yaml`) with a coverage matrix for checks that
+  need evidence outside a standalone certificate.
+- `notRevokedByAvailableEvidence` operator combining the CRL and OCSP
+  assessments: revoked evidence wins, otherwise at least one mechanism must
+  establish good status.
 
 ### Changed
 - Paths inside `every` and `dateDiff` operands resolve with the same rules as
@@ -217,7 +227,8 @@ Review any policies using `isNull` or absent-field checks against the updated no
 
 - See git history for earlier changes
 
-[Unreleased]: https://github.com/cavoq/PCL/compare/v4.0.0...HEAD
+[Unreleased]: https://github.com/cavoq/PCL/compare/v5.0.0...HEAD
+[5.0.0]: https://github.com/cavoq/PCL/compare/v4.0.0...v5.0.0
 [4.0.0]: https://github.com/cavoq/PCL/compare/v3.0.0...v4.0.0
 [3.0.0]: https://github.com/cavoq/PCL/compare/v2.1.0...v3.0.0
 [2.1.0]: https://github.com/cavoq/PCL/compare/v2.0.0...v2.1.0
