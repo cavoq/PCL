@@ -2,8 +2,6 @@ package crl
 
 import (
 	"encoding/pem"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
@@ -12,6 +10,7 @@ import (
 	"github.com/zmap/zcrypto/x509"
 
 	"github.com/cavoq/PCL/internal/source"
+	"github.com/cavoq/PCL/internal/testpki"
 )
 
 func parseCRLFile(t *testing.T, path string) (*x509.RevocationList, error) {
@@ -141,7 +140,7 @@ func TestGetCRLs_NoValidCRLs(t *testing.T) {
 	}
 }
 
-func TestFetchCRL_DER(t *testing.T) {
+func TestFetchCRL(t *testing.T) {
 	data, err := os.ReadFile(filepath.Join("testdata", "test.crl"))
 	if err != nil {
 		t.Fatal(err)
@@ -151,57 +150,34 @@ func TestFetchCRL_DER(t *testing.T) {
 		t.Fatal("expected X509 CRL PEM fixture")
 	}
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write(block.Bytes)
-	}))
-	defer server.Close()
-
-	result, err := FetchCRL(server.URL, time.Second)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if result.CRL == nil {
-		t.Fatal("expected CRL, got nil")
-	}
-	if result.Format != source.FormatDER {
-		t.Fatalf("expected DER format, got %q", result.Format)
-	}
-	if result.Source.Type != source.Downloaded {
-		t.Fatalf("expected downloaded source, got %q", result.Source.Type)
-	}
-	if result.Source.URL != server.URL {
-		t.Fatalf("expected URL %q, got %q", server.URL, result.Source.URL)
-	}
-	if result.FilePath != server.URL {
-		t.Fatalf("expected file path %q, got %q", server.URL, result.FilePath)
-	}
-	if result.Hash == "" {
-		t.Fatal("expected non-empty hash")
-	}
-}
-
-func TestFetchCRL_PEM(t *testing.T) {
-	data, err := os.ReadFile(filepath.Join("testdata", "test.pem"))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write(data)
-	}))
-	defer server.Close()
-
-	result, err := FetchCRL(server.URL, time.Second)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if result.CRL == nil {
-		t.Fatal("expected CRL, got nil")
-	}
-	if result.Format != source.FormatPEM {
-		t.Fatalf("expected PEM format, got %q", result.Format)
-	}
-	if result.Source.Type != source.Downloaded {
-		t.Fatalf("expected downloaded source, got %q", result.Source.Type)
+	for _, tt := range []struct {
+		body   []byte
+		format source.Format
+	}{
+		{block.Bytes, source.FormatDER},
+		{data, source.FormatPEM},
+	} {
+		t.Run(string(tt.format), func(t *testing.T) {
+			url := testpki.Serve(t, tt.body)
+			result, err := FetchCRL(url, time.Second)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if result.CRL == nil {
+				t.Fatal("expected CRL, got nil")
+			}
+			if result.Format != tt.format {
+				t.Fatalf("format = %q, want %q", result.Format, tt.format)
+			}
+			if result.Source.Type != source.Downloaded {
+				t.Fatalf("expected downloaded source, got %q", result.Source.Type)
+			}
+			if result.Source.URL != url || result.FilePath != url {
+				t.Fatalf("source URL = %q, file path = %q, want %q", result.Source.URL, result.FilePath, url)
+			}
+			if result.Hash == "" {
+				t.Fatal("expected non-empty hash")
+			}
+		})
 	}
 }

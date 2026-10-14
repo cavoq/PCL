@@ -1,58 +1,16 @@
 package aia
 
 import (
-	"crypto/rand"
-	"crypto/rsa"
-	stdx509 "crypto/x509"
-	"crypto/x509/pkix"
-	"encoding/pem"
-	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
 	"github.com/cavoq/PCL/internal/source"
+	"github.com/cavoq/PCL/internal/testpki"
 	zx509 "github.com/zmap/zcrypto/x509"
 	zpkix "github.com/zmap/zcrypto/x509/pkix"
 )
-
-func TestParseIssuerResponseDER(t *testing.T) {
-	der := testCertificateDER(t, "Test DER CA")
-
-	certs, format, err := ParseIssuerResponse(der)
-	if err != nil {
-		t.Fatalf("ParseIssuerResponse returned error: %v", err)
-	}
-	if format != source.FormatDER {
-		t.Fatalf("format = %q, want %q", format, source.FormatDER)
-	}
-	if len(certs) != 1 {
-		t.Fatalf("got %d certs, want 1", len(certs))
-	}
-	if certs[0].Subject.CommonName != "Test DER CA" {
-		t.Fatalf("common name = %q, want %q", certs[0].Subject.CommonName, "Test DER CA")
-	}
-}
-
-func TestParseIssuerResponsePEM(t *testing.T) {
-	der := testCertificateDER(t, "Test PEM CA")
-	pemData := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
-
-	certs, format, err := ParseIssuerResponse(pemData)
-	if err != nil {
-		t.Fatalf("ParseIssuerResponse returned error: %v", err)
-	}
-	if format != source.FormatPEM {
-		t.Fatalf("format = %q, want %q", format, source.FormatPEM)
-	}
-	if len(certs) != 1 {
-		t.Fatalf("got %d certs, want 1", len(certs))
-	}
-	if certs[0].Subject.CommonName != "Test PEM CA" {
-		t.Fatalf("common name = %q, want %q", certs[0].Subject.CommonName, "Test PEM CA")
-	}
-}
 
 func TestBuildCertsOnlyPKCS7_rejectsEmptyDER(t *testing.T) {
 	if _, err := BuildCertsOnlyPKCS7([]byte{}); err == nil {
@@ -60,29 +18,42 @@ func TestBuildCertsOnlyPKCS7_rejectsEmptyDER(t *testing.T) {
 	}
 }
 
-func TestParseIssuerResponsePKCS7(t *testing.T) {
-	firstDER := testCertificateDER(t, "PKCS7 CA 1")
-	secondDER := testCertificateDER(t, "PKCS7 CA 2")
-
-	pkcs7DER, err := BuildCertsOnlyPKCS7(firstDER, secondDER)
+func TestParseIssuerResponse(t *testing.T) {
+	first := testCertificateDER(t, "CA 1")
+	second := testCertificateDER(t, "CA 2")
+	pkcs7DER, err := BuildCertsOnlyPKCS7(first, second)
 	if err != nil {
 		t.Fatalf("BuildCertsOnlyPKCS7: %v", err)
 	}
-	certs, format, err := ParseIssuerResponse(pkcs7DER)
-	if err != nil {
-		t.Fatalf("ParseIssuerResponse returned error: %v", err)
+
+	tests := []struct {
+		name   string
+		body   []byte
+		format source.Format
+		names  []string
+	}{
+		{"DER", first, source.FormatDER, []string{"CA 1"}},
+		{"PEM", testpki.PEM("CERTIFICATE", first), source.FormatPEM, []string{"CA 1"}},
+		{"PKCS7", pkcs7DER, source.FormatPKCS7, []string{"CA 1", "CA 2"}},
 	}
-	if format != source.FormatPKCS7 {
-		t.Fatalf("format = %q, want %q", format, source.FormatPKCS7)
-	}
-	if len(certs) != 2 {
-		t.Fatalf("got %d certs, want 2", len(certs))
-	}
-	if certs[0].Subject.CommonName != "PKCS7 CA 1" {
-		t.Fatalf("first common name = %q, want %q", certs[0].Subject.CommonName, "PKCS7 CA 1")
-	}
-	if certs[1].Subject.CommonName != "PKCS7 CA 2" {
-		t.Fatalf("second common name = %q, want %q", certs[1].Subject.CommonName, "PKCS7 CA 2")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			certs, format, err := ParseIssuerResponse(tt.body)
+			if err != nil {
+				t.Fatalf("ParseIssuerResponse returned error: %v", err)
+			}
+			if format != tt.format {
+				t.Fatalf("format = %q, want %q", format, tt.format)
+			}
+			if len(certs) != len(tt.names) {
+				t.Fatalf("got %d certs, want %d", len(certs), len(tt.names))
+			}
+			for index, name := range tt.names {
+				if certs[index].Subject.CommonName != name {
+					t.Fatalf("common name %d = %q, want %q", index, certs[index].Subject.CommonName, name)
+				}
+			}
+		})
 	}
 }
 
@@ -94,14 +65,9 @@ func TestParseIssuerResponseInvalid(t *testing.T) {
 }
 
 func TestFetchCAIssuer(t *testing.T) {
-	der := testCertificateDER(t, "Fetched CA")
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write(der)
-	}))
-	defer server.Close()
+	url := testpki.Serve(t, testCertificateDER(t, "Fetched CA"))
 
-	result, err := FetchCAIssuer(server.URL, time.Second)
+	result, err := FetchCAIssuer(url, time.Second)
 	if err != nil {
 		t.Fatalf("FetchCAIssuer returned error: %v", err)
 	}
@@ -114,8 +80,8 @@ func TestFetchCAIssuer(t *testing.T) {
 	if result.Source.Type != source.Downloaded {
 		t.Fatalf("source type = %q, want %q", result.Source.Type, source.Downloaded)
 	}
-	if result.Source.URL != server.URL {
-		t.Fatalf("source URL = %q, want %q", result.Source.URL, server.URL)
+	if result.Source.URL != url {
+		t.Fatalf("source URL = %q, want %q", result.Source.URL, url)
 	}
 	if result.Source.Format != source.FormatDER {
 		t.Fatalf("source format = %q, want %q", result.Source.Format, source.FormatDER)
@@ -143,12 +109,7 @@ func TestFetchCAIssuerErrors(t *testing.T) {
 	})
 
 	t.Run("invalid body", func(t *testing.T) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			_, _ = w.Write([]byte("not a certificate"))
-		}))
-		defer server.Close()
-
-		_, err := FetchCAIssuer(server.URL, time.Second)
+		_, err := FetchCAIssuer(testpki.Serve(t, []byte("not a certificate")), time.Second)
 		if err == nil {
 			t.Fatal("expected invalid body to fail")
 		}
@@ -156,18 +117,13 @@ func TestFetchCAIssuerErrors(t *testing.T) {
 }
 
 func TestFetchCAIssuersCollectsResultsAndErrors(t *testing.T) {
-	der := testCertificateDER(t, "Fetched CA")
-	goodServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write(der)
-	}))
-	defer goodServer.Close()
-
+	goodURL := testpki.Serve(t, testCertificateDER(t, "Fetched CA"))
 	badServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "missing", http.StatusNotFound)
 	}))
 	defer badServer.Close()
 
-	results, errs := FetchCAIssuers([]string{goodServer.URL, badServer.URL}, time.Second)
+	results, errs := FetchCAIssuers([]string{goodURL, badServer.URL}, time.Second)
 	if len(results) != 1 {
 		t.Fatalf("got %d results, want 1", len(results))
 	}
@@ -245,27 +201,5 @@ func TestSelectIssuer(t *testing.T) {
 
 func testCertificateDER(t *testing.T, commonName string) []byte {
 	t.Helper()
-
-	key, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		t.Fatalf("failed to generate key: %v", err)
-	}
-
-	template := &stdx509.Certificate{
-		SerialNumber: big.NewInt(1),
-		Subject: pkix.Name{
-			CommonName: commonName,
-		},
-		NotBefore:             time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
-		NotAfter:              time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC),
-		KeyUsage:              stdx509.KeyUsageCertSign,
-		BasicConstraintsValid: true,
-		IsCA:                  true,
-	}
-
-	der, err := stdx509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
-	if err != nil {
-		t.Fatalf("failed to create certificate: %v", err)
-	}
-	return der
+	return testpki.Issue(t, commonName, nil, testpki.CA()).DER
 }

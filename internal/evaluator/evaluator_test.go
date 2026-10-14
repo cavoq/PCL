@@ -1,13 +1,7 @@
 package evaluator
 
 import (
-	"crypto/rand"
-	"crypto/rsa"
-	cryptox509 "crypto/x509"
-	cryptopkix "crypto/x509/pkix"
 	"math/big"
-	"net/http"
-	"net/http/httptest"
 	"path/filepath"
 	"testing"
 	"time"
@@ -20,6 +14,7 @@ import (
 	"github.com/cavoq/PCL/internal/policy"
 	"github.com/cavoq/PCL/internal/rule"
 	"github.com/cavoq/PCL/internal/source"
+	"github.com/cavoq/PCL/internal/testpki"
 	"github.com/zmap/zcrypto/x509"
 	"github.com/zmap/zcrypto/x509/pkix"
 	stdocsp "golang.org/x/crypto/ocsp"
@@ -619,17 +614,12 @@ func TestCRL_bindsEachCurrentCRL(t *testing.T) {
 }
 
 func TestCRL_resolvesIssuerViaAIA(t *testing.T) {
-	parentDER, parent := testEvaluatorCRLCA(t)
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write(parentDER)
-	}))
-	defer server.Close()
-
+	parent := testpki.Issue(t, "CRL CA", nil, testpki.CA(), testpki.SubjectKeyID([]byte{0x01, 0x02}))
 	leaf := &x509.Certificate{
 		Subject:               pkix.Name{CommonName: "subscriber"},
-		Issuer:                parent.Subject,
+		Issuer:                parent.Cert.Subject,
 		SerialNumber:          big.NewInt(2),
-		IssuingCertificateURL: []string{server.URL},
+		IssuingCertificateURL: []string{testpki.Serve(t, parent.DER)},
 	}
 	revocationList := &x509.RevocationList{
 		Issuer:         pkix.Name{CommonName: "Different DN"},
@@ -649,32 +639,4 @@ func TestCRL_resolvesIssuerViaAIA(t *testing.T) {
 	if len(pool) < 2 {
 		t.Fatalf("issuerCertsForCRL() len = %d, want fetched signer", len(pool))
 	}
-}
-
-func testEvaluatorCRLCA(t *testing.T) ([]byte, *x509.Certificate) {
-	t.Helper()
-
-	key, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		t.Fatalf("generate key: %v", err)
-	}
-	template := &cryptox509.Certificate{
-		SerialNumber:          big.NewInt(1),
-		Subject:               cryptopkix.Name{CommonName: "CRL CA"},
-		NotBefore:             time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
-		NotAfter:              time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC),
-		KeyUsage:              cryptox509.KeyUsageCertSign | cryptox509.KeyUsageCRLSign,
-		BasicConstraintsValid: true,
-		IsCA:                  true,
-		SubjectKeyId:          []byte{0x01, 0x02},
-	}
-	der, err := cryptox509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
-	if err != nil {
-		t.Fatalf("create certificate: %v", err)
-	}
-	parsed, err := x509.ParseCertificate(der)
-	if err != nil {
-		t.Fatalf("parse certificate: %v", err)
-	}
-	return der, parsed
 }

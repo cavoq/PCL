@@ -1,14 +1,12 @@
 package crl
 
 import (
-	"crypto/rand"
-	"crypto/rsa"
 	cryptox509 "crypto/x509"
-	cryptopkix "crypto/x509/pkix"
 	"math/big"
 	"testing"
 	"time"
 
+	"github.com/cavoq/PCL/internal/testpki"
 	"github.com/zmap/zcrypto/x509"
 	"github.com/zmap/zcrypto/x509/pkix"
 )
@@ -34,29 +32,8 @@ func TestCertSignsCRLRejectsIssuerMatchWithoutSignature(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse CRL: %v", err)
 	}
-	wrongKey, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		t.Fatalf("generate key: %v", err)
-	}
-	fakeSigner, err := cryptox509.CreateCertificate(rand.Reader, &cryptox509.Certificate{
-		SerialNumber: big.NewInt(99),
-		Subject:      cryptopkix.Name{CommonName: revocationList.Issuer.CommonName},
-		NotBefore:    time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
-		NotAfter:     time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC),
-		SubjectKeyId: revocationList.AuthorityKeyId,
-	}, &cryptox509.Certificate{
-		SerialNumber: big.NewInt(1),
-		Subject:      cryptopkix.Name{CommonName: "self"},
-		NotBefore:    time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
-		NotAfter:     time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC),
-	}, &wrongKey.PublicKey, wrongKey)
-	if err != nil {
-		t.Fatalf("create fake signer: %v", err)
-	}
-	parsed, err := x509.ParseCertificate(fakeSigner)
-	if err != nil {
-		t.Fatalf("parse fake signer: %v", err)
-	}
+	parsed := testpki.Issue(t, revocationList.Issuer.CommonName, nil, testpki.Serial(99),
+		testpki.SubjectKeyID(revocationList.AuthorityKeyId)).Cert
 
 	if CertSignsCRL(parsed, revocationList) {
 		t.Fatal("CertSignsCRL must reject DN/AKI match without a valid signature")
@@ -69,46 +46,13 @@ func TestCertSignsCRLRejectsIssuerMatchWithoutSignature(t *testing.T) {
 // TestSigningCertFromPool_prefersSignatureOverSubjectSpoof ensures pool order
 // cannot pick a non-signing cert that only matches the CRL issuer DN.
 func TestSigningCertFromPool_prefersSignatureOverSubjectSpoof(t *testing.T) {
-	key, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		t.Fatalf("generate key: %v", err)
-	}
-	caTemplate := &cryptox509.Certificate{
-		SerialNumber:          big.NewInt(1),
-		Subject:               cryptopkix.Name{CommonName: "Real CRL CA"},
-		NotBefore:             time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
-		NotAfter:              time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC),
-		KeyUsage:              cryptox509.KeyUsageCertSign | cryptox509.KeyUsageCRLSign,
-		BasicConstraintsValid: true,
-		IsCA:                  true,
-		SubjectKeyId:          []byte{0x01, 0x02},
-	}
-	caDER, err := cryptox509.CreateCertificate(rand.Reader, caTemplate, caTemplate, &key.PublicKey, key)
-	if err != nil {
-		t.Fatalf("create CA: %v", err)
-	}
-	ca, err := x509.ParseCertificate(caDER)
-	if err != nil {
-		t.Fatalf("parse CA: %v", err)
-	}
-	cryptoCA, err := cryptox509.ParseCertificate(caDER)
-	if err != nil {
-		t.Fatalf("parse crypto CA: %v", err)
-	}
-
+	issuer := testpki.Issue(t, "Real CRL CA", nil, testpki.CA(), testpki.SubjectKeyID([]byte{0x01, 0x02}))
+	ca := issuer.Cert
 	now := time.Date(2026, 3, 1, 12, 0, 0, 0, time.UTC)
-	crlDER, err := cryptox509.CreateRevocationList(rand.Reader, &cryptox509.RevocationList{
+	revocationList := parseTestCRL(t, issuer.RevocationList(t, &cryptox509.RevocationList{
 		ThisUpdate: now,
 		NextUpdate: now.Add(30 * 24 * time.Hour),
-		Number:     big.NewInt(1),
-	}, cryptoCA, key)
-	if err != nil {
-		t.Fatalf("create CRL: %v", err)
-	}
-	revocationList, err := ParseCRL(crlDER)
-	if err != nil {
-		t.Fatalf("parse CRL: %v", err)
-	}
+	}))
 
 	spoof := &x509.Certificate{
 		Subject:      revocationList.Issuer,
@@ -130,53 +74,16 @@ func TestSigningCertFromPool_prefersSignatureOverSubjectSpoof(t *testing.T) {
 }
 
 func TestVerifyingCertFromPoolRejectsSameKeyDifferentSubject(t *testing.T) {
-	key, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		t.Fatalf("generate key: %v", err)
-	}
 	now := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
-	issuerTemplate := &cryptox509.Certificate{
-		SerialNumber:          big.NewInt(1),
-		Subject:               cryptopkix.Name{CommonName: "Named CRL Issuer"},
-		NotBefore:             now.Add(-time.Hour),
-		NotAfter:              now.Add(24 * time.Hour),
-		KeyUsage:              cryptox509.KeyUsageCertSign | cryptox509.KeyUsageCRLSign,
-		BasicConstraintsValid: true,
-		IsCA:                  true,
-		SubjectKeyId:          []byte{0xaa},
-	}
-	issuerDER, err := cryptox509.CreateCertificate(rand.Reader, issuerTemplate, issuerTemplate, &key.PublicKey, key)
-	if err != nil {
-		t.Fatalf("create issuer: %v", err)
-	}
-	issuerStd, err := cryptox509.ParseCertificate(issuerDER)
-	if err != nil {
-		t.Fatalf("parse issuer: %v", err)
-	}
-	crlDER, err := cryptox509.CreateRevocationList(rand.Reader, &cryptox509.RevocationList{
-		Number:     big.NewInt(1),
+	options := []testpki.Option{testpki.CA(), testpki.SubjectKeyID([]byte{0xaa}),
+		testpki.Validity(now.Add(-time.Hour), now.Add(24*time.Hour))}
+	issuer := testpki.Issue(t, "Named CRL Issuer", nil, options...)
+	revocationList := parseTestCRL(t, issuer.RevocationList(t, &cryptox509.RevocationList{
 		ThisUpdate: now,
 		NextUpdate: now.Add(time.Hour),
-	}, issuerStd, key)
-	if err != nil {
-		t.Fatalf("create CRL: %v", err)
-	}
-	revocationList, err := ParseCRL(crlDER)
-	if err != nil {
-		t.Fatalf("parse CRL: %v", err)
-	}
-
-	differentSubject := *issuerTemplate
-	differentSubject.SerialNumber = big.NewInt(2)
-	differentSubject.Subject = cryptopkix.Name{CommonName: "Different Subject"}
-	differentDER, err := cryptox509.CreateCertificate(rand.Reader, &differentSubject, &differentSubject, &key.PublicKey, key)
-	if err != nil {
-		t.Fatalf("create same-key certificate: %v", err)
-	}
-	different, err := x509.ParseCertificate(differentDER)
-	if err != nil {
-		t.Fatalf("parse same-key certificate: %v", err)
-	}
+	}))
+	different := testpki.IssueWithKey(t, "Different Subject", issuer.Key, nil,
+		append(options, testpki.Serial(2))...).Cert
 	if revocationList.CheckSignatureFrom(different) != nil {
 		t.Fatal("test setup requires zcrypto signature verification to accept the shared key")
 	}

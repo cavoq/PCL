@@ -253,8 +253,7 @@ func makeCatalogTargetFixture(t *testing.T) catalogTargetFixture {
 	nextUpdate := material.now.Add(time.Hour)
 	firstList := makeAssessmentCRL(
 		t,
-		material.issuerStd,
-		material.issuerKey,
+		material.ca,
 		90,
 		thisUpdate,
 		nextUpdate,
@@ -266,8 +265,7 @@ func makeCatalogTargetFixture(t *testing.T) catalogTargetFixture {
 	)
 	secondList := makeAssessmentCRL(
 		t,
-		material.issuerStd,
-		material.issuerKey,
+		material.ca,
 		90,
 		thisUpdate,
 		nextUpdate,

@@ -1,68 +1,35 @@
 package cert
 
 import (
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rand"
-	cryptox509 "crypto/x509"
-	cryptopkix "crypto/x509/pkix"
-	"math/big"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"math/rand/v2"
 	"testing"
-	"time"
 
-	"github.com/zmap/zcrypto/x509"
+	"github.com/cavoq/PCL/internal/testpki"
 )
 
-type testIssuer struct {
-	template *cryptox509.Certificate
-	key      *ecdsa.PrivateKey
-}
-
-// issueTestCertificate creates a certificate for subject signed by issuer, or
-// self-signed when issuer is nil, and returns it with its signing identity.
-func issueTestCertificate(t *testing.T, subject string, isCA bool, issuer *testIssuer) (*Info, *testIssuer) {
+// issueTestCertificate issues a certificate for subject signed by issuer, or
+// self-signed when issuer is nil.
+func issueTestCertificate(t *testing.T, subject string, isCA bool, issuer *testpki.Certificate) (*Info, *testpki.Certificate) {
 	t.Helper()
-	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	if err != nil {
-		t.Fatal(err)
-	}
-	serial, err := rand.Int(rand.Reader, big.NewInt(1<<62))
-	if err != nil {
-		t.Fatal(err)
-	}
-	template := &cryptox509.Certificate{
-		SerialNumber:          serial,
-		Subject:               cryptopkix.Name{CommonName: subject},
-		NotBefore:             time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
-		NotAfter:              time.Date(2035, 1, 1, 0, 0, 0, 0, time.UTC),
-		BasicConstraintsValid: true,
-		IsCA:                  isCA,
-	}
+	options := []testpki.Option{testpki.Serial(rand.Int64()), testpki.Mutate(func(template *x509.Certificate) {
+		template.BasicConstraintsValid = true
+	})}
 	if isCA {
-		template.KeyUsage = cryptox509.KeyUsageCertSign | cryptox509.KeyUsageCRLSign
+		options = append(options, testpki.CA())
 	}
-	parent, signer := template, key
-	if issuer != nil {
-		parent, signer = issuer.template, issuer.key
-	}
-	der, err := cryptox509.CreateCertificate(rand.Reader, template, parent, &key.PublicKey, signer)
-	if err != nil {
-		t.Fatal(err)
-	}
-	parsed, err := x509.ParseCertificate(der)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return &Info{Cert: parsed, FilePath: subject}, &testIssuer{template: template, key: key}
+	issued := testpki.IssueWithKey(t, subject, testpki.ECDSAKey(t), issuer, options...)
+	return &Info{Cert: issued.Cert, FilePath: subject}, issued
 }
 
 func TestBuildChainForStartsOnlyAtTargets(t *testing.T) {
 	root, rootIssuer := issueTestCertificate(t, "Root", true, nil)
 	intermediate, intermediateIssuer := issueTestCertificate(t, "Intermediate", true, rootIssuer)
 	otherLeaf, _ := issueTestCertificate(t, "Other Leaf", false, intermediateIssuer)
-	orphan, _ := issueTestCertificate(t, "Orphan", false, &testIssuer{
-		template: &cryptox509.Certificate{Subject: cryptopkix.Name{CommonName: "Unknown CA"}},
-		key:      intermediateIssuer.key,
+	orphan, _ := issueTestCertificate(t, "Orphan", false, &testpki.Certificate{
+		Std: &x509.Certificate{Subject: pkix.Name{CommonName: "Unknown CA"}},
+		Key: intermediateIssuer.Key,
 	})
 
 	chain, err := BuildChainFor([]*Info{orphan}, []*Info{orphan, otherLeaf, intermediate, root})

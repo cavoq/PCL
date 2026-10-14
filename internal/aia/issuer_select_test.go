@@ -1,14 +1,10 @@
 package aia
 
 import (
-	"crypto/rand"
-	"crypto/rsa"
-	stdx509 "crypto/x509"
-	"crypto/x509/pkix"
 	"math/big"
 	"testing"
-	"time"
 
+	"github.com/cavoq/PCL/internal/testpki"
 	zx509 "github.com/zmap/zcrypto/x509"
 	zpkix "github.com/zmap/zcrypto/x509/pkix"
 )
@@ -17,61 +13,10 @@ import (
 // decoy with the same subject DN as the issuer but a different key.
 func testSignedLeafPair(t *testing.T) (leaf, parent, decoy *zx509.Certificate) {
 	t.Helper()
-
-	parentKey, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		t.Fatalf("generate parent key: %v", err)
-	}
-	notBefore := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
-	notAfter := time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC)
-	parentTemplate := &stdx509.Certificate{
-		SerialNumber:          big.NewInt(1),
-		Subject:               pkix.Name{CommonName: "Issuing CA"},
-		NotBefore:             notBefore,
-		NotAfter:              notAfter,
-		KeyUsage:              stdx509.KeyUsageCertSign | stdx509.KeyUsageCRLSign,
-		BasicConstraintsValid: true,
-		IsCA:                  true,
-		SubjectKeyId:          []byte{0x0a, 0x0b},
-	}
-	parentDER, err := stdx509.CreateCertificate(rand.Reader, parentTemplate, parentTemplate, &parentKey.PublicKey, parentKey)
-	if err != nil {
-		t.Fatalf("create parent: %v", err)
-	}
-	parent, err = zx509.ParseCertificate(parentDER)
-	if err != nil {
-		t.Fatalf("parse parent: %v", err)
-	}
-
-	decoyKey, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		t.Fatalf("generate decoy key: %v", err)
-	}
-	decoyDER, err := stdx509.CreateCertificate(rand.Reader, parentTemplate, parentTemplate, &decoyKey.PublicKey, decoyKey)
-	if err != nil {
-		t.Fatalf("create decoy: %v", err)
-	}
-	decoy, err = zx509.ParseCertificate(decoyDER)
-	if err != nil {
-		t.Fatalf("parse decoy: %v", err)
-	}
-
-	leafTemplate := &stdx509.Certificate{
-		SerialNumber: big.NewInt(2),
-		Subject:      pkix.Name{CommonName: "leaf.example"},
-		Issuer:       parentTemplate.Subject,
-		NotBefore:    notBefore,
-		NotAfter:     notAfter,
-	}
-	leafDER, err := stdx509.CreateCertificate(rand.Reader, leafTemplate, parentTemplate, &parentKey.PublicKey, parentKey)
-	if err != nil {
-		t.Fatalf("create leaf: %v", err)
-	}
-	leaf, err = zx509.ParseCertificate(leafDER)
-	if err != nil {
-		t.Fatalf("parse leaf: %v", err)
-	}
-	return leaf, parent, decoy
+	issuer := testpki.Issue(t, "Issuing CA", nil, testpki.CA(), testpki.SubjectKeyID([]byte{0x0a, 0x0b}))
+	decoy = testpki.Issue(t, "Issuing CA", nil, testpki.CA(), testpki.SubjectKeyID([]byte{0x0a, 0x0b})).Cert
+	leaf = testpki.Issue(t, "leaf.example", issuer, testpki.Serial(2)).Cert
+	return leaf, issuer.Cert, decoy
 }
 
 func TestSelectIssuer_signatureBeforeBundleOrder(t *testing.T) {

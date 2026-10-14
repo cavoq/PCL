@@ -4,12 +4,10 @@ import (
 	"bytes"
 	"crypto"
 	"crypto/rand"
-	"crypto/rsa"
 	"crypto/sha256"
 	cryptox509 "crypto/x509"
 	cryptopkix "crypto/x509/pkix"
 	stdasn1 "encoding/asn1"
-	"encoding/pem"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -18,6 +16,7 @@ import (
 	"time"
 
 	"github.com/cavoq/PCL/internal/oid"
+	"github.com/cavoq/PCL/internal/testpki"
 	"github.com/cavoq/PCL/internal/x509asn1"
 )
 
@@ -29,14 +28,13 @@ func materializeCaseFixture(t *testing.T, tc lintCase) lintCase {
 
 	switch tc.Fixture {
 	case "crl-invalid-p3-profile":
-		key, issuer, issuerDER := makeIntegrationCertificate(t, nil)
-		tc.Certs = writePEMFixture(t, dir, "issuer.pem", "CERTIFICATE", issuerDER)
+		issuer := makeIntegrationCertificate(t, nil)
+		tc.Certs = writePEMFixture(t, dir, "issuer.pem", "CERTIFICATE", issuer.DER)
 		freshest := []byte{
 			0x30, 0x10, 0x30, 0x0e, 0xa0, 0x0c, 0xa0, 0x0a,
 			0x86, 0x08, 'h', 't', 't', 'p', ':', '/', '/', 'a',
 		}
-		crlDER, err := cryptox509.CreateRevocationList(rand.Reader, &cryptox509.RevocationList{
-			Number:     big.NewInt(1),
+		crlDER := issuer.RevocationList(t, &cryptox509.RevocationList{
 			ThisUpdate: time.Date(2026, 8, 14, 11, 0, 0, 0, time.UTC),
 			NextUpdate: time.Date(2026, 8, 14, 13, 0, 0, 0, time.UTC),
 			ExtraExtensions: []cryptopkix.Extension{
@@ -55,68 +53,44 @@ func materializeCaseFixture(t *testing.T, tc lintCase) lintCase {
 					Value: freshest,
 				},
 			},
-		}, issuer, key)
-		if err != nil {
-			t.Fatalf("create invalid P3 profile CRL: %v", err)
-		}
+		})
 		tc.CRL = writePEMFixture(t, dir, "list.pem", "X509 CRL", crlDER)
 	case "valid-revoked-certificate":
 		now := time.Date(2026, 8, 14, 12, 0, 0, 0, time.UTC)
-		issuerKey, issuer, issuerDER := makeIntegrationCertificate(t, func(template *cryptox509.Certificate) {
+		issuer := makeIntegrationCertificate(t, func(template *cryptox509.Certificate) {
 			template.NotBefore = now.Add(-24 * time.Hour)
 			template.NotAfter = now.Add(365 * 24 * time.Hour)
 		})
-		leafKey, err := rsa.GenerateKey(rand.Reader, 1024)
-		if err != nil {
-			t.Fatalf("generate revoked leaf key: %v", err)
-		}
-		leafTemplate := &cryptox509.Certificate{
-			SerialNumber:          big.NewInt(2),
-			Subject:               cryptopkix.Name{CommonName: "revoked integration leaf"},
-			NotBefore:             now.Add(-time.Hour),
-			NotAfter:              now.Add(24 * time.Hour),
-			KeyUsage:              cryptox509.KeyUsageDigitalSignature,
-			BasicConstraintsValid: true,
-		}
-		leafDER, err := cryptox509.CreateCertificate(
-			rand.Reader,
-			leafTemplate,
-			issuer,
-			&leafKey.PublicKey,
-			issuerKey,
-		)
-		if err != nil {
-			t.Fatalf("create revoked leaf: %v", err)
-		}
-		crlDER, err := cryptox509.CreateRevocationList(rand.Reader, &cryptox509.RevocationList{
-			Number:     big.NewInt(1),
+		leaf := testpki.Issue(t, "revoked integration leaf", issuer, testpki.Serial(2),
+			testpki.Validity(now.Add(-time.Hour), now.Add(24*time.Hour)),
+			testpki.Mutate(func(template *cryptox509.Certificate) {
+				template.KeyUsage = cryptox509.KeyUsageDigitalSignature
+				template.BasicConstraintsValid = true
+			}))
+		crlDER := issuer.RevocationList(t, &cryptox509.RevocationList{
 			ThisUpdate: now.Add(-time.Hour),
 			NextUpdate: now.Add(time.Hour),
 			RevokedCertificateEntries: []cryptox509.RevocationListEntry{{
-				SerialNumber:   leafTemplate.SerialNumber,
+				SerialNumber:   leaf.Std.SerialNumber,
 				RevocationTime: now.Add(-30 * time.Minute),
 			}},
-		}, issuer, issuerKey)
-		if err != nil {
-			t.Fatalf("create valid revocation list: %v", err)
-		}
-		tc.Certs = writePEMFixture(t, dir, "leaf.pem", "CERTIFICATE", leafDER)
-		tc.Issuers = []string{writePEMFixture(t, dir, "issuer.pem", "CERTIFICATE", issuerDER)}
+		})
+		tc.Certs = writePEMFixture(t, dir, "leaf.pem", "CERTIFICATE", leaf.DER)
+		tc.Issuers = []string{writePEMFixture(t, dir, "issuer.pem", "CERTIFICATE", issuer.DER)}
 		tc.CRL = writePEMFixture(t, dir, "list.pem", "X509 CRL", crlDER)
 		tc.Time = now.Format(time.RFC3339)
 	case "certificate-algorithm-mismatch":
-		_, _, der := makeIntegrationCertificate(t, nil)
+		der := makeIntegrationCertificate(t, nil).DER
 		tc.Certs = writePEMFixture(t, dir, "certificate.pem", "CERTIFICATE", replaceOuterSignatureAlgorithm(t, der))
 	case "crl-algorithm-mismatch":
-		key, issuer, issuerDER := makeIntegrationCertificate(t, nil)
-		tc.Certs = writePEMFixture(t, dir, "issuer.pem", "CERTIFICATE", issuerDER)
-		crlDER := makeIntegrationCRL(t, issuer, key)
+		issuer := makeIntegrationCertificate(t, nil)
+		tc.Certs = writePEMFixture(t, dir, "issuer.pem", "CERTIFICATE", issuer.DER)
+		crlDER := makeIntegrationCRL(t, issuer)
 		tc.CRL = writePEMFixture(t, dir, "list.pem", "X509 CRL", replaceOuterSignatureAlgorithm(t, crlDER))
 	case "crl-entry-critical-extension":
-		key, issuer, issuerDER := makeIntegrationCertificate(t, nil)
-		tc.Certs = writePEMFixture(t, dir, "issuer.pem", "CERTIFICATE", issuerDER)
-		crlDER, err := cryptox509.CreateRevocationList(rand.Reader, &cryptox509.RevocationList{
-			Number:     big.NewInt(1),
+		issuer := makeIntegrationCertificate(t, nil)
+		tc.Certs = writePEMFixture(t, dir, "issuer.pem", "CERTIFICATE", issuer.DER)
+		crlDER := issuer.RevocationList(t, &cryptox509.RevocationList{
 			ThisUpdate: time.Date(2026, 7, 18, 11, 0, 0, 0, time.UTC),
 			NextUpdate: time.Date(2026, 7, 19, 11, 0, 0, 0, time.UTC),
 			RevokedCertificateEntries: []cryptox509.RevocationListEntry{{
@@ -128,23 +102,20 @@ func materializeCaseFixture(t *testing.T, tc lintCase) lintCase {
 					Value:    []byte{0x05, 0x00},
 				}},
 			}},
-		}, issuer, key)
-		if err != nil {
-			t.Fatalf("create CRL with critical entry extension: %v", err)
-		}
+		})
 		tc.CRL = writePEMFixture(t, dir, "list.pem", "X509 CRL", crlDER)
 	case "certificate-empty-key-usage":
-		_, _, der := makeIntegrationCertificate(t, func(template *cryptox509.Certificate) {
+		der := makeIntegrationCertificate(t, func(template *cryptox509.Certificate) {
 			template.KeyUsage = 0
 			template.ExtraExtensions = []cryptopkix.Extension{{
 				Id:       stdasn1.ObjectIdentifier{2, 5, 29, 15},
 				Critical: true,
 				Value:    []byte{0x03, 0x01, 0x00},
 			}}
-		})
+		}).DER
 		tc.Certs = writePEMFixture(t, dir, "certificate.pem", "CERTIFICATE", der)
 	case "certificate-empty-general-names":
-		_, _, der := makeIntegrationCertificate(t, func(template *cryptox509.Certificate) {
+		der := makeIntegrationCertificate(t, func(template *cryptox509.Certificate) {
 			template.IsCA = false
 			template.KeyUsage = cryptox509.KeyUsageDigitalSignature
 			template.SubjectKeyId = nil
@@ -152,25 +123,25 @@ func materializeCaseFixture(t *testing.T, tc lintCase) lintCase {
 				Id:    stdasn1.ObjectIdentifier{2, 5, 29, 17},
 				Value: []byte{0x30, 0x00},
 			}}
-		})
+		}).DER
 		tc.Certs = writePEMFixture(t, dir, "certificate.pem", "CERTIFICATE", der)
 	case "certificate-validity-boundary":
 		boundary := time.Date(2026, 7, 18, 12, 0, 0, 0, time.UTC)
-		_, _, der := makeIntegrationCertificate(t, func(template *cryptox509.Certificate) {
+		der := makeIntegrationCertificate(t, func(template *cryptox509.Certificate) {
 			template.NotBefore = boundary
 			template.NotAfter = boundary
-		})
+		}).DER
 		tc.Certs = writePEMFixture(t, dir, "certificate.pem", "CERTIFICATE", der)
 		tc.Time = boundary.Format(time.RFC3339)
 	case "certificate-validity-encoding-cutover":
-		_, _, der := makeIntegrationCertificate(t, func(template *cryptox509.Certificate) {
+		der := makeIntegrationCertificate(t, func(template *cryptox509.Certificate) {
 			template.NotBefore = time.Date(2049, 12, 31, 23, 59, 59, 0, time.UTC)
 			template.NotAfter = time.Date(2050, 1, 1, 0, 0, 0, 0, time.UTC)
-		})
+		}).DER
 		tc.Certs = writePEMFixture(t, dir, "certificate.pem", "CERTIFICATE", der)
 	case "certificate-serial-leading-sign-octet":
-		key, _, der := makeIntegrationCertificate(t, nil)
-		der = rewriteIntegrationTBSCertificate(t, der, func(fields [][]byte) [][]byte {
+		issued := makeIntegrationCertificate(t, nil)
+		der := rewriteIntegrationTBSCertificate(t, issued.DER, func(fields [][]byte) [][]byte {
 			if len(fields) < 2 || len(fields[1]) == 0 || fields[1][0] != 0x02 {
 				t.Fatalf("TBSCertificate serialNumber field is missing")
 			}
@@ -183,11 +154,11 @@ func materializeCaseFixture(t *testing.T, tc lintCase) lintCase {
 			fields[1] = serialDER
 			return fields
 		})
-		der = resignIntegrationCertificate(t, der, key)
+		der = resignIntegrationCertificate(t, der, issued.Key)
 		tc.Certs = writePEMFixture(t, dir, "certificate.pem", "CERTIFICATE", der)
 	case "certificate-zero-bit-issuer-unique-id":
-		key, _, der := makeIntegrationCertificate(t, nil)
-		der = rewriteIntegrationTBSCertificate(t, der, func(fields [][]byte) [][]byte {
+		issued := makeIntegrationCertificate(t, nil)
+		der := rewriteIntegrationTBSCertificate(t, issued.DER, func(fields [][]byte) [][]byte {
 			// issuerUniqueID is [1] IMPLICIT BIT STRING. A content octet of zero
 			// denotes a present identifier containing zero bits.
 			issuerUniqueID := []byte{0x81, 0x01, 0x00}
@@ -203,7 +174,7 @@ func materializeCaseFixture(t *testing.T, tc lintCase) lintCase {
 			fields[insertAt] = issuerUniqueID
 			return fields
 		})
-		der = resignIntegrationCertificate(t, der, key)
+		der = resignIntegrationCertificate(t, der, issued.Key)
 		tc.Certs = writePEMFixture(t, dir, "certificate.pem", "CERTIFICATE", der)
 	case "certificate-ian-second-invalid-dns-label":
 		issuerAlternativeName, err := oid.Parse(oid.IssuerAlternativeName)
@@ -212,7 +183,7 @@ func materializeCaseFixture(t *testing.T, tc lintCase) lintCase {
 		}
 		validName := encodeIntegrationElement(0x82, []byte("valid.example"))
 		invalidName := encodeIntegrationElement(0x82, []byte{'i', 'n', 'v', 'a', 'l', 'i', 'd', 0xe9, '.', 'e', 'x', 'a', 'm', 'p', 'l', 'e'})
-		_, _, der := makeIntegrationCertificate(t, func(template *cryptox509.Certificate) {
+		der := makeIntegrationCertificate(t, func(template *cryptox509.Certificate) {
 			template.IsCA = false
 			template.KeyUsage = cryptox509.KeyUsageDigitalSignature
 			template.SubjectKeyId = nil
@@ -220,15 +191,15 @@ func materializeCaseFixture(t *testing.T, tc lintCase) lintCase {
 				Id:    issuerAlternativeName,
 				Value: x509asn1.EncodeSequence(append(validName, invalidName...)),
 			}}
-		})
+		}).DER
 		tc.Certs = writePEMFixture(t, dir, "certificate.pem", "CERTIFICATE", der)
 	case "certificate-san-second-non-ia5-name":
-		_, _, der := makeIntegrationCertificate(t, func(template *cryptox509.Certificate) {
+		der := makeIntegrationCertificate(t, func(template *cryptox509.Certificate) {
 			template.IsCA = false
 			template.KeyUsage = cryptox509.KeyUsageDigitalSignature
 			template.SubjectKeyId = nil
 			template.DNSNames = []string{"valid.example", "nonascii.example"}
-		})
+		}).DER
 		encodedName := []byte("nonascii.example")
 		nameAt := bytes.Index(der, encodedName)
 		if nameAt < 0 {
@@ -237,16 +208,16 @@ func materializeCaseFixture(t *testing.T, tc lintCase) lintCase {
 		der[nameAt] = 0xe9
 		tc.Certs = writePEMFixture(t, dir, "certificate.pem", "CERTIFICATE", der)
 	case "crl-missing-required-fields":
-		key, issuer, issuerDER := makeIntegrationCertificate(t, nil)
-		tc.Certs = writePEMFixture(t, dir, "issuer.pem", "CERTIFICATE", issuerDER)
-		crlDER := removeCRLRequiredFields(t, makeIntegrationCRL(t, issuer, key))
+		issuer := makeIntegrationCertificate(t, nil)
+		tc.Certs = writePEMFixture(t, dir, "issuer.pem", "CERTIFICATE", issuer.DER)
+		crlDER := removeCRLRequiredFields(t, makeIntegrationCRL(t, issuer))
 		tc.CRL = writePEMFixture(t, dir, "list.pem", "X509 CRL", crlDER)
 	case "crl-dn-noncanonical-order":
-		key, issuer, issuerDER := makeIntegrationCertificate(t, func(template *cryptox509.Certificate) {
+		issuer := makeIntegrationCertificate(t, func(template *cryptox509.Certificate) {
 			template.RawSubject = makeIntegrationNonCanonicalName(t)
 		})
-		tc.Certs = writePEMFixture(t, dir, "issuer.pem", "CERTIFICATE", issuerDER)
-		tc.CRL = writePEMFixture(t, dir, "list.pem", "X509 CRL", makeIntegrationCRL(t, issuer, key))
+		tc.Certs = writePEMFixture(t, dir, "issuer.pem", "CERTIFICATE", issuer.DER)
+		tc.CRL = writePEMFixture(t, dir, "list.pem", "X509 CRL", makeIntegrationCRL(t, issuer))
 	case "certificate-dn-second-common-name-too-long":
 		tc.Certs = writePEMFixture(t, dir, "certificate.pem", "CERTIFICATE",
 			makeIntegrationLeafWithSubject(t, makeIntegrationName(t,
@@ -280,37 +251,19 @@ func materializeCaseFixture(t *testing.T, tc lintCase) lintCase {
 	return tc
 }
 
-func makeIntegrationCertificate(
-	t *testing.T,
-	mutate func(*cryptox509.Certificate),
-) (*rsa.PrivateKey, *cryptox509.Certificate, []byte) {
+// makeIntegrationCertificate issues a self-signed CA certificate, changed by
+// mutate when set.
+func makeIntegrationCertificate(t *testing.T, mutate func(*cryptox509.Certificate)) *testpki.Certificate {
 	t.Helper()
-	key, err := rsa.GenerateKey(rand.Reader, 1024)
-	if err != nil {
-		t.Fatalf("generate key: %v", err)
-	}
-	template := &cryptox509.Certificate{
-		SerialNumber:          big.NewInt(1),
-		Subject:               cryptopkix.Name{CommonName: "integration-generated"},
-		NotBefore:             time.Date(2026, 7, 18, 11, 0, 0, 0, time.UTC),
-		NotAfter:              time.Date(2027, 7, 18, 13, 0, 0, 0, time.UTC),
-		KeyUsage:              cryptox509.KeyUsageCertSign | cryptox509.KeyUsageCRLSign,
-		BasicConstraintsValid: true,
-		IsCA:                  true,
-		SubjectKeyId:          []byte{0x01, 0x02, 0x03},
+	options := []testpki.Option{
+		testpki.CA(),
+		testpki.SubjectKeyID([]byte{0x01, 0x02, 0x03}),
+		testpki.Validity(time.Date(2026, 7, 18, 11, 0, 0, 0, time.UTC), time.Date(2027, 7, 18, 13, 0, 0, 0, time.UTC)),
 	}
 	if mutate != nil {
-		mutate(template)
+		options = append(options, testpki.Mutate(mutate))
 	}
-	der, err := cryptox509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
-	if err != nil {
-		t.Fatalf("create certificate: %v", err)
-	}
-	issuer, err := cryptox509.ParseCertificate(der)
-	if err != nil {
-		t.Fatalf("parse issuer certificate: %v", err)
-	}
-	return key, issuer, der
+	return testpki.Issue(t, "integration-generated", nil, options...)
 }
 
 const (
@@ -326,13 +279,12 @@ type integrationNameAttribute struct {
 
 func makeIntegrationLeafWithSubject(t *testing.T, rawSubject []byte) []byte {
 	t.Helper()
-	_, _, der := makeIntegrationCertificate(t, func(template *cryptox509.Certificate) {
+	return makeIntegrationCertificate(t, func(template *cryptox509.Certificate) {
 		template.RawSubject = rawSubject
 		template.IsCA = false
 		template.KeyUsage = cryptox509.KeyUsageDigitalSignature
 		template.SubjectKeyId = nil
-	})
-	return der
+	}).DER
 }
 
 func makeIntegrationName(t *testing.T, attributes ...integrationNameAttribute) []byte {
@@ -407,27 +359,18 @@ func encodeIntegrationElement(tag byte, content []byte) []byte {
 	return append([]byte{tag, byte(len(content))}, content...)
 }
 
-func makeIntegrationCRL(
-	t *testing.T,
-	issuer *cryptox509.Certificate,
-	key *rsa.PrivateKey,
-) []byte {
+func makeIntegrationCRL(t *testing.T, issuer *testpki.Certificate) []byte {
 	t.Helper()
-	der, err := cryptox509.CreateRevocationList(rand.Reader, &cryptox509.RevocationList{
-		Number:     big.NewInt(1),
+	return issuer.RevocationList(t, &cryptox509.RevocationList{
 		ThisUpdate: time.Date(2026, 7, 18, 11, 0, 0, 0, time.UTC),
 		NextUpdate: time.Date(2026, 7, 19, 11, 0, 0, 0, time.UTC),
-	}, issuer, key)
-	if err != nil {
-		t.Fatalf("create CRL: %v", err)
-	}
-	return der
+	})
 }
 
 func writePEMFixture(t *testing.T, dir, name, blockType string, der []byte) string {
 	t.Helper()
 	path := filepath.Join(dir, name)
-	data := pem.EncodeToMemory(&pem.Block{Type: blockType, Bytes: der})
+	data := testpki.PEM(blockType, der)
 	if err := os.WriteFile(path, data, 0o600); err != nil {
 		t.Fatalf("write generated fixture: %v", err)
 	}
@@ -489,11 +432,11 @@ func rewriteIntegrationTBSCertificate(
 // resignIntegrationCertificate replaces the signature of a certificate whose
 // TBSCertificate was rewritten, so a rewritten self-signed certificate stays
 // self-signed. The signature algorithm must be sha256WithRSAEncryption.
-func resignIntegrationCertificate(t *testing.T, der []byte, key *rsa.PrivateKey) []byte {
+func resignIntegrationCertificate(t *testing.T, der []byte, key crypto.Signer) []byte {
 	t.Helper()
 	envelope := decodeIntegrationSignedEnvelope(t, der)
 	digest := sha256.Sum256(envelope.TBS.FullBytes)
-	signature, err := rsa.SignPKCS1v15(rand.Reader, key, crypto.SHA256, digest[:])
+	signature, err := key.Sign(rand.Reader, digest[:], crypto.SHA256)
 	if err != nil {
 		t.Fatalf("re-sign certificate: %v", err)
 	}

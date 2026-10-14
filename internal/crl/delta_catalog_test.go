@@ -93,8 +93,7 @@ func makeDeltaCatalogFixture(t *testing.T) deltaCatalogFixture {
 	material := makeRevocationMaterial(t)
 	base := makeAssessmentCRL(
 		t,
-		material.issuerStd,
-		material.issuerKey,
+		material.ca,
 		100,
 		material.now.Add(-2*time.Hour),
 		material.now.Add(2*time.Hour),
@@ -121,8 +120,7 @@ func (fixture deltaCatalogFixture) delta(
 	t.Helper()
 	return makeAssessmentCRL(
 		t,
-		fixture.material.issuerStd,
-		fixture.material.issuerKey,
+		fixture.material.ca,
 		number,
 		thisUpdate,
 		fixture.material.now.Add(2*time.Hour),

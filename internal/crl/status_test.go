@@ -1,91 +1,40 @@
 package crl
 
 import (
-	"crypto/rand"
-	"crypto/rsa"
 	cryptox509 "crypto/x509"
 	cryptopkix "crypto/x509/pkix"
 	stdasn1 "encoding/asn1"
-	"math/big"
 	"testing"
 	"time"
 
 	"github.com/cavoq/PCL/internal/oid"
+	"github.com/cavoq/PCL/internal/testpki"
 	zasn1 "github.com/zmap/zcrypto/encoding/asn1"
 	"github.com/zmap/zcrypto/x509"
 	"github.com/zmap/zcrypto/x509/pkix"
 )
 
 type revocationMaterial struct {
-	now       time.Time
-	issuer    *x509.Certificate
-	issuerStd *cryptox509.Certificate
-	issuerKey *rsa.PrivateKey
-	leaf      *x509.Certificate
-	clean     *x509.RevocationList
-	revoked   *x509.RevocationList
+	now     time.Time
+	ca      *testpki.Certificate
+	issuer  *x509.Certificate
+	leaf    *x509.Certificate
+	clean   *x509.RevocationList
+	revoked *x509.RevocationList
 }
 
 func makeRevocationMaterial(t *testing.T) revocationMaterial {
 	t.Helper()
 	now := time.Date(2026, 7, 1, 12, 0, 0, 0, time.UTC)
+	ca := testpki.Issue(t, "Status Test CA", nil, testpki.CA(), testpki.SubjectKeyID([]byte{0x10, 0x20, 0x30}),
+		testpki.Validity(now.Add(-24*time.Hour), now.Add(365*24*time.Hour)))
+	leaf := testpki.Issue(t, "Status Test Leaf", ca, testpki.Serial(42),
+		testpki.Validity(now.Add(-time.Hour), now.Add(24*time.Hour)))
 
-	issuerKey, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		t.Fatalf("generate issuer key: %v", err)
-	}
-	issuerTemplate := &cryptox509.Certificate{
-		SerialNumber:          big.NewInt(1),
-		Subject:               cryptopkix.Name{CommonName: "Status Test CA"},
-		NotBefore:             now.Add(-24 * time.Hour),
-		NotAfter:              now.Add(365 * 24 * time.Hour),
-		KeyUsage:              cryptox509.KeyUsageCertSign | cryptox509.KeyUsageCRLSign,
-		BasicConstraintsValid: true,
-		IsCA:                  true,
-		SubjectKeyId:          []byte{0x10, 0x20, 0x30},
-	}
-	issuerDER, err := cryptox509.CreateCertificate(rand.Reader, issuerTemplate, issuerTemplate, &issuerKey.PublicKey, issuerKey)
-	if err != nil {
-		t.Fatalf("create issuer: %v", err)
-	}
-	issuerStd, err := cryptox509.ParseCertificate(issuerDER)
-	if err != nil {
-		t.Fatalf("parse standard issuer: %v", err)
-	}
-	issuer, err := x509.ParseCertificate(issuerDER)
-	if err != nil {
-		t.Fatalf("parse issuer: %v", err)
-	}
-
-	leafKey, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		t.Fatalf("generate leaf key: %v", err)
-	}
-	leafTemplate := &cryptox509.Certificate{
-		SerialNumber: big.NewInt(42),
-		Subject:      cryptopkix.Name{CommonName: "Status Test Leaf"},
-		NotBefore:    now.Add(-time.Hour),
-		NotAfter:     now.Add(24 * time.Hour),
-	}
-	leafDER, err := cryptox509.CreateCertificate(rand.Reader, leafTemplate, issuerStd, &leafKey.PublicKey, issuerKey)
-	if err != nil {
-		t.Fatalf("create leaf: %v", err)
-	}
-	leaf, err := x509.ParseCertificate(leafDER)
-	if err != nil {
-		t.Fatalf("parse leaf: %v", err)
-	}
-
-	material := revocationMaterial{
-		now:       now,
-		issuer:    issuer,
-		issuerStd: issuerStd,
-		issuerKey: issuerKey,
-		leaf:      leaf,
-	}
+	material := revocationMaterial{now: now, ca: ca, issuer: ca.Cert, leaf: leaf.Cert}
 	material.clean = makeSignedStatusCRL(t, material, nil, nil)
 	material.revoked = makeSignedStatusCRL(t, material, []cryptox509.RevocationListEntry{{
-		SerialNumber:   leafTemplate.SerialNumber,
+		SerialNumber:   leaf.Cert.SerialNumber,
 		RevocationTime: now.Add(-30 * time.Minute),
 	}}, nil)
 	return material
@@ -98,16 +47,12 @@ func makeSignedStatusCRL(
 	extraExtensions []cryptopkix.Extension,
 ) *x509.RevocationList {
 	t.Helper()
-	der, err := cryptox509.CreateRevocationList(rand.Reader, &cryptox509.RevocationList{
-		RevokedCertificateEntries: entries,
-		Number:                    big.NewInt(1),
-		ThisUpdate:                material.now.Add(-time.Hour),
-		NextUpdate:                material.now.Add(24 * time.Hour),
-		ExtraExtensions:           extraExtensions,
-	}, material.issuerStd, material.issuerKey)
-	if err != nil {
-		t.Fatalf("create CRL: %v", err)
-	}
+	return makeAssessmentCRL(t, material.ca, 1, material.now.Add(-time.Hour), material.now.Add(24*time.Hour),
+		entries, extraExtensions)
+}
+
+func parseTestCRL(t *testing.T, der []byte) *x509.RevocationList {
+	t.Helper()
 	list, err := ParseCRL(der)
 	if err != nil {
 		t.Fatalf("parse CRL: %v", err)

@@ -2,8 +2,6 @@ package crl
 
 import (
 	"bytes"
-	"crypto/rand"
-	"crypto/rsa"
 	cryptox509 "crypto/x509"
 	cryptopkix "crypto/x509/pkix"
 	stdasn1 "encoding/asn1"
@@ -11,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cavoq/PCL/internal/testpki"
 	zasn1 "github.com/zmap/zcrypto/encoding/asn1"
 	"github.com/zmap/zcrypto/x509"
 	zpkix "github.com/zmap/zcrypto/x509/pkix"
@@ -20,13 +19,13 @@ import (
 
 func TestAssessmentAccumulatesReasonCoverage(t *testing.T) {
 	material := makeRevocationMaterial(t)
-	first := makeAssessmentCRL(t, material.issuerStd, material.issuerKey, 12,
+	first := makeAssessmentCRL(t, material.ca, 12,
 		material.now.Add(-time.Hour), material.now.Add(time.Hour), nil,
 		[]cryptopkix.Extension{issuingDistributionPointReasons(t, ReasonKeyCompromise)})
-	duplicateCoverage := makeAssessmentCRL(t, material.issuerStd, material.issuerKey, 11,
+	duplicateCoverage := makeAssessmentCRL(t, material.ca, 11,
 		material.now.Add(-time.Hour), material.now.Add(time.Hour), nil,
 		[]cryptopkix.Extension{issuingDistributionPointReasons(t, ReasonKeyCompromise)})
-	second := makeAssessmentCRL(t, material.issuerStd, material.issuerKey, 10,
+	second := makeAssessmentCRL(t, material.ca, 10,
 		material.now.Add(-time.Hour), material.now.Add(time.Hour), nil,
 		[]cryptopkix.Extension{issuingDistributionPointReasons(t, AllReasons&^ReasonKeyCompromise)})
 	context := RevocationContext{Now: material.now, Issuers: []*x509.Certificate{material.issuer}}
@@ -54,13 +53,13 @@ func TestAssessmentDeltaRemoveFromCRLOverridesStaleBase(t *testing.T) {
 	material := makeRevocationMaterial(t)
 	hold := 6
 	remove := 8
-	base := makeAssessmentCRL(t, material.issuerStd, material.issuerKey, 20,
+	base := makeAssessmentCRL(t, material.ca, 20,
 		material.now.Add(-48*time.Hour), material.now.Add(-24*time.Hour),
 		[]cryptox509.RevocationListEntry{{
 			SerialNumber: material.leaf.SerialNumber, RevocationTime: material.now.Add(-36 * time.Hour),
 			ReasonCode: hold,
 		}}, []cryptopkix.Extension{freshestCRLExtension(t)})
-	delta := makeAssessmentCRL(t, material.issuerStd, material.issuerKey, 21,
+	delta := makeAssessmentCRL(t, material.ca, 21,
 		material.now.Add(-time.Hour), material.now.Add(time.Hour),
 		[]cryptox509.RevocationListEntry{{
 			SerialNumber: material.leaf.SerialNumber, RevocationTime: material.now.Add(-30 * time.Minute),
@@ -84,7 +83,7 @@ func TestAssessmentDeltaRemoveFromCRLOverridesStaleBase(t *testing.T) {
 		t.Fatal("accepted evidence did not retain the applied delta CRL")
 	}
 
-	deltaWithFreshest := makeAssessmentCRL(t, material.issuerStd, material.issuerKey, 22,
+	deltaWithFreshest := makeAssessmentCRL(t, material.ca, 22,
 		material.now.Add(-30*time.Minute), material.now.Add(time.Hour), nil,
 		[]cryptopkix.Extension{deltaCRLIndicator(t, 20), freshestCRLExtension(t)})
 	illegalDelta := AssessCertificate(
@@ -103,12 +102,12 @@ func TestAssessmentDeltaRemoveFromCRLOverridesStaleBase(t *testing.T) {
 
 func TestAssessmentIndirectCRLInheritsCertificateIssuer(t *testing.T) {
 	material := makeRevocationMaterial(t)
-	delegateStd, delegate, delegateKey := makeCRLDelegate(t, material)
+	delegate := makeCRLDelegate(t, material)
 	certificate := *material.leaf
 	certificate.Extensions = append(append([]zpkix.Extension(nil), material.leaf.Extensions...),
 		zpkix.Extension{
 			Id:    zasn1.ObjectIdentifier{2, 5, 29, 31},
-			Value: distributionPointWithCRLIssuer(t, material.issuer.RawSubject, delegate.RawSubject),
+			Value: distributionPointWithCRLIssuer(t, material.issuer.RawSubject, delegate.Cert.RawSubject),
 		})
 	entries := []cryptox509.RevocationListEntry{
 		{
@@ -117,12 +116,12 @@ func TestAssessmentIndirectCRLInheritsCertificateIssuer(t *testing.T) {
 		},
 		{SerialNumber: material.leaf.SerialNumber, RevocationTime: material.now.Add(-30 * time.Minute)},
 	}
-	list := makeAssessmentCRL(t, delegateStd, delegateKey, 30,
+	list := makeAssessmentCRL(t, delegate, 30,
 		material.now.Add(-time.Hour), material.now.Add(time.Hour), entries,
 		[]cryptopkix.Extension{indirectIssuingDistributionPoint(t)})
 
 	assessment := AssessCertificate(&certificate, []*x509.RevocationList{list}, RevocationContext{
-		Now: material.now, Issuers: []*x509.Certificate{delegate},
+		Now: material.now, Issuers: []*x509.Certificate{delegate.Cert},
 	})
 	if assessment.Status() != RevocationRevoked || assessment.Revocation == nil ||
 		assessment.Revocation.EntryIndex != 1 {
@@ -266,8 +265,7 @@ func TestAssessmentNewerCompleteCRLSupersedesOlderRevocation(t *testing.T) {
 	material := makeRevocationMaterial(t)
 	older := makeAssessmentCRL(
 		t,
-		material.issuerStd,
-		material.issuerKey,
+		material.ca,
 		50,
 		material.now.Add(-2*time.Hour),
 		material.now.Add(2*time.Hour),
@@ -279,8 +277,7 @@ func TestAssessmentNewerCompleteCRLSupersedesOlderRevocation(t *testing.T) {
 	)
 	newer := makeAssessmentCRL(
 		t,
-		material.issuerStd,
-		material.issuerKey,
+		material.ca,
 		51,
 		material.now.Add(-time.Hour),
 		material.now.Add(3*time.Hour),
@@ -310,8 +307,7 @@ func TestAssessmentFallsBackAfterAdvertisedDistributionPointMismatch(t *testing.
 	)
 	list := makeAssessmentCRL(
 		t,
-		material.issuerStd,
-		material.issuerKey,
+		material.ca,
 		60,
 		material.now.Add(-time.Hour),
 		material.now.Add(time.Hour),
@@ -331,7 +327,7 @@ func TestAssessmentFallsBackAfterAdvertisedDistributionPointMismatch(t *testing.
 
 func TestAssessmentRejectsMismatchedCertificateClassScope(t *testing.T) {
 	material := makeRevocationMaterial(t)
-	list := makeAssessmentCRL(t, material.issuerStd, material.issuerKey, 40,
+	list := makeAssessmentCRL(t, material.ca, 40,
 		material.now.Add(-time.Hour), material.now.Add(time.Hour), nil,
 		[]cryptopkix.Extension{onlyCACertificatesIDP(t)})
 	assessment := AssessCertificate(material.leaf, []*x509.RevocationList{list}, RevocationContext{
@@ -347,8 +343,7 @@ func TestAssessmentRejectsExplicitUnspecifiedReasonInReasonPartition(t *testing.
 	material := makeRevocationMaterial(t)
 	list := makeAssessmentCRL(
 		t,
-		material.issuerStd,
-		material.issuerKey,
+		material.ca,
 		41,
 		material.now.Add(-time.Hour),
 		material.now.Add(time.Hour),
@@ -383,8 +378,7 @@ func TestAssessmentRejectsExplicitUnspecifiedReasonInReasonPartition(t *testing.
 
 	absentReason := makeAssessmentCRL(
 		t,
-		material.issuerStd,
-		material.issuerKey,
+		material.ca,
 		42,
 		material.now.Add(-time.Hour),
 		material.now.Add(time.Hour),
@@ -442,8 +436,7 @@ func TestAssessmentAppliesIDPCertificateClassFromBasicConstraints(t *testing.T) 
 			certificate.IsCA = test.isCA
 			list := makeAssessmentCRL(
 				t,
-				material.issuerStd,
-				material.issuerKey,
+				material.ca,
 				42,
 				material.now.Add(-time.Hour),
 				material.now.Add(time.Hour),
@@ -480,8 +473,7 @@ func TestAssessmentReportsStableRejectionReasons(t *testing.T) {
 	)
 	unsupported := makeAssessmentCRL(
 		t,
-		material.issuerStd,
-		material.issuerKey,
+		material.ca,
 		70,
 		material.now.Add(-time.Hour),
 		material.now.Add(time.Hour),
@@ -492,8 +484,7 @@ func TestAssessmentReportsStableRejectionReasons(t *testing.T) {
 	)
 	expired := makeAssessmentCRL(
 		t,
-		material.issuerStd,
-		material.issuerKey,
+		material.ca,
 		71,
 		material.now.Add(-2*time.Hour),
 		material.now.Add(-time.Hour),
@@ -502,8 +493,7 @@ func TestAssessmentReportsStableRejectionReasons(t *testing.T) {
 	)
 	invalidEntry := makeAssessmentCRL(
 		t,
-		material.issuerStd,
-		material.issuerKey,
+		material.ca,
 		72,
 		material.now.Add(-time.Hour),
 		material.now.Add(time.Hour),
@@ -572,29 +562,20 @@ func TestCertificateRevocationPointsRejectsDuplicateExtensions(t *testing.T) {
 
 func makeAssessmentCRL(
 	t *testing.T,
-	issuer *cryptox509.Certificate,
-	key *rsa.PrivateKey,
+	issuer *testpki.Certificate,
 	number int64,
 	thisUpdate, nextUpdate time.Time,
 	entries []cryptox509.RevocationListEntry,
 	extensions []cryptopkix.Extension,
 ) *x509.RevocationList {
 	t.Helper()
-	der, err := cryptox509.CreateRevocationList(rand.Reader, &cryptox509.RevocationList{
+	return parseTestCRL(t, issuer.RevocationList(t, &cryptox509.RevocationList{
 		RevokedCertificateEntries: entries,
 		Number:                    big.NewInt(number),
 		ThisUpdate:                thisUpdate,
 		NextUpdate:                nextUpdate,
 		ExtraExtensions:           extensions,
-	}, issuer, key)
-	if err != nil {
-		t.Fatalf("create assessment CRL: %v", err)
-	}
-	list, err := ParseCRL(der)
-	if err != nil {
-		t.Fatalf("parse assessment CRL: %v", err)
-	}
-	return list
+	}))
 }
 
 func issuingDistributionPointReasons(t *testing.T, reasons ReasonSet) cryptopkix.Extension {
@@ -755,41 +736,14 @@ func marshalASN1(
 	return value
 }
 
-func makeCRLDelegate(
-	t *testing.T,
-	material revocationMaterial,
-) (*cryptox509.Certificate, *x509.Certificate, *rsa.PrivateKey) {
+func makeCRLDelegate(t *testing.T, material revocationMaterial) *testpki.Certificate {
 	t.Helper()
-	key, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		t.Fatalf("generate CRL delegate key: %v", err)
-	}
-	template := &cryptox509.Certificate{
-		SerialNumber:          big.NewInt(900),
-		Subject:               cryptopkix.Name{CommonName: "Delegated CRL Issuer"},
-		NotBefore:             material.now.Add(-24 * time.Hour),
-		NotAfter:              material.now.Add(24 * time.Hour),
-		KeyUsage:              cryptox509.KeyUsageCRLSign,
-		BasicConstraintsValid: true,
-		IsCA:                  true,
-		SubjectKeyId:          []byte{0x90, 0x01},
-	}
-	der, err := cryptox509.CreateCertificate(
-		rand.Reader, template, material.issuerStd, &key.PublicKey, material.issuerKey,
-	)
-	if err != nil {
-		t.Fatalf("create CRL delegate: %v", err)
-	}
-	standard, err := cryptox509.ParseCertificate(der)
-	if err != nil {
-		t.Fatalf("parse standard CRL delegate: %v", err)
-	}
-	parsed, err := x509.ParseCertificate(der)
-	if err != nil {
-		t.Fatalf("parse CRL delegate: %v", err)
-	}
-	if !bytes.Equal(standard.RawSubject, parsed.RawSubject) {
+	delegate := testpki.Issue(t, "Delegated CRL Issuer", material.ca, testpki.CA(), testpki.Serial(900),
+		testpki.SubjectKeyID([]byte{0x90, 0x01}),
+		testpki.Validity(material.now.Add(-24*time.Hour), material.now.Add(24*time.Hour)),
+		testpki.Mutate(func(template *cryptox509.Certificate) { template.KeyUsage = cryptox509.KeyUsageCRLSign }))
+	if !bytes.Equal(delegate.Std.RawSubject, delegate.Cert.RawSubject) {
 		t.Fatal("delegate parsers disagree on subject DER")
 	}
-	return standard, parsed, key
+	return delegate
 }

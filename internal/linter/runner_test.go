@@ -2,15 +2,9 @@ package linter
 
 import (
 	"bytes"
-	"crypto/rand"
-	"crypto/rsa"
 	"crypto/x509"
-	"crypto/x509/pkix"
 	"encoding/json"
-	"encoding/pem"
 	"math/big"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -23,6 +17,7 @@ import (
 	"github.com/cavoq/PCL/internal/output"
 	"github.com/cavoq/PCL/internal/policy"
 	"github.com/cavoq/PCL/internal/rule"
+	"github.com/cavoq/PCL/internal/testpki"
 )
 
 func TestApplyDefaults(t *testing.T) {
@@ -570,82 +565,31 @@ func TestCRLRevocationRequested(t *testing.T) {
 
 func TestRunAutoCRLProjectsRevokedStatus(t *testing.T) {
 	now := time.Now().UTC().Truncate(time.Second)
-	rootKey, err := rsa.GenerateKey(rand.Reader, 1024)
-	if err != nil {
-		t.Fatalf("generate root key: %v", err)
-	}
-	rootTemplate := &x509.Certificate{
-		SerialNumber:          big.NewInt(1),
-		Subject:               pkix.Name{CommonName: "Auto CRL Root"},
-		NotBefore:             now.Add(-24 * time.Hour),
-		NotAfter:              now.Add(24 * time.Hour),
-		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
-		BasicConstraintsValid: true,
-		IsCA:                  true,
-		SubjectKeyId:          []byte{0x01, 0x02, 0x03},
-	}
-	rootDER, err := x509.CreateCertificate(
-		rand.Reader,
-		rootTemplate,
-		rootTemplate,
-		&rootKey.PublicKey,
-		rootKey,
-	)
-	if err != nil {
-		t.Fatalf("create root: %v", err)
-	}
-	root, err := x509.ParseCertificate(rootDER)
-	if err != nil {
-		t.Fatalf("parse root: %v", err)
-	}
-
+	root := testpki.Issue(t, "Auto CRL Root", nil, testpki.CA(), testpki.SubjectKeyID([]byte{0x01, 0x02, 0x03}),
+		testpki.Validity(now.Add(-24*time.Hour), now.Add(24*time.Hour)))
 	leafSerial := big.NewInt(2)
-	crlDER, err := x509.CreateRevocationList(rand.Reader, &x509.RevocationList{
-		Number:     big.NewInt(1),
+	crlDER := root.RevocationList(t, &x509.RevocationList{
 		ThisUpdate: now.Add(-time.Hour),
 		NextUpdate: now.Add(time.Hour),
 		RevokedCertificateEntries: []x509.RevocationListEntry{{
 			SerialNumber:   leafSerial,
 			RevocationTime: now.Add(-30 * time.Minute),
 		}},
-	}, root, rootKey)
-	if err != nil {
-		t.Fatalf("create CRL: %v", err)
-	}
-	hits := 0
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		hits++
-		_, _ = w.Write(crlDER)
-	}))
-	defer server.Close()
+	})
+	crlURL, hits := testpki.ServeCounted(t, crlDER)
 
-	leafKey, err := rsa.GenerateKey(rand.Reader, 1024)
-	if err != nil {
-		t.Fatalf("generate leaf key: %v", err)
-	}
-	leafDER, err := x509.CreateCertificate(rand.Reader, &x509.Certificate{
-		SerialNumber:          leafSerial,
-		Subject:               pkix.Name{CommonName: "revoked.example"},
-		NotBefore:             now.Add(-time.Hour),
-		NotAfter:              now.Add(time.Hour),
-		KeyUsage:              x509.KeyUsageDigitalSignature,
-		BasicConstraintsValid: true,
-		CRLDistributionPoints: []string{server.URL},
-	}, root, &leafKey.PublicKey, rootKey)
-	if err != nil {
-		t.Fatalf("create leaf: %v", err)
-	}
+	leaf := testpki.Issue(t, "revoked.example", root, testpki.Serial(leafSerial.Int64()),
+		testpki.Validity(now.Add(-time.Hour), now.Add(time.Hour)),
+		testpki.Mutate(func(template *x509.Certificate) {
+			template.KeyUsage = x509.KeyUsageDigitalSignature
+			template.BasicConstraintsValid = true
+			template.CRLDistributionPoints = []string{crlURL}
+		}))
 
 	dir := t.TempDir()
-	rootPath := filepath.Join(dir, "root.pem")
-	leafPath := filepath.Join(dir, "leaf.pem")
+	rootPath := writePEMCert(t, dir, "root.pem", root.DER)
+	leafPath := writePEMCert(t, dir, "leaf.pem", leaf.DER)
 	policyPath := filepath.Join(dir, "revocation.yaml")
-	if err := os.WriteFile(rootPath, pemEncodeCert(rootDER), 0o600); err != nil {
-		t.Fatalf("write root: %v", err)
-	}
-	if err := os.WriteFile(leafPath, pemEncodeCert(leafDER), 0o600); err != nil {
-		t.Fatalf("write leaf: %v", err)
-	}
 	policyYAML := []byte(`id: auto-crl
 version: 1.0
 rules:
@@ -665,7 +609,7 @@ rules:
 	}
 
 	var outputBuffer bytes.Buffer
-	err = Run(Config{
+	err := Run(Config{
 		PolicyPaths:  []string{policyPath},
 		CertPath:     leafPath,
 		IssuerPaths:  []string{rootPath},
@@ -680,8 +624,8 @@ rules:
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
-	if hits != 1 {
-		t.Fatalf("CRL endpoint hits = %d, want 1", hits)
+	if hits.Load() != 1 {
+		t.Fatalf("CRL endpoint hits = %d, want 1", hits.Load())
 	}
 
 	var lintOutput output.LintOutput
@@ -744,71 +688,16 @@ func lintForTest(t *testing.T, cfg Config, pol policy.Policy) []policy.Result {
 
 func TestAcquireInputs_autoValidateExtendsChainFromIssuerPool(t *testing.T) {
 	dir := t.TempDir()
-	parentKey, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		t.Fatalf("generate parent key: %v", err)
-	}
-	interKey, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		t.Fatalf("generate intermediate key: %v", err)
-	}
-	notBefore := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
-	notAfter := time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC)
-
-	parentStd := &x509.Certificate{
-		SerialNumber:          big.NewInt(1),
-		Subject:               pkix.Name{CommonName: "Trusted Root"},
-		NotBefore:             notBefore,
-		NotAfter:              notAfter,
-		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
-		BasicConstraintsValid: true,
-		IsCA:                  true,
-		SubjectKeyId:          []byte{0x01},
-	}
-	parentDER, err := x509.CreateCertificate(rand.Reader, parentStd, parentStd, &parentKey.PublicKey, parentKey)
-	if err != nil {
-		t.Fatalf("create parent: %v", err)
-	}
-	parentPath := filepath.Join(dir, "root.pem")
-	if err := os.WriteFile(parentPath, pemEncodeCert(parentDER), 0644); err != nil {
-		t.Fatalf("write parent: %v", err)
-	}
-
-	interStd := &x509.Certificate{
-		SerialNumber:          big.NewInt(2),
-		Subject:               pkix.Name{CommonName: "No AIA Intermediate"},
-		Issuer:                parentStd.Subject,
-		NotBefore:             notBefore,
-		NotAfter:              notAfter,
-		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
-		BasicConstraintsValid: true,
-		IsCA:                  true,
-		SubjectKeyId:          []byte{0x02},
-	}
-	interDER, err := x509.CreateCertificate(rand.Reader, interStd, parentStd, &interKey.PublicKey, parentKey)
-	if err != nil {
-		t.Fatalf("create intermediate: %v", err)
-	}
+	parent := testpki.Issue(t, "Trusted Root", nil, testpki.CA(), testpki.SubjectKeyID([]byte{0x01}))
+	intermediate := testpki.Issue(t, "No AIA Intermediate", parent, testpki.CA(), testpki.Serial(2),
+		testpki.SubjectKeyID([]byte{0x02}))
+	leaf := testpki.Issue(t, "subscriber.example", intermediate, testpki.Serial(3))
+	parentPath := writePEMCert(t, dir, "root.pem", parent.DER)
 	interPath := filepath.Join(dir, "inter.cer")
-	if err := os.WriteFile(interPath, interDER, 0644); err != nil {
+	if err := os.WriteFile(interPath, intermediate.DER, 0o600); err != nil {
 		t.Fatalf("write intermediate: %v", err)
 	}
-
-	leafStd := &x509.Certificate{
-		SerialNumber: big.NewInt(3),
-		Subject:      pkix.Name{CommonName: "subscriber.example"},
-		Issuer:       interStd.Subject,
-		NotBefore:    notBefore,
-		NotAfter:     notAfter,
-	}
-	leafDER, err := x509.CreateCertificate(rand.Reader, leafStd, interStd, &interKey.PublicKey, interKey)
-	if err != nil {
-		t.Fatalf("create leaf: %v", err)
-	}
-	leafPath := filepath.Join(dir, "leaf.pem")
-	if err := os.WriteFile(leafPath, pemEncodeCert(leafDER), 0644); err != nil {
-		t.Fatalf("write leaf: %v", err)
-	}
+	leafPath := writePEMCert(t, dir, "leaf.pem", leaf.DER)
 
 	cfg := Config{
 		CertPath:      leafPath,
@@ -831,7 +720,11 @@ func TestAcquireInputs_autoValidateExtendsChainFromIssuerPool(t *testing.T) {
 	}
 }
 
-func pemEncodeCert(der []byte) []byte {
-	block := &pem.Block{Type: "CERTIFICATE", Bytes: der}
-	return pem.EncodeToMemory(block)
+func writePEMCert(t *testing.T, dir, name string, der []byte) string {
+	t.Helper()
+	path := filepath.Join(dir, name)
+	if err := os.WriteFile(path, testpki.PEM("CERTIFICATE", der), 0o600); err != nil {
+		t.Fatalf("write %s: %v", name, err)
+	}
+	return path
 }

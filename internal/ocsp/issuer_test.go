@@ -1,107 +1,36 @@
 package ocsp
 
 import (
-	"crypto/rand"
-	"crypto/rsa"
-	cryptox509 "crypto/x509"
-	cryptopkix "crypto/x509/pkix"
 	"math/big"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 	"time"
 
 	"github.com/cavoq/PCL/internal/cert"
+	"github.com/cavoq/PCL/internal/testpki"
 	zx509 "github.com/zmap/zcrypto/x509"
 	zx509pkix "github.com/zmap/zcrypto/x509/pkix"
 )
 
 func TestSigningIssuerFromPool_prefersSignature(t *testing.T) {
-	caKey, _ := rsa.GenerateKey(rand.Reader, 2048)
-	ocspKey, _ := rsa.GenerateKey(rand.Reader, 2048)
+	ca := testpki.Issue(t, "CA", nil, testpki.CA(), testpki.SubjectKeyID([]byte{0x01}))
+	// The spoof has the name, key identifier and key of the CA but is no CA.
+	spoof := testpki.IssueWithKey(t, "CA", ca.Key, nil, testpki.Serial(2), testpki.SubjectKeyID([]byte{0x01})).Cert
+	signer := testpki.Issue(t, "OCSP", ca, testpki.Serial(3), testpki.OCSPSigning(),
+		testpki.SubjectKeyID([]byte{0x02})).Cert
 
-	ca := mustZX509Cert(t, caKey, caKey, &cryptox509.Certificate{
-		SerialNumber:          big.NewInt(1),
-		Subject:               cryptopkix.Name{CommonName: "CA"},
-		NotBefore:             time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
-		NotAfter:              time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC),
-		KeyUsage:              cryptox509.KeyUsageCertSign | cryptox509.KeyUsageCRLSign,
-		BasicConstraintsValid: true,
-		IsCA:                  true,
-		SubjectKeyId:          []byte{0x01},
-	}, nil)
-
-	spoof := mustZX509Cert(t, caKey, caKey, &cryptox509.Certificate{
-		SerialNumber: big.NewInt(2),
-		Subject:      cryptopkix.Name{CommonName: "CA"},
-		SubjectKeyId: []byte{0x01},
-	}, nil)
-
-	signer := mustZX509Cert(t, ocspKey, caKey, &cryptox509.Certificate{
-		SerialNumber:   big.NewInt(3),
-		Subject:        cryptopkix.Name{CommonName: "OCSP"},
-		Issuer:         pkixNameToStd(ca.Subject),
-		AuthorityKeyId: ca.SubjectKeyId,
-		NotBefore:      ca.NotBefore,
-		NotAfter:       ca.NotAfter,
-		ExtKeyUsage:    []cryptox509.ExtKeyUsage{cryptox509.ExtKeyUsageOCSPSigning},
-		KeyUsage:       cryptox509.KeyUsageDigitalSignature,
-		SubjectKeyId:   []byte{0x02},
-	}, toStdCert(ca))
-
-	got := SigningIssuerFromPool(signer, []*zx509.Certificate{spoof, ca})
-	if got != ca {
-		t.Fatalf("SigningIssuerFromPool() = serial %v, want CA serial %v", got.SerialNumber, ca.SerialNumber)
+	got := SigningIssuerFromPool(signer, []*zx509.Certificate{spoof, ca.Cert})
+	if got != ca.Cert {
+		t.Fatalf("SigningIssuerFromPool() = serial %v, want CA serial %v", got.SerialNumber, ca.Cert.SerialNumber)
 	}
 }
 
 func TestBuildSignerEvalChain_usesTLSChainSuffix(t *testing.T) {
-	caKey, _ := rsa.GenerateKey(rand.Reader, 2048)
-	leafKey, _ := rsa.GenerateKey(rand.Reader, 2048)
-	ocspKey, _ := rsa.GenerateKey(rand.Reader, 2048)
-
-	root := mustZX509Cert(t, caKey, caKey, &cryptox509.Certificate{
-		SerialNumber:          big.NewInt(1),
-		Subject:               cryptopkix.Name{CommonName: "Root"},
-		NotBefore:             time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
-		NotAfter:              time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC),
-		KeyUsage:              cryptox509.KeyUsageCertSign | cryptox509.KeyUsageCRLSign,
-		BasicConstraintsValid: true,
-		IsCA:                  true,
-		SubjectKeyId:          []byte{0x10},
-	}, nil)
-
-	intermediate := mustZX509Cert(t, caKey, caKey, &cryptox509.Certificate{
-		SerialNumber:          big.NewInt(2),
-		Subject:               cryptopkix.Name{CommonName: "Intermediate"},
-		Issuer:                pkixNameToStd(root.Subject),
-		AuthorityKeyId:        root.SubjectKeyId,
-		NotBefore:             root.NotBefore,
-		NotAfter:              root.NotAfter,
-		KeyUsage:              cryptox509.KeyUsageCertSign | cryptox509.KeyUsageCRLSign,
-		BasicConstraintsValid: true,
-		IsCA:                  true,
-		SubjectKeyId:          []byte{0x11},
-	}, toStdCert(root))
-
-	leaf := mustZX509Cert(t, leafKey, caKey, &cryptox509.Certificate{
-		SerialNumber: big.NewInt(3),
-		Subject:      cryptopkix.Name{CommonName: "Leaf"},
-		Issuer:       pkixNameToStd(intermediate.Subject),
-		NotBefore:    root.NotBefore,
-		NotAfter:     root.NotAfter,
-	}, toStdCert(intermediate))
-
-	ocspSigner := mustZX509Cert(t, ocspKey, caKey, &cryptox509.Certificate{
-		SerialNumber:   big.NewInt(4),
-		Subject:        cryptopkix.Name{CommonName: "OCSP"},
-		Issuer:         pkixNameToStd(intermediate.Subject),
-		AuthorityKeyId: intermediate.SubjectKeyId,
-		NotBefore:      root.NotBefore,
-		NotAfter:       root.NotAfter,
-		ExtKeyUsage:    []cryptox509.ExtKeyUsage{cryptox509.ExtKeyUsageOCSPSigning},
-		KeyUsage:       cryptox509.KeyUsageDigitalSignature,
-	}, toStdCert(intermediate))
+	rootCA := testpki.Issue(t, "Root", nil, testpki.CA(), testpki.SubjectKeyID([]byte{0x10}))
+	intermediateCA := testpki.Issue(t, "Intermediate", rootCA, testpki.CA(), testpki.Serial(2),
+		testpki.SubjectKeyID([]byte{0x11}))
+	root, intermediate := rootCA.Cert, intermediateCA.Cert
+	leaf := testpki.Issue(t, "Leaf", intermediateCA, testpki.Serial(3)).Cert
+	ocspSigner := testpki.Issue(t, "OCSP", intermediateCA, testpki.Serial(4), testpki.OCSPSigning()).Cert
 
 	tlsChain := []*cert.Info{
 		{Cert: leaf, FilePath: "leaf.pem"},
@@ -130,112 +59,20 @@ func TestBuildSignerEvalChain_usesTLSChainSuffix(t *testing.T) {
 }
 
 func TestBuildSignerEvalChain_resolvesViaAIA(t *testing.T) {
-	ocspKey, _ := rsa.GenerateKey(rand.Reader, 2048)
+	parent := testpki.Issue(t, "OCSP CA", nil, testpki.CA(), testpki.SubjectKeyID([]byte{0x0a}))
+	signer := testpki.Issue(t, "OCSP", parent, testpki.Serial(2), testpki.OCSPSigning(),
+		testpki.IssuingCertificateURLs(testpki.Serve(t, parent.DER))).Cert
 
-	parentDER, parent, parentKey := testOCSPParentCA(t)
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write(parentDER)
-	}))
-	defer server.Close()
-
-	signer := mustZX509Cert(t, ocspKey, parentKey, &cryptox509.Certificate{
-		SerialNumber:          big.NewInt(2),
-		Subject:               cryptopkix.Name{CommonName: "OCSP"},
-		Issuer:                pkixNameToStd(parent.Subject),
-		AuthorityKeyId:        parent.SubjectKeyId,
-		NotBefore:             parent.NotBefore,
-		NotAfter:              parent.NotAfter,
-		IssuingCertificateURL: []string{server.URL},
-		ExtKeyUsage:           []cryptox509.ExtKeyUsage{cryptox509.ExtKeyUsageOCSPSigning},
-		KeyUsage:              cryptox509.KeyUsageDigitalSignature,
-	}, toStdCert(parent))
-
-	tlsChain := []*cert.Info{}
-	signerInfo := &cert.Info{Cert: signer, FilePath: "ocsp.pem"}
-
-	got := BuildSignerEvalChain(signer, signerInfo, tlsChain, time.Second, 2, nil)
+	got := BuildSignerEvalChain(signer, &cert.Info{Cert: signer, FilePath: "ocsp.pem"}, []*cert.Info{}, time.Second, 2, nil)
 	if len(got) < 2 {
 		t.Fatalf("BuildSignerEvalChain() len = %d, want responder + issuer", len(got))
 	}
 	if got[0].Cert != signer {
 		t.Fatal("position 0 should be OCSP responder")
 	}
-	if got[1].Cert.Subject.CommonName != parent.Subject.CommonName {
-		t.Fatalf("issuer CN = %q, want %q", got[1].Cert.Subject.CommonName, parent.Subject.CommonName)
+	if got[1].Cert.Subject.CommonName != "OCSP CA" {
+		t.Fatalf("issuer CN = %q, want OCSP CA", got[1].Cert.Subject.CommonName)
 	}
-}
-
-func pkixNameToStd(n zx509pkix.Name) cryptopkix.Name {
-	return cryptopkix.Name{
-		Country:            n.Country,
-		Organization:       n.Organization,
-		OrganizationalUnit: n.OrganizationalUnit,
-		Locality:           n.Locality,
-		Province:           n.Province,
-		StreetAddress:      n.StreetAddress,
-		PostalCode:         n.PostalCode,
-		SerialNumber:       n.SerialNumber,
-		CommonName:         n.CommonName,
-	}
-}
-
-func toStdCert(c *zx509.Certificate) *cryptox509.Certificate {
-	if c == nil {
-		return nil
-	}
-	std, err := cryptox509.ParseCertificate(c.Raw)
-	if err != nil {
-		return &cryptox509.Certificate{Raw: c.Raw}
-	}
-	return std
-}
-
-func mustZX509Cert(t *testing.T, pubKey, signKey *rsa.PrivateKey, template, parent *cryptox509.Certificate) *zx509.Certificate {
-	t.Helper()
-	parentStd := template
-	if parent != nil {
-		parentStd = parent
-	}
-	signerKey := signKey
-	if parent == nil {
-		signerKey = pubKey
-	}
-	der, err := cryptox509.CreateCertificate(rand.Reader, template, parentStd, &pubKey.PublicKey, signerKey)
-	if err != nil {
-		t.Fatalf("CreateCertificate: %v", err)
-	}
-	c, err := zx509.ParseCertificate(der)
-	if err != nil {
-		t.Fatalf("ParseCertificate: %v", err)
-	}
-	return c
-}
-
-func testOCSPParentCA(t *testing.T) ([]byte, *zx509.Certificate, *rsa.PrivateKey) {
-	t.Helper()
-	key, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		t.Fatalf("generate key: %v", err)
-	}
-	template := &cryptox509.Certificate{
-		SerialNumber:          big.NewInt(1),
-		Subject:               cryptopkix.Name{CommonName: "OCSP CA"},
-		NotBefore:             time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
-		NotAfter:              time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC),
-		KeyUsage:              cryptox509.KeyUsageCertSign | cryptox509.KeyUsageCRLSign,
-		BasicConstraintsValid: true,
-		IsCA:                  true,
-		SubjectKeyId:          []byte{0x0a},
-	}
-	der, err := cryptox509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
-	if err != nil {
-		t.Fatalf("create certificate: %v", err)
-	}
-	parsed, err := zx509.ParseCertificate(der)
-	if err != nil {
-		t.Fatalf("parse certificate: %v", err)
-	}
-	return der, parsed, key
 }
 
 func TestSigningIssuerFromPool_nilSigner(t *testing.T) {
@@ -293,45 +130,17 @@ func TestResolveSignerIssuerPool_nilSigner(t *testing.T) {
 }
 
 func TestResolveSignerIssuerPool_signerAlreadyInChain(t *testing.T) {
-	caKey, _ := rsa.GenerateKey(rand.Reader, 2048)
-	ocspKey, _ := rsa.GenerateKey(rand.Reader, 2048)
-	ca := mustZX509Cert(t, caKey, caKey, &cryptox509.Certificate{
-		SerialNumber:          big.NewInt(1),
-		Subject:               cryptopkix.Name{CommonName: "CA"},
-		NotBefore:             time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
-		NotAfter:              time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC),
-		KeyUsage:              cryptox509.KeyUsageCertSign | cryptox509.KeyUsageCRLSign,
-		BasicConstraintsValid: true,
-		IsCA:                  true,
-		SubjectKeyId:          []byte{0x01},
-	}, nil)
-	signer := mustZX509Cert(t, ocspKey, caKey, &cryptox509.Certificate{
-		SerialNumber:   big.NewInt(2),
-		Subject:        cryptopkix.Name{CommonName: "OCSP"},
-		Issuer:         pkixNameToStd(ca.Subject),
-		AuthorityKeyId: ca.SubjectKeyId,
-		NotBefore:      ca.NotBefore,
-		NotAfter:       ca.NotAfter,
-		ExtKeyUsage:    []cryptox509.ExtKeyUsage{cryptox509.ExtKeyUsageOCSPSigning},
-		KeyUsage:       cryptox509.KeyUsageDigitalSignature,
-	}, toStdCert(ca))
-	tlsChain := []*cert.Info{{Cert: ca, FilePath: "ca.pem"}}
+	ca := testpki.Issue(t, "CA", nil, testpki.CA(), testpki.SubjectKeyID([]byte{0x01}))
+	signer := testpki.Issue(t, "OCSP", ca, testpki.Serial(2), testpki.OCSPSigning()).Cert
+	tlsChain := []*cert.Info{{Cert: ca.Cert, FilePath: "ca.pem"}}
 	pool := ResolveSignerIssuerPool(tlsChain, signer, 0, 0, nil)
-	if len(pool) != 1 || pool[0] != ca {
+	if len(pool) != 1 || pool[0] != ca.Cert {
 		t.Fatalf("pool = %v, want unchanged chain pool", pool)
 	}
 }
 
 func TestBuildSignerEvalChain_noIssuerReturnsResponderOnly(t *testing.T) {
-	ocspKey, _ := rsa.GenerateKey(rand.Reader, 2048)
-	signer := mustZX509Cert(t, ocspKey, ocspKey, &cryptox509.Certificate{
-		SerialNumber: big.NewInt(99),
-		Subject:      cryptopkix.Name{CommonName: "Orphan OCSP"},
-		NotBefore:    time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
-		NotAfter:     time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC),
-		ExtKeyUsage:  []cryptox509.ExtKeyUsage{cryptox509.ExtKeyUsageOCSPSigning},
-		KeyUsage:     cryptox509.KeyUsageDigitalSignature,
-	}, nil)
+	signer := testpki.Issue(t, "Orphan OCSP", nil, testpki.Serial(99), testpki.OCSPSigning()).Cert
 	signerInfo := &cert.Info{Cert: signer, FilePath: "ocsp.pem", Type: "ocspSigning"}
 	got := BuildSignerEvalChain(signer, signerInfo, nil, 0, 0, nil)
 	if len(got) != 1 || got[0].Cert != signer {

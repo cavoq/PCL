@@ -2,19 +2,15 @@ package crl
 
 import (
 	"bytes"
-	"crypto/rand"
-	"crypto/rsa"
 	cryptox509 "crypto/x509"
-	cryptopkix "crypto/x509/pkix"
 	"math/big"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/cavoq/PCL/internal/cert"
+	"github.com/cavoq/PCL/internal/testpki"
 	zasn1 "github.com/zmap/zcrypto/encoding/asn1"
 	"github.com/zmap/zcrypto/x509"
 	"github.com/zmap/zcrypto/x509/pkix"
@@ -196,20 +192,8 @@ func TestSigningCertFromPool_nilWhenNoMatch(t *testing.T) {
 }
 
 func TestResolveIssuerCerts_skipsFetchWhenSignerInChain(t *testing.T) {
-	_, signer, signerStd, signerKey := testCRLIssuerCA(t, "Test CA")
-	now := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
-	crlDER, err := cryptox509.CreateRevocationList(rand.Reader, &cryptox509.RevocationList{
-		Number:     big.NewInt(1),
-		ThisUpdate: now,
-		NextUpdate: now.Add(24 * time.Hour),
-	}, signerStd, signerKey)
-	if err != nil {
-		t.Fatalf("create CRL: %v", err)
-	}
-	revocationList, err := ParseCRL(crlDER)
-	if err != nil {
-		t.Fatalf("parse CRL: %v", err)
-	}
+	ca, revocationList := testCRLIssuerCA(t, "Test CA")
+	signer := ca.Cert
 	chain := []*cert.Info{{Cert: signer}}
 
 	pool := ResolveIssuerCerts(chain, revocationList, 0, 0, nil)
@@ -219,57 +203,17 @@ func TestResolveIssuerCerts_skipsFetchWhenSignerInChain(t *testing.T) {
 }
 
 func TestResolveIssuerCertsContinuesPastSignerWithoutCRLSign(t *testing.T) {
-	goodDER, good, goodStd, signerKey := testCRLIssuerCA(t, "Test CA")
-	now := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
-
-	badTemplate := &cryptox509.Certificate{
-		SerialNumber:          big.NewInt(2),
-		Subject:               goodStd.Subject,
-		NotBefore:             goodStd.NotBefore,
-		NotAfter:              goodStd.NotAfter,
-		KeyUsage:              cryptox509.KeyUsageCertSign,
-		BasicConstraintsValid: true,
-		IsCA:                  true,
-		SubjectKeyId:          append([]byte(nil), goodStd.SubjectKeyId...),
-	}
-	badDER, err := cryptox509.CreateCertificate(
-		rand.Reader,
-		badTemplate,
-		badTemplate,
-		&signerKey.PublicKey,
-		signerKey,
-	)
-	if err != nil {
-		t.Fatalf("create signer without cRLSign: %v", err)
-	}
-	bad, err := x509.ParseCertificate(badDER)
-	if err != nil {
-		t.Fatalf("parse signer without cRLSign: %v", err)
-	}
-
-	crlDER, err := cryptox509.CreateRevocationList(rand.Reader, &cryptox509.RevocationList{
-		Number:     big.NewInt(1),
-		ThisUpdate: now,
-		NextUpdate: now.Add(24 * time.Hour),
-	}, goodStd, signerKey)
-	if err != nil {
-		t.Fatalf("create CRL: %v", err)
-	}
-	revocationList, err := ParseCRL(crlDER)
-	if err != nil {
-		t.Fatalf("parse CRL: %v", err)
-	}
+	good, revocationList := testCRLIssuerCA(t, "Test CA")
+	bad := testpki.IssueWithKey(t, "Test CA", good.Key, nil, testpki.CA(), testpki.Serial(2),
+		testpki.SubjectKeyID(append([]byte(nil), good.Std.SubjectKeyId...)),
+		testpki.Mutate(func(template *cryptox509.Certificate) { template.KeyUsage = cryptox509.KeyUsageCertSign })).Cert
 	if !CertSignsCRL(bad, revocationList) || crlSignUsagePermits(bad) {
 		t.Fatal("test signer must verify the CRL but lack permitted cRLSign usage")
 	}
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write(goodDER)
-	}))
-	defer server.Close()
 	leaf := &x509.Certificate{
 		SerialNumber:          big.NewInt(3),
-		IssuingCertificateURL: []string{server.URL},
+		IssuingCertificateURL: []string{testpki.Serve(t, good.DER)},
 	}
 
 	pool := ResolveIssuerCerts(
@@ -283,7 +227,7 @@ func TestResolveIssuerCertsContinuesPastSignerWithoutCRLSign(t *testing.T) {
 		t.Fatalf("pool len = %d, want bad signer + leaf + fetched usable signer", len(pool))
 	}
 	if signer := usableCRLSignerFromPool(revocationList, pool); signer == nil ||
-		!bytes.Equal(signer.Raw, good.Raw) {
+		!bytes.Equal(signer.Raw, good.DER) {
 		t.Fatalf("usableCRLSignerFromPool() = %v, want fetched signer with cRLSign", signer)
 	}
 }
@@ -360,31 +304,13 @@ func TestIsCACRL_usesValidityWhenSignerNotCA(t *testing.T) {
 }
 
 func TestResolveIssuerCerts_fetchesViaAIA(t *testing.T) {
-	parentDER, parent, parentStd, parentKey := testCRLIssuerCA(t, "CRL CA")
-	now := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
-	crlDER, err := cryptox509.CreateRevocationList(rand.Reader, &cryptox509.RevocationList{
-		Number:     big.NewInt(1),
-		ThisUpdate: now,
-		NextUpdate: now.Add(24 * time.Hour),
-	}, parentStd, parentKey)
-	if err != nil {
-		t.Fatalf("create CRL: %v", err)
-	}
-	revocationList, err := ParseCRL(crlDER)
-	if err != nil {
-		t.Fatalf("parse CRL: %v", err)
-	}
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write(parentDER)
-	}))
-	defer server.Close()
-
+	ca, revocationList := testCRLIssuerCA(t, "CRL CA")
+	parent := ca.Cert
 	leaf := &x509.Certificate{
 		Subject:               pkix.Name{CommonName: "subscriber"},
 		Issuer:                parent.Subject,
 		SerialNumber:          big.NewInt(2),
-		IssuingCertificateURL: []string{server.URL},
+		IssuingCertificateURL: []string{testpki.Serve(t, ca.DER)},
 	}
 	spoof := &x509.Certificate{
 		Subject:      revocationList.Issuer,
@@ -489,35 +415,13 @@ func mustReadCRLFixture(t *testing.T) []byte {
 	return data
 }
 
-func testCRLIssuerCA(t *testing.T, cn string) ([]byte, *x509.Certificate, *cryptox509.Certificate, *rsa.PrivateKey) {
+// testCRLIssuerCA issues a CA and a one-day CRL signed by it.
+func testCRLIssuerCA(t *testing.T, cn string) (*testpki.Certificate, *x509.RevocationList) {
 	t.Helper()
-
-	key, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		t.Fatalf("generate key: %v", err)
-	}
-
-	template := &cryptox509.Certificate{
-		SerialNumber:          big.NewInt(1),
-		Subject:               cryptopkix.Name{CommonName: cn},
-		NotBefore:             time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
-		NotAfter:              time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC),
-		KeyUsage:              cryptox509.KeyUsageCertSign | cryptox509.KeyUsageCRLSign,
-		BasicConstraintsValid: true,
-		IsCA:                  true,
-		SubjectKeyId:          []byte{0x01, 0x02},
-	}
-	der, err := cryptox509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
-	if err != nil {
-		t.Fatalf("create certificate: %v", err)
-	}
-	parsed, err := x509.ParseCertificate(der)
-	if err != nil {
-		t.Fatalf("parse certificate: %v", err)
-	}
-	standard, err := cryptox509.ParseCertificate(der)
-	if err != nil {
-		t.Fatalf("parse standard certificate: %v", err)
-	}
-	return der, parsed, standard, key
+	ca := testpki.Issue(t, cn, nil, testpki.CA(), testpki.SubjectKeyID([]byte{0x01, 0x02}))
+	now := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+	return ca, parseTestCRL(t, ca.RevocationList(t, &cryptox509.RevocationList{
+		ThisUpdate: now,
+		NextUpdate: now.Add(24 * time.Hour),
+	}))
 }

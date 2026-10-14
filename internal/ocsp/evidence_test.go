@@ -1,145 +1,75 @@
 package ocsp
 
 import (
-	"crypto"
-	"crypto/rand"
-	"crypto/rsa"
 	stdx509 "crypto/x509"
-	"crypto/x509/pkix"
 	"math/big"
 	"testing"
 	"time"
 
+	"github.com/cavoq/PCL/internal/testpki"
 	"github.com/zmap/zcrypto/x509"
 	xocsp "golang.org/x/crypto/ocsp"
 )
 
 type evidenceFixture struct {
-	now       time.Time
-	leaf      *x509.Certificate
-	issuer    *x509.Certificate
-	leafStd   *stdx509.Certificate
-	issuerStd *stdx509.Certificate
-	issuerKey *rsa.PrivateKey
+	now    time.Time
+	ca     *testpki.Certificate
+	issuer *x509.Certificate
+	leaf   *x509.Certificate
 }
 
 func newEvidenceFixture(t *testing.T, name string, leafSerial int64) evidenceFixture {
 	t.Helper()
-
 	now := time.Date(2026, time.July, 18, 12, 0, 0, 0, time.UTC)
-	issuerKey, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		t.Fatalf("generate issuer key: %v", err)
-	}
-	issuerTemplate := &stdx509.Certificate{
-		SerialNumber:          big.NewInt(leafSerial + 1000),
-		Subject:               pkix.Name{CommonName: name + " issuer"},
-		NotBefore:             now.Add(-24 * time.Hour),
-		NotAfter:              now.Add(24 * time.Hour),
-		IsCA:                  true,
-		BasicConstraintsValid: true,
-		KeyUsage:              stdx509.KeyUsageCertSign | stdx509.KeyUsageDigitalSignature,
-	}
-	issuerDER, err := stdx509.CreateCertificate(rand.Reader, issuerTemplate, issuerTemplate, &issuerKey.PublicKey, issuerKey)
-	if err != nil {
-		t.Fatalf("create issuer: %v", err)
-	}
-	issuerStd, err := stdx509.ParseCertificate(issuerDER)
-	if err != nil {
-		t.Fatalf("parse issuer: %v", err)
-	}
-
-	leafKey, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		t.Fatalf("generate leaf key: %v", err)
-	}
-	leafTemplate := &stdx509.Certificate{
-		SerialNumber: big.NewInt(leafSerial),
-		Subject:      pkix.Name{CommonName: name + " leaf"},
-		NotBefore:    now.Add(-time.Hour),
-		NotAfter:     now.Add(time.Hour),
-		KeyUsage:     stdx509.KeyUsageDigitalSignature,
-	}
-	leafDER, err := stdx509.CreateCertificate(rand.Reader, leafTemplate, issuerStd, &leafKey.PublicKey, issuerKey)
-	if err != nil {
-		t.Fatalf("create leaf: %v", err)
-	}
-	leafStd, err := stdx509.ParseCertificate(leafDER)
-	if err != nil {
-		t.Fatalf("parse leaf: %v", err)
-	}
-
-	issuer, err := x509.ParseCertificate(issuerDER)
-	if err != nil {
-		t.Fatalf("parse zcrypto issuer: %v", err)
-	}
-	leaf, err := x509.ParseCertificate(leafDER)
-	if err != nil {
-		t.Fatalf("parse zcrypto leaf: %v", err)
-	}
-
-	return evidenceFixture{
-		now:       now,
-		leaf:      leaf,
-		issuer:    issuer,
-		leafStd:   leafStd,
-		issuerStd: issuerStd,
-		issuerKey: issuerKey,
-	}
+	ca := testpki.Issue(t, name+" issuer", nil, testpki.CA(), testpki.Serial(leafSerial+1000),
+		testpki.Validity(now.Add(-24*time.Hour), now.Add(24*time.Hour)),
+		testpki.Mutate(func(template *stdx509.Certificate) {
+			template.KeyUsage = stdx509.KeyUsageCertSign | stdx509.KeyUsageDigitalSignature
+		}))
+	leaf := testpki.Issue(t, name+" leaf", ca, testpki.Serial(leafSerial),
+		testpki.Validity(now.Add(-time.Hour), now.Add(time.Hour)),
+		testpki.Mutate(func(template *stdx509.Certificate) { template.KeyUsage = stdx509.KeyUsageDigitalSignature }))
+	return evidenceFixture{now: now, ca: ca, issuer: ca.Cert, leaf: leaf.Cert}
 }
 
+// response is a response about the fixture leaf, or about serial when set,
+// signed by responder, or by the fixture CA when responder is nil.
 func (fixture evidenceFixture) response(
 	t *testing.T,
 	status int,
 	serial *big.Int,
 	thisUpdate time.Time,
 	nextUpdate time.Time,
-	responseIssuer *stdx509.Certificate,
-	signer crypto.Signer,
+	responder *testpki.Certificate,
 ) *Info {
 	t.Helper()
 	if serial == nil {
-		serial = fixture.leafStd.SerialNumber
+		serial = fixture.leaf.SerialNumber
 	}
-	if responseIssuer == nil {
-		responseIssuer = fixture.issuerStd
+	if responder == nil {
+		responder = fixture.ca
 	}
-	if signer == nil {
-		signer = fixture.issuerKey
-	}
-
-	raw, err := xocsp.CreateResponse(responseIssuer, responseIssuer, xocsp.Response{
+	return &Info{Response: testpki.OCSPResponse(t, responder, responder, xocsp.Response{
 		Status:       status,
 		SerialNumber: serial,
 		ProducedAt:   fixture.now,
 		ThisUpdate:   thisUpdate,
 		NextUpdate:   nextUpdate,
-	}, signer)
-	if err != nil {
-		t.Fatalf("create OCSP response: %v", err)
-	}
-	response, err := xocsp.ParseResponse(raw, nil)
-	if err != nil {
-		t.Fatalf("parse OCSP response: %v", err)
-	}
-	return &Info{Response: response}
+	})}
 }
 
 func TestAssessResponse(t *testing.T) {
 	fixture := newEvidenceFixture(t, "primary", 42)
 	other := newEvidenceFixture(t, "other", 42)
-	wrongKey, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		t.Fatalf("generate wrong key: %v", err)
-	}
+	wrongSigner := &testpki.Certificate{Std: fixture.ca.Std, Key: testpki.RSAKey(t)}
 
-	currentGood := fixture.response(t, xocsp.Good, nil, fixture.now.Add(-time.Hour), fixture.now.Add(time.Hour), nil, nil)
-	currentRevoked := fixture.response(t, xocsp.Revoked, nil, fixture.now.Add(-time.Hour), fixture.now.Add(time.Hour), nil, nil)
-	currentUnknown := fixture.response(t, xocsp.Unknown, nil, fixture.now.Add(-time.Hour), fixture.now.Add(time.Hour), nil, nil)
-	differentSerial := fixture.response(t, xocsp.Good, big.NewInt(99), fixture.now.Add(-time.Hour), fixture.now.Add(time.Hour), nil, nil)
-	issuerMismatch := fixture.response(t, xocsp.Good, nil, fixture.now.Add(-time.Hour), fixture.now.Add(time.Hour), other.issuerStd, other.issuerKey)
-	stale := fixture.response(t, xocsp.Good, nil, fixture.now.Add(-2*time.Hour), fixture.now.Add(-time.Hour), nil, nil)
-	badSignature := fixture.response(t, xocsp.Good, nil, fixture.now.Add(-time.Hour), fixture.now.Add(time.Hour), nil, wrongKey)
+	currentGood := fixture.response(t, xocsp.Good, nil, fixture.now.Add(-time.Hour), fixture.now.Add(time.Hour), nil)
+	currentRevoked := fixture.response(t, xocsp.Revoked, nil, fixture.now.Add(-time.Hour), fixture.now.Add(time.Hour), nil)
+	currentUnknown := fixture.response(t, xocsp.Unknown, nil, fixture.now.Add(-time.Hour), fixture.now.Add(time.Hour), nil)
+	differentSerial := fixture.response(t, xocsp.Good, big.NewInt(99), fixture.now.Add(-time.Hour), fixture.now.Add(time.Hour), nil)
+	issuerMismatch := fixture.response(t, xocsp.Good, nil, fixture.now.Add(-time.Hour), fixture.now.Add(time.Hour), other.ca)
+	stale := fixture.response(t, xocsp.Good, nil, fixture.now.Add(-2*time.Hour), fixture.now.Add(-time.Hour), nil)
+	badSignature := fixture.response(t, xocsp.Good, nil, fixture.now.Add(-time.Hour), fixture.now.Add(time.Hour), wrongSigner)
 
 	tests := []struct {
 		name           string
@@ -180,9 +110,9 @@ func TestAssessResponse(t *testing.T) {
 
 func TestAssessmentAggregatesAcceptedEvidence(t *testing.T) {
 	fixture := newEvidenceFixture(t, "aggregate", 7)
-	good := fixture.response(t, xocsp.Good, nil, fixture.now.Add(-time.Hour), fixture.now.Add(time.Hour), nil, nil)
-	revoked := fixture.response(t, xocsp.Revoked, nil, fixture.now.Add(-time.Hour), fixture.now.Add(time.Hour), nil, nil)
-	stale := fixture.response(t, xocsp.Good, nil, fixture.now.Add(-2*time.Hour), fixture.now.Add(-time.Hour), nil, nil)
+	good := fixture.response(t, xocsp.Good, nil, fixture.now.Add(-time.Hour), fixture.now.Add(time.Hour), nil)
+	revoked := fixture.response(t, xocsp.Revoked, nil, fixture.now.Add(-time.Hour), fixture.now.Add(time.Hour), nil)
+	stale := fixture.response(t, xocsp.Good, nil, fixture.now.Add(-2*time.Hour), fixture.now.Add(-time.Hour), nil)
 
 	tests := []struct {
 		name       string

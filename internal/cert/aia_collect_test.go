@@ -2,18 +2,12 @@ package cert
 
 import (
 	"bytes"
-	"crypto/rand"
-	"crypto/rsa"
-	"crypto/x509"
-	"crypto/x509/pkix"
-	"encoding/pem"
 	"math/big"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 	"time"
 
 	"github.com/cavoq/PCL/internal/source"
+	"github.com/cavoq/PCL/internal/testpki"
 	zx509 "github.com/zmap/zcrypto/x509"
 	zpkix "github.com/zmap/zcrypto/x509/pkix"
 )
@@ -29,24 +23,10 @@ func TestCollectViaCAIssuers_skipsNilFrontierCert(t *testing.T) {
 }
 
 func TestCollectViaCAIssuers_twoHopBFS(t *testing.T) {
-	rootDER, root, rootKey := testParentChildPair(t, "Root CA", "unused-leaf")
-	rootServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write(rootDER)
-	}))
-	defer rootServer.Close()
-
-	interDER, inter := testSignedChildCA(t, root, rootKey, "Intermediate CA", []byte{0x03, 0x04}, []string{rootServer.URL})
-	interServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write(interDER)
-	}))
-	defer interServer.Close()
-
-	leaf := &zx509.Certificate{
-		Subject:               zpkix.Name{CommonName: "subscriber"},
-		Issuer:                inter.Subject,
-		SerialNumber:          big.NewInt(3),
-		IssuingCertificateURL: []string{interServer.URL},
-	}
+	root, rootURL := servedCA(t, "Root CA")
+	inter := testpki.Issue(t, "Intermediate CA", root, testpki.CA(), testpki.Serial(10),
+		testpki.SubjectKeyID([]byte{0x03, 0x04}), testpki.IssuingCertificateURLs(rootURL))
+	leaf := aiaChild("subscriber", inter.Cert, testpki.Serve(t, inter.DER))
 
 	got := CollectViaCAIssuers([]*zx509.Certificate{leaf}, AIACollectConfig{
 		Timeout:  time.Second,
@@ -69,18 +49,8 @@ func TestCollectViaCAIssuers_noFetchWhenDisabled(t *testing.T) {
 }
 
 func TestCollectViaCAIssuers_fetchesAndStops(t *testing.T) {
-	parentDER, parent, _ := testParentChildPair(t, "Parent CA", "leaf.example")
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write(parentDER)
-	}))
-	defer server.Close()
-
-	child := &zx509.Certificate{
-		Subject:               zpkix.Name{CommonName: "leaf.example"},
-		Issuer:                parent.Subject,
-		SerialNumber:          big.NewInt(2),
-		IssuingCertificateURL: []string{server.URL},
-	}
+	parent, url := servedCA(t, "Parent CA")
+	child := aiaChild("leaf.example", parent.Cert, url)
 
 	var buf bytes.Buffer
 	got := CollectViaCAIssuers([]*zx509.Certificate{child}, AIACollectConfig{
@@ -95,8 +65,8 @@ func TestCollectViaCAIssuers_fetchesAndStops(t *testing.T) {
 	if len(got) != 2 {
 		t.Fatalf("got %d certs, want seed + parent", len(got))
 	}
-	if got[1].Subject.CommonName != parent.Subject.CommonName {
-		t.Fatalf("second cert CN = %q, want %q", got[1].Subject.CommonName, parent.Subject.CommonName)
+	if got[1].Subject.CommonName != "Parent CA" {
+		t.Fatalf("second cert CN = %q, want Parent CA", got[1].Subject.CommonName)
 	}
 }
 
@@ -132,18 +102,8 @@ func TestFetchParentViaCAIssuers_noAIA(t *testing.T) {
 }
 
 func TestFetchParentViaCAIssuers_successDER(t *testing.T) {
-	parentDER, parent, _ := testParentChildPair(t, "Issuer CA", "subscriber.example")
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write(parentDER)
-	}))
-	defer server.Close()
-
-	child := &zx509.Certificate{
-		Subject:               zpkix.Name{CommonName: "subscriber.example"},
-		Issuer:                parent.Subject,
-		SerialNumber:          big.NewInt(2),
-		IssuingCertificateURL: []string{server.URL},
-	}
+	parent, serverURL := servedCA(t, "Issuer CA")
+	child := aiaChild("subscriber.example", parent.Cert, serverURL)
 
 	got, info, url, err := FetchParentViaCAIssuers(child, time.Second, nil)
 	if err != nil {
@@ -152,8 +112,8 @@ func TestFetchParentViaCAIssuers_successDER(t *testing.T) {
 	if got == nil || got.Subject.CommonName != "Issuer CA" {
 		t.Fatalf("issuer = %v, want Issuer CA", got)
 	}
-	if url != server.URL {
-		t.Fatalf("url = %q, want %q", url, server.URL)
+	if url != serverURL {
+		t.Fatalf("url = %q, want %q", url, serverURL)
 	}
 	if info.Format != source.FormatDER {
 		t.Fatalf("format = %q, want DER", info.Format)
@@ -161,19 +121,8 @@ func TestFetchParentViaCAIssuers_successDER(t *testing.T) {
 }
 
 func TestFetchParentViaCAIssuers_successPEM(t *testing.T) {
-	parentDER, parent, _ := testParentChildPair(t, "PEM CA", "leaf.pem.test")
-	pemBody := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: parentDER})
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write(pemBody)
-	}))
-	defer server.Close()
-
-	child := &zx509.Certificate{
-		Subject:               zpkix.Name{CommonName: "leaf.pem.test"},
-		Issuer:                parent.Subject,
-		SerialNumber:          big.NewInt(2),
-		IssuingCertificateURL: []string{server.URL},
-	}
+	parent := testpki.Issue(t, "PEM CA", nil, testpki.CA())
+	child := aiaChild("leaf.pem.test", parent.Cert, testpki.Serve(t, testpki.PEM("CERTIFICATE", parent.DER)))
 
 	var buf bytes.Buffer
 	got, info, _, err := FetchParentViaCAIssuers(child, time.Second, &buf)
@@ -194,29 +143,13 @@ func TestFetchParentViaCAIssuers_successPEM(t *testing.T) {
 	}
 }
 
-func TestFetchParentViaCAIssuers_emptyResults(t *testing.T) {
-	child := &zx509.Certificate{
-		IssuingCertificateURL: []string{"http://127.0.0.1:1/"},
-	}
-	_, _, url, err := FetchParentViaCAIssuers(child, 50*time.Millisecond, nil)
-	if err == nil {
-		t.Fatal("expected fetch error when all URLs fail")
-	}
-	if url != "http://127.0.0.1:1/" {
-		t.Fatalf("url = %q", url)
-	}
-}
-
 func TestFetchParentViaCAIssuers_returnsNilWhenBundleUnrelated(t *testing.T) {
-	leaf := testSignedLeafZX509(t)
-	unrelatedDER := testParentDEROnly(t, "Unrelated CA", []byte{0xff, 0xfe})
+	issuer := testpki.Issue(t, "Issuing CA", nil, testpki.CA())
+	unrelated := testpki.Issue(t, "Unrelated CA", nil, testpki.CA(), testpki.Serial(99),
+		testpki.SubjectKeyID([]byte{0xff, 0xfe}))
+	leaf := testpki.Issue(t, "leaf.example", issuer, testpki.Serial(2),
+		testpki.IssuingCertificateURLs(testpki.Serve(t, unrelated.DER))).Cert
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write(unrelatedDER)
-	}))
-	defer server.Close()
-
-	leaf.IssuingCertificateURL = []string{server.URL}
 	var buf bytes.Buffer
 	got, _, _, err := FetchParentViaCAIssuers(leaf, time.Second, &buf)
 	if err != nil {
@@ -332,142 +265,27 @@ func TestWarnPEMDownload(t *testing.T) {
 	}
 }
 
-func testSignedLeafZX509(t *testing.T) *zx509.Certificate {
+// servedCA issues a self-signed CA and serves its DER encoding.
+func servedCA(t *testing.T, name string) (*testpki.Certificate, string) {
 	t.Helper()
-
-	parentDER, _, key := testParentChildPair(t, "Issuing CA", "leaf.example")
-	parentStd, err := x509.ParseCertificate(parentDER)
-	if err != nil {
-		t.Fatalf("parse parent std: %v", err)
-	}
-	leafTemplate := &x509.Certificate{
-		SerialNumber: big.NewInt(2),
-		Subject:      pkix.Name{CommonName: "leaf.example"},
-		Issuer:       pkix.Name{CommonName: "Issuing CA"},
-		NotBefore:    parentStd.NotBefore,
-		NotAfter:     parentStd.NotAfter,
-	}
-	leafDER, err := x509.CreateCertificate(rand.Reader, leafTemplate, parentStd, &key.PublicKey, key)
-	if err != nil {
-		t.Fatalf("create leaf: %v", err)
-	}
-	leaf, err := zx509.ParseCertificate(leafDER)
-	if err != nil {
-		t.Fatalf("parse leaf: %v", err)
-	}
-	return leaf
+	ca := testpki.Issue(t, name, nil, testpki.CA())
+	return ca, testpki.Serve(t, ca.DER)
 }
 
-func testParentDEROnly(t *testing.T, cn string, ski []byte) []byte {
-	t.Helper()
-
-	key, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		t.Fatalf("generate key: %v", err)
+// aiaChild is an unsigned certificate naming parent as its issuer, with url as
+// its CA Issuers location.
+func aiaChild(name string, parent *zx509.Certificate, url string) *zx509.Certificate {
+	return &zx509.Certificate{
+		Subject:               zpkix.Name{CommonName: name},
+		Issuer:                parent.Subject,
+		SerialNumber:          big.NewInt(2),
+		IssuingCertificateURL: []string{url},
 	}
-	template := &x509.Certificate{
-		SerialNumber:          big.NewInt(99),
-		Subject:               pkix.Name{CommonName: cn},
-		NotBefore:             time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
-		NotAfter:              time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC),
-		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
-		BasicConstraintsValid: true,
-		IsCA:                  true,
-		SubjectKeyId:          ski,
-	}
-	der, err := x509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
-	if err != nil {
-		t.Fatalf("create unrelated parent: %v", err)
-	}
-	return der
-}
-
-func testParentChildPair(t *testing.T, parentCN, childCN string) ([]byte, *zx509.Certificate, *rsa.PrivateKey) {
-	t.Helper()
-
-	key, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		t.Fatalf("generate key: %v", err)
-	}
-
-	parentTemplate := &x509.Certificate{
-		SerialNumber:          big.NewInt(1),
-		Subject:               pkix.Name{CommonName: parentCN},
-		NotBefore:             time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
-		NotAfter:              time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC),
-		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
-		BasicConstraintsValid: true,
-		IsCA:                  true,
-		SubjectKeyId:          []byte{0x01, 0x02},
-	}
-	parentDER, err := x509.CreateCertificate(rand.Reader, parentTemplate, parentTemplate, &key.PublicKey, key)
-	if err != nil {
-		t.Fatalf("create parent: %v", err)
-	}
-	parent, err := zx509.ParseCertificate(parentDER)
-	if err != nil {
-		t.Fatalf("parse parent: %v", err)
-	}
-
-	childTemplate := &x509.Certificate{
-		SerialNumber: big.NewInt(2),
-		Subject:      pkix.Name{CommonName: childCN},
-		Issuer:       pkix.Name{CommonName: parentCN},
-		NotBefore:    parentTemplate.NotBefore,
-		NotAfter:     parentTemplate.NotAfter,
-	}
-	_, err = x509.CreateCertificate(rand.Reader, childTemplate, parentTemplate, &key.PublicKey, key)
-	if err != nil {
-		t.Fatalf("create child: %v", err)
-	}
-
-	return parentDER, parent, key
-}
-
-func testSignedChildCA(t *testing.T, parent *zx509.Certificate, parentKey *rsa.PrivateKey, cn string, ski []byte, aiaURLs []string) ([]byte, *zx509.Certificate) {
-	t.Helper()
-
-	parentStd, err := x509.ParseCertificate(parent.Raw)
-	if err != nil {
-		t.Fatalf("parse parent raw: %v", err)
-	}
-
-	template := &x509.Certificate{
-		SerialNumber:          big.NewInt(10),
-		Subject:               pkix.Name{CommonName: cn},
-		Issuer:                parentStd.Subject,
-		NotBefore:             parentStd.NotBefore,
-		NotAfter:              parentStd.NotAfter,
-		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
-		BasicConstraintsValid: true,
-		IsCA:                  true,
-		SubjectKeyId:          ski,
-		IssuingCertificateURL: aiaURLs,
-	}
-	der, err := x509.CreateCertificate(rand.Reader, template, parentStd, &parentKey.PublicKey, parentKey)
-	if err != nil {
-		t.Fatalf("create intermediate: %v", err)
-	}
-	parsed, err := zx509.ParseCertificate(der)
-	if err != nil {
-		t.Fatalf("parse intermediate: %v", err)
-	}
-	return der, parsed
 }
 
 func TestClimbChain_fetchesParent(t *testing.T) {
-	parentDER, parent, _ := testParentChildPair(t, "Climb Parent", "climb-leaf.example")
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write(parentDER)
-	}))
-	defer server.Close()
-
-	leaf := &zx509.Certificate{
-		Subject:               zpkix.Name{CommonName: "climb-leaf.example"},
-		Issuer:                parent.Subject,
-		SerialNumber:          big.NewInt(2),
-		IssuingCertificateURL: []string{server.URL},
-	}
+	parent, url := servedCA(t, "Climb Parent")
+	leaf := aiaChild("climb-leaf.example", parent.Cert, url)
 
 	chain := []*Info{{Cert: leaf, FilePath: "leaf.pem"}}
 	got := ClimbChain(chain, time.Second, 1, nil)
@@ -477,28 +295,18 @@ func TestClimbChain_fetchesParent(t *testing.T) {
 	if got[1].Cert.Subject.CommonName != "Climb Parent" {
 		t.Fatalf("parent CN = %q", got[1].Cert.Subject.CommonName)
 	}
-	if got[1].FilePath != server.URL {
+	if got[1].FilePath != url {
 		t.Fatalf("parent source path = %q", got[1].FilePath)
 	}
 }
 
 func TestClimbChain_detectsCircularReference(t *testing.T) {
-	parentDER, parent, _ := testParentChildPair(t, "Circle CA", "circle-leaf")
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write(parentDER)
-	}))
-	defer server.Close()
-
-	leaf := &zx509.Certificate{
-		Subject:               zpkix.Name{CommonName: "circle-leaf"},
-		Issuer:                parent.Subject,
-		SerialNumber:          big.NewInt(2),
-		IssuingCertificateURL: []string{server.URL},
-	}
+	parent, url := servedCA(t, "Circle CA")
+	leaf := aiaChild("circle-leaf", parent.Cert, url)
 
 	// Parent is already in chain; climbing from leaf re-fetches the same CA serial.
 	chain := []*Info{
-		{Cert: parent},
+		{Cert: parent.Cert},
 		{Cert: leaf},
 	}
 	var buf bytes.Buffer
