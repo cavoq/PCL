@@ -46,7 +46,7 @@ func Evaluate(
 ) Result {
 	inputType := inputTypeFromContext(ctx)
 	results := make([]rule.Result, 0, len(p.Rules))
-	verdict := "pass"
+	verdict := rule.VerdictPass
 
 	for _, r := range p.Rules {
 		if !RuleAppliesToInput(r, inputType) {
@@ -63,7 +63,7 @@ func Evaluate(
 		results = append(results, res)
 
 		if res.Verdict == rule.VerdictFail && r.Severity == rule.SeverityError {
-			verdict = "fail"
+			verdict = rule.VerdictFail
 		}
 	}
 

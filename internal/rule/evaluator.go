@@ -1,6 +1,7 @@
 package rule
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 
@@ -29,62 +30,33 @@ func Evaluate(
 	ctx *operator.EvaluationContext,
 ) Result {
 	if !certTypeMatches(r, ctx) {
-		return Result{
-			RuleID:    r.ID,
-			Reference: r.Reference,
-			Verdict:   VerdictSkip,
-			Severity:  r.Severity,
-		}
+		return newResult(r, VerdictSkip, "")
 	}
 
 	if r.When != nil {
 		conditionMet, err := evaluateCondition(root, r.When, reg, ctx)
 		if err != nil {
-			return Result{
-				RuleID:    r.ID,
-				Reference: r.Reference,
-				Verdict:   VerdictFail,
-				Message:   "when condition error: " + err.Error(),
-				Severity:  r.Severity,
-			}
+			return newResult(r, VerdictFail, "when condition error: "+err.Error())
 		}
 		if !conditionMet {
-			return Result{
-				RuleID:    r.ID,
-				Reference: r.Reference,
-				Verdict:   VerdictSkip,
-				Severity:  r.Severity,
-			}
+			return newResult(r, VerdictSkip, "")
 		}
 	}
 
 	ok, err := resolveAndEvaluate(root, r.Target, r.Operator, r.Operands, reg, ctx)
 	if err != nil {
-		if _, missing := err.(targetNotFoundError); missing && !node.HasInputNamespace(root, r.Target) {
-			return Result{
-				RuleID:    r.ID,
-				Reference: r.Reference,
-				Verdict:   VerdictSkip,
-				Message:   err.Error(),
-				Severity:  r.Severity,
-			}
+		if isTargetNotFound(err) && !node.HasInputNamespace(root, r.Target) {
+			return newResult(r, VerdictSkip, err.Error())
 		}
-		return Result{
-			RuleID:    r.ID,
-			Reference: r.Reference,
-			Verdict:   VerdictFail,
-			Message:   err.Error(),
-			Severity:  r.Severity,
-		}
+		return newResult(r, VerdictFail, err.Error())
 	}
-
-	verdict := VerdictPass
-	message := ""
 	if !ok {
-		verdict = VerdictFail
-		message = r.Message
+		return newResult(r, VerdictFail, r.Message)
 	}
+	return newResult(r, VerdictPass, "")
+}
 
+func newResult(r Rule, verdict, message string) Result {
 	return Result{
 		RuleID:    r.ID,
 		Reference: r.Reference,
@@ -101,7 +73,7 @@ func evaluateCondition(
 	ctx *operator.EvaluationContext,
 ) (bool, error) {
 	ok, err := resolveAndEvaluate(root, cond.Target, cond.Operator, cond.Operands, reg, ctx)
-	if _, missing := err.(targetNotFoundError); missing {
+	if isTargetNotFound(err) {
 		if !node.HasInputNamespace(root, cond.Target) {
 			return false, nil
 		}
@@ -116,6 +88,11 @@ type targetNotFoundError struct {
 
 func (err targetNotFoundError) Error() string {
 	return "target not found: " + err.target
+}
+
+func isTargetNotFound(err error) bool {
+	var notFound targetNotFoundError
+	return errors.As(err, &notFound)
 }
 
 func resolveAndEvaluate(
@@ -145,7 +122,7 @@ func resolveAndEvaluate(
 
 	ok, err := reg.Evaluate(operatorName, n, ctx, operator.NormalizeOperands(operands))
 	if err != nil {
-		return false, fmt.Errorf("operator %s on %s: %v", operatorName, target, err)
+		return false, fmt.Errorf("operator %s on %s: %w", operatorName, target, err)
 	}
 	return ok, nil
 }
