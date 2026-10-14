@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"math/big"
-	"time"
 
 	"gopkg.in/yaml.v3"
 
@@ -187,11 +185,9 @@ func inspectedTree(n *node.Node) *inspectedNode {
 // documentValue keeps strings, numbers and booleans native and renders
 // everything else as text, bytes as hex.
 func documentValue(value any) any {
-	switch typed := value.(type) {
+	switch value.(type) {
 	case nil, string, bool, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32, float64:
 		return value
-	case *big.Int, []byte, time.Time:
-		return node.FormatValue(typed)
 	default:
 		return node.FormatValue(value)
 	}

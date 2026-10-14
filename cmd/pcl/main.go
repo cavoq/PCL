@@ -28,7 +28,7 @@ func newRootCmd(opts *linter.Config) *cobra.Command {
 		PersistentPreRun: func(cmd *cobra.Command, _ []string) {
 			cmd.SilenceUsage = true
 		},
-		PreRunE: func(cmd *cobra.Command, args []string) error {
+		PreRunE: func(*cobra.Command, []string) error {
 			data.DefaultLoader.SetDataDir(opts.DataDir)
 			// Load PSL if specified or if file exists in default location
 			if opts.PSLFile != "" || opts.UsePSL {
@@ -39,7 +39,7 @@ func newRootCmd(opts *linter.Config) *cobra.Command {
 			}
 			return nil
 		},
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			opts.Diagnostics = cmd.ErrOrStderr()
 			return linter.Run(*opts, cmd.OutOrStdout())
 		},
@@ -165,7 +165,7 @@ func newUpdateDataCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update-data",
 		Short: "Download and update external data files (PSL)",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(*cobra.Command, []string) error {
 			return data.UpdateData(dataDir)
 		},
 	}
