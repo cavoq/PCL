@@ -3,9 +3,6 @@ package zcrypto
 import (
 	"strconv"
 
-	"github.com/zmap/zcrypto/x509"
-	"github.com/zmap/zcrypto/x509/pkix"
-
 	"github.com/cavoq/PCL/internal/node"
 	"github.com/cavoq/PCL/internal/oid"
 	"github.com/cavoq/PCL/internal/x509ext"
@@ -27,21 +24,29 @@ func parseGeneralNames(value []byte) ([]parsedGeneralName, error) {
 	return x509ext.DecodeGeneralNames(value)
 }
 
-func buildSubjectAltName(cert *x509.Certificate) *node.Node {
-	return buildCertificateGeneralNames("subjectAltName", cert.Extensions, oid.SubjectAlternativeName)
+func buildSubjectAltName(extensions x509ext.ExtensionIndex) *node.Node {
+	return buildCertificateGeneralNames(
+		"subjectAltName",
+		extensions,
+		oid.SubjectAlternativeName,
+	)
 }
 
-func buildIssuerAltName(cert *x509.Certificate) *node.Node {
-	return buildCertificateGeneralNames("issuerAltName", cert.Extensions, oid.IssuerAlternativeName)
+func buildIssuerAltName(extensions x509ext.ExtensionIndex) *node.Node {
+	return buildCertificateGeneralNames(
+		"issuerAltName",
+		extensions,
+		oid.IssuerAlternativeName,
+	)
 }
 
 func buildCertificateGeneralNames(
 	name string,
-	extensions []pkix.Extension,
+	extensions x509ext.ExtensionIndex,
 	targetOID string,
 ) *node.Node {
 	n := node.New(name, nil)
-	extension, ok := findExtension(extensions, targetOID)
+	extension, ok := extensions.Lookup(targetOID).First()
 	if !ok {
 		return n
 	}

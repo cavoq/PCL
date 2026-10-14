@@ -18,6 +18,7 @@ import (
 	"github.com/cavoq/PCL/internal/node"
 	"github.com/cavoq/PCL/internal/oid"
 	"github.com/cavoq/PCL/internal/x509asn1"
+	"github.com/cavoq/PCL/internal/x509ext"
 	"github.com/cavoq/PCL/internal/x509node"
 )
 
@@ -54,6 +55,7 @@ func BuildTree(cert *x509.Certificate) *node.Node {
 func buildCertificate(cert *x509.Certificate) *node.Node {
 	root := node.New("certificate", nil)
 	metadata := projectTBSCertificateMetadata(root, cert.RawTBSCertificate)
+	extensions := x509ext.NewExtensionIndex(cert.Extensions)
 
 	root.Children["version"] = node.New("version", cert.Version)
 	setChild(root, "serialNumber", buildSerialNumber(cert, metadata))
@@ -78,7 +80,7 @@ func buildCertificate(cert *x509.Certificate) *node.Node {
 
 	setChild(root, "keyUsage", projectWithFallback(
 		parsedExtensions[oid.KeyUsage],
-		hasExtension(cert.Extensions, oid.KeyUsage),
+		extensions.Lookup(oid.KeyUsage).Present(),
 		func() *node.Node { return buildKeyUsage(cert.KeyUsage) },
 	))
 	setChild(root, "extKeyUsage", projectWithFallback(
@@ -110,8 +112,8 @@ func buildCertificate(cert *x509.Certificate) *node.Node {
 		root.Children["authorityKeyIdentifier"] = node.New("authorityKeyIdentifier", cert.AuthorityKeyId)
 	}
 
-	if hasExtension(cert.Extensions, oid.SubjectAlternativeName) {
-		root.Children["subjectAltName"] = buildSubjectAltName(cert)
+	if extensions.Lookup(oid.SubjectAlternativeName).Present() {
+		root.Children["subjectAltName"] = buildSubjectAltName(extensions)
 		mirrorGeneralNamesMalformed(
 			root.Children["extensions"],
 			oid.SubjectAlternativeName,
@@ -120,8 +122,8 @@ func buildCertificate(cert *x509.Certificate) *node.Node {
 	}
 
 	// Add Issuer Alt Name (IAN)
-	if hasExtension(cert.Extensions, oid.IssuerAlternativeName) {
-		root.Children["issuerAltName"] = buildIssuerAltName(cert)
+	if extensions.Lookup(oid.IssuerAlternativeName).Present() {
+		root.Children["issuerAltName"] = buildIssuerAltName(extensions)
 		mirrorGeneralNamesMalformed(
 			root.Children["extensions"],
 			oid.IssuerAlternativeName,
@@ -132,7 +134,7 @@ func buildCertificate(cert *x509.Certificate) *node.Node {
 	// Add Name Constraints (for CA certificates)
 	projectedNameConstraints := parsedExtensions[oid.NameConstraints]
 	if projectedNameConstraints != nil {
-		if extension, ok := findExtension(cert.Extensions, oid.NameConstraints); ok {
+		if extension, ok := extensions.Lookup(oid.NameConstraints).First(); ok {
 			projectedNameConstraints.Children["critical"] = node.New("critical", extension.Critical)
 		}
 	}
@@ -391,20 +393,6 @@ func buildBasicConstraints(cert *x509.Certificate) *node.Node {
 		n.Children["pathLenConstraint"] = node.New("pathLenConstraint", cert.MaxPathLen)
 	}
 	return n
-}
-
-func hasExtension(extensions []pkix.Extension, targetOID string) bool {
-	_, ok := findExtension(extensions, targetOID)
-	return ok
-}
-
-func findExtension(extensions []pkix.Extension, targetOID string) (pkix.Extension, bool) {
-	for _, extension := range extensions {
-		if extension.Id.String() == targetOID {
-			return extension, true
-		}
-	}
-	return pkix.Extension{}, false
 }
 
 func buildRSAKey(key *rsa.PublicKey) *node.Node {

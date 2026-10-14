@@ -165,6 +165,40 @@ func TestNameConstraintsValidRequiresCurrentChainMember(t *testing.T) {
 	}
 }
 
+func TestNameConstraintsValidRejectsDuplicateExtensionsRegardlessOfOrder(t *testing.T) {
+	nameConstraints := extensionForCertificateTest(oid.NameConstraints)
+	nameConstraints.Value = nameConstraintsForTest(nil, nil)
+	malformedNameConstraints := extensionForCertificateTest(oid.NameConstraints)
+	malformedNameConstraints.Value = []byte{0x30, 0x00}
+
+	for index, extensions := range [][]pkix.Extension{
+		{nameConstraints, malformedNameConstraints},
+		{malformedNameConstraints, nameConstraints},
+	} {
+		leaf := &Info{Cert: &x509.Certificate{DNSNames: []string{"www.example.test"}}, Position: 0}
+		issuer := &Info{Cert: &x509.Certificate{
+			Extensions:        extensions,
+			PermittedDNSNames: []x509.GeneralSubtreeString{{Data: ".example.test"}},
+		}, Position: 1}
+		if NameConstraintsValid(leaf, []*Info{leaf, issuer}) {
+			t.Fatalf("extension order %d accepted duplicate issuer NameConstraints", index)
+		}
+	}
+
+	firstSubjectAlternativeName := extensionForCertificateTest(oid.SubjectAlternativeName)
+	secondSubjectAlternativeName := extensionForCertificateTest(oid.SubjectAlternativeName)
+	secondSubjectAlternativeName.Critical = true
+	for index, extensions := range [][]pkix.Extension{
+		{firstSubjectAlternativeName, secondSubjectAlternativeName},
+		{secondSubjectAlternativeName, firstSubjectAlternativeName},
+	} {
+		leaf := &Info{Cert: &x509.Certificate{Extensions: extensions}, Position: 0}
+		if NameConstraintsValid(leaf, []*Info{leaf}) {
+			t.Fatalf("extension order %d accepted duplicate SubjectAlternativeName", index)
+		}
+	}
+}
+
 func TestMatchesDNSConstraintBoundary(t *testing.T) {
 	tests := []struct {
 		name       string

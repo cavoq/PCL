@@ -396,6 +396,32 @@ func TestCertificatePolicyValidEvaluatesPathToIntermediate(t *testing.T) {
 	}
 }
 
+func TestCertificatePolicyValidRejectsDuplicateExtensionsRegardlessOfOrder(t *testing.T) {
+	first := pkix.Extension{
+		Id:    asn1.ObjectIdentifier(dottedOID(oid.CertificatePolicies)),
+		Value: certificatePoliciesDER(policyA),
+	}
+	second := pkix.Extension{
+		Id:    asn1.ObjectIdentifier(dottedOID(oid.CertificatePolicies)),
+		Value: certificatePoliciesDER(policyB),
+	}
+	for index, extensions := range [][]pkix.Extension{{first, second}, {second, first}} {
+		certificate := policyTestRoot()
+		certificate.Extensions = extensions
+		got, err := CertificatePolicyValid{}.Evaluate(
+			nil,
+			policyChainContext(certificate),
+			[]any{policyA},
+		)
+		if err != nil {
+			t.Fatalf("extension order %d: Evaluate: %v", index, err)
+		}
+		if got {
+			t.Fatalf("extension order %d accepted duplicate CertificatePolicies", index)
+		}
+	}
+}
+
 func policyTestRoot(policies ...string) *x509.Certificate {
 	return policyTestCert("Root", "Root", policies...)
 }
@@ -435,6 +461,19 @@ func policyMappingsDER(issuerDomainPolicy, subjectDomainPolicy string) []byte {
 			mapping.AddASN1ObjectIdentifier(dottedOID(issuerDomainPolicy))
 			mapping.AddASN1ObjectIdentifier(dottedOID(subjectDomainPolicy))
 		})
+	})
+	return builder.BytesOrPanic()
+}
+
+func certificatePoliciesDER(policies ...string) []byte {
+	var builder cryptobyte.Builder
+	builder.AddASN1(cryptobyte_asn1.SEQUENCE, func(policyInfos *cryptobyte.Builder) {
+		for _, policy := range policies {
+			policy := policy
+			policyInfos.AddASN1(cryptobyte_asn1.SEQUENCE, func(policyInfo *cryptobyte.Builder) {
+				policyInfo.AddASN1ObjectIdentifier(dottedOID(policy))
+			})
+		}
 	})
 	return builder.BytesOrPanic()
 }

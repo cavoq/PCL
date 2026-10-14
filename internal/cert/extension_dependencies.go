@@ -26,7 +26,7 @@ func BasicConstraintsDependenciesValid(certificate *x509.Certificate) bool {
 	if !facts.CA {
 		return false
 	}
-	if !certificateHasExtension(certificate, oid.KeyUsage) ||
+	if !certificateExtension(certificate, oid.KeyUsage).Unique() ||
 		certificate.KeyUsage&x509.KeyUsageCertSign == 0 {
 		return false
 	}
@@ -41,8 +41,12 @@ func KeyUsageDependenciesValid(certificate *x509.Certificate) bool {
 	if certificate == nil {
 		return false
 	}
-	if !certificateHasExtension(certificate, oid.KeyUsage) {
+	keyUsageExtension := certificateExtension(certificate, oid.KeyUsage)
+	if !keyUsageExtension.Present() {
 		return true
+	}
+	if !keyUsageExtension.Unique() {
+		return false
 	}
 
 	keyUsage := certificate.KeyUsage
@@ -68,12 +72,16 @@ func NameConstraintsDistancesValid(certificate *x509.Certificate) bool {
 	if certificate == nil {
 		return false
 	}
-	value, present := certificateExtensionValue(certificate, oid.NameConstraints)
-	if !present {
+	match := certificateExtension(certificate, oid.NameConstraints)
+	if !match.Present() {
 		return true
 	}
+	extension, unique := match.Extension()
+	if !unique {
+		return false
+	}
 
-	facts, err := certzcrypto.DecodeNameConstraintsStrict(value)
+	facts, err := certzcrypto.DecodeNameConstraintsStrict(extension.Value)
 	if err != nil {
 		return false
 	}
@@ -97,12 +105,16 @@ func CRLDistributionPointsDependenciesValid(certificate *x509.Certificate) bool 
 	if certificate == nil {
 		return false
 	}
-	value, present := certificateExtensionValue(certificate, oid.CRLDistributionPoints)
-	if !present {
+	match := certificateExtension(certificate, oid.CRLDistributionPoints)
+	if !match.Present() {
 		return true
 	}
+	extension, unique := match.Extension()
+	if !unique {
+		return false
+	}
 
-	facts, err := certzcrypto.DecodeCRLDistributionPointsStrict(value)
+	facts, err := certzcrypto.DecodeCRLDistributionPointsStrict(extension.Value)
 	if err != nil {
 		return false
 	}
@@ -130,19 +142,23 @@ func CRLDistributionPointsDependenciesValid(certificate *x509.Certificate) bool 
 // PolicyMappingsDependenciesValid checks that Policy Mappings occurs only in
 // CA certificates and that neither side of a mapping uses anyPolicy.
 func PolicyMappingsDependenciesValid(certificate *x509.Certificate) bool {
-	value, present := certificateExtensionValue(certificate, oid.PolicyMappings)
 	if certificate == nil {
 		return false
 	}
-	if !present {
+	match := certificateExtension(certificate, oid.PolicyMappings)
+	if !match.Present() {
 		return true
+	}
+	extension, unique := match.Extension()
+	if !unique {
+		return false
 	}
 	basicConstraints, valid := basicConstraintsProfileFacts(certificate)
 	if !valid || !basicConstraints.CA {
 		return false
 	}
 
-	mappings, err := certzcrypto.DecodePolicyMappingsStrict(value)
+	mappings, err := certzcrypto.DecodePolicyMappingsStrict(extension.Value)
 	if err != nil {
 		return false
 	}
@@ -158,23 +174,31 @@ func PolicyMappingsDependenciesValid(certificate *x509.Certificate) bool {
 // PolicyMappingsIssuerPoliciesPresent checks the RFC 5280 recommendation that
 // every issuerDomainPolicy also appears in this certificate's policies.
 func PolicyMappingsIssuerPoliciesPresent(certificate *x509.Certificate) bool {
-	value, present := certificateExtensionValue(certificate, oid.PolicyMappings)
 	if certificate == nil {
 		return false
 	}
-	if !present {
+	mappingsMatch := certificateExtension(certificate, oid.PolicyMappings)
+	if !mappingsMatch.Present() {
 		return true
 	}
+	mappingsExtension, unique := mappingsMatch.Extension()
+	if !unique {
+		return false
+	}
 
-	mappings, err := certzcrypto.DecodePolicyMappingsStrict(value)
+	mappings, err := certzcrypto.DecodePolicyMappingsStrict(mappingsExtension.Value)
 	if err != nil {
 		return false
 	}
-	policiesValue, policiesPresent := certificateExtensionValue(certificate, oid.CertificatePolicies)
-	if !policiesPresent {
+	policiesMatch := certificateExtension(certificate, oid.CertificatePolicies)
+	if !policiesMatch.Present() {
 		return false
 	}
-	policyIdentifiers, err := certzcrypto.DecodeCertificatePolicyIdentifiersStrict(policiesValue)
+	policiesExtension, unique := policiesMatch.Extension()
+	if !unique {
+		return false
+	}
+	policyIdentifiers, err := certzcrypto.DecodeCertificatePolicyIdentifiersStrict(policiesExtension.Value)
 	if err != nil {
 		return false
 	}
@@ -206,8 +230,12 @@ func caOnlyExtensionValid(certificate *x509.Certificate, identifier string) bool
 	if certificate == nil {
 		return false
 	}
-	if !certificateHasExtension(certificate, identifier) {
+	match := certificateExtension(certificate, identifier)
+	if !match.Present() {
 		return true
+	}
+	if !match.Unique() {
+		return false
 	}
 	basicConstraints, valid := basicConstraintsProfileFacts(certificate)
 	return valid && basicConstraints.CA
@@ -219,8 +247,13 @@ func basicConstraintsProfileFacts(
 	if certificate == nil {
 		return certzcrypto.BasicConstraintsFacts{}, false
 	}
-	if value, present := certificateExtensionValue(certificate, oid.BasicConstraints); present {
-		facts, err := certzcrypto.DecodeBasicConstraintsStrict(value)
+	match := certificateExtension(certificate, oid.BasicConstraints)
+	if match.Present() {
+		extension, unique := match.Extension()
+		if !unique {
+			return certzcrypto.BasicConstraintsFacts{}, false
+		}
+		facts, err := certzcrypto.DecodeBasicConstraintsStrict(extension.Value)
 		return facts, err == nil
 	}
 
@@ -236,19 +269,9 @@ func basicConstraintsProfileFacts(
 	}, true
 }
 
-func certificateHasExtension(certificate *x509.Certificate, identifier string) bool {
-	_, ok := certificateExtensionValue(certificate, identifier)
-	return ok
-}
-
-func certificateExtensionValue(certificate *x509.Certificate, identifier string) ([]byte, bool) {
+func certificateExtension(certificate *x509.Certificate, identifier string) x509ext.ExtensionMatch {
 	if certificate == nil {
-		return nil, false
+		return x509ext.ExtensionMatch{}
 	}
-	for _, extension := range certificate.Extensions {
-		if extension.Id.String() == identifier {
-			return extension.Value, true
-		}
-	}
-	return nil, false
+	return x509ext.NewExtensionIndex(certificate.Extensions).Lookup(identifier)
 }

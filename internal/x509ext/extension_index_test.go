@@ -46,6 +46,13 @@ func TestExtensionIndexReportsPresenceAndUniqueness(t *testing.T) {
 			if ok != test.unique {
 				t.Fatalf("Extension() ok = %t, want %t", ok, test.unique)
 			}
+			first, ok := match.First()
+			if ok != test.present {
+				t.Fatalf("First() ok = %t, want %t", ok, test.present)
+			}
+			if test.identifier == firstOID && ok && first.Value[0] != 1 {
+				t.Fatalf("First() value = %v, want first encoded value", first.Value)
+			}
 		})
 	}
 }

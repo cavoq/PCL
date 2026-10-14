@@ -51,20 +51,22 @@ func AnyExtendedKeyUsageNotCritical(certificate *x509.Certificate) bool {
 		return false
 	}
 
-	for _, extension := range certificate.Extensions {
-		if extension.Id.String() != oid.ExtendedKeyUsage {
-			continue
-		}
-		identifiers, err := certzcrypto.DecodeExtendedKeyUsageOIDsStrict(extension.Value)
-		if err != nil {
-			return false
-		}
-		for _, identifier := range identifiers {
-			if identifier == anyExtendedKeyUsageOID {
-				return !extension.Critical
-			}
-		}
+	match := certificateExtension(certificate, oid.ExtendedKeyUsage)
+	if !match.Present() {
 		return true
+	}
+	extension, unique := match.Extension()
+	if !unique {
+		return false
+	}
+	identifiers, err := certzcrypto.DecodeExtendedKeyUsageOIDsStrict(extension.Value)
+	if err != nil {
+		return false
+	}
+	for _, identifier := range identifiers {
+		if identifier == anyExtendedKeyUsageOID {
+			return !extension.Critical
+		}
 	}
 	return true
 }
@@ -113,28 +115,33 @@ func applicationPurposeUsageByOID(identifier string) (x509.ExtKeyUsage, bool) {
 }
 
 func extendedKeyUsagePermits(certificate *x509.Certificate, requested applicationPurpose) bool {
-	for _, extension := range certificate.Extensions {
-		if extension.Id.String() != oid.ExtendedKeyUsage {
-			continue
-		}
-
-		identifiers, err := certzcrypto.DecodeExtendedKeyUsageOIDsStrict(extension.Value)
-		if err != nil {
-			return false
-		}
-		for _, identifier := range identifiers {
-			if identifier == anyExtendedKeyUsageOID || identifier == requested.oid {
-				return true
-			}
-		}
+	match := certificateExtension(certificate, oid.ExtendedKeyUsage)
+	if !match.Present() {
+		return true
+	}
+	extension, unique := match.Extension()
+	if !unique {
 		return false
 	}
-	return true
+	identifiers, err := certzcrypto.DecodeExtendedKeyUsageOIDsStrict(extension.Value)
+	if err != nil {
+		return false
+	}
+	for _, identifier := range identifiers {
+		if identifier == anyExtendedKeyUsageOID || identifier == requested.oid {
+			return true
+		}
+	}
+	return false
 }
 
 func keyUsagePermits(certificate *x509.Certificate, requested applicationPurpose) bool {
-	if !certificateHasExtension(certificate, oid.KeyUsage) {
+	match := certificateExtension(certificate, oid.KeyUsage)
+	if !match.Present() {
 		return true
+	}
+	if !match.Unique() {
+		return false
 	}
 	if !KeyUsageDependenciesValid(certificate) || certificate.KeyUsage == 0 {
 		return false

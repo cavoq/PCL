@@ -1,6 +1,7 @@
 package operator
 
 import (
+	"fmt"
 	"slices"
 
 	"github.com/zmap/zcrypto/x509"
@@ -9,6 +10,7 @@ import (
 	certzcrypto "github.com/cavoq/PCL/internal/cert/zcrypto"
 	"github.com/cavoq/PCL/internal/node"
 	"github.com/cavoq/PCL/internal/oid"
+	"github.com/cavoq/PCL/internal/x509ext"
 )
 
 // CertificatePolicyValid runs the RFC 5280 Section 6.1 certificate policy
@@ -102,8 +104,13 @@ func decodeCertificatePolicyFacts(certificate *x509.Certificate) (certificatePol
 		inhibitAnyPolicy:      -1,
 		selfIssued:            certpkg.IsSelfIssued(certificate),
 	}
+	extensions := x509ext.NewExtensionIndex(certificate.Extensions)
 
-	if value, present := policyExtensionValue(certificate, oid.CertificatePolicies); present {
+	value, present, err := policyExtensionValue(extensions, oid.CertificatePolicies)
+	if err != nil {
+		return facts, err
+	}
+	if present {
 		policies, err := certzcrypto.DecodeCertificatePolicyIdentifiersStrict(value)
 		if err != nil {
 			return facts, err
@@ -117,7 +124,11 @@ func decodeCertificatePolicyFacts(certificate *x509.Certificate) (certificatePol
 		}
 	}
 
-	if value, present := policyExtensionValue(certificate, oid.PolicyMappings); present {
+	value, present, err = policyExtensionValue(extensions, oid.PolicyMappings)
+	if err != nil {
+		return facts, err
+	}
+	if present {
 		mappings, err := certzcrypto.DecodePolicyMappingsStrict(value)
 		if err != nil {
 			return facts, err
@@ -125,7 +136,11 @@ func decodeCertificatePolicyFacts(certificate *x509.Certificate) (certificatePol
 		facts.mappings = mappings
 	}
 
-	if value, present := policyExtensionValue(certificate, oid.PolicyConstraints); present {
+	value, present, err = policyExtensionValue(extensions, oid.PolicyConstraints)
+	if err != nil {
+		return facts, err
+	}
+	if present {
 		constraints, err := certzcrypto.DecodePolicyConstraintsStrict(value)
 		if err != nil {
 			return facts, err
@@ -138,7 +153,11 @@ func decodeCertificatePolicyFacts(certificate *x509.Certificate) (certificatePol
 		}
 	}
 
-	if value, present := policyExtensionValue(certificate, oid.InhibitAnyPolicy); present {
+	value, present, err = policyExtensionValue(extensions, oid.InhibitAnyPolicy)
+	if err != nil {
+		return facts, err
+	}
+	if present {
 		skipCerts, err := certzcrypto.DecodeInhibitAnyPolicyStrict(value)
 		if err != nil {
 			return facts, err
@@ -150,13 +169,19 @@ func decodeCertificatePolicyFacts(certificate *x509.Certificate) (certificatePol
 	return facts, nil
 }
 
-func policyExtensionValue(certificate *x509.Certificate, identifier string) ([]byte, bool) {
-	for _, extension := range certificate.Extensions {
-		if extension.Id.String() == identifier {
-			return extension.Value, true
-		}
+func policyExtensionValue(
+	extensions x509ext.ExtensionIndex,
+	identifier string,
+) ([]byte, bool, error) {
+	match := extensions.Lookup(identifier)
+	if !match.Present() {
+		return nil, false, nil
 	}
-	return nil, false
+	extension, unique := match.Extension()
+	if !unique {
+		return nil, true, fmt.Errorf("duplicate certificate extension %s", identifier)
+	}
+	return extension.Value, true, nil
 }
 
 // processCertificatePolicies applies the RFC 5280 Section 6.1 policy steps

@@ -304,6 +304,23 @@ func TestAnyExtendedKeyUsageNotCritical(t *testing.T) {
 	}
 }
 
+func TestPurposePredicatesRejectDuplicateEKURegardlessOfOrder(t *testing.T) {
+	valid := extendedKeyUsageExtensionForCertificateTest(t, false, oid.ServerAuth)
+	malformed := extensionForCertificateTest(oid.ExtendedKeyUsage)
+	for index, extensions := range [][]pkix.Extension{{valid, malformed}, {malformed, valid}} {
+		certificate := &x509.Certificate{
+			Extensions:  extensions,
+			ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		}
+		if AnyExtendedKeyUsageNotCritical(certificate) {
+			t.Fatalf("extension order %d passed duplicate EKU criticality check", index)
+		}
+		if ApplicationPurposeValid(&Info{Cert: certificate}, "serverAuth") {
+			t.Fatalf("extension order %d passed duplicate EKU purpose check", index)
+		}
+	}
+}
+
 func extensionForCertificateTest(identifier string) pkix.Extension {
 	return pkix.Extension{Id: oidForCertificateTestNoError(identifier)}
 }

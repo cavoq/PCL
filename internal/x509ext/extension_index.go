@@ -77,6 +77,17 @@ func (match ExtensionMatch) Count() int {
 	return match.count
 }
 
+// First returns a copy of the first matching extension when at least one is
+// present. Callers should normally use Extension, which rejects duplicates.
+// First exists for diagnostic projections that deliberately preserve the first
+// encoded instance while separately reporting duplicate OIDs.
+func (match ExtensionMatch) First() (pkix.Extension, bool) {
+	if !match.Present() {
+		return pkix.Extension{}, false
+	}
+	return cloneExtension(match.extension), true
+}
+
 // Extension returns a copy of the matching extension when it is unique.
 func (match ExtensionMatch) Extension() (pkix.Extension, bool) {
 	if !match.Unique() {

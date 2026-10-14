@@ -137,6 +137,88 @@ func TestKeyUsageDependenciesValid(t *testing.T) {
 	}
 }
 
+func TestCertificateProfilePredicatesRejectDuplicateExtensionsRegardlessOfOrder(t *testing.T) {
+	tests := []struct {
+		name       string
+		identifier string
+		first      []byte
+		second     []byte
+		prepare    func(*x509.Certificate)
+		check      func(*x509.Certificate) bool
+	}{
+		{
+			name:       "basic constraints",
+			identifier: oid.BasicConstraints,
+			first:      []byte{0x30, 0x03, 0x01, 0x01, 0xff},
+			second:     []byte{0x30, 0x00},
+			prepare: func(certificate *x509.Certificate) {
+				certificate.BasicConstraintsValid = true
+				certificate.IsCA = true
+			},
+			check: IsCA,
+		},
+		{
+			name:       "key usage",
+			identifier: oid.KeyUsage,
+			first:      []byte{0x03, 0x02, 0x07, 0x80},
+			second:     []byte{0x03, 0x02, 0x05, 0x20},
+			prepare: func(certificate *x509.Certificate) {
+				certificate.KeyUsage = x509.KeyUsageDigitalSignature
+			},
+			check: KeyUsageDependenciesValid,
+		},
+		{
+			name:       "name constraints",
+			identifier: oid.NameConstraints,
+			first:      nameConstraintsForTest(nil, nil),
+			second:     []byte{0x30, 0x00},
+			check:      NameConstraintsDistancesValid,
+		},
+		{
+			name:       "CRL distribution points",
+			identifier: oid.CRLDistributionPoints,
+			first: crlDistributionPointsForTest(
+				crlDistributionPointForTest{},
+			),
+			second: []byte{0x30, 0x00},
+			check:  CRLDistributionPointsDependenciesValid,
+		},
+		{
+			name:       "policy mappings",
+			identifier: oid.PolicyMappings,
+			first: marshalPolicyMappingsForTest(
+				t,
+				[][2]string{{"1.2.3.1", "1.2.3.2"}},
+			),
+			second: []byte{0x30, 0x00},
+			prepare: func(certificate *x509.Certificate) {
+				certificate.BasicConstraintsValid = true
+				certificate.IsCA = true
+			},
+			check: PolicyMappingsDependenciesValid,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			first := extensionForCertificateTest(test.identifier)
+			first.Value = test.first
+			second := extensionForCertificateTest(test.identifier)
+			second.Value = test.second
+			orders := [][]pkix.Extension{{first, second}, {second, first}}
+			for index, extensions := range orders {
+				certificate := &x509.Certificate{Extensions: extensions}
+				if test.prepare != nil {
+					test.prepare(certificate)
+				}
+				if test.check(certificate) {
+					t.Fatalf("extension order %d passed duplicate %s", index, test.identifier)
+				}
+			}
+		})
+	}
+}
+
 func TestCAOnlyExtensionDependencies(t *testing.T) {
 	predicates := []struct {
 		name       string
