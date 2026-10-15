@@ -28,6 +28,9 @@ type Options struct {
 	ShowFailed  bool
 	ShowSkipped bool
 	ShowMeta    bool
+	// ShowDetails adds rule explanations to text output. JSON and YAML always
+	// retain their structured message and details fields.
+	ShowDetails bool
 	// Color marks text output with ANSI colors.
 	Color bool
 }

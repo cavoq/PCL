@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/cavoq/PCL/internal/rule"
 )
@@ -83,7 +84,13 @@ func (f *TextFormatter) Format(w io.Writer, out LintOutput) error {
 		); err != nil {
 			return err
 		}
-		if err := writeRulesTable(w, colors, visibleRules(pr.Results, f.Options), len(pr.Results)); err != nil {
+		if err := writeRulesTable(
+			w,
+			colors,
+			visibleRules(pr.Results, f.Options),
+			len(pr.Results),
+			f.Options.ShowDetails,
+		); err != nil {
 			return err
 		}
 	}
@@ -175,7 +182,7 @@ type tableColumn struct {
 
 // writeRulesTable lists the visible results of a policy that evaluated
 // total rules.
-func writeRulesTable(w io.Writer, colors palette, results []rule.Result, total int) error {
+func writeRulesTable(w io.Writer, colors palette, results []rule.Result, total int, showDetails bool) error {
 	if _, err := fmt.Fprintln(w, strings.Repeat("-", 72)); err != nil {
 		return err
 	}
@@ -210,37 +217,36 @@ func writeRulesTable(w io.Writer, colors palette, results []rule.Result, total i
 		if err := writeTableLine(w, cells); err != nil {
 			return err
 		}
+		if showDetails {
+			if err := writeRuleDetails(w, columns, rr); err != nil {
+				return err
+			}
+		}
 	}
 
 	return nil
 }
 
-// rulesTableColumns returns the optional SEVERITY, REFERENCE and DETAILS
-// columns after the always-present RULE column. Empty optional columns are
-// omitted.
+// rulesTableColumns returns the optional SEVERITY and REFERENCE columns after
+// the always-present RULE column. Empty optional columns are omitted.
 func rulesTableColumns(results []rule.Result) []tableColumn {
 	severity := tableColumn{header: "SEVERITY", value: func(rr rule.Result) string { return severityLabel(rr.Severity) }}
 	ruleID := tableColumn{header: "RULE", value: func(rr rule.Result) string { return rr.RuleID }}
-	details := tableColumn{header: "DETAILS", value: resultDetails}
 	reference := tableColumn{header: "REFERENCE", value: func(rr rule.Result) string { return rr.Reference }}
 
 	showSeverity := false
-	showDetails := false
 	showReference := false
 	ruleID.width = len(ruleID.header)
-	details.width = len(details.header)
 	reference.width = len(reference.header)
 	for _, rr := range results {
 		showSeverity = showSeverity || rr.Severity != ""
-		showDetails = showDetails || resultDetails(rr) != ""
 		showReference = showReference || rr.Reference != ""
 		ruleID.width = max(ruleID.width, len(rr.RuleID))
-		details.width = max(details.width, len(resultDetails(rr)))
 		reference.width = max(reference.width, len(rr.Reference))
 	}
 	severity.width = len(severity.header)
 
-	columns := make([]tableColumn, 0, 4)
+	columns := make([]tableColumn, 0, 3)
 	if showSeverity {
 		columns = append(columns, severity)
 	}
@@ -248,20 +254,94 @@ func rulesTableColumns(results []rule.Result) []tableColumn {
 	if showReference {
 		columns = append(columns, reference)
 	}
-	if showDetails {
-		columns = append(columns, details)
-	}
 	return columns
 }
 
-func resultDetails(result rule.Result) string {
-	if result.Message == "" {
-		return result.Details
+const maxDetailLineWidth = 120
+
+func writeRuleDetails(w io.Writer, columns []tableColumn, result rule.Result) error {
+	parts := resultDetailParts(result)
+	if len(parts) == 0 {
+		return nil
 	}
-	if result.Details == "" || result.Details == result.Message {
-		return result.Message
+
+	indent := ruleColumnIndent(columns)
+	wrapWidth := max(40, maxDetailLineWidth-len(indent)-3)
+	for partIndex, part := range parts {
+		branch := "├─ "
+		if partIndex == len(parts)-1 {
+			branch = "└─ "
+		}
+		lines := wrapDetail(part, wrapWidth)
+		for lineIndex, line := range lines {
+			prefix := branch
+			if lineIndex > 0 {
+				prefix = "   "
+			}
+			if _, err := fmt.Fprintf(w, "%s%s%s\n", indent, prefix, line); err != nil {
+				return err
+			}
+		}
 	}
-	return result.Message + "; " + result.Details
+	return nil
+}
+
+func resultDetailParts(result rule.Result) []string {
+	parts := make([]string, 0, 2)
+	if result.Message != "" {
+		parts = append(parts, result.Message)
+	}
+	if result.Details != "" && result.Details != result.Message {
+		parts = append(parts, result.Details)
+	}
+	return parts
+}
+
+func ruleColumnIndent(columns []tableColumn) string {
+	width := 2 + verdictWidth + 2
+	for _, column := range columns {
+		if column.header == "RULE" {
+			break
+		}
+		width += column.width + 2
+	}
+	return strings.Repeat(" ", width)
+}
+
+func wrapDetail(value string, width int) []string {
+	words := strings.Fields(value)
+	if len(words) == 0 {
+		return nil
+	}
+
+	lines := make([]string, 0, 1)
+	current := ""
+	for _, word := range words {
+		wordRunes := []rune(word)
+		for len(wordRunes) > width {
+			if current != "" {
+				lines = append(lines, current)
+				current = ""
+			}
+			lines = append(lines, string(wordRunes[:width]))
+			wordRunes = wordRunes[width:]
+		}
+		word = string(wordRunes)
+		if current == "" {
+			current = word
+			continue
+		}
+		if utf8.RuneCountInString(current)+1+len(wordRunes) <= width {
+			current += " " + word
+			continue
+		}
+		lines = append(lines, current)
+		current = word
+	}
+	if current != "" {
+		lines = append(lines, current)
+	}
+	return lines
 }
 
 func writeTableLine(w io.Writer, cells []string) error {

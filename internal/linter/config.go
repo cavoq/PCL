@@ -26,6 +26,9 @@ type Config struct {
 	ValidationTime time.Time
 	Verbosity      int
 	ShowMeta       bool
+	// ShowDetails adds human-readable rule explanations to text output.
+	// Structured output always retains diagnostic fields.
+	ShowDetails bool
 	// Color marks text results with ANSI colors.
 	Color bool
 	// FailOn is the lowest severity of a failed rule that makes Run return

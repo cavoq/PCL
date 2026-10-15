@@ -392,6 +392,7 @@ func outputResults(cfg Config, results []policy.Result, w io.Writer) error {
 		ShowFailed:  true,
 		ShowSkipped: cfg.Verbosity >= 2,
 		ShowMeta:    cfg.ShowMeta,
+		ShowDetails: cfg.ShowDetails,
 		Color:       cfg.Color,
 	}
 

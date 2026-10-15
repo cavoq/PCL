@@ -24,7 +24,9 @@ pcl test <suite-or-directory>       # run policy test suites (*.test.yaml)
 pcl schema                          # print the policy JSON Schema for editors
 ```
 
-By default, only failed rules are shown. Use `-v` to include passed rules and `-vv` to include skipped rules.
+By default, only failed rules are shown. Use `-v` to include passed rules and
+`-vv` to include skipped rules. Add `--details` to show wrapped explanations
+under the displayed rules; JSON and YAML always retain structured details.
 
 `pcl` exits with status 1 when it cannot complete the run. Failed rules do not
 change the exit status unless `--fail-on` names a severity: with

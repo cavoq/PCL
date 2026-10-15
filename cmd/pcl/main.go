@@ -45,6 +45,7 @@ func newRootCmd(opts *linter.Config) *cobra.Command {
 	addInputFlags(root.Flags(), opts)
 	root.Flags().StringVar(&opts.OutputFmt, "output", output.FormatText, "Output format: text, json, or yaml")
 	root.Flags().CountVarP(&opts.Verbosity, "verbose", "v", "Increase output detail: -v shows passed, -vv includes skipped")
+	root.Flags().BoolVar(&opts.ShowDetails, "details", false, "Show wrapped rule explanations in text output")
 	root.Flags().BoolVar(&opts.ShowMeta, "show-meta", true, "Show lint meta information")
 	root.Flags().StringVar(&opts.FailOn, "fail-on", linter.FailOnNone, "Exit with status 1 when a rule of this severity or higher fails: error, warning, info or none")
 

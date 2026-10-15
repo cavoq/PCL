@@ -8,9 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Text results include a `DETAILS` column with the reason for failed and
-  skipped verdicts and actual-versus-expected facts for passing checks. JSON
-  and YAML rule results expose the same information as `details`.
+- Text results support `--details` to show wrapped explanations below failed
+  and skipped verdicts and actual-versus-expected facts for passing checks.
+  JSON and YAML rule results expose the same information as `details`.
 - `--fail-on error|warning|info|none` makes `pcl` exit with status 1 after
   writing the results when a rule of that severity or higher failed. The
   default, `none`, keeps the exit status independent of the results.

@@ -24,6 +24,18 @@ func TestRootCommandAcceptsApplicationPurpose(t *testing.T) {
 	}
 }
 
+func TestRootCommandAcceptsDetails(t *testing.T) {
+	var config linter.Config
+	command := newRootCmd(&config)
+
+	if err := command.ParseFlags([]string{"--details"}); err != nil {
+		t.Fatalf("parse --details: %v", err)
+	}
+	if !config.ShowDetails {
+		t.Fatal("ShowDetails = false, want true")
+	}
+}
+
 func TestInspectCommandSharesInputFlags(t *testing.T) {
 	command := newInspectCmd()
 	if err := command.ParseFlags([]string{"--cert", "leaf.pem", "--crl", "list.crl", "--purpose", "serverAuth", "--paths", "--output", "json"}); err != nil {

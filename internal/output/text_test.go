@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/cavoq/PCL/internal/policy"
 	"github.com/cavoq/PCL/internal/rule"
@@ -91,7 +92,7 @@ func TestPaletteSeverity(t *testing.T) {
 func TestWriteRulesTable_Empty(t *testing.T) {
 	var buf bytes.Buffer
 
-	err := writeRulesTable(&buf, palette(true), nil, 0)
+	err := writeRulesTable(&buf, palette(true), nil, 0, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -105,7 +106,7 @@ func TestWriteRulesTable_Empty(t *testing.T) {
 func TestWriteRulesTable_EmptyWithCounts(t *testing.T) {
 	var buf bytes.Buffer
 
-	err := writeRulesTable(&buf, palette(true), nil, 6)
+	err := writeRulesTable(&buf, palette(true), nil, 6, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -128,7 +129,7 @@ func TestWriteRulesTable_WithResults(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	err := writeRulesTable(&buf, palette(true), results, 2)
+	err := writeRulesTable(&buf, palette(true), results, 2, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -140,18 +141,43 @@ func TestWriteRulesTable_WithResults(t *testing.T) {
 	if !strings.Contains(result, "rule-2") {
 		t.Error("should contain rule-2")
 	}
-	if !strings.Contains(result, "failed check") {
-		t.Error("should contain failure message")
-	}
 	if !strings.Contains(result, "VERDICT") {
 		t.Error("should contain header")
 	}
-	if !strings.Contains(result, "DETAILS") ||
-		!strings.Contains(result, "failed check; actual: absent; expected: true") {
-		t.Errorf("should contain inline verdict details:\n%s", result)
+	if strings.Contains(result, "DETAILS") || strings.Contains(result, "failed check") ||
+		strings.Contains(result, "actual: 42") {
+		t.Errorf("should hide verdict details by default:\n%s", result)
 	}
-	if strings.Contains(result, "->") {
-		t.Errorf("should not render details on a detached continuation line:\n%s", result)
+
+	buf.Reset()
+	if err := writeRulesTable(&buf, palette(false), results, 2, true); err != nil {
+		t.Fatalf("write detailed rules table: %v", err)
+	}
+	result = buf.String()
+	if strings.Contains(result, "DETAILS") {
+		t.Errorf("details should not create a wide table column:\n%s", result)
+	}
+	for _, want := range []string{
+		"└─ actual: 42; expected: 42",
+		"├─ failed check",
+		"└─ actual: absent; expected: true",
+	} {
+		if !strings.Contains(result, want) {
+			t.Errorf("detailed output should contain %q:\n%s", want, result)
+		}
+	}
+}
+
+func TestWrapDetailPreservesUnicode(t *testing.T) {
+	value := strings.Repeat("ä", 25)
+	lines := wrapDetail(value, 10)
+	if got := strings.Join(lines, ""); got != value {
+		t.Fatalf("wrapped value = %q, want %q", got, value)
+	}
+	for _, line := range lines {
+		if !utf8.ValidString(line) || utf8.RuneCountInString(line) > 10 {
+			t.Errorf("invalid wrapped line %q", line)
+		}
 	}
 }
 
@@ -161,7 +187,7 @@ func TestWriteRulesTable_WithReference(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	err := writeRulesTable(&buf, palette(true), results, 1)
+	err := writeRulesTable(&buf, palette(true), results, 1, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -181,7 +207,7 @@ func TestWriteRulesTable_WithWarnings(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	err := writeRulesTable(&buf, palette(true), results, 1)
+	err := writeRulesTable(&buf, palette(true), results, 1, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
