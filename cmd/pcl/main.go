@@ -32,6 +32,7 @@ func newRootCmd(opts *linter.Config) *cobra.Command {
 		},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			opts.Diagnostics = cmd.ErrOrStderr()
+			opts.Color = colorOutput(cmd.OutOrStdout())
 			dataOpts.load(opts.Diagnostics)
 			return linter.Run(*opts, cmd.OutOrStdout())
 		},
@@ -46,6 +47,20 @@ func newRootCmd(opts *linter.Config) *cobra.Command {
 	addDataFlags(root.Flags(), &dataOpts)
 
 	return root
+}
+
+// colorOutput reports whether text results written to w are colored: only
+// for a terminal, and not when NO_COLOR is set (https://no-color.org).
+func colorOutput(w io.Writer) bool {
+	if os.Getenv("NO_COLOR") != "" {
+		return false
+	}
+	file, ok := w.(*os.File)
+	if !ok {
+		return false
+	}
+	info, err := file.Stat()
+	return err == nil && info.Mode()&os.ModeCharDevice != 0
 }
 
 // dataOptions select the external data, such as the Public Suffix List, that

@@ -150,3 +150,28 @@ tests:
 		}
 	}
 }
+
+func TestColorOutput(t *testing.T) {
+	device, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = device.Close() }()
+	file, err := os.Create(filepath.Join(t.TempDir(), "results.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = file.Close() }()
+
+	t.Setenv("NO_COLOR", "")
+	if !colorOutput(device) {
+		t.Error("a character device should get colors")
+	}
+	if colorOutput(file) || colorOutput(&bytes.Buffer{}) {
+		t.Error("files and buffers should not get colors")
+	}
+	t.Setenv("NO_COLOR", "1")
+	if colorOutput(device) {
+		t.Error("NO_COLOR should disable colors")
+	}
+}

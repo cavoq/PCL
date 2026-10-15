@@ -11,13 +11,16 @@ import (
 
 type TextFormatter struct {
 	ShowMeta bool
+	// Color marks verdicts and severities with ANSI colors.
+	Color bool
 }
 
 func NewTextFormatter(opts Options) *TextFormatter {
-	return &TextFormatter{ShowMeta: opts.ShowMeta}
+	return &TextFormatter{ShowMeta: opts.ShowMeta, Color: opts.Color}
 }
 
 func (f *TextFormatter) Format(w io.Writer, out LintOutput) error {
+	colors := palette(f.Color)
 	if f.ShowMeta {
 		warnTotal := countWarnings(out.Results)
 		if _, err := fmt.Fprintf(
@@ -26,13 +29,13 @@ func (f *TextFormatter) Format(w io.Writer, out LintOutput) error {
 			out.Meta.CheckedAt.Format("2006-01-02 15:04:05"),
 			out.Meta.TotalCerts,
 			out.Meta.TotalRules,
-			verdictLabelColored(rule.VerdictPass),
+			colors.verdict(rule.VerdictPass),
 			out.Meta.PassedRules,
-			verdictLabelColored(rule.VerdictFail),
+			colors.verdict(rule.VerdictFail),
 			out.Meta.FailedRules,
-			verdictLabelColored(rule.VerdictSkip),
+			colors.verdict(rule.VerdictSkip),
 			out.Meta.SkippedRules,
-			severityLabelColored(rule.SeverityWarning),
+			colors.severity(rule.SeverityWarning),
 			warnTotal,
 		); err != nil {
 			return err
@@ -68,19 +71,19 @@ func (f *TextFormatter) Format(w io.Writer, out LintOutput) error {
 			pr.CertType,
 			certPath,
 			sourceInfo,
-			verdictLabelColored(pr.Verdict),
-			verdictLabelColored(rule.VerdictPass),
+			colors.verdict(pr.Verdict),
+			colors.verdict(rule.VerdictPass),
 			passCount,
-			verdictLabelColored(rule.VerdictFail),
+			colors.verdict(rule.VerdictFail),
 			failCount,
-			verdictLabelColored(rule.VerdictSkip),
+			colors.verdict(rule.VerdictSkip),
 			skipCount,
-			severityLabelColored(rule.SeverityWarning),
+			colors.severity(rule.SeverityWarning),
 			warnCount,
 		); err != nil {
 			return err
 		}
-		if err := writeRulesTable(w, pr.Results, passCount, failCount, skipCount); err != nil {
+		if err := writeRulesTable(w, colors, pr.Results, passCount, failCount, skipCount); err != nil {
 			return err
 		}
 	}
@@ -91,59 +94,63 @@ func verdictLabel(verdict string) string {
 	return strings.ToUpper(verdict)
 }
 
-func verdictLabelColored(verdict string) string {
+// palette colors labels with ANSI escape codes when enabled and returns
+// them unchanged otherwise.
+type palette bool
+
+func (p palette) paint(s string, color string) string {
+	if !p {
+		return s
+	}
+	return color + s + ansiReset
+}
+
+func (p palette) verdict(verdict string) string {
 	label := verdictLabel(verdict)
 	switch verdict {
 	case rule.VerdictPass:
-		return colorize(label, ansiGreen)
+		return p.paint(label, ansiGreen)
 	case rule.VerdictFail:
-		return colorize(label, ansiRed)
+		return p.paint(label, ansiRed)
 	case rule.VerdictSkip:
-		return colorize(label, ansiCyan)
+		return p.paint(label, ansiCyan)
 	default:
 		return label
 	}
 }
 
-func verdictLabelColoredPadded(verdict string, width int) string {
-	label := verdictLabel(verdict)
-	padded := fmt.Sprintf("%-*s", width, label)
+// verdictCell is the padded VERDICT cell of a rule, colored by its severity
+// when it failed.
+func (p palette) verdictCell(verdict string, severity string, width int) string {
+	padded := fmt.Sprintf("%-*s", width, verdictLabel(verdict))
 	switch verdict {
 	case rule.VerdictPass:
-		return colorize(padded, ansiGreen)
-	case rule.VerdictFail:
-		return colorize(padded, ansiRed)
-	case rule.VerdictSkip:
-		return colorize(padded, ansiCyan)
-	default:
-		return padded
-	}
-}
-
-func verdictLabelColoredPaddedWithSeverity(verdict string, severity string, width int) string {
-	label := verdictLabel(verdict)
-	padded := fmt.Sprintf("%-*s", width, label)
-	switch verdict {
-	case rule.VerdictPass:
-		return colorize(padded, ansiGreen)
+		return p.paint(padded, ansiGreen)
 	case rule.VerdictFail:
 		// INFO level failures use white (informational), more visible than blue
 		if severity == rule.SeverityInfo {
-			return colorize(padded, ansiWhite)
+			return p.paint(padded, ansiWhite)
 		}
 		if severity == rule.SeverityWarning {
-			return colorize(padded, ansiYellow)
+			return p.paint(padded, ansiYellow)
 		}
-		return colorize(padded, ansiRed)
+		return p.paint(padded, ansiRed)
 	case rule.VerdictSkip:
-		return colorize(padded, ansiCyan)
+		return p.paint(padded, ansiCyan)
 	default:
 		return padded
 	}
 }
 
-func colorize(s string, color string) string {
-	return color + s + ansiReset
+func (p palette) severity(severity string) string {
+	label := severityLabel(severity)
+	if severity == rule.SeverityWarning {
+		return p.paint(label, ansiYellow)
+	}
+	if severity == rule.SeverityInfo {
+		return p.paint(label, ansiBlue)
+	}
+	return label
 }
 
 const (
@@ -166,7 +173,7 @@ type tableColumn struct {
 	value  func(rule.Result) string
 }
 
-func writeRulesTable(w io.Writer, results []rule.Result, passCount, failCount, skipCount int) error {
+func writeRulesTable(w io.Writer, colors palette, results []rule.Result, passCount, failCount, skipCount int) error {
 	if _, err := fmt.Fprintln(w, strings.Repeat("-", 72)); err != nil {
 		return err
 	}
@@ -194,7 +201,7 @@ func writeRulesTable(w io.Writer, results []rule.Result, passCount, failCount, s
 	}
 
 	for _, rr := range results {
-		cells := []string{verdictLabelColoredPaddedWithSeverity(rr.Verdict, rr.Severity, verdictWidth)}
+		cells := []string{colors.verdictCell(rr.Verdict, rr.Severity, verdictWidth)}
 		for _, column := range columns {
 			cells = append(cells, fmt.Sprintf("%-*s", column.width, column.value(rr)))
 		}
@@ -292,15 +299,4 @@ func severityLabel(severity string) string {
 		return ""
 	}
 	return strings.ToUpper(severity)
-}
-
-func severityLabelColored(severity string) string {
-	label := severityLabel(severity)
-	if severity == rule.SeverityWarning {
-		return colorize(label, ansiYellow)
-	}
-	if severity == rule.SeverityInfo {
-		return colorize(label, ansiBlue)
-	}
-	return label
 }

@@ -26,7 +26,9 @@ type Config struct {
 	ValidationTime time.Time
 	Verbosity      int
 	ShowMeta       bool
-	Diagnostics    io.Writer // Optional warning/debug stream, separate from formatted results.
+	// Color marks text results with ANSI colors.
+	Color       bool
+	Diagnostics io.Writer // Optional warning/debug stream, separate from formatted results.
 
 	// ApplicationPurpose is the explicit RFC 5280 extended-key-usage purpose
 	// used while evaluating certificate profile semantics. It may be a stable

@@ -28,6 +28,8 @@ type Options struct {
 	ShowFailed  bool
 	ShowSkipped bool
 	ShowMeta    bool
+	// Color marks text output with ANSI colors.
+	Color bool
 }
 
 type Formatter interface {

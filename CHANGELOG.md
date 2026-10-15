@@ -68,6 +68,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   nonce outside 1-128 bytes are rejected before the run starts. `--ocsp-hash`
   used to fall back to SHA-256 for any value but `sha1`, and a negative nonce
   length to the default.
+- Text results are colored only when written to a terminal, and never when
+  `NO_COLOR` is set, so piped and redirected output no longer contains ANSI
+  escape codes.
 
 ## [5.1.0] - 2026-10-14
 

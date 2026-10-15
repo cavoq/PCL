@@ -31,7 +31,7 @@ func TestVerdictLabel(t *testing.T) {
 	}
 }
 
-func TestVerdictLabelColored(t *testing.T) {
+func TestPaletteVerdict(t *testing.T) {
 	tests := []struct {
 		verdict       string
 		expectedColor string
@@ -43,26 +43,14 @@ func TestVerdictLabelColored(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.verdict, func(t *testing.T) {
-			result := verdictLabelColored(tt.verdict)
+			result := palette(true).verdict(tt.verdict)
 			if !strings.Contains(result, tt.expectedColor) {
-				t.Errorf("verdictLabelColored(%q) should contain color code %q", tt.verdict, tt.expectedColor)
+				t.Errorf("verdict(%q) should contain color code %q", tt.verdict, tt.expectedColor)
 			}
 			if !strings.Contains(result, ansiReset) {
 				t.Error("colored verdict should contain reset code")
 			}
 		})
-	}
-}
-
-func TestVerdictLabelColoredPadded(t *testing.T) {
-	result := verdictLabelColoredPadded(rule.VerdictPass, 10)
-
-	// Remove ANSI codes to check padding
-	stripped := strings.ReplaceAll(result, ansiGreen, "")
-	stripped = strings.ReplaceAll(stripped, ansiReset, "")
-
-	if len(stripped) != 10 {
-		t.Errorf("expected padded length 10, got %d: %q", len(stripped), stripped)
 	}
 }
 
@@ -87,24 +75,16 @@ func TestSeverityLabel(t *testing.T) {
 	}
 }
 
-func TestSeverityLabelColored(t *testing.T) {
-	result := severityLabelColored("warning")
+func TestPaletteSeverity(t *testing.T) {
+	result := palette(true).severity("warning")
 	if !strings.Contains(result, ansiYellow) {
 		t.Error("warning severity should be colored yellow")
 	}
 
-	result = severityLabelColored("error")
+	result = palette(true).severity("error")
 	if strings.Contains(result, ansiYellow) || strings.Contains(result, ansiRed) || strings.Contains(result, ansiGreen) {
 		// Non-warning severities should not be colored
 		t.Error("non-warning severity should not be colored")
-	}
-}
-
-func TestColorize(t *testing.T) {
-	result := colorize("test", ansiRed)
-	expected := ansiRed + "test" + ansiReset
-	if result != expected {
-		t.Errorf("colorize result = %q, want %q", result, expected)
 	}
 }
 
@@ -181,7 +161,7 @@ func TestCountsFromResult(t *testing.T) {
 func TestWriteRulesTable_Empty(t *testing.T) {
 	var buf bytes.Buffer
 
-	err := writeRulesTable(&buf, nil, 0, 0, 0)
+	err := writeRulesTable(&buf, palette(true), nil, 0, 0, 0)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -195,7 +175,7 @@ func TestWriteRulesTable_Empty(t *testing.T) {
 func TestWriteRulesTable_EmptyWithCounts(t *testing.T) {
 	var buf bytes.Buffer
 
-	err := writeRulesTable(&buf, nil, 1, 2, 3)
+	err := writeRulesTable(&buf, palette(true), nil, 1, 2, 3)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -213,7 +193,7 @@ func TestWriteRulesTable_WithResults(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	err := writeRulesTable(&buf, results, 1, 1, 0)
+	err := writeRulesTable(&buf, palette(true), results, 1, 1, 0)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -239,7 +219,7 @@ func TestWriteRulesTable_WithReference(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	err := writeRulesTable(&buf, results, 1, 0, 0)
+	err := writeRulesTable(&buf, palette(true), results, 1, 0, 0)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -259,7 +239,7 @@ func TestWriteRulesTable_WithWarnings(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	err := writeRulesTable(&buf, results, 0, 1, 0)
+	err := writeRulesTable(&buf, palette(true), results, 0, 1, 0)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -373,5 +353,29 @@ func TestTextFormatter_MultipleResults(t *testing.T) {
 	// Should have separator between results
 	if strings.Count(result, "========") < 2 {
 		t.Error("should have separators between multiple results")
+	}
+}
+
+func TestPaletteOffWritesPlainText(t *testing.T) {
+	plain := palette(false)
+	if got := plain.verdict(rule.VerdictFail); got != "FAIL" {
+		t.Errorf("verdict = %q, want FAIL", got)
+	}
+	if got := plain.verdictCell(rule.VerdictPass, rule.SeverityError, 6); got != "PASS  " {
+		t.Errorf("verdictCell = %q, want padded PASS", got)
+	}
+
+	var out bytes.Buffer
+	formatter := NewTextFormatter(Options{ShowMeta: true})
+	err := formatter.Format(&out, LintOutput{Results: []policy.Result{{
+		PolicyID: "p",
+		Verdict:  rule.VerdictFail,
+		Results:  []rule.Result{{RuleID: "r", Verdict: rule.VerdictFail, Severity: rule.SeverityWarning}},
+	}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(out.String(), "\033[") {
+		t.Fatalf("output without Color contains ANSI codes:\n%q", out.String())
 	}
 }
