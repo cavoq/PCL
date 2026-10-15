@@ -292,6 +292,30 @@ func cloneGeneralNames(names []GeneralName) []GeneralName {
 			RawDER:   append([]byte(nil), name.RawDER...),
 			RawValue: append([]byte(nil), name.RawValue...),
 		}
+		if name.OtherName != nil {
+			cloned[i].OtherName = &OtherName{
+				TypeID: name.OtherName.TypeID,
+				Value:  append([]byte(nil), name.OtherName.Value...),
+			}
+		}
+		if name.EDIPartyName != nil {
+			cloned[i].EDIPartyName = &EDIPartyName{
+				NameAssigner: cloneDirectoryString(name.EDIPartyName.NameAssigner),
+				PartyName:    *cloneDirectoryString(&name.EDIPartyName.PartyName),
+			}
+		}
 	}
 	return cloned
+}
+
+func cloneDirectoryString(value *DirectoryString) *DirectoryString {
+	if value == nil {
+		return nil
+	}
+	return &DirectoryString{
+		Tag:      value.Tag,
+		RawDER:   append([]byte(nil), value.RawDER...),
+		RawValue: append([]byte(nil), value.RawValue...),
+		Value:    value.Value,
+	}
 }

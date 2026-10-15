@@ -1,6 +1,7 @@
 package x509ext
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/cavoq/PCL/internal/x509asn1"
@@ -120,6 +121,94 @@ func TestDecodeGeneralNamesOwnsInputAndRejectsMalformedIA5(t *testing.T) {
 	}
 	if _, err := DecodeGeneralNames([]byte{0x30, 0x00}); err == nil {
 		t.Fatal("empty GeneralNames was accepted")
+	}
+}
+
+func TestDecodeGeneralNamesDecodesStructuredFormsAndOwnsTheirBytes(t *testing.T) {
+	der := []byte{
+		0x30, 0x1f,
+		0xa0, 0x09, 0x06, 0x02, 0x2a, 0x03, 0xa0, 0x03, 0x0c, 0x01, 'x',
+		0xa5, 0x12,
+		0xa0, 0x07, 0x0c, 0x05, 'E', 'a', 'r', 't', 'h',
+		0xa1, 0x07, 0x13, 0x05, 'P', 'a', 'r', 't', 'y',
+	}
+	names, err := DecodeGeneralNames(der)
+	if err != nil {
+		t.Fatalf("DecodeGeneralNames(): %v", err)
+	}
+	if len(names) != 2 {
+		t.Fatalf("decoded %d names, want 2", len(names))
+	}
+
+	other := names[0].OtherName
+	if other == nil || other.TypeID != "1.2.3" || !bytes.Equal(other.Value, []byte{0x0c, 0x01, 'x'}) {
+		t.Fatalf("otherName = %#v", other)
+	}
+	party := names[1].EDIPartyName
+	if party == nil || party.NameAssigner == nil {
+		t.Fatalf("ediPartyName = %#v", party)
+	}
+	if got := *party.NameAssigner; got.Tag != 12 || got.Value != "Earth" ||
+		!bytes.Equal(got.RawDER, []byte{0x0c, 0x05, 'E', 'a', 'r', 't', 'h'}) ||
+		!bytes.Equal(got.RawValue, []byte("Earth")) {
+		t.Fatalf("nameAssigner = %#v", got)
+	}
+	if got := party.PartyName; got.Tag != 19 || got.Value != "Party" ||
+		!bytes.Equal(got.RawDER, []byte{0x13, 0x05, 'P', 'a', 'r', 't', 'y'}) ||
+		!bytes.Equal(got.RawValue, []byte("Party")) {
+		t.Fatalf("partyName = %#v", got)
+	}
+
+	for index := range der {
+		der[index] = 0
+	}
+	if !bytes.Equal(other.Value, []byte{0x0c, 0x01, 'x'}) ||
+		!bytes.Equal(party.NameAssigner.RawValue, []byte("Earth")) ||
+		!bytes.Equal(party.PartyName.RawValue, []byte("Party")) {
+		t.Fatal("decoded structured GeneralName aliases the input")
+	}
+}
+
+func TestExpandFullDistributionPointNameClonesStructuredForms(t *testing.T) {
+	source := &DistributionPointName{
+		Kind: DistributionPointNameFullName,
+		FullName: []GeneralName{
+			{
+				Tag:      0,
+				RawDER:   []byte{0xa0, 0x01, 0x00},
+				RawValue: []byte{0x00},
+				OtherName: &OtherName{
+					TypeID: "1.2.3",
+					Value:  []byte{0x0c, 0x01, 'x'},
+				},
+			},
+			{
+				Tag: 5,
+				EDIPartyName: &EDIPartyName{
+					NameAssigner: &DirectoryString{RawValue: []byte("Earth"), Value: "Earth"},
+					PartyName:    DirectoryString{RawValue: []byte("Party"), Value: "Party"},
+				},
+			},
+		},
+	}
+
+	expanded, err := ExpandDistributionPointName(source, nil)
+	if err != nil {
+		t.Fatalf("ExpandDistributionPointName(): %v", err)
+	}
+	if len(expanded) != 2 || expanded[0].OtherName == nil || expanded[1].EDIPartyName == nil ||
+		expanded[1].EDIPartyName.NameAssigner == nil {
+		t.Fatalf("expanded names lost structured values: %#v", expanded)
+	}
+
+	expanded[0].RawDER[0] = 0
+	expanded[0].OtherName.Value[0] = 0
+	expanded[1].EDIPartyName.NameAssigner.RawValue[0] = 0
+	expanded[1].EDIPartyName.PartyName.RawValue[0] = 0
+	if source.FullName[0].RawDER[0] != 0xa0 || source.FullName[0].OtherName.Value[0] != 0x0c ||
+		source.FullName[1].EDIPartyName.NameAssigner.RawValue[0] != 'E' ||
+		source.FullName[1].EDIPartyName.PartyName.RawValue[0] != 'P' {
+		t.Fatal("expanded GeneralNames alias the source")
 	}
 }
 

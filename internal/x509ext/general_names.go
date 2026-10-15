@@ -13,10 +13,35 @@ import (
 
 // GeneralName preserves one GeneralName exactly as encoded. RawDER includes
 // the context-specific tag and length; RawValue is its contents octets.
+// OtherName and EDIPartyName hold the decoded structure of those forms.
 type GeneralName struct {
+	Tag          int
+	RawDER       []byte
+	RawValue     []byte
+	OtherName    *OtherName
+	EDIPartyName *EDIPartyName
+}
+
+// OtherName is a decoded otherName: the type identifier and the DER of the
+// value inside its explicit [0] tag.
+type OtherName struct {
+	TypeID string
+	Value  []byte
+}
+
+// DirectoryString is a decoded DirectoryString with the ASN.1 string type
+// and encoding it had.
+type DirectoryString struct {
 	Tag      int
 	RawDER   []byte
 	RawValue []byte
+	Value    string
+}
+
+// EDIPartyName is a decoded ediPartyName.
+type EDIPartyName struct {
+	NameAssigner *DirectoryString
+	PartyName    DirectoryString
 }
 
 func GeneralNameType(tag int) string {
@@ -98,17 +123,21 @@ func readGeneralNameWithIPLengths(input *cryptobyte.String, ipLengths ...int) (G
 	if !element.ReadAnyASN1(&content, &parsedTag) || !element.Empty() || parsedTag != tag {
 		return GeneralName{}, fmt.Errorf("failed to decode GeneralName")
 	}
-	if err := validateGeneralName(tag, encoded, content, ipLengths...); err != nil {
-		return GeneralName{}, err
-	}
-	return GeneralName{
+	name := GeneralName{
 		Tag:      int(tag) & 0x1f,
 		RawDER:   append([]byte(nil), encoded...),
 		RawValue: append([]byte(nil), content...),
-	}, nil
+	}
+	if err := decodeGeneralNameContent(&name, tag, encoded, content, ipLengths...); err != nil {
+		return GeneralName{}, err
+	}
+	return name, nil
 }
 
-func validateGeneralName(
+// decodeGeneralNameContent validates the contents of name's form and sets
+// the decoded structure of otherName and ediPartyName.
+func decodeGeneralNameContent(
+	name *GeneralName,
 	tag cryptobyte_asn1.Tag,
 	encoded, content cryptobyte.String,
 	ipLengths ...int,
@@ -120,9 +149,11 @@ func validateGeneralName(
 
 	switch tagNumber {
 	case 0:
-		if validateOtherName(content) != nil {
+		otherName, err := decodeOtherName(content)
+		if err != nil {
 			return fmt.Errorf("invalid otherName")
 		}
+		name.OtherName = &otherName
 	case 1, 2, 6:
 		return validateIA5Octets(tagNumber, content)
 	case 3:
@@ -133,9 +164,11 @@ func validateGeneralName(
 			return fmt.Errorf("invalid directoryName")
 		}
 	case 5:
-		if validateEDIPartyName(content) != nil {
+		party, err := decodeEDIPartyName(content)
+		if err != nil {
 			return fmt.Errorf("invalid ediPartyName")
 		}
+		name.EDIPartyName = &party
 	case 7:
 		return validateIPAddressName(content, ipLengths)
 	case 8:
@@ -199,69 +232,94 @@ func validateIPAddressName(content []byte, ipLengths []int) error {
 	return nil
 }
 
-func validateOtherName(content []byte) error {
+func decodeOtherName(content []byte) (OtherName, error) {
 	value := cryptobyte.String(content)
 	var typeID stdasn1.ObjectIdentifier
 	var otherValue cryptobyte.String
 	if !value.ReadASN1ObjectIdentifier(&typeID) ||
 		!value.ReadASN1(&otherValue, cryptobyte_asn1.Tag(0).Constructed().ContextSpecific()) ||
 		!value.Empty() || otherValue.Empty() {
-		return fmt.Errorf("invalid otherName")
+		return OtherName{}, fmt.Errorf("invalid otherName")
 	}
 	inner := otherValue
 	var innerDER cryptobyte.String
 	var innerTag cryptobyte_asn1.Tag
 	if !inner.ReadAnyASN1Element(&innerDER, &innerTag) || !inner.Empty() {
-		return fmt.Errorf("otherName value must contain exactly one DER element")
+		return OtherName{}, fmt.Errorf("otherName value must contain exactly one DER element")
 	}
-	return nil
+	return OtherName{TypeID: typeID.String(), Value: append([]byte(nil), otherValue...)}, nil
 }
 
-func validateEDIPartyName(content []byte) error {
+func decodeEDIPartyName(content []byte) (EDIPartyName, error) {
 	value := cryptobyte.String(content)
-	if value.PeekASN1Tag(cryptobyte_asn1.Tag(0).Constructed().ContextSpecific()) {
-		if err := readExplicitDirectoryString(
-			&value,
-			cryptobyte_asn1.Tag(0).Constructed().ContextSpecific(),
-		); err != nil {
-			return err
-		}
+	nameAssigner, present, err := readExplicitDirectoryString(
+		&value,
+		cryptobyte_asn1.Tag(0).Constructed().ContextSpecific(),
+		"nameAssigner",
+		false,
+	)
+	if err != nil {
+		return EDIPartyName{}, err
 	}
-	if !value.PeekASN1Tag(cryptobyte_asn1.Tag(1).Constructed().ContextSpecific()) {
-		return fmt.Errorf("missing partyName")
-	}
-	if err := readExplicitDirectoryString(
+	partyName, _, err := readExplicitDirectoryString(
 		&value,
 		cryptobyte_asn1.Tag(1).Constructed().ContextSpecific(),
-	); err != nil {
-		return err
+		"partyName",
+		true,
+	)
+	if err != nil {
+		return EDIPartyName{}, err
 	}
 	if !value.Empty() {
-		return fmt.Errorf("unexpected ediPartyName data")
+		return EDIPartyName{}, fmt.Errorf("unexpected ediPartyName data")
 	}
-	return nil
+
+	decoded := EDIPartyName{PartyName: partyName}
+	if present {
+		decoded.NameAssigner = &nameAssigner
+	}
+	return decoded, nil
 }
 
-func readExplicitDirectoryString(input *cryptobyte.String, tag cryptobyte_asn1.Tag) error {
+func readExplicitDirectoryString(
+	input *cryptobyte.String,
+	tag cryptobyte_asn1.Tag,
+	field string,
+	required bool,
+) (DirectoryString, bool, error) {
+	if !input.PeekASN1Tag(tag) {
+		if required {
+			return DirectoryString{}, false, fmt.Errorf("missing %s", field)
+		}
+		return DirectoryString{}, false, nil
+	}
+
 	var explicit cryptobyte.String
 	if !input.ReadASN1(&explicit, tag) {
-		return fmt.Errorf("invalid explicit DirectoryString")
+		return DirectoryString{}, false, fmt.Errorf("invalid %s", field)
 	}
-	var element cryptobyte.String
+
+	var rawDER cryptobyte.String
 	var stringTag cryptobyte_asn1.Tag
-	if !explicit.ReadAnyASN1Element(&element, &stringTag) || !explicit.Empty() {
-		return fmt.Errorf("invalid DirectoryString")
+	if !explicit.ReadAnyASN1Element(&rawDER, &stringTag) || !explicit.Empty() {
+		return DirectoryString{}, false, fmt.Errorf("invalid %s DirectoryString", field)
 	}
-	encoded := element
+	element := rawDER
 	var rawValue cryptobyte.String
 	var parsedTag cryptobyte_asn1.Tag
-	if !encoded.ReadAnyASN1(&rawValue, &parsedTag) || !encoded.Empty() || parsedTag != stringTag {
-		return fmt.Errorf("invalid DirectoryString")
+	if !element.ReadAnyASN1(&rawValue, &parsedTag) || !element.Empty() || parsedTag != stringTag {
+		return DirectoryString{}, false, fmt.Errorf("invalid %s DirectoryString", field)
 	}
-	if _, err := x509asn1.DecodeDirectoryString(int(stringTag), rawValue); err != nil {
-		return fmt.Errorf("invalid DirectoryString: %w", err)
+	decoded, err := x509asn1.DecodeDirectoryString(int(stringTag), rawValue)
+	if err != nil {
+		return DirectoryString{}, false, fmt.Errorf("invalid %s: %w", field, err)
 	}
-	return nil
+	return DirectoryString{
+		Tag:      int(stringTag),
+		RawDER:   append([]byte(nil), rawDER...),
+		RawValue: append([]byte(nil), rawValue...),
+		Value:    decoded,
+	}, true, nil
 }
 
 func DecodeRegisteredID(encoded []byte) (string, error) {
