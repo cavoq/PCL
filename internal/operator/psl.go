@@ -1,21 +1,30 @@
 package operator
 
 import (
+	"errors"
 	"strings"
 
 	"github.com/cavoq/PCL/internal/data"
 	"github.com/cavoq/PCL/internal/node"
 )
 
+// errPSLNotLoaded makes rules that need the Public Suffix List fail with an
+// explanation instead of judging domains without data.
+var errPSLNotLoaded = errors.New("no Public Suffix List loaded: run pcl update-data or pass --psl-file")
+
+func requirePSL() error {
+	if !data.DefaultLoader.Loaded() {
+		return errPSLNotLoaded
+	}
+	return nil
+}
+
 // TLDRegistered checks if the domain's TLD is in IANA Root Zone Database.
 // Uses external PSL data (ICANN section) for validation.
 //
-// Returns true if:
-//   - PSL is loaded AND domain's TLD exists in ICANN domains list
-//
-// Returns false if:
-//   - PSL not loaded (no external data)
-//   - Domain's TLD not in ICANN list (Internal Name)
+// Returns true if the domain's TLD exists in the ICANN domains list, and
+// false for Internal Names. Like every public suffix operator it fails when
+// no Public Suffix List is loaded.
 //
 // Useful for BR 4.2.2: "CAs SHALL NOT issue Certificates containing Internal Names"
 type TLDRegistered struct{}
@@ -23,6 +32,9 @@ type TLDRegistered struct{}
 func (TLDRegistered) Name() string { return "tldRegistered" }
 
 func (TLDRegistered) Evaluate(n *node.Node, _ *EvaluationContext, _ []any) (bool, error) {
+	if err := requirePSL(); err != nil {
+		return false, err
+	}
 	if n == nil {
 		return false, nil
 	}
@@ -59,8 +71,7 @@ func (TLDNotRegistered) Evaluate(n *node.Node, ctx *EvaluationContext, operands 
 // IsPublicSuffix checks if a domain is a public suffix.
 // Uses external PSL data (ICANN + PRIVATE sections).
 //
-// Returns true if:
-//   - PSL is loaded AND domain exists in public suffix list
+// Returns true if the domain is in the Public Suffix List.
 //
 // Useful for BR 3.2.2.6: Wildcard certificate validation
 type IsPublicSuffix struct{}
@@ -68,6 +79,9 @@ type IsPublicSuffix struct{}
 func (IsPublicSuffix) Name() string { return "isPublicSuffix" }
 
 func (IsPublicSuffix) Evaluate(n *node.Node, _ *EvaluationContext, _ []any) (bool, error) {
+	if err := requirePSL(); err != nil {
+		return false, err
+	}
 	if n == nil {
 		return false, nil
 	}
@@ -104,6 +118,9 @@ type ComponentTLDNotRegistered struct{}
 func (ComponentTLDNotRegistered) Name() string { return "componentTLDNotRegistered" }
 
 func (ComponentTLDNotRegistered) Evaluate(n *node.Node, _ *EvaluationContext, _ []any) (bool, error) {
+	if err := requirePSL(); err != nil {
+		return false, err
+	}
 	if n == nil {
 		return true, nil
 	}
@@ -135,6 +152,9 @@ type ComponentIsPublicSuffix struct{}
 func (ComponentIsPublicSuffix) Name() string { return "componentIsPublicSuffix" }
 
 func (ComponentIsPublicSuffix) Evaluate(n *node.Node, _ *EvaluationContext, _ []any) (bool, error) {
+	if err := requirePSL(); err != nil {
+		return false, err
+	}
 	if n == nil {
 		return false, nil
 	}

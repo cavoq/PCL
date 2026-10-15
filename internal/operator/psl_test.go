@@ -1,6 +1,7 @@
 package operator
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -224,4 +225,20 @@ func TestPublicSuffixOperatorsAndNegations(t *testing.T) {
 		},
 		{name: "wildcard over a suffix", op: ComponentNotPublicSuffix{}, node: collection("dNSName", "example.com", "*.com")},
 	})
+}
+
+func TestPublicSuffixOperatorsFailWithoutList(t *testing.T) {
+	oldLoader := data.DefaultLoader
+	data.DefaultLoader = &data.Loader{}
+	t.Cleanup(func() { data.DefaultLoader = oldLoader })
+
+	domain := node.New("dNSName", "example.com")
+	for _, op := range []Operator{
+		TLDRegistered{}, TLDNotRegistered{}, IsPublicSuffix{}, IsNotPublicSuffix{},
+		ComponentTLDNotRegistered{}, ComponentIsPublicSuffix{}, ComponentNotPublicSuffix{},
+	} {
+		if _, err := op.Evaluate(domain, nil, nil); !errors.Is(err, errPSLNotLoaded) {
+			t.Errorf("%s without a list: error = %v, want errPSLNotLoaded", op.Name(), err)
+		}
+	}
 }

@@ -60,8 +60,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   downloads as well.
 - `pcl test` and `pcl inspect` load the Public Suffix List and accept
   `--psl-file`, `--use-psl` and `--data-dir`, so public suffix and TLD
-  operators give the same verdicts as in a lint run. The warning for a
-  missing list no longer mentions a regex fallback that does not exist.
+  operators give the same verdicts as in a lint run.
+- Without a Public Suffix List, the public suffix and TLD operators fail the
+  rule with a message saying the list is not loaded, instead of judging every
+  domain as unlisted; `tldNotRegistered` used to pass for every domain. Runs
+  no longer warn about a missing list, and a `--psl-file` that cannot be
+  loaded is an error instead of a warning.
 - Downloaded OCSP responses and CA Issuers certificates are limited to 1 MiB,
   like CRLs are limited, instead of being read to any size. `pcl update-data`
   has a timeout, a size limit, and replaces the Public Suffix List only after

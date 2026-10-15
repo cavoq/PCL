@@ -175,3 +175,15 @@ func TestColorOutput(t *testing.T) {
 		t.Error("NO_COLOR should disable colors")
 	}
 }
+
+func TestDataOptionsLoad(t *testing.T) {
+	missing := filepath.Join(t.TempDir(), "missing.dat")
+
+	var warnings bytes.Buffer
+	if err := (dataOptions{UsePSL: true, DataDir: t.TempDir()}).load(&warnings); err != nil || warnings.Len() != 0 {
+		t.Errorf("default list missing: error %v, warnings %q; want neither", err, warnings.String())
+	}
+	if err := (dataOptions{PSLFile: missing}).load(&warnings); err == nil || !strings.Contains(err.Error(), "--psl-file") {
+		t.Errorf("missing --psl-file: error = %v, want it reported", err)
+	}
+}

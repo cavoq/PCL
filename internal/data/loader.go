@@ -9,6 +9,7 @@ package data
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -85,8 +86,12 @@ func (l *Loader) SetDataDir(dir string) {
 	l.dataDir = dir
 }
 
-// LoadPSL loads the Public Suffix List from file.
-// If file doesn't exist, returns error (caller should handle fallback).
+// ErrPSLNotFound reports that no Public Suffix List file was found.
+var ErrPSLNotFound = errors.New("no Public Suffix List file found")
+
+// LoadPSL loads the Public Suffix List from filename, or from the data
+// directory when filename is empty. A missing file is reported as
+// ErrPSLNotFound.
 func (l *Loader) LoadPSL(filename string) error {
 	l.pslMutex.Lock()
 	defer l.pslMutex.Unlock()
@@ -99,12 +104,12 @@ func (l *Loader) LoadPSL(filename string) error {
 	case l.dataDir != "":
 		filePath = filepath.Join(l.dataDir, "public_suffix_list.dat")
 	default:
-		return fmt.Errorf("no PSL file specified and no data directory found")
+		return fmt.Errorf("%w: no PSL file specified and no data directory found", ErrPSLNotFound)
 	}
 
 	// Check file exists
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		return fmt.Errorf("PSL file not found: %s", filePath)
+		return fmt.Errorf("%w: %s", ErrPSLNotFound, filePath)
 	}
 
 	// Parse file
@@ -240,6 +245,13 @@ func (l *Loader) TLDRegistered(domain string) bool {
 
 	tld := labels[len(labels)-1]
 	return l.psl.ICANNDomains[tld]
+}
+
+// Loaded reports whether a Public Suffix List is loaded.
+func (l *Loader) Loaded() bool {
+	l.pslMutex.RLock()
+	defer l.pslMutex.RUnlock()
+	return l.psl != nil
 }
 
 // Stats returns statistics about the loaded PSL.

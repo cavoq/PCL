@@ -1,6 +1,7 @@
 package data
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -355,5 +356,26 @@ func TestDownloadPSL(t *testing.T) {
 				t.Fatalf("directory holds %d files, want only the list", len(entries))
 			}
 		})
+	}
+}
+
+func TestLoadPSLReportsMissingList(t *testing.T) {
+	loader := &Loader{}
+	if err := loader.LoadPSL(""); !errors.Is(err, ErrPSLNotFound) {
+		t.Errorf("LoadPSL without a data directory = %v, want ErrPSLNotFound", err)
+	}
+	if err := loader.LoadPSL(filepath.Join(t.TempDir(), "missing.dat")); !errors.Is(err, ErrPSLNotFound) {
+		t.Errorf("LoadPSL of a missing file = %v, want ErrPSLNotFound", err)
+	}
+	if loader.Loaded() {
+		t.Error("Loaded() after failed loads")
+	}
+
+	list := filepath.Join(t.TempDir(), "public_suffix_list.dat")
+	if err := os.WriteFile(list, []byte("// ===BEGIN ICANN DOMAINS===\ncom\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := loader.LoadPSL(list); err != nil || !loader.Loaded() {
+		t.Fatalf("LoadPSL(%s) = %v, Loaded() = %v", list, err, loader.Loaded())
 	}
 }

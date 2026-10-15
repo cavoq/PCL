@@ -88,7 +88,10 @@ pcl --policy <path> --cert leaf.pem --auto-validate --ocsp-hash sha256 # Modern 
 ### Public Suffix List (PSL) Options
 
 PCL uses the Public Suffix List to validate TLDs and domain names (BR 4.2.2, 3.2.2.6).
-`pcl inspect` and `pcl test` accept the same options:
+Without a list, rules that use the public suffix and TLD operators fail with a
+message saying the list is not loaded; other rules are unaffected. A `--psl-file`
+that cannot be loaded is an error. `pcl inspect` and `pcl test` accept the same
+options:
 
 ```bash
 # Use default PSL location (./data/public_suffix_list.dat or ~/.pcl/data/)
@@ -97,7 +100,7 @@ pcl --policy <path> --cert cert.pem
 # Specify custom PSL file
 pcl --policy <path> --cert cert.pem --psl-file /path/to/public_suffix_list.dat
 
-# Disable PSL loading (public suffix and TLD operators then have no data)
+# Disable PSL loading (rules using public suffix and TLD operators then fail)
 pcl --policy <path> --cert cert.pem --use-psl=false
 
 # Update/download PSL to default location

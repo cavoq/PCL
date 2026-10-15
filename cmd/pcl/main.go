@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -32,7 +33,9 @@ func newRootCmd(opts *linter.Config) *cobra.Command {
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			opts.Diagnostics = cmd.ErrOrStderr()
 			opts.Color = colorOutput(cmd.OutOrStdout())
-			dataOpts.load(opts.Diagnostics)
+			if err := dataOpts.load(opts.Diagnostics); err != nil {
+				return err
+			}
 			return linter.Run(*opts, cmd.OutOrStdout())
 		},
 	}
@@ -77,15 +80,26 @@ func addDataFlags(flags *pflag.FlagSet, opts *dataOptions) {
 	flags.StringVar(&opts.DataDir, "data-dir", "", "Directory for external data files (default: ./data or ~/.pcl/data)")
 }
 
-// load loads the selected data into the default loader and warns on w when
-// the Public Suffix List is unavailable.
-func (opts dataOptions) load(w io.Writer) {
+// load loads the selected data into the default loader. A --psl-file that
+// cannot be loaded is an error. Without one, a missing list is not reported
+// here: rules that use public suffix or TLD operators fail and say why. A
+// list that exists but cannot be read is reported on w.
+func (opts dataOptions) load(w io.Writer) error {
 	data.DefaultLoader.SetDataDir(opts.DataDir)
 	if opts.PSLFile == "" && !opts.UsePSL {
-		return
+		return nil
 	}
-	if err := data.DefaultLoader.LoadPSL(opts.PSLFile); err != nil {
-		_, _ = fmt.Fprintf(w, "Warning: Public Suffix List not loaded (%v); public suffix and TLD operators have no data\n", err)
+	err := data.DefaultLoader.LoadPSL(opts.PSLFile)
+	switch {
+	case err == nil:
+		return nil
+	case opts.PSLFile != "":
+		return fmt.Errorf("--psl-file: %w", err)
+	case errors.Is(err, data.ErrPSLNotFound):
+		return nil
+	default:
+		_, err = fmt.Fprintf(w, "Warning: Public Suffix List not loaded: %v\n", err)
+		return err
 	}
 }
 
@@ -137,7 +151,9 @@ as a lint run. Every path shown can be used as a rule target.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			opts.Diagnostics = cmd.ErrOrStderr()
-			dataOpts.load(opts.Diagnostics)
+			if err := dataOpts.load(opts.Diagnostics); err != nil {
+				return err
+			}
 			return linter.Inspect(opts, inspect, cmd.OutOrStdout())
 		},
 	}
@@ -181,7 +197,9 @@ for *` + linter.PolicyTestSuffix + ` files. Paths inside a suite are relative to
   pcl test my-profile.test.yaml`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			dataOpts.load(cmd.ErrOrStderr())
+			if err := dataOpts.load(cmd.ErrOrStderr()); err != nil {
+				return err
+			}
 			summary, err := linter.RunPolicyTests(args, cmd.OutOrStdout())
 			if err != nil {
 				return err
