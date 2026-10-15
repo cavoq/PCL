@@ -199,6 +199,21 @@ func TestNameConstraintsValidRejectsDuplicateExtensionsRegardlessOfOrder(t *test
 	}
 }
 
+func TestNameConstraintsValidRejectsMalformedUniqueExtension(t *testing.T) {
+	leaf := &Info{Cert: &x509.Certificate{DNSNames: []string{"www.example.test"}}}
+	issuer := &Info{Cert: &x509.Certificate{
+		Extensions: []pkix.Extension{{
+			Id:       oidForCertificateTest(t, oid.NameConstraints),
+			Critical: true,
+			Value:    []byte{0x30, 0x00},
+		}},
+		PermittedDNSNames: []x509.GeneralSubtreeString{{Data: ".example.test"}},
+	}}
+	if NameConstraintsValid(leaf, []*Info{leaf, issuer}) {
+		t.Fatal("malformed Name Constraints passed using typed fallback facts")
+	}
+}
+
 func TestMatchesDNSConstraintBoundary(t *testing.T) {
 	tests := []struct {
 		name       string

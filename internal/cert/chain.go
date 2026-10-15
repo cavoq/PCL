@@ -66,7 +66,7 @@ func BuildChain(certs []*Info) ([]*Info, error) {
 // rollover and separate CRL-signing certificates with equal names do not
 // replace each other.
 func BuildChainFor(targets, pool []*Info) ([]*Info, error) {
-	resolveInheritedDSAParameters(targets, pool)
+	ResolveInheritedDSAParameters(targets, pool)
 
 	var longest []*Info
 	for _, target := range targets {
@@ -93,11 +93,12 @@ func BuildChainFor(targets, pool []*Info) ([]*Info, error) {
 	return longest, nil
 }
 
-// resolveInheritedDSAParameters applies RFC 3279 section 2.3.2 before path
-// construction. A DSA subjectPublicKeyInfo may omit P, Q, and G when they are
-// inherited from the issuer. Parameters are resolved recursively because more
-// than one adjacent certificate may omit them.
-func resolveInheritedDSAParameters(targets, pool []*Info) {
+// ResolveInheritedDSAParameters applies RFC 3279 section 2.3.2 before path
+// construction or validation. A DSA subjectPublicKeyInfo may omit P, Q, and G
+// when they are inherited from the issuer. Parameters are resolved recursively
+// because more than one adjacent certificate may omit them. The path domain
+// calls this function so the compatibility behavior has one implementation.
+func ResolveInheritedDSAParameters(targets, pool []*Info) {
 	resolver := dsaParameterResolver{
 		pool:      pool,
 		resolving: make(map[*x509.Certificate]bool),

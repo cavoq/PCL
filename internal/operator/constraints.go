@@ -5,6 +5,7 @@ import (
 	"github.com/cavoq/PCL/internal/node"
 	"github.com/cavoq/PCL/internal/oid"
 	"github.com/cavoq/PCL/internal/x509asn1"
+	"github.com/cavoq/PCL/internal/x509node"
 )
 
 type PathLenValid struct{}
@@ -120,61 +121,5 @@ func (NoUnknownCriticalExtensions) Evaluate(n *node.Node, _ *EvaluationContext, 
 }
 
 func noUnknownCriticalExtensions(n *node.Node, location oid.ExtensionLocation) bool {
-	extsNode, _ := n.Resolve("extensions")
-	if extsNode == nil {
-		return true
-	}
-	if extsNode.Children["duplicateOIDs"] != nil {
-		// RFC 5280 permits at most one instance of each extension. Fail before
-		// criticality or registry checks so a duplicate cannot hide through the
-		// map-shaped projection.
-		return false
-	}
-
-	seen := make(map[*node.Node]struct{}, len(extsNode.Children))
-	for _, extNode := range extsNode.Children {
-		if extNode == nil {
-			continue
-		}
-		if _, duplicate := seen[extNode]; duplicate {
-			continue
-		}
-		seen[extNode] = struct{}{}
-
-		criticalNode, _ := extNode.Resolve("critical")
-		if criticalNode == nil {
-			continue
-		}
-
-		critical, ok := criticalNode.Value.(bool)
-		if !ok {
-			return false
-		}
-		if !critical {
-			continue
-		}
-		if _, malformed := extNode.Children["malformed"]; malformed {
-			return false
-		}
-		if unprocessed := extNode.Children["unprocessed"]; unprocessed != nil {
-			value, ok := unprocessed.Value.(bool)
-			if !ok || value {
-				return false
-			}
-		}
-
-		oidNode, _ := extNode.Resolve("oid")
-		if oidNode == nil {
-			return false
-		}
-		oidValue, ok := oidNode.Value.(string)
-		if !ok {
-			return false
-		}
-		if !oid.ExtensionProcessableAt(oidValue, location) {
-			return false
-		}
-	}
-
-	return true
+	return x509node.CriticalExtensionsProcessable(n, location)
 }

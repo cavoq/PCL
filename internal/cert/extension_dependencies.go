@@ -32,6 +32,22 @@ func BasicConstraintsDependenciesValid(certificate *x509.Certificate) bool {
 	return true
 }
 
+// CanSignCertificates reports whether a certificate is an RFC 5280 CA and,
+// when Key Usage is present, permits certificate signing. Strict extension
+// decoding and duplicate detection are shared with the profile predicates.
+func CanSignCertificates(certificate *x509.Certificate) bool {
+	if certificate == nil || !IsCA(certificate) ||
+		!BasicConstraintsDependenciesValid(certificate) {
+		return false
+	}
+	keyUsage := certificateExtension(certificate, oid.KeyUsage)
+	if !keyUsage.Present() {
+		return true
+	}
+	return keyUsage.Unique() && KeyUsageDependenciesValid(certificate) &&
+		certificate.KeyUsage&x509.KeyUsageCertSign != 0
+}
+
 // KeyUsageDependenciesValid enforces the profile dependency between Key Usage
 // and Basic Constraints: keyCertSign requires a CA Basic Constraints
 // assertion. RFC 5280 leaves the meaning of encipherOnly and decipherOnly

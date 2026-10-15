@@ -12,11 +12,10 @@ import (
 	"github.com/cavoq/PCL/internal/x509ext"
 )
 
-// NameConstraintsValid applies the currently supported Name Constraints
-// subset to one certificate in an already ordered leaf-to-root chain. DNS,
-// rfc822Name, URI-host, and IP SAN constraints are supported; directoryName,
-// registeredID, otherName, x400Address, ediPartyName, and complete Section 7
-// name comparison remain outside this bounded profile check.
+// NameConstraintsValid applies the supported Name Constraints forms to one
+// certificate in an already ordered leaf-to-root chain. DNS, rfc822Name,
+// URI-host, IP, and directoryName constraints are supported. registeredID,
+// otherName, x400Address, and ediPartyName remain outside this bounded check.
 func NameConstraintsValid(current *Info, chain []*Info) bool {
 	if current == nil || current.Cert == nil || len(chain) == 0 {
 		return false
@@ -175,13 +174,12 @@ func extractNameConstraints(certificate *x509.Certificate) (nameConstraints, nam
 		if !unique {
 			return nameConstraints{}, nameConstraints{}, false
 		}
-		// A malformed unique extension yields no directoryName constraints here;
-		// profile rules report its malformation separately, preserving the prior
-		// behavior for typed facts recovered by zcrypto.
-		if facts, err := x509ext.DecodeNameConstraintsStrict(extension.Value); err == nil {
-			permittedDirectoryNames = directoryNameSubtrees(facts.PermittedSubtrees)
-			excludedDirectoryNames = directoryNameSubtrees(facts.ExcludedSubtrees)
+		facts, err := x509ext.DecodeNameConstraintsStrict(extension.Value)
+		if err != nil {
+			return nameConstraints{}, nameConstraints{}, false
 		}
+		permittedDirectoryNames = directoryNameSubtrees(facts.PermittedSubtrees)
+		excludedDirectoryNames = directoryNameSubtrees(facts.ExcludedSubtrees)
 	}
 
 	permitted := nameConstraints{directoryNames: permittedDirectoryNames}
