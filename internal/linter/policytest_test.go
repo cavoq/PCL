@@ -94,6 +94,31 @@ func TestLoadPolicySuiteRejectsInvalidFiles(t *testing.T) {
 	}
 }
 
+func TestLoadPolicySuiteCertificatePolicyInputs(t *testing.T) {
+	path := writePolicySuite(t, `
+policy: policy.yaml
+tests:
+  - name: policy processing inputs
+    cert: leaf.pem
+    certificatePolicyInputs:
+      initialPolicySet: [1.2.3.4]
+      initialExplicitPolicy: true
+      initialPolicyMappingInhibit: true
+      initialAnyPolicyInhibit: true
+    error: fixture only
+`)
+	suite, err := loadPolicySuite(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	inputs := suite.Tests[0].CertificatePolicyInputs.operatorInputs()
+	if !inputs.Configured || len(inputs.InitialPolicySet) != 1 ||
+		!inputs.InitialExplicitPolicy || !inputs.InitialPolicyMappingInhibit ||
+		!inputs.InitialAnyPolicyInhibit {
+		t.Fatalf("certificate policy inputs = %#v", inputs)
+	}
+}
+
 func TestParsePolicyTestTime(t *testing.T) {
 	if parsed, err := parsePolicyTestTime("", "2026-10-01"); err != nil || parsed.Format("2006-01-02") != "2026-10-01" {
 		t.Fatalf("suite time = %v, %v", parsed, err)

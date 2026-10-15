@@ -45,6 +45,10 @@ type Context struct {
 	// ApplicationPurpose is an optional friendly EKU name or dotted EKU OID
 	// projected into certificate trees and supplied to certificate operators.
 	ApplicationPurpose string
+
+	// CertificatePolicyInputs are the caller's RFC 5280 Section 6.1.1
+	// certificate-policy processing inputs.
+	CertificatePolicyInputs operator.CertificatePolicyInputs
 }
 
 // Subject is one evaluated input: the node tree policies see, the context
@@ -130,6 +134,7 @@ func ChainSubjects(ctx Context) []Subject {
 			operator.WithOCSPs(ctx.OCSPs),
 			operator.WithOCSPAssessment(&ocspAssessment),
 			operator.WithApplicationPurpose(ctx.ApplicationPurpose),
+			operator.WithCertificatePolicyInputs(ctx.CertificatePolicyInputs),
 			operator.WithEvaluationTime(now),
 			operator.WithCRLIssuers(allCRLIssuers),
 		}
@@ -247,6 +252,7 @@ func ocspSignerSubject(ctx Context, ocspInfo *ocsp.Info, now time.Time) (Subject
 	evalOpts := []operator.ContextOption{
 		operator.WithOCSPs(ctx.OCSPs),
 		operator.WithOCSPAssessment(&ocspAssessment),
+		operator.WithCertificatePolicyInputs(ctx.CertificatePolicyInputs),
 		operator.WithEvaluationTime(now),
 	}
 	return Subject{

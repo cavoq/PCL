@@ -384,6 +384,137 @@ func TestCertificatePolicyValidPathProcessing(t *testing.T) {
 	}
 }
 
+func TestCertificatePolicyValidInitialInputs(t *testing.T) {
+	tests := []struct {
+		name     string
+		chain    func() []*x509.Certificate
+		inputs   CertificatePolicyInputs
+		operands []any
+		want     bool
+	}{
+		{
+			name: "initial policy set does not imply explicit policy",
+			chain: func() []*x509.Certificate {
+				return []*x509.Certificate{
+					policyTestCert("Leaf", "CA1", policyB),
+					policyTestCert("CA1", "Root", policyB),
+					policyTestRoot(),
+				}
+			},
+			inputs: CertificatePolicyInputs{Configured: true, InitialPolicySet: []string{policyA}},
+			want:   true,
+		},
+		{
+			name: "initial explicit policy requires the initial set",
+			chain: func() []*x509.Certificate {
+				return []*x509.Certificate{
+					policyTestCert("Leaf", "CA1", policyB),
+					policyTestCert("CA1", "Root", policyB),
+					policyTestRoot(),
+				}
+			},
+			inputs: CertificatePolicyInputs{
+				Configured:            true,
+				InitialPolicySet:      []string{policyA},
+				InitialExplicitPolicy: true,
+			},
+			want: false,
+		},
+		{
+			name: "initial policy mapping allowed",
+			chain: func() []*x509.Certificate {
+				return []*x509.Certificate{
+					policyTestCert("Leaf", "CA1", policyB),
+					withPolicyExtension(policyTestCert("CA1", "Root", policyA),
+						oid.PolicyMappings, policyMappingsDER(policyA, policyB)),
+					policyTestRoot(),
+				}
+			},
+			inputs: CertificatePolicyInputs{
+				Configured:            true,
+				InitialPolicySet:      []string{policyA},
+				InitialExplicitPolicy: true,
+			},
+			want: true,
+		},
+		{
+			name: "initial policy mapping inhibited",
+			chain: func() []*x509.Certificate {
+				return []*x509.Certificate{
+					policyTestCert("Leaf", "CA1", policyB),
+					withPolicyExtension(policyTestCert("CA1", "Root", policyA),
+						oid.PolicyMappings, policyMappingsDER(policyA, policyB)),
+					policyTestRoot(),
+				}
+			},
+			inputs: CertificatePolicyInputs{
+				Configured:                  true,
+				InitialPolicySet:            []string{policyA},
+				InitialExplicitPolicy:       true,
+				InitialPolicyMappingInhibit: true,
+			},
+			want: false,
+		},
+		{
+			name: "initial anyPolicy allowed",
+			chain: func() []*x509.Certificate {
+				return []*x509.Certificate{
+					policyTestCert("Leaf", "CA1", policyA),
+					policyTestCert("CA1", "Root", oid.AnyPolicy),
+					policyTestRoot(),
+				}
+			},
+			inputs: CertificatePolicyInputs{
+				Configured:            true,
+				InitialPolicySet:      []string{policyA},
+				InitialExplicitPolicy: true,
+			},
+			want: true,
+		},
+		{
+			name: "initial anyPolicy inhibited",
+			chain: func() []*x509.Certificate {
+				return []*x509.Certificate{
+					policyTestCert("Leaf", "CA1", policyA),
+					policyTestCert("CA1", "Root", oid.AnyPolicy),
+					policyTestRoot(),
+				}
+			},
+			inputs: CertificatePolicyInputs{
+				Configured:              true,
+				InitialPolicySet:        []string{policyA},
+				InitialExplicitPolicy:   true,
+				InitialAnyPolicyInhibit: true,
+			},
+			want: false,
+		},
+		{
+			name: "configured inputs override legacy operands",
+			chain: func() []*x509.Certificate {
+				return []*x509.Certificate{
+					policyTestCert("Leaf", "CA1", policyB),
+					policyTestCert("CA1", "Root", policyB),
+					policyTestRoot(),
+				}
+			},
+			inputs:   CertificatePolicyInputs{Configured: true, InitialPolicySet: []string{policyA}},
+			operands: []any{policyB},
+			want:     true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ctx := policyChainContext(test.chain()...)
+			ctx.CertificatePolicyInputs = test.inputs
+			got, err := CertificatePolicyValid{}.Evaluate(nil, ctx, test.operands)
+			if err != nil || got != test.want {
+				t.Fatalf("Evaluate = %v, %v; want %v", got, err, test.want)
+			}
+		})
+	}
+}
+
 func TestCertificatePolicyValidEvaluatesPathToIntermediate(t *testing.T) {
 	leaf := policyTestCert("Leaf", "CA1", policyB)
 	intermediate := policyTestCert("CA1", "Root", policyA)

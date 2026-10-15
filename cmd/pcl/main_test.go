@@ -24,6 +24,27 @@ func TestRootCommandAcceptsApplicationPurpose(t *testing.T) {
 	}
 }
 
+func TestRootCommandAcceptsCertificatePolicyInputs(t *testing.T) {
+	var config linter.Config
+	command := newRootCmd(&config)
+
+	if err := command.ParseFlags([]string{
+		"--initial-policy-set", "1.2.3.4,1.2.3.5",
+		"--initial-explicit-policy",
+		"--initial-policy-mapping-inhibit",
+		"--initial-any-policy-inhibit",
+	}); err != nil {
+		t.Fatalf("parse certificate policy inputs: %v", err)
+	}
+	markCertificatePolicyInputsConfigured(command.Flags(), &config)
+	inputs := config.CertificatePolicyInputs
+	if !inputs.Configured || len(inputs.InitialPolicySet) != 2 ||
+		!inputs.InitialExplicitPolicy || !inputs.InitialPolicyMappingInhibit ||
+		!inputs.InitialAnyPolicyInhibit {
+		t.Fatalf("CertificatePolicyInputs = %#v", inputs)
+	}
+}
+
 func TestRootCommandAcceptsDetails(t *testing.T) {
 	var config linter.Config
 	command := newRootCmd(&config)

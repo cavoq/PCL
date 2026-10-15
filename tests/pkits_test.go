@@ -6,13 +6,13 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 	"testing"
 	"time"
 
 	"gopkg.in/yaml.v3"
 
 	"github.com/cavoq/PCL/internal/linter"
+	"github.com/cavoq/PCL/internal/operator"
 	"github.com/cavoq/PCL/internal/rule"
 )
 
@@ -91,10 +91,6 @@ func TestPKITS(t *testing.T) {
 	for _, test := range manifest.Tests {
 		for index, run := range test.Runs {
 			name := fmt.Sprintf("%s#%d", test.ID, index+1)
-			if run.PolicyMappingInhibit || run.AnyPolicyInhibit {
-				unsupported++
-				continue // PCL has no initial-policy-mapping-inhibit or initial-any-policy-inhibit input
-			}
 			got, failures := runPKITS(t, test, run)
 			reason, known := gaps[name]
 			seenGaps[name] = known
@@ -116,6 +112,14 @@ func TestPKITS(t *testing.T) {
 			t.Errorf("known gap %s does not name a PKITS run", name)
 		}
 	}
+	if conforming != 247 || gapped != 0 || unsupported != 0 {
+		t.Errorf(
+			"PKITS totals: %d conforming, %d known gaps, %d unsupported; want 247, 0, 0",
+			conforming,
+			gapped,
+			unsupported,
+		)
+	}
 	t.Logf("PKITS: %d runs conform, %d known gaps, %d unsupported", conforming, gapped, unsupported)
 }
 
@@ -127,10 +131,17 @@ func runPKITS(t *testing.T, test pkitsTest, run pkitsRun) (string, []string) {
 	cfg := linter.Config{
 		PolicyPaths: []string{
 			filepath.Join(pkitsDir, "path-policy.yaml"),
-			writePKITSPolicyRule(t, dir, pkitsAcceptablePolicies(run)),
+			writePKITSPolicyRule(t, dir),
 		},
 		CertPath:       filepath.Join(pkitsDir, test.EE),
 		ValidationTime: pkitsValidationTime,
+		CertificatePolicyInputs: operator.CertificatePolicyInputs{
+			Configured:                  true,
+			InitialPolicySet:            run.InitialPolicySet,
+			InitialExplicitPolicy:       run.ExplicitPolicy,
+			InitialPolicyMappingInhibit: run.PolicyMappingInhibit,
+			InitialAnyPolicyInhibit:     run.AnyPolicyInhibit,
+		},
 	}
 	for _, issuer := range test.Issuers {
 		cfg.IssuerPaths = append(cfg.IssuerPaths, filepath.Join(pkitsDir, issuer))
@@ -170,31 +181,13 @@ func runPKITS(t *testing.T, test pkitsTest, run pkitsRun) (string, []string) {
 	return "valid", nil
 }
 
-// pkitsAcceptablePolicies returns the operands of certificatePolicyValid for
-// a run: its initial-policy-set, anyPolicy when only initial-explicit-policy
-// is set, and none for the RFC 5280 default inputs.
-func pkitsAcceptablePolicies(run pkitsRun) []string {
-	switch {
-	case len(run.InitialPolicySet) > 0:
-		return run.InitialPolicySet
-	case run.ExplicitPolicy:
-		return []string{"2.5.29.32.0"}
-	default:
-		return nil
-	}
-}
-
 const pkitsPolicyRuleID = "certificate-policy-valid"
 
 // writePKITSPolicyRule writes the policy processing rule for a run. Some
 // PKITS paths end in a CA certificate, so the rule applies to every role but
 // the trust anchor; runPKITS only counts its verdict for the end entity.
-func writePKITSPolicyRule(t *testing.T, dir string, acceptable []string) string {
+func writePKITSPolicyRule(t *testing.T, dir string) string {
 	t.Helper()
-	quoted := make([]string, len(acceptable))
-	for index, oid := range acceptable {
-		quoted[index] = `"` + oid + `"`
-	}
 	content := `id: pkits-policy-processing
 appliesTo: [cert]
 rules:
@@ -202,7 +195,6 @@ rules:
     reference: RFC5280 6.1
     target: certificate
     operator: certificatePolicyValid
-    operands: [` + strings.Join(quoted, ", ") + `]
     certType: [leaf, intermediate, ocspSigning]
     severity: error
 `

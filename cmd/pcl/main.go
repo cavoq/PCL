@@ -34,6 +34,7 @@ func newRootCmd(opts *linter.Config) *cobra.Command {
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			opts.Diagnostics = cmd.ErrOrStderr()
 			opts.Color = colorOutput(cmd.OutOrStdout())
+			markCertificatePolicyInputsConfigured(cmd.Flags(), opts)
 			if err := dataOpts.load(opts.Diagnostics); err != nil {
 				return err
 			}
@@ -43,6 +44,7 @@ func newRootCmd(opts *linter.Config) *cobra.Command {
 
 	root.Flags().StringSliceVar(&opts.PolicyPaths, "policy", nil, "Path to policy YAML file or directory (repeatable)")
 	addInputFlags(root.Flags(), opts)
+	addCertificatePolicyFlags(root.Flags(), opts)
 	root.Flags().StringVar(&opts.OutputFmt, "output", output.FormatText, "Output format: text, json, or yaml")
 	root.Flags().CountVarP(&opts.Verbosity, "verbose", "v", "Increase output detail: -v shows passed, -vv includes skipped")
 	root.Flags().BoolVar(&opts.ShowDetails, "details", false, "Show wrapped rule explanations in text output")
@@ -52,6 +54,50 @@ func newRootCmd(opts *linter.Config) *cobra.Command {
 	addDataFlags(root.Flags(), &dataOpts)
 
 	return root
+}
+
+var certificatePolicyFlagNames = []string{
+	"initial-policy-set",
+	"initial-explicit-policy",
+	"initial-policy-mapping-inhibit",
+	"initial-any-policy-inhibit",
+}
+
+func addCertificatePolicyFlags(flags *pflag.FlagSet, opts *linter.Config) {
+	inputs := &opts.CertificatePolicyInputs
+	flags.StringSliceVar(
+		&inputs.InitialPolicySet,
+		"initial-policy-set",
+		nil,
+		"RFC 5280 initial policy set as dotted OIDs (repeatable; default anyPolicy)",
+	)
+	flags.BoolVar(
+		&inputs.InitialExplicitPolicy,
+		"initial-explicit-policy",
+		false,
+		"Require an explicit valid certificate policy from the start of the path",
+	)
+	flags.BoolVar(
+		&inputs.InitialPolicyMappingInhibit,
+		"initial-policy-mapping-inhibit",
+		false,
+		"Inhibit certificate policy mapping from the start of the path",
+	)
+	flags.BoolVar(
+		&inputs.InitialAnyPolicyInhibit,
+		"initial-any-policy-inhibit",
+		false,
+		"Inhibit anyPolicy processing from the start of the path",
+	)
+}
+
+func markCertificatePolicyInputsConfigured(flags *pflag.FlagSet, opts *linter.Config) {
+	for _, name := range certificatePolicyFlagNames {
+		if flags.Changed(name) {
+			opts.CertificatePolicyInputs.Configured = true
+			return
+		}
+	}
 }
 
 // colorOutput reports whether text results written to w are colored: only

@@ -17,17 +17,37 @@ import (
 // certificate, honoring policy mappings, requireExplicitPolicy,
 // inhibitPolicyMapping and inhibitAnyPolicy.
 //
-// Operands are the user-initial-policy-set: with operands, initial-explicit-
-// policy is set and the check passes when at least one acceptable policy
-// (anyPolicy accepts any) is valid for the whole path. Without operands the
-// RFC default inputs apply (any-policy, explicit policy not required), and the
-// check passes unless the path's own policy constraints require an explicit
-// policy it does not provide, or a CA maps to or from anyPolicy.
+// First-class CertificatePolicyInputs model the four independent RFC 5280
+// inputs. Without them, operands retain the compatibility behavior: operands
+// are the user-initial-policy-set and also set initial-explicit-policy;
+// without operands the RFC default inputs apply. anyPolicy accepts any valid
+// path policy. A CA mapping to or from anyPolicy always fails.
 //
 // The self-signed top of the chain is the trust anchor and is not processed
 // unless it is the evaluated certificate itself. Malformed policy extensions
 // fail the check.
 type CertificatePolicyValid struct{}
+
+// CertificatePolicyInputs are the user-supplied RFC 5280 Section 6.1.1
+// inputs. InitialPolicySet defaults to anyPolicy when Configured is true and
+// the slice is empty. Configured distinguishes explicit default inputs from
+// the legacy operator mode, where operands imply initial-explicit-policy.
+type CertificatePolicyInputs struct {
+	Configured                  bool
+	InitialPolicySet            []string
+	InitialExplicitPolicy       bool
+	InitialPolicyMappingInhibit bool
+	InitialAnyPolicyInhibit     bool
+}
+
+// IsConfigured reports whether the caller selected the first-class RFC 5280
+// inputs. Non-default values imply configuration for programmatic callers;
+// Configured also represents an explicitly selected all-default input set.
+func (inputs CertificatePolicyInputs) IsConfigured() bool {
+	return inputs.Configured || len(inputs.InitialPolicySet) > 0 ||
+		inputs.InitialExplicitPolicy || inputs.InitialPolicyMappingInhibit ||
+		inputs.InitialAnyPolicyInhibit
+}
 
 func (CertificatePolicyValid) Name() string { return "certificatePolicyValid" }
 
@@ -36,12 +56,7 @@ func (CertificatePolicyValid) Evaluate(_ *node.Node, ctx *EvaluationContext, ope
 		return false, nil
 	}
 
-	var acceptable []string
-	for _, operand := range operands {
-		if policy, ok := operand.(string); ok {
-			acceptable = append(acceptable, policy)
-		}
-	}
+	inputs := certificatePolicyInputs(ctx.CertificatePolicyInputs, operands)
 
 	path, ok := certificatePolicyPath(ctx)
 	if !ok {
@@ -55,7 +70,31 @@ func (CertificatePolicyValid) Evaluate(_ *node.Node, ctx *EvaluationContext, ope
 		}
 		facts = append(facts, certificateFacts)
 	}
-	return processCertificatePolicies(facts, acceptable), nil
+	return processCertificatePolicies(facts, inputs), nil
+}
+
+func certificatePolicyInputs(configured CertificatePolicyInputs, operands []any) CertificatePolicyInputs {
+	if configured.IsConfigured() {
+		configured.Configured = true
+		if len(configured.InitialPolicySet) == 0 {
+			configured.InitialPolicySet = []string{oid.AnyPolicy}
+		}
+		return configured
+	}
+
+	var acceptable []string
+	for _, operand := range operands {
+		if policy, ok := operand.(string); ok {
+			acceptable = append(acceptable, policy)
+		}
+	}
+	if len(acceptable) == 0 {
+		acceptable = []string{oid.AnyPolicy}
+	}
+	return CertificatePolicyInputs{
+		InitialPolicySet:      acceptable,
+		InitialExplicitPolicy: len(operands) > 0,
+	}
 }
 
 // certificatePolicyPath returns the certificates from the one issued by the
@@ -185,19 +224,24 @@ func policyExtensionValue(
 
 // processCertificatePolicies applies the RFC 5280 Section 6.1 policy steps
 // (6.1.3 (d)-(f), 6.1.4 (a)(b)(h)-(j), 6.1.5 (a)(b)(g)) to certificates 1..n.
-// With acceptable policies, initial-explicit-policy is set and the path is
-// valid when the valid_policy_tree is non-NULL after intersecting it with
-// them. Without, the inputs are the RFC defaults (any-policy, explicit policy
-// not required) and the path is valid unless its own policy constraints
-// require an explicit policy that the path does not provide.
-func processCertificatePolicies(path []certificatePolicyFacts, acceptable []string) bool {
+// With explicit policy required, the path is valid only when the
+// valid_policy_tree is non-NULL after intersecting it with the initial policy
+// set. Otherwise a NULL tree is allowed unless a certificate constraint
+// drives explicit-policy to zero.
+func processCertificatePolicies(path []certificatePolicyFacts, inputs CertificatePolicyInputs) bool {
 	n := len(path)
 	explicitPolicy := n + 1
-	if len(acceptable) > 0 {
+	if inputs.InitialExplicitPolicy {
 		explicitPolicy = 0
 	}
 	inhibitAnyPolicy := n + 1
+	if inputs.InitialAnyPolicyInhibit {
+		inhibitAnyPolicy = 0
+	}
 	policyMapping := n + 1
+	if inputs.InitialPolicyMappingInhibit {
+		policyMapping = 0
+	}
 	tree := newPolicyTree()
 
 	for i := 1; i <= n; i++ {
@@ -239,9 +283,7 @@ func processCertificatePolicies(path []certificatePolicyFacts, acceptable []stri
 	if path[n-1].requireExplicitPolicy == 0 {
 		explicitPolicy = 0 // 6.1.5 (b)
 	}
-	if len(acceptable) > 0 {
-		tree.intersect(n, acceptable) // 6.1.5 (g); none means any-policy
-	}
+	tree.intersect(n, inputs.InitialPolicySet) // 6.1.5 (g)
 	return explicitPolicy > 0 || tree.root != nil
 }
 

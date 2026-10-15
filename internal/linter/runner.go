@@ -246,15 +246,16 @@ func buildSubjects(
 	}
 
 	evalCtx := evaluator.Context{
-		Policies:            policies,
-		Registry:            reg,
-		CRLs:                inputs.crls,
-		OCSPs:               inputs.ocsps,
-		Chain:               inputs.chain,
-		Certificates:        inputs.certificates,
-		RevocationRequested: crlRevocationRequested(cfg),
-		ValidationTime:      now,
-		ApplicationPurpose:  cfg.ApplicationPurpose,
+		Policies:                policies,
+		Registry:                reg,
+		CRLs:                    inputs.crls,
+		OCSPs:                   inputs.ocsps,
+		Chain:                   inputs.chain,
+		Certificates:            inputs.certificates,
+		RevocationRequested:     crlRevocationRequested(cfg),
+		ValidationTime:          now,
+		ApplicationPurpose:      cfg.ApplicationPurpose,
+		CertificatePolicyInputs: cfg.CertificatePolicyInputs,
 	}
 	subjects := evaluator.ChainSubjects(evalCtx)
 	if len(inputs.ocsps) > 0 {

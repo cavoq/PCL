@@ -7,6 +7,8 @@ import (
 	"io"
 	"time"
 
+	"github.com/cavoq/PCL/internal/oid"
+	"github.com/cavoq/PCL/internal/operator"
 	"github.com/cavoq/PCL/internal/output"
 )
 
@@ -42,6 +44,11 @@ type Config struct {
 	// friendly name (for example, "serverAuth") or a dotted object identifier.
 	ApplicationPurpose string
 
+	// CertificatePolicyInputs are optional RFC 5280 Section 6.1.1 inputs.
+	// Unconfigured inputs preserve certificatePolicyValid's operand-based
+	// compatibility mode.
+	CertificatePolicyInputs operator.CertificatePolicyInputs
+
 	// Auto-validate mode options
 	AutoValidate  bool // Enable automatic PKI resource fetching (OCSP, CRL, chain climbing)
 	NoAutoChain   bool // Disable chain climbing via CA Issuers URLs
@@ -74,6 +81,13 @@ func (cfg Config) Validate() error {
 // input, and option values that would otherwise be ignored. Issuer
 // certificates alone are not evaluated.
 func (cfg Config) validateInputs() error {
+	if cfg.CertificatePolicyInputs.IsConfigured() {
+		for _, identifier := range cfg.CertificatePolicyInputs.InitialPolicySet {
+			if !oid.ValidDotted(identifier) {
+				return fmt.Errorf("initial policy set contains invalid object identifier %q", identifier)
+			}
+		}
+	}
 	if !cfg.hasCertificateInput() && cfg.CRLPath == "" && cfg.OCSPPath == "" {
 		return errors.New("no certificates, CRLs, or OCSP responses provided")
 	}

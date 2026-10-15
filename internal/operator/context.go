@@ -51,6 +51,11 @@ type EvaluationContext struct {
 	// ApplicationPurpose is an optional friendly EKU name or dotted EKU OID
 	// supplied by the caller for certificate-purpose evaluation.
 	ApplicationPurpose string
+
+	// CertificatePolicyInputs are the RFC 5280 Section 6.1 inputs supplied by
+	// the caller. When unconfigured, certificatePolicyValid retains its legacy
+	// operand-based behavior.
+	CertificatePolicyInputs CertificatePolicyInputs
 }
 
 func (ctx *EvaluationContext) HasCert() bool {
@@ -169,6 +174,12 @@ func WithOCSPAssessment(assessment *ocsp.Assessment) ContextOption {
 func WithApplicationPurpose(purpose string) ContextOption {
 	return func(ctx *EvaluationContext) {
 		ctx.ApplicationPurpose = purpose
+	}
+}
+
+func WithCertificatePolicyInputs(inputs CertificatePolicyInputs) ContextOption {
+	return func(ctx *EvaluationContext) {
+		ctx.CertificatePolicyInputs = inputs
 	}
 }
 

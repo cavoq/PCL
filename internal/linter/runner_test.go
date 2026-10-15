@@ -355,6 +355,20 @@ func TestConfigValidateRequiresPolicy(t *testing.T) {
 	}
 }
 
+func TestConfigValidateRejectsInvalidInitialPolicyOID(t *testing.T) {
+	err := Config{
+		PolicyPaths: []string{"policy.yaml"},
+		CertPath:    "leaf.pem",
+		CertificatePolicyInputs: operator.CertificatePolicyInputs{
+			Configured:       true,
+			InitialPolicySet: []string{"1.03.6"},
+		},
+	}.Validate()
+	if err == nil || !strings.Contains(err.Error(), "initial policy set") {
+		t.Fatalf("expected invalid initial policy set error, got %v", err)
+	}
+}
+
 func TestLoadCRLs(t *testing.T) {
 	// Test with empty path
 	crls, err := loadCRLs("", nil)

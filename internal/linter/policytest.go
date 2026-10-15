@@ -46,15 +46,36 @@ func (paths *policyPaths) UnmarshalYAML(value *yaml.Node) error {
 }
 
 type policyTestCase struct {
-	Name    string              `yaml:"name"`
-	Cert    string              `yaml:"cert,omitempty"`
-	Issuers []string            `yaml:"issuers,omitempty"`
-	CRL     string              `yaml:"crl,omitempty"`
-	OCSP    string              `yaml:"ocsp,omitempty"`
-	Purpose string              `yaml:"purpose,omitempty"`
-	Time    string              `yaml:"time,omitempty"`
-	Error   string              `yaml:"error,omitempty"`
-	Expect  []policyExpectation `yaml:"expect,omitempty"`
+	Name                    string                      `yaml:"name"`
+	Cert                    string                      `yaml:"cert,omitempty"`
+	Issuers                 []string                    `yaml:"issuers,omitempty"`
+	CRL                     string                      `yaml:"crl,omitempty"`
+	OCSP                    string                      `yaml:"ocsp,omitempty"`
+	Purpose                 string                      `yaml:"purpose,omitempty"`
+	CertificatePolicyInputs *policyTestCertificateInput `yaml:"certificatePolicyInputs,omitempty"`
+	Time                    string                      `yaml:"time,omitempty"`
+	Error                   string                      `yaml:"error,omitempty"`
+	Expect                  []policyExpectation         `yaml:"expect,omitempty"`
+}
+
+type policyTestCertificateInput struct {
+	InitialPolicySet            []string `yaml:"initialPolicySet,omitempty"`
+	InitialExplicitPolicy       bool     `yaml:"initialExplicitPolicy,omitempty"`
+	InitialPolicyMappingInhibit bool     `yaml:"initialPolicyMappingInhibit,omitempty"`
+	InitialAnyPolicyInhibit     bool     `yaml:"initialAnyPolicyInhibit,omitempty"`
+}
+
+func (inputs *policyTestCertificateInput) operatorInputs() operator.CertificatePolicyInputs {
+	if inputs == nil {
+		return operator.CertificatePolicyInputs{}
+	}
+	return operator.CertificatePolicyInputs{
+		Configured:                  true,
+		InitialPolicySet:            inputs.InitialPolicySet,
+		InitialExplicitPolicy:       inputs.InitialExplicitPolicy,
+		InitialPolicyMappingInhibit: inputs.InitialPolicyMappingInhibit,
+		InitialAnyPolicyInhibit:     inputs.InitialAnyPolicyInhibit,
+	}
 }
 
 // policyExpectation states the verdicts expected for one evaluated input,
@@ -250,12 +271,13 @@ func lintPolicyTestCase(
 		return nil, err
 	}
 	cfg := Config{
-		CertPath:           resolvePath(dir, testCase.Cert),
-		IssuerPaths:        resolvePaths(dir, testCase.Issuers),
-		CRLPath:            resolvePath(dir, testCase.CRL),
-		OCSPPath:           resolvePath(dir, testCase.OCSP),
-		ApplicationPurpose: testCase.Purpose,
-		ValidationTime:     evaluationTime,
+		CertPath:                resolvePath(dir, testCase.Cert),
+		IssuerPaths:             resolvePaths(dir, testCase.Issuers),
+		CRLPath:                 resolvePath(dir, testCase.CRL),
+		OCSPPath:                resolvePath(dir, testCase.OCSP),
+		ApplicationPurpose:      testCase.Purpose,
+		CertificatePolicyInputs: testCase.CertificatePolicyInputs.operatorInputs(),
+		ValidationTime:          evaluationTime,
 	}
 	applyDefaults(&cfg)
 	if err := cfg.validateInputs(); err != nil {
