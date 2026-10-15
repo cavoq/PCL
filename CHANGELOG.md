@@ -46,6 +46,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `akiMatchesSki` check those certificates against the wrong issuer.
 - PEM files with several certificates, such as an issuer bundle passed with
   `--issuer`, supply every certificate instead of only the first.
+- A certificate supplied in two files, for example in a bundle and on its
+  own, is no longer reported as left out of the evaluated chain.
 
 ## [5.1.0] - 2026-10-14
 

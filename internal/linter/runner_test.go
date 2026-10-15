@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cavoq/PCL/internal/cert"
 	"github.com/cavoq/PCL/internal/evaluator"
 	"github.com/cavoq/PCL/internal/ocsp"
 	"github.com/cavoq/PCL/internal/operator"
@@ -706,4 +707,48 @@ func writePEMCert(t *testing.T, dir, name string, der []byte) string {
 		t.Fatalf("write %s: %v", name, err)
 	}
 	return path
+}
+
+func TestBuildCertificateChain_reportsCertificatesLeftOut(t *testing.T) {
+	root := testpki.Issue(t, "Root", nil, testpki.CA())
+	leaf := testpki.Issue(t, "Leaf", root, testpki.Serial(2))
+	other := testpki.Issue(t, "Other Root", nil, testpki.CA(), testpki.Serial(3))
+
+	tests := []struct {
+		name  string
+		certs []*cert.Info
+		warn  []string
+	}{
+		{
+			name:  "unrelated certificate",
+			certs: []*cert.Info{{Cert: leaf.Cert, FilePath: "leaf.pem"}, {Cert: other.Cert, FilePath: "other.pem"}},
+			warn:  []string{"other.pem"},
+		},
+		{
+			// The same certificate in a bundle and its own file is linted once.
+			name: "same certificate in two files",
+			certs: []*cert.Info{
+				{Cert: leaf.Cert, FilePath: "bundle.pem"},
+				{Cert: root.Cert, FilePath: "bundle.pem"},
+				{Cert: leaf.Cert, FilePath: "leaf.pem"},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var diagnostics bytes.Buffer
+			if _, _, err := buildCertificateChain(Config{}, tt.certs, nil, &diagnostics); err != nil {
+				t.Fatal(err)
+			}
+			warnings := strings.Count(diagnostics.String(), "is not part of the evaluated certificate chain")
+			if warnings != len(tt.warn) {
+				t.Fatalf("warnings:\n%s\nwant %d, for %v", diagnostics.String(), len(tt.warn), tt.warn)
+			}
+			for _, path := range tt.warn {
+				if !strings.Contains(diagnostics.String(), path) {
+					t.Errorf("no warning for %s:\n%s", path, diagnostics.String())
+				}
+			}
+		})
+	}
 }

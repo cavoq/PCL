@@ -120,7 +120,10 @@ func buildCertificateChain(cfg Config, certs, issuers []*cert.Info, w io.Writer)
 		return nil, nil, fmt.Errorf("failed to build certificate chain: %w", err)
 	}
 	for _, target := range certs {
-		if !slices.Contains(chain, target) {
+		inChain := slices.ContainsFunc(chain, func(member *cert.Info) bool {
+			return cert.SameCertificate(member.Cert, target.Cert)
+		})
+		if !inChain {
 			_, _ = fmt.Fprintf(w, "Warning: %s is not part of the evaluated certificate chain and is not linted\n", target.FilePath)
 		}
 	}
