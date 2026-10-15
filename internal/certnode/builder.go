@@ -3,7 +3,6 @@
 package certnode
 
 import (
-	"crypto/dsa"
 	"crypto/ecdsa"
 	"crypto/ed25519"
 	"crypto/rsa"
@@ -12,6 +11,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/zmap/zcrypto/dsa"
 	"github.com/zmap/zcrypto/x509"
 	"github.com/zmap/zcrypto/x509/ct"
 	"github.com/zmap/zcrypto/x509/pkix"
@@ -406,12 +406,15 @@ func buildRSAKey(key *rsa.PublicKey) *node.Node {
 	return n
 }
 
+// buildDSAKey projects the sizes of a zcrypto DSA key. Parameters inherited
+// from an issuer are zero until acquisition resolves them, so their sizes are
+// unknown and omitted.
 func buildDSAKey(key *dsa.PublicKey) *node.Node {
 	n := node.New("publicKey", nil)
-	if key.P != nil {
+	if key.P != nil && key.P.Sign() > 0 {
 		n.Children["keySize"] = node.New("keySize", key.P.BitLen())
 	}
-	if key.Q != nil {
+	if key.Q != nil && key.Q.Sign() > 0 {
 		n.Children["subgroupSize"] = node.New("subgroupSize", key.Q.BitLen())
 	}
 	return n

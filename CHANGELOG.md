@@ -32,6 +32,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   result with no gaps or unsupported inputs.
 
 ### Fixed
+- DSA public keys project `keySize` and `subgroupSize`. The projection
+  expected Go's standard DSA key type, so parsed certificates exposed only an
+  opaque value and key-size rules saw the size as absent. Sizes of keys whose
+  parameters are inherited appear once the issuer's parameters are resolved.
 - Path construction no longer enumerates every candidate path. It finds the
   same best anchored path in polynomial time, verifying each issuer signature
   once (a 3x4 cross-certified mesh: 1.9 s to 14 ms). The unanchored fallback

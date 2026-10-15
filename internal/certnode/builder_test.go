@@ -3,7 +3,6 @@ package certnode
 import (
 	"bytes"
 	"crypto"
-	"crypto/dsa"
 	"crypto/ed25519"
 	"crypto/rand"
 	stdpkix "crypto/x509/pkix"
@@ -16,8 +15,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cavoq/PCL/internal/cert"
 	"github.com/cavoq/PCL/internal/node"
 	"github.com/cavoq/PCL/internal/testpki"
+	"github.com/zmap/zcrypto/dsa"
 	zasn1 "github.com/zmap/zcrypto/encoding/asn1"
 	"github.com/zmap/zcrypto/x509"
 	"github.com/zmap/zcrypto/x509/pkix"
@@ -357,6 +358,35 @@ func TestBuilder_SubjectPublicKeyInfo_DSA(t *testing.T) {
 	assertPathValue(t, root, "certificate.subjectPublicKeyInfo.algorithm.algorithm", "DSA")
 	assertPathValue(t, root, "certificate.subjectPublicKeyInfo.publicKey.keySize", 3072)
 	assertPathValue(t, root, "certificate.subjectPublicKeyInfo.publicKey.subgroupSize", 256)
+}
+
+// TestBuilder_SubjectPublicKeyInfo_ParsedDSA uses the key type zcrypto
+// returns for parsed certificates.
+func TestBuilder_SubjectPublicKeyInfo_ParsedDSA(t *testing.T) {
+	load := func(file string) *cert.Info {
+		t.Helper()
+		infos, err := cert.LoadCertificates(filepath.Join("..", "..", "tests", "pkits", "certs", file), nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return infos[0]
+	}
+	issuer := load("DSACACert.crt")
+	inheriting := load("DSAParametersInheritedCACert.crt")
+
+	assertPathValue(t, BuildTree(issuer.Cert), "certificate.subjectPublicKeyInfo.publicKey.keySize", 1024)
+	assertPathValue(t, BuildTree(issuer.Cert), "certificate.subjectPublicKeyInfo.publicKey.subgroupSize", 160)
+
+	unresolved := BuildTree(inheriting.Cert)
+	assertPathExists(t, unresolved, "certificate.subjectPublicKeyInfo.publicKey")
+	for _, size := range []string{"keySize", "subgroupSize"} {
+		if _, ok := unresolved.Resolve("certificate.subjectPublicKeyInfo.publicKey." + size); ok {
+			t.Fatalf("unresolved inherited parameters projected %s", size)
+		}
+	}
+
+	cert.ResolveInheritedDSAParameters([]*cert.Info{inheriting, issuer})
+	assertPathValue(t, BuildTree(inheriting.Cert), "certificate.subjectPublicKeyInfo.publicKey.keySize", 1024)
 }
 
 func TestBuilder_KeyUsage_LeafCert(t *testing.T) {
