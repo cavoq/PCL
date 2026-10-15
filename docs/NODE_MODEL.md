@@ -306,6 +306,8 @@ ocsp.nonce.hexValue            # Nonce hex, when present
 | `certificate.pathValidation.findings.*` | Code, reference, status, certificate position, message, details |
 
 Path validation is attached to the target certificate during lint evaluation.
+A rule decided by the `pathValid` operator carries the structured findings in
+its result; rules over these nodes see only the projected values.
 `pcl inspect` shows profile projections; it does not accept the lint-only
 `--trust-anchor`, `--max-path-length`, or `--path-revocation` flags.
 

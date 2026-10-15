@@ -7,6 +7,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/cavoq/PCL/internal/finding"
 	"github.com/cavoq/PCL/internal/policy"
 	"github.com/cavoq/PCL/internal/rule"
 )
@@ -374,5 +375,26 @@ func TestTextFormatterCountsHiddenRules(t *testing.T) {
 		if strings.Contains(text, hidden) {
 			t.Errorf("output lists hidden rule %s:\n%s", hidden, text)
 		}
+	}
+}
+
+func TestWriteRulesTableDetailsListFailedFindings(t *testing.T) {
+	results := []rule.Result{{
+		RuleID:  "certification-path-valid",
+		Verdict: rule.VerdictFail,
+		Details: "check failed: pathValid",
+		Findings: []finding.Finding{
+			{Code: "path.trust-anchor", Status: finding.StatusPass, Message: "anchored"},
+			{Code: "path.signature", Status: finding.StatusFail, Message: "certificate signature is invalid"},
+		},
+	}}
+
+	var buf bytes.Buffer
+	if err := writeRulesTable(&buf, palette(false), results, 1, true); err != nil {
+		t.Fatal(err)
+	}
+	if got := buf.String(); !strings.Contains(got, "└─ path.signature: certificate signature is invalid") ||
+		strings.Contains(got, "path.trust-anchor") {
+		t.Fatalf("details should list only failed findings:\n%s", got)
 	}
 }

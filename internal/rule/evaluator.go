@@ -83,10 +83,33 @@ func Evaluate(
 		}
 		return newResult(r, VerdictFail, message, details)
 	}
+	verdict, message := VerdictPass, ""
 	if !ok {
-		return newResult(r, VerdictFail, r.Message, details)
+		verdict, message = VerdictFail, r.Message
 	}
-	return newResult(r, VerdictPass, "", details)
+	result := newResult(r, verdict, message, details)
+	result.Findings = reportedFindings(root, r, reg, ctx)
+	return result
+}
+
+// reportedFindings returns the structured findings of a rule operator that
+// reports them, such as the path engine's decision.
+func reportedFindings(
+	root *node.Node,
+	r Rule,
+	reg *operator.Registry,
+	ctx *operator.EvaluationContext,
+) []finding.Finding {
+	op, err := reg.Get(r.Operator)
+	if err != nil {
+		return nil
+	}
+	reporter, ok := op.(operator.FindingReporter)
+	if !ok {
+		return nil
+	}
+	n, _ := resolveTarget(root, r.Target)
+	return reporter.Findings(n, ctx, operator.NormalizeOperands(r.Operands))
 }
 
 func newResult(r Rule, verdict, message, details string) Result {

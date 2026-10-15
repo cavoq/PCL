@@ -736,42 +736,77 @@ func TestRunProjectsExplicitPathValidation(t *testing.T) {
 	leafPath := writePEMCert(t, dir, "leaf.pem", leaf.DER)
 	intermediatePath := writePEMCert(t, dir, "intermediate.pem", intermediate.DER)
 	rootPath := writePEMCert(t, dir, "root.pem", root.DER)
-	policyPath := filepath.Join(dir, "path-policy.yaml")
-	if err := os.WriteFile(policyPath, []byte(`id: path-validation
-version: "1"
-rules:
-  - id: certification-path-valid
-    when:
+
+	// Findings follow the operator that decided the rule, not the spelling of
+	// its target.
+	tests := []struct {
+		name         string
+		rule         string
+		wantFindings bool
+	}{
+		{
+			name: "pathValid with qualified targets",
+			rule: `    when:
       target: certificate.pathValidation
       operator: present
-    target: certificate.pathValidation.failureSummary
-    operator: absent
-    severity: error
-`), 0o600); err != nil {
-		t.Fatal(err)
+    target: certificate
+    operator: pathValid
+`,
+			wantFindings: true,
+		},
+		{
+			name: "pathValid with unqualified targets",
+			rule: `    when:
+      target: pathValidation
+      operator: present
+    target: subject
+    operator: pathValid
+`,
+			wantFindings: true,
+		},
+		{
+			name: "node operator on the path projection",
+			rule: `    target: certificate.pathValidation.valid
+    operator: eq
+    operands: [true]
+`,
+		},
 	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			policyPath := filepath.Join(t.TempDir(), "path-policy.yaml")
+			policyYAML := "id: path-validation\nversion: \"1\"\nrules:\n" +
+				"  - id: certification-path-valid\n" + test.rule + "    severity: error\n"
+			if err := os.WriteFile(policyPath, []byte(policyYAML), 0o600); err != nil {
+				t.Fatal(err)
+			}
 
-	var output bytes.Buffer
-	err := Run(Config{
-		PolicyPaths:      []string{policyPath},
-		CertPath:         leafPath,
-		IssuerPaths:      []string{intermediatePath},
-		TrustAnchorPaths: []string{rootPath},
-		ValidationTime:   time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
-		PathRevocation:   "none",
-		OutputFmt:        "json",
-		Verbosity:        1,
-	}, &output)
-	if err != nil {
-		t.Fatalf("Run: %v\n%s", err, output.String())
-	}
-	var results []policy.Result
-	if err := json.Unmarshal(output.Bytes(), &results); err != nil {
-		t.Fatal(err)
-	}
-	if len(results) != 3 || results[0].Results[0].Verdict != rule.VerdictPass ||
-		len(results[0].Results[0].Findings) == 0 {
-		t.Fatalf("path validation results = %#v", results)
+			var output bytes.Buffer
+			err := Run(Config{
+				PolicyPaths:      []string{policyPath},
+				CertPath:         leafPath,
+				IssuerPaths:      []string{intermediatePath},
+				TrustAnchorPaths: []string{rootPath},
+				ValidationTime:   time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
+				PathRevocation:   "none",
+				OutputFmt:        "json",
+				Verbosity:        1,
+			}, &output)
+			if err != nil {
+				t.Fatalf("Run: %v\n%s", err, output.String())
+			}
+			var results []policy.Result
+			if err := json.Unmarshal(output.Bytes(), &results); err != nil {
+				t.Fatal(err)
+			}
+			if len(results) != 3 || len(results[0].Results) != 1 {
+				t.Fatalf("path validation results = %#v", results)
+			}
+			got := results[0].Results[0]
+			if got.Verdict != rule.VerdictPass || (len(got.Findings) > 0) != test.wantFindings {
+				t.Fatalf("result = %#v, want pass with findings %v", got, test.wantFindings)
+			}
+		})
 	}
 }
 

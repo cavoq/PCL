@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cavoq/PCL/internal/finding"
 	"github.com/cavoq/PCL/internal/node"
 	"github.com/cavoq/PCL/internal/operator"
 )
@@ -259,5 +260,35 @@ func TestRuleEvaluationMissingTargetUsesInputNamespace(t *testing.T) {
 				t.Fatalf("details = %q, want %q", result.Details, tt.wantDetails)
 			}
 		})
+	}
+}
+
+type reportingOp struct{ pass bool }
+
+func (reportingOp) Name() string { return "reporting" }
+
+func (op reportingOp) Evaluate(_ *node.Node, _ *operator.EvaluationContext, _ []any) (bool, error) {
+	return op.pass, nil
+}
+
+func (reportingOp) Findings(n *node.Node, _ *operator.EvaluationContext, _ []any) []finding.Finding {
+	return []finding.Finding{{Code: "reported." + n.Name, Status: finding.StatusPass}}
+}
+
+func TestEvaluateAttachesReportedFindings(t *testing.T) {
+	root := node.New("certificate", nil)
+	root.Children["subject"] = node.New("subject", "CN=Leaf")
+
+	for _, pass := range []bool{true, false} {
+		reg := operator.NewRegistry()
+		reg.RegisterAll([]operator.Operator{reportingOp{pass: pass}, operator.Present{}})
+
+		result := Evaluate(root, Rule{ID: "reported", Target: "subject", Operator: "reporting"}, reg, nil)
+		if len(result.Findings) != 1 || result.Findings[0].Code != "reported.subject" {
+			t.Fatalf("pass=%v: findings = %#v, want the operator's findings for the resolved target", pass, result.Findings)
+		}
+		if plain := Evaluate(root, Rule{ID: "plain", Target: "subject", Operator: "present"}, reg, nil); plain.Findings != nil {
+			t.Fatalf("operator without findings reported %#v", plain.Findings)
+		}
 	}
 }

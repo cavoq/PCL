@@ -16,8 +16,8 @@ rules:
     when:
       target: certificate.pathValidation
       operator: present
-    target: certificate.pathValidation.failureSummary
-    operator: absent
+    target: certificate
+    operator: pathValid
     certType: [leaf, intermediate, ocspSigning]
     severity: error
 

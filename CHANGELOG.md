@@ -18,7 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `--path-revocation`.
 - Structured path findings with stable codes, RFC references, certificate
   positions, and pass/fail/skip status. The shipped RFC 5280 policy exposes
-  one conditional `certification-path-valid` aggregate decision.
+  one conditional `certification-path-valid` aggregate decision through the
+  new `pathValid` operator. A rule decided by `pathValid` carries the
+  findings in its result, whatever its target; text `--details` lists the
+  failed ones.
 - CRL signer paths are validated to the same explicit trust anchors before
   their revocation evidence is accepted. Path validation reuses the existing
   CRL and OCSP assessment domains.

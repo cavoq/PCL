@@ -87,6 +87,7 @@ var builtins = []builtinOperator{
 	{IssuedBy{}, noOperandsContract},
 	{AKIMatchesSKI{}, noOperandsContract},
 	{PathLenValid{}, noOperandsContract},
+	{PathValid{}, noOperandsContract},
 	{ApplicationPurposeValid{}, noOperandsContract},
 	{AnyExtendedKeyUsageNotCritical{}, noOperandsContract},
 	{BasicConstraintsDependenciesValid{}, noOperandsContract},

@@ -3,7 +3,6 @@ package evaluator
 
 import (
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
@@ -288,21 +287,7 @@ func evaluatePolicies(
 ) []policy.Result {
 	results := make([]policy.Result, 0, len(policies))
 	for _, p := range policies {
-		result := policy.Evaluate(p, tree, registry, evalCtx)
-		if evalCtx != nil && evalCtx.PathValidation != nil {
-			for index, configuredRule := range p.Rules {
-				if index >= len(result.Results) {
-					break
-				}
-				if strings.HasPrefix(configuredRule.Target, "certificate.pathValidation") {
-					result.Results[index].Findings = append(
-						[]pathpkg.Finding(nil),
-						evalCtx.PathValidation.Findings...,
-					)
-				}
-			}
-		}
-		results = append(results, result)
+		results = append(results, policy.Evaluate(p, tree, registry, evalCtx))
 	}
 	return results
 }

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/cavoq/PCL/internal/finding"
 	"github.com/cavoq/PCL/internal/rule"
 )
 
@@ -293,6 +294,11 @@ func resultDetailParts(result rule.Result) []string {
 	}
 	if result.Details != "" && result.Details != result.Message {
 		parts = append(parts, result.Details)
+	}
+	for _, reported := range result.Findings {
+		if reported.Status == finding.StatusFail {
+			parts = append(parts, reported.Code+": "+reported.Message)
+		}
 	}
 	return parts
 }

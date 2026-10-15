@@ -104,6 +104,7 @@ These operators take no operands.
 | `issuedBy` | None | Returns true if certificate's issuer DN matches issuer's subject DN |
 | `akiMatchesSki` | None | Returns true if AKI matches issuer's SKI |
 | `pathLenValid` | None | Counts non-self-issued intermediates below the current CA in the supplied leaf-to-root chain |
+| `pathValid` | None | Aggregate decision of the explicit-anchor path engine for the target certificate; the rule result carries its structured findings |
 | `serialNumberUnique` | None | Detects a duplicate issuer/serial pair within the supplied chain; it cannot prove CA-wide uniqueness |
 
 ## CRL Operators
@@ -224,7 +225,7 @@ Use it with scalar operators to cover every DN or GeneralName occurrence:
 | Profile dependency operators | Certificate semantics owned by `internal/cert` |
 | `pathLenValid`, `nameConstraintsValid` | Checks over the supplied ordered chain; do not establish trust |
 | `certificatePolicyValid` | Compatibility adapter; `--initial-*` inputs override legacy operands |
-| `certificate.pathValidation` | Full aggregate decision from the explicit-anchor path engine |
+| `pathValid` | Full aggregate decision from the explicit-anchor path engine, with its findings |
 | CRL / OCSP operators | Consume prepared evidence; no network access during evaluation |
 | PSL/TLD operators | Require a loaded Public Suffix List; missing data fails the check |
 

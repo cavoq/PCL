@@ -97,8 +97,8 @@ rules:
     when:
       target: certificate.pathValidation
       operator: present
-    target: certificate.pathValidation.failureSummary
-    operator: absent
+    target: certificate
+    operator: pathValid
     severity: error
 
 
