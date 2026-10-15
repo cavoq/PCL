@@ -1,6 +1,13 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/cavoq/PCL/master/schemas/policy.schema.json
 id: rfc5280
 version: 1.0
+metadata:
+  title: X.509 certificate, CRL, and certification-path checks
+  standard: RFC 5280
+  edition: "2008"
+  source: https://www.rfc-editor.org/rfc/rfc5280
+  description: Profile rules and conditional explicit-trust path validation; see RFC5280-COVERAGE.md for scope.
+  inputs: [certificate, issuers, trustAnchors, crl, ocsp, purpose, validationTime]
 
 rules:
 

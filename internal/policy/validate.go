@@ -11,7 +11,8 @@ import (
 )
 
 var (
-	validInputTypes = stringSet(
+	validMetadataInputs = stringSet("certificate", "issuers", "trustAnchors", "crl", "ocsp", "purpose", "validationTime", "psl")
+	validInputTypes     = stringSet(
 		InputCert,
 		InputCRL,
 		InputOCSP,
@@ -65,6 +66,11 @@ func validatePolicy(p Policy) error {
 
 	if err := validateIncludes(p.Includes); err != nil {
 		return err
+	}
+	if p.Metadata != nil {
+		if err := validateValues("metadata.inputs", p.Metadata.Inputs, validMetadataInputs); err != nil {
+			return err
+		}
 	}
 	if err := validateValues("appliesTo", p.AppliesTo, validInputTypes); err != nil {
 		return err

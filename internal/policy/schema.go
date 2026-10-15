@@ -120,6 +120,7 @@ func policyProperties() map[string]any {
 	return map[string]any{
 		"id":       withSchemaDescription(trimmedString, "Policy identifier."),
 		"version":  map[string]any{"type": []any{"string", "number"}},
+		"metadata": metadataSchema(),
 		"includes": map[string]any{"type": "array", "uniqueItems": true, "items": trimmedString},
 		"appliesTo": map[string]any{
 			"type":        "array",
@@ -144,6 +145,27 @@ func policyProperties() map[string]any {
 		"tstType": map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
 		"sctType": map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
 		"rules":   map[string]any{"type": "array", "items": map[string]any{"$ref": "#/definitions/rule"}},
+	}
+}
+
+func metadataSchema() map[string]any {
+	return map[string]any{
+		"type":                 "object",
+		"additionalProperties": false,
+		"description":          "Descriptive pack information only; does not configure validation or require inputs. Includes do not inherit metadata.",
+		"properties": map[string]any{
+			"title":       map[string]any{"type": "string"},
+			"standard":    map[string]any{"type": "string"},
+			"edition":     map[string]any{"type": []any{"string", "number"}},
+			"source":      map[string]any{"type": "string", "description": "Source reference or URL; never fetched by the engine."},
+			"description": map[string]any{"type": "string"},
+			"inputs": map[string]any{
+				"type":        "array",
+				"uniqueItems": true,
+				"items":       map[string]any{"type": "string", "enum": setToAny(validMetadataInputs)},
+				"description": "Relevant evidence and runtime inputs; not a list of mandatory inputs or an execution filter.",
+			},
+		},
 	}
 }
 

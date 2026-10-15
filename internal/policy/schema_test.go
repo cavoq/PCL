@@ -100,6 +100,40 @@ func TestSchemaAndParserRejectTheSamePolicies(t *testing.T) {
 		policy string
 		valid  bool
 	}{
+		{name: "descriptive metadata", valid: true, policy: `
+id: example
+metadata:
+  title: Example profile
+  standard: RFC 5280
+  edition: "2008"
+  source: https://www.rfc-editor.org/rfc/rfc5280
+  description: Certificate profile and explicit path checks
+  inputs: [certificate, issuers, trustAnchors, crl, ocsp, purpose, validationTime, psl]
+rules: []`},
+		{name: "empty metadata", valid: true, policy: `
+id: example
+metadata: {}`},
+		{name: "numeric metadata edition", valid: true, policy: `
+id: example
+metadata: {edition: 2008}`},
+		{name: "metadata text cannot be a list", policy: `
+id: example
+metadata: {description: [certificate]}`},
+		{name: "unknown metadata field", policy: `
+id: example
+metadata: {trustAnchor: root.pem}`},
+		{name: "unknown metadata input", policy: `
+id: example
+metadata: {inputs: [cert]}`},
+		{name: "duplicate metadata input", policy: `
+id: example
+metadata: {inputs: [certificate, certificate]}`},
+		{name: "metadata input whitespace", policy: `
+id: example
+metadata: {inputs: [" certificate"]}`},
+		{name: "metadata must be a mapping", policy: `
+id: example
+metadata: [certificate]`},
 		{name: "minimal", valid: true, policy: `
 id: example
 rules:

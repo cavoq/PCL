@@ -1,6 +1,13 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/cavoq/PCL/master/schemas/policy.schema.json
 id: rfc6960
 version: 1.0
+metadata:
+  title: OCSP evidence validation
+  standard: RFC 6960
+  edition: "2013"
+  source: https://www.rfc-editor.org/rfc/rfc6960
+  description: Leaf-certificate checks requiring current, authenticated, issuer-bound Good OCSP evidence.
+  inputs: [certificate, issuers, ocsp, validationTime]
 appliesTo: [cert]
 
 rules:

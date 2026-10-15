@@ -2013,6 +2013,50 @@
       "type": "array",
       "uniqueItems": true
     },
+    "metadata": {
+      "additionalProperties": false,
+      "description": "Descriptive pack information only; does not configure validation or require inputs. Includes do not inherit metadata.",
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "edition": {
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "inputs": {
+          "description": "Relevant evidence and runtime inputs; not a list of mandatory inputs or an execution filter.",
+          "items": {
+            "enum": [
+              "certificate",
+              "crl",
+              "issuers",
+              "ocsp",
+              "psl",
+              "purpose",
+              "trustAnchors",
+              "validationTime"
+            ],
+            "type": "string"
+          },
+          "type": "array",
+          "uniqueItems": true
+        },
+        "source": {
+          "description": "Source reference or URL; never fetched by the engine.",
+          "type": "string"
+        },
+        "standard": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
     "rules": {
       "items": {
         "$ref": "#/definitions/rule"

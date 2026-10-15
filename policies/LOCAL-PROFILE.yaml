@@ -1,6 +1,10 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/cavoq/PCL/master/schemas/policy.schema.json
 id: local-profile
 version: 1.0
+metadata:
+  title: Supplemental local certificate profile
+  description: Local and WebPKI checks; not counted as RFC 5280 coverage.
+  inputs: [certificate, issuers, psl]
 
 rules:
   # Supplemental X.520/local profile: businessCategory max 128 characters

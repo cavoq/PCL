@@ -1,15 +1,14 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/cavoq/PCL/master/schemas/policy.schema.json
 id: tr03116-tls-server
 version: "2025"
+metadata:
+  title: BSI TLS server certificate profile
+  standard: BSI TR-03116-TS; BSI TR-03116-4
+  edition: TS v1.1 (2023); Part 4 (2025)
+  source: TR-03116-TS 6.1.1 Table 24; TR-03116-4 2.2.1.2 and 6.1.2–6.1.4
+  description: TLS server certificate checklist; see TR03116-TLS-SERVER-COVERAGE.md for external evidence requirements.
+  inputs: [certificate, issuers, crl, ocsp, validationTime]
 appliesTo: [cert]
-
-# Certificate profile for a TLS server evaluated with the complete chain.
-# Sources:
-#   - BSI TR-03116-TS v1.1 (2023-05-15), Section 6.1.1 / Table 24
-#   - BSI TR-03116-4 (2025-07-03), Sections 2.2.1.2 and 6.1.2-6.1.4
-#
-# Use policies/TR03116-TLS-SERVER-COVERAGE.md for evidence requirements and
-# checks that require information outside a standalone certificate.
 
 rules:
   # TLS_CERT_01 and TLS_CERT_02: algorithms, key sizes, hashes, and curves.

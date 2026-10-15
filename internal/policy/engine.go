@@ -11,6 +11,7 @@ import (
 type Policy struct {
 	ID        string      `yaml:"id"`
 	Version   string      `yaml:"version"`
+	Metadata  *Metadata   `yaml:"metadata,omitempty"`
 	Includes  []string    `yaml:"includes,omitempty"`
 	AppliesTo []string    `yaml:"appliesTo,omitempty"`
 	CertType  []string    `yaml:"certType,omitempty"`
@@ -18,6 +19,18 @@ type Policy struct {
 	TSTType   []string    `yaml:"tstType,omitempty"`
 	SCTType   []string    `yaml:"sctType,omitempty"`
 	Rules     []rule.Rule `yaml:"rules"`
+}
+
+// Metadata describes a policy pack. It does not select inputs, grant trust,
+// initialize validation, or change rule evaluation. Includes merge rules only;
+// the including policy keeps its own metadata.
+type Metadata struct {
+	Title       string   `yaml:"title,omitempty"`
+	Standard    string   `yaml:"standard,omitempty"`
+	Edition     string   `yaml:"edition,omitempty"`
+	Source      string   `yaml:"source,omitempty"`
+	Description string   `yaml:"description,omitempty"`
+	Inputs      []string `yaml:"inputs,omitempty"`
 }
 
 type Result struct {
