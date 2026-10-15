@@ -354,11 +354,8 @@ func outputResults(cfg Config, results []policy.Result, w io.Writer) error {
 		Color:       cfg.Color,
 	}
 
-	lintOutput := output.FromPolicyResults(results)
-	lintOutput = output.FilterRules(lintOutput, outputOpts)
-
 	formatter := output.GetFormatter(cfg.OutputFmt, outputOpts)
-	return formatter.Format(w, lintOutput)
+	return formatter.Format(w, output.FromPolicyResults(results))
 }
 
 func validationTime(cfg Config) time.Time {

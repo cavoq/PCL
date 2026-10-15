@@ -5,24 +5,24 @@ import (
 	"io"
 	"strings"
 
-	"github.com/cavoq/PCL/internal/policy"
 	"github.com/cavoq/PCL/internal/rule"
 )
 
 type TextFormatter struct {
-	ShowMeta bool
-	// Color marks verdicts and severities with ANSI colors.
-	Color bool
+	Options Options
 }
 
 func NewTextFormatter(opts Options) *TextFormatter {
-	return &TextFormatter{ShowMeta: opts.ShowMeta, Color: opts.Color}
+	return &TextFormatter{Options: opts}
 }
 
 func (f *TextFormatter) Format(w io.Writer, out LintOutput) error {
-	colors := palette(f.Color)
-	if f.ShowMeta {
-		warnTotal := countWarnings(out.Results)
+	colors := palette(f.Options.Color)
+	if f.Options.ShowMeta {
+		warnTotal := 0
+		for _, pr := range out.Results {
+			warnTotal += countRules(pr.Results).warned
+		}
 		if _, err := fmt.Fprintf(
 			w,
 			"[Summary] Checked: %s | Certs: %d | Rules: %d | %s: %d, %s: %d, %s: %d, %s: %d\n",
@@ -63,7 +63,7 @@ func (f *TextFormatter) Format(w io.Writer, out LintOutput) error {
 		if pr.Source != "" && pr.Source != "local" {
 			sourceInfo = fmt.Sprintf(" (%s)", pr.Source)
 		}
-		passCount, failCount, skipCount, warnCount := countsFromResult(pr)
+		counts := countRules(pr.Results)
 		if _, err := fmt.Fprintf(
 			w,
 			"[File] Policy: %s | Cert: %s | File: %s%s | Verdict: %s | %s: %d, %s: %d, %s: %d, %s: %d\n",
@@ -73,17 +73,17 @@ func (f *TextFormatter) Format(w io.Writer, out LintOutput) error {
 			sourceInfo,
 			colors.verdict(pr.Verdict),
 			colors.verdict(rule.VerdictPass),
-			passCount,
+			counts.passed,
 			colors.verdict(rule.VerdictFail),
-			failCount,
+			counts.failed,
 			colors.verdict(rule.VerdictSkip),
-			skipCount,
+			counts.skipped,
 			colors.severity(rule.SeverityWarning),
-			warnCount,
+			counts.warned,
 		); err != nil {
 			return err
 		}
-		if err := writeRulesTable(w, colors, pr.Results, passCount, failCount, skipCount); err != nil {
+		if err := writeRulesTable(w, colors, visibleRules(pr.Results, f.Options), len(pr.Results)); err != nil {
 			return err
 		}
 	}
@@ -173,12 +173,14 @@ type tableColumn struct {
 	value  func(rule.Result) string
 }
 
-func writeRulesTable(w io.Writer, colors palette, results []rule.Result, passCount, failCount, skipCount int) error {
+// writeRulesTable lists the visible results of a policy that evaluated
+// total rules.
+func writeRulesTable(w io.Writer, colors palette, results []rule.Result, total int) error {
 	if _, err := fmt.Fprintln(w, strings.Repeat("-", 72)); err != nil {
 		return err
 	}
 	if len(results) == 0 {
-		if passCount+failCount+skipCount > 0 {
+		if total > 0 {
 			_, err := fmt.Fprintln(w, "  (no rules to display with current verbosity)")
 			return err
 		}
@@ -251,44 +253,6 @@ func rulesTableColumns(results []rule.Result) []tableColumn {
 func writeTableLine(w io.Writer, cells []string) error {
 	_, err := fmt.Fprintf(w, "  %s\n", strings.Join(cells, "  "))
 	return err
-}
-
-func countResults(results []rule.Result) (int, int, int, int) {
-	passed, failed, skipped, warned := 0, 0, 0, 0
-	for _, rr := range results {
-		switch rr.Verdict {
-		case rule.VerdictPass:
-			passed++
-		case rule.VerdictFail:
-			failed++
-			if rr.Severity == rule.SeverityWarning {
-				warned++
-			}
-		case rule.VerdictSkip:
-			skipped++
-		}
-	}
-	return passed, failed, skipped, warned
-}
-
-func countWarnings(results []policy.Result) int {
-	total := 0
-	for _, pr := range results {
-		if pr.Counts.Warned == 0 && len(pr.Results) > 0 {
-			_, _, _, warned := countResults(pr.Results)
-			total += warned
-			continue
-		}
-		total += pr.Counts.Warned
-	}
-	return total
-}
-
-func countsFromResult(pr policy.Result) (int, int, int, int) {
-	if pr.Counts.Passed+pr.Counts.Failed+pr.Counts.Skipped+pr.Counts.Warned > 0 {
-		return pr.Counts.Passed, pr.Counts.Failed, pr.Counts.Skipped, pr.Counts.Warned
-	}
-	return countResults(pr.Results)
 }
 
 func severityLabel(severity string) string {

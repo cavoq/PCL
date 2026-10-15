@@ -88,80 +88,10 @@ func TestPaletteSeverity(t *testing.T) {
 	}
 }
 
-func TestCountResults(t *testing.T) {
-	results := []rule.Result{
-		{Verdict: rule.VerdictPass},
-		{Verdict: rule.VerdictPass},
-		{Verdict: rule.VerdictFail, Severity: "error"},
-		{Verdict: rule.VerdictFail, Severity: "warning"},
-		{Verdict: rule.VerdictSkip},
-	}
-
-	passed, failed, skipped, warned := countResults(results)
-
-	if passed != 2 {
-		t.Errorf("expected 2 passed, got %d", passed)
-	}
-	if failed != 2 {
-		t.Errorf("expected 2 failed, got %d", failed)
-	}
-	if skipped != 1 {
-		t.Errorf("expected 1 skipped, got %d", skipped)
-	}
-	if warned != 1 {
-		t.Errorf("expected 1 warned, got %d", warned)
-	}
-}
-
-func TestCountWarnings(t *testing.T) {
-	results := []policy.Result{
-		{
-			Counts: policy.Counts{Warned: 2},
-		},
-		{
-			Results: []rule.Result{
-				{Verdict: rule.VerdictFail, Severity: "warning"},
-				{Verdict: rule.VerdictFail, Severity: "warning"},
-				{Verdict: rule.VerdictFail, Severity: "error"},
-			},
-		},
-	}
-
-	total := countWarnings(results)
-	if total != 4 { // 2 from Counts + 2 from Results
-		t.Errorf("expected 4 warnings, got %d", total)
-	}
-}
-
-func TestCountsFromResult(t *testing.T) {
-	t.Run("uses cached counts", func(t *testing.T) {
-		pr := policy.Result{
-			Counts: policy.Counts{Passed: 5, Failed: 3, Skipped: 2, Warned: 1},
-		}
-		passed, failed, skipped, warned := countsFromResult(pr)
-		if passed != 5 || failed != 3 || skipped != 2 || warned != 1 {
-			t.Error("should use cached counts")
-		}
-	})
-
-	t.Run("calculates from results when no cached counts", func(t *testing.T) {
-		pr := policy.Result{
-			Results: []rule.Result{
-				{Verdict: rule.VerdictPass},
-				{Verdict: rule.VerdictFail},
-			},
-		}
-		passed, failed, skipped, warned := countsFromResult(pr)
-		if passed != 1 || failed != 1 || skipped != 0 || warned != 0 {
-			t.Errorf("expected 1,1,0,0 got %d,%d,%d,%d", passed, failed, skipped, warned)
-		}
-	})
-}
-
 func TestWriteRulesTable_Empty(t *testing.T) {
 	var buf bytes.Buffer
 
-	err := writeRulesTable(&buf, palette(true), nil, 0, 0, 0)
+	err := writeRulesTable(&buf, palette(true), nil, 0)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -175,7 +105,7 @@ func TestWriteRulesTable_Empty(t *testing.T) {
 func TestWriteRulesTable_EmptyWithCounts(t *testing.T) {
 	var buf bytes.Buffer
 
-	err := writeRulesTable(&buf, palette(true), nil, 1, 2, 3)
+	err := writeRulesTable(&buf, palette(true), nil, 6)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -193,7 +123,7 @@ func TestWriteRulesTable_WithResults(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	err := writeRulesTable(&buf, palette(true), results, 1, 1, 0)
+	err := writeRulesTable(&buf, palette(true), results, 2)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -219,7 +149,7 @@ func TestWriteRulesTable_WithReference(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	err := writeRulesTable(&buf, palette(true), results, 1, 0, 0)
+	err := writeRulesTable(&buf, palette(true), results, 1)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -239,7 +169,7 @@ func TestWriteRulesTable_WithWarnings(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	err := writeRulesTable(&buf, palette(true), results, 0, 1, 0)
+	err := writeRulesTable(&buf, palette(true), results, 1)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -377,5 +307,34 @@ func TestPaletteOffWritesPlainText(t *testing.T) {
 	}
 	if strings.Contains(out.String(), "\033[") {
 		t.Fatalf("output without Color contains ANSI codes:\n%q", out.String())
+	}
+}
+
+// The summary counts every rule, including those the options hide.
+func TestTextFormatterCountsHiddenRules(t *testing.T) {
+	var out bytes.Buffer
+	formatter := NewTextFormatter(Options{ShowFailed: true, ShowMeta: true})
+	results := []policy.Result{{
+		PolicyID: "p",
+		Verdict:  rule.VerdictFail,
+		Results: []rule.Result{
+			{RuleID: "passed-rule", Verdict: rule.VerdictPass},
+			{RuleID: "failed-rule", Verdict: rule.VerdictFail, Severity: rule.SeverityWarning},
+			{RuleID: "skipped-rule", Verdict: rule.VerdictSkip},
+		},
+	}}
+	if err := formatter.Format(&out, FromPolicyResults(results)); err != nil {
+		t.Fatal(err)
+	}
+	text := out.String()
+	for _, want := range []string{"PASS: 1, FAIL: 1, SKIP: 1, WARN: 1", "failed-rule"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("output does not contain %q:\n%s", want, text)
+		}
+	}
+	for _, hidden := range []string{"passed-rule", "skipped-rule"} {
+		if strings.Contains(text, hidden) {
+			t.Errorf("output lists hidden rule %s:\n%s", hidden, text)
+		}
 	}
 }

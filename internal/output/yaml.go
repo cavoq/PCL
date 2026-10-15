@@ -7,18 +7,19 @@ import (
 )
 
 type YAMLFormatter struct {
-	ShowMeta bool
+	Options Options
 }
 
 func NewYAMLFormatter(opts Options) *YAMLFormatter {
-	return &YAMLFormatter{ShowMeta: opts.ShowMeta}
+	return &YAMLFormatter{Options: opts}
 }
 
 func (f *YAMLFormatter) Format(w io.Writer, out LintOutput) error {
 	enc := yaml.NewEncoder(w)
 	enc.SetIndent(2)
 
-	if f.ShowMeta {
+	out = filterRules(out, f.Options)
+	if f.Options.ShowMeta {
 		return enc.Encode(out)
 	}
 	return enc.Encode(out.Results)

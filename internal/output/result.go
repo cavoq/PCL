@@ -22,30 +22,14 @@ type LintOutput struct {
 	Results []policy.Result `json:"results" yaml:"results"`
 }
 
+// FromPolicyResults summarizes policyResults. The results are kept
+// unfiltered; formatters apply the visibility options when rendering.
 func FromPolicyResults(policyResults []policy.Result) LintOutput {
-	var passed, failed, skipped, totalRules int
-
-	for i := range policyResults {
-		pr := &policyResults[i]
-		counts := policy.Counts{}
-		for _, rr := range pr.Results {
-			totalRules++
-			switch rr.Verdict {
-			case rule.VerdictPass:
-				passed++
-				counts.Passed++
-			case rule.VerdictFail:
-				failed++
-				counts.Failed++
-				if rr.Severity == rule.SeverityWarning {
-					counts.Warned++
-				}
-			case rule.VerdictSkip:
-				skipped++
-				counts.Skipped++
-			}
-		}
-		pr.Counts = counts
+	var total ruleCounts
+	totalRules := 0
+	for _, pr := range policyResults {
+		total = total.add(countRules(pr.Results))
+		totalRules += len(pr.Results)
 	}
 
 	checkedAt := time.Now()
@@ -58,45 +42,67 @@ func FromPolicyResults(policyResults []policy.Result) LintOutput {
 			CheckedAt:    checkedAt,
 			TotalCerts:   len(policyResults),
 			TotalRules:   totalRules,
-			PassedRules:  passed,
-			FailedRules:  failed,
-			SkippedRules: skipped,
+			PassedRules:  total.passed,
+			FailedRules:  total.failed,
+			SkippedRules: total.skipped,
 		},
 		Results: policyResults,
 	}
 }
 
-func FilterRules(output LintOutput, opts Options) LintOutput {
-	filtered := LintOutput{Meta: output.Meta}
+// ruleCounts counts rule verdicts; warned counts the failed rules of
+// warning severity.
+type ruleCounts struct {
+	passed, failed, skipped, warned int
+}
 
-	for _, pr := range output.Results {
-		filteredResult := policy.Result{
-			PolicyID:  pr.PolicyID,
-			CertType:  pr.CertType,
-			CertPath:  pr.CertPath,
-			Source:    pr.Source,
-			Verdict:   pr.Verdict,
-			CheckedAt: pr.CheckedAt,
-			Counts:    pr.Counts,
-			Results:   make([]rule.Result, 0),
-		}
-
-		for _, rr := range pr.Results {
-			include := false
-			switch rr.Verdict {
-			case rule.VerdictPass:
-				include = opts.ShowPassed
-			case rule.VerdictFail:
-				include = opts.ShowFailed
-			case rule.VerdictSkip:
-				include = opts.ShowSkipped
+func countRules(results []rule.Result) ruleCounts {
+	var counts ruleCounts
+	for _, rr := range results {
+		switch rr.Verdict {
+		case rule.VerdictPass:
+			counts.passed++
+		case rule.VerdictFail:
+			counts.failed++
+			if rr.Severity == rule.SeverityWarning {
+				counts.warned++
 			}
-			if include {
-				filteredResult.Results = append(filteredResult.Results, rr)
-			}
+		case rule.VerdictSkip:
+			counts.skipped++
 		}
-		filtered.Results = append(filtered.Results, filteredResult)
 	}
+	return counts
+}
 
+func (counts ruleCounts) add(other ruleCounts) ruleCounts {
+	return ruleCounts{
+		passed:  counts.passed + other.passed,
+		failed:  counts.failed + other.failed,
+		skipped: counts.skipped + other.skipped,
+		warned:  counts.warned + other.warned,
+	}
+}
+
+// filterRules keeps the rule results opts shows, leaving the metadata and
+// policy results otherwise unchanged.
+func filterRules(output LintOutput, opts Options) LintOutput {
+	filtered := LintOutput{Meta: output.Meta, Results: make([]policy.Result, 0, len(output.Results))}
+	for _, pr := range output.Results {
+		pr.Results = visibleRules(pr.Results, opts)
+		filtered.Results = append(filtered.Results, pr)
+	}
 	return filtered
+}
+
+func visibleRules(results []rule.Result, opts Options) []rule.Result {
+	visible := make([]rule.Result, 0, len(results))
+	for _, rr := range results {
+		switch {
+		case rr.Verdict == rule.VerdictPass && opts.ShowPassed,
+			rr.Verdict == rule.VerdictFail && opts.ShowFailed,
+			rr.Verdict == rule.VerdictSkip && opts.ShowSkipped:
+			visible = append(visible, rr)
+		}
+	}
+	return visible
 }

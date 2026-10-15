@@ -61,12 +61,8 @@ func TestFromPolicyResults_CountsVerdicts(t *testing.T) {
 		t.Errorf("expected CheckedAt %v, got %v", checkedAt, result.Meta.CheckedAt)
 	}
 
-	// Check that counts are set on the policy result
-	if result.Results[0].Counts.Passed != 2 {
-		t.Errorf("expected policy counts passed=2, got %d", result.Results[0].Counts.Passed)
-	}
-	if result.Results[0].Counts.Warned != 1 {
-		t.Errorf("expected policy counts warned=1, got %d", result.Results[0].Counts.Warned)
+	if got := countRules(policyResults[0].Results); got != (ruleCounts{passed: 2, failed: 2, skipped: 1, warned: 1}) {
+		t.Errorf("countRules() = %+v", got)
 	}
 }
 
@@ -125,7 +121,7 @@ func TestFilterRules(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var got []string
-			for _, result := range FilterRules(output, tt.opts).Results[0].Results {
+			for _, result := range filterRules(output, tt.opts).Results[0].Results {
 				got = append(got, result.RuleID)
 			}
 			if !slices.Equal(got, tt.want) {
@@ -153,7 +149,6 @@ func TestFilterRules_PreservesMetadata(t *testing.T) {
 				CertPath:  "/path/to/cert.pem",
 				Verdict:   "pass",
 				CheckedAt: checkedAt,
-				Counts:    policy.Counts{Passed: 1, Failed: 0},
 				Results: []rule.Result{
 					{RuleID: "r1", Verdict: rule.VerdictPass},
 				},
@@ -162,7 +157,7 @@ func TestFilterRules_PreservesMetadata(t *testing.T) {
 	}
 
 	opts := Options{ShowPassed: true}
-	filtered := FilterRules(output, opts)
+	filtered := filterRules(output, opts)
 
 	if filtered.Meta.TotalCerts != 5 {
 		t.Errorf("meta should be preserved")

@@ -28,14 +28,6 @@ type Result struct {
 	Results   []rule.Result `json:"rules" yaml:"rules"`
 	Verdict   string        `json:"verdict" yaml:"verdict"`
 	CheckedAt time.Time     `json:"checked_at" yaml:"checked_at"`
-	Counts    Counts        `json:"-" yaml:"-"`
-}
-
-type Counts struct {
-	Passed  int
-	Failed  int
-	Skipped int
-	Warned  int
 }
 
 func Evaluate(
