@@ -1,9 +1,11 @@
 package crl
 
 import (
+	"bytes"
 	"encoding/pem"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -80,7 +82,7 @@ func TestGetCRLFiles_NotFound(t *testing.T) {
 }
 
 func TestGetCRLs_SingleFile(t *testing.T) {
-	crls, err := GetCRLs(filepath.Join("testdata", "test.crl"))
+	crls, err := GetCRLs(filepath.Join("testdata", "test.crl"), nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -105,7 +107,7 @@ func TestGetCRLs_SingleFile(t *testing.T) {
 }
 
 func TestGetCRLs_Directory(t *testing.T) {
-	crls, err := GetCRLs("testdata")
+	crls, err := GetCRLs("testdata", nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -115,7 +117,7 @@ func TestGetCRLs_Directory(t *testing.T) {
 }
 
 func TestGetCRLs_WithRevokedCert(t *testing.T) {
-	crls, err := GetCRLs(filepath.Join("testdata", "test_with_revoked.crl"))
+	crls, err := GetCRLs(filepath.Join("testdata", "test_with_revoked.crl"), nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -134,7 +136,7 @@ func TestGetCRLs_NoValidCRLs(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err := GetCRLs(tmpDir)
+	_, err := GetCRLs(tmpDir, nil)
 	if err == nil {
 		t.Fatal("expected error when no valid CRLs found")
 	}
@@ -179,5 +181,28 @@ func TestFetchCRL(t *testing.T) {
 				t.Fatal("expected non-empty hash")
 			}
 		})
+	}
+}
+
+func TestGetCRLs_ReportsSkippedFiles(t *testing.T) {
+	dir := t.TempDir()
+	valid, err := os.ReadFile(filepath.Join("testdata", "test.crl"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "valid.crl"), valid, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "broken.crl"), []byte("not valid"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var diagnostics bytes.Buffer
+	crls, err := GetCRLs(dir, &diagnostics)
+	if err != nil || len(crls) != 1 {
+		t.Fatalf("GetCRLs() = %d CRLs, %v; want the valid one", len(crls), err)
+	}
+	if !strings.Contains(diagnostics.String(), "Warning: skipped "+filepath.Join(dir, "broken.crl")) {
+		t.Fatalf("diagnostics = %q, want a warning for broken.crl", diagnostics.String())
 	}
 }

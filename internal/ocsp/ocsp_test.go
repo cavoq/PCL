@@ -1,8 +1,10 @@
 package ocsp
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	xocsp "golang.org/x/crypto/ocsp"
@@ -96,7 +98,7 @@ func TestGetOCSPs_NoValidOCSPs(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err := GetOCSPs(tmpDir)
+	_, err := GetOCSPs(tmpDir, nil)
 	if err == nil {
 		t.Fatal("expected error when no valid OCSP responses found")
 	}
@@ -110,7 +112,7 @@ func TestGetOCSPs_EmptyDirectory(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	resps, err := GetOCSPs(tmpDir)
+	resps, err := GetOCSPs(tmpDir, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -120,7 +122,7 @@ func TestGetOCSPs_EmptyDirectory(t *testing.T) {
 }
 
 func TestGetOCSPs_NotFound(t *testing.T) {
-	_, err := GetOCSPs("/nonexistent/path")
+	_, err := GetOCSPs("/nonexistent/path", nil)
 	if err == nil {
 		t.Fatal("expected error for nonexistent path")
 	}
@@ -138,7 +140,7 @@ func TestGetOCSPs_SkipsInvalidFiles(t *testing.T) {
 	}
 
 	// Should return error since all OCSP files are invalid
-	_, err := GetOCSPs(tmpDir)
+	_, err := GetOCSPs(tmpDir, nil)
 	if err == nil {
 		t.Fatal("expected error when all OCSP files are invalid")
 	}
@@ -178,5 +180,28 @@ func TestInfoFromDownloadedResponse(t *testing.T) {
 	}
 	if info.RequestInfo.NonceHex != "aa" || info.RequestInfo.NonceLen != 1 || info.RequestInfo.RequestLen != 42 || info.RequestInfo.HashAlgorithm != "SHA256" {
 		t.Fatalf("request metadata not copied: %+v", info)
+	}
+}
+
+func TestGetOCSPs_ReportsSkippedFiles(t *testing.T) {
+	dir := t.TempDir()
+	valid, err := os.ReadFile(filepath.Join("..", "..", "tests", "ocsps", "good-leaf.ocsp"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "valid.ocsp"), valid, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "broken.ocsp"), []byte("not valid"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var diagnostics bytes.Buffer
+	responses, err := GetOCSPs(dir, &diagnostics)
+	if err != nil || len(responses) != 1 {
+		t.Fatalf("GetOCSPs() = %d responses, %v; want the valid one", len(responses), err)
+	}
+	if !strings.Contains(diagnostics.String(), "Warning: skipped "+filepath.Join(dir, "broken.ocsp")) {
+		t.Fatalf("diagnostics = %q, want a warning for broken.ocsp", diagnostics.String())
 	}
 }

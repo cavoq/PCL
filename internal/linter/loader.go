@@ -2,17 +2,18 @@ package linter
 
 import (
 	"fmt"
+	"io"
 
 	"github.com/cavoq/PCL/internal/cert"
 )
 
 // loadCertificates loads leaf certificates from paths and URLs specified in config.
-func loadCertificates(cfg Config) ([]*cert.Info, func(), error) {
+func loadCertificates(cfg Config, w io.Writer) ([]*cert.Info, func(), error) {
 	var cleanup func()
 	var certs []*cert.Info
 
 	if cfg.CertPath != "" {
-		loaded, err := cert.LoadCertificates(cfg.CertPath)
+		loaded, err := cert.LoadCertificates(cfg.CertPath, w)
 		if err != nil {
 			return nil, cleanup, fmt.Errorf("failed to load certificates: %w", err)
 		}
@@ -36,12 +37,12 @@ func loadCertificates(cfg Config) ([]*cert.Info, func(), error) {
 }
 
 // loadIssuers loads issuer certificates from paths and URLs specified in config.
-func loadIssuers(cfg Config) ([]*cert.Info, func(), error) {
+func loadIssuers(cfg Config, w io.Writer) ([]*cert.Info, func(), error) {
 	var cleanup func()
 	var issuers []*cert.Info
 
 	for _, path := range cfg.IssuerPaths {
-		loaded, err := cert.LoadCertificates(path)
+		loaded, err := cert.LoadCertificates(path, w)
 		if err != nil {
 			return nil, cleanup, fmt.Errorf("failed to load issuer certificates from %s: %w", path, err)
 		}

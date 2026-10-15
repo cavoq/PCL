@@ -2,7 +2,6 @@ package cert
 
 import (
 	"bytes"
-	"cmp"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -11,39 +10,38 @@ import (
 	"slices"
 	"time"
 
+	"github.com/cavoq/PCL/internal/fsutil"
 	"github.com/cavoq/PCL/internal/source"
 	"github.com/cavoq/PCL/internal/x509asn1"
 	"github.com/zmap/zcrypto/x509"
 )
 
-func LoadCertificates(path string) ([]*Info, error) {
-	return LoadCertificatesWithSource(path, source.Info{Type: source.Local})
+// LoadCertificates loads the certificates of a file, or of every certificate
+// file in a directory. Directory files that cannot be read or parsed are
+// reported to w and skipped; the load fails when no file yields a
+// certificate.
+func LoadCertificates(path string, w io.Writer) ([]*Info, error) {
+	return LoadCertificatesWithSource(path, source.Info{Type: source.Local}, w)
 }
 
-func LoadCertificatesWithSource(path string, sourceInfo source.Info) ([]*Info, error) {
+func LoadCertificatesWithSource(path string, sourceInfo source.Info, w io.Writer) ([]*Info, error) {
 	files, err := GetCertFiles(path)
 	if err != nil {
 		return nil, err
 	}
 
+	infoSource := sourceInfo
+	if infoSource.Type == "" {
+		infoSource.Type = source.Local
+	}
+
 	infos := make([]*Info, 0, len(files))
-	var firstErr error
+	var skipped []error
 	for _, file := range files {
-		data, err := os.ReadFile(file)
+		certs, format, err := loadCertificateFile(file)
 		if err != nil {
-			firstErr = cmp.Or(firstErr, fmt.Errorf("%s: %w", file, err))
+			skipped = append(skipped, fmt.Errorf("%s: %w", file, err))
 			continue
-		}
-
-		certs, format, err := ParseCertificates(data)
-		if err != nil {
-			firstErr = cmp.Or(firstErr, fmt.Errorf("%s: %w", file, err))
-			continue
-		}
-
-		infoSource := sourceInfo
-		if infoSource.Type == "" {
-			infoSource.Type = source.Local
 		}
 		infoSource.Format = format
 		for _, cert := range certs {
@@ -58,11 +56,19 @@ func LoadCertificatesWithSource(path string, sourceInfo source.Info) ([]*Info, e
 		}
 	}
 
-	if len(infos) == 0 && len(files) > 0 {
-		return nil, fmt.Errorf("no valid items found in %s: %w", path, firstErr)
+	if len(infos) == 0 && len(skipped) > 0 {
+		return nil, fmt.Errorf("no valid items found in %s: %w", path, skipped[0])
 	}
-
+	fsutil.ReportSkipped(w, skipped)
 	return infos, nil
+}
+
+func loadCertificateFile(file string) ([]*x509.Certificate, source.Format, error) {
+	data, err := os.ReadFile(file)
+	if err != nil {
+		return nil, "", err
+	}
+	return ParseCertificates(data)
 }
 
 // BuildChain builds the longest certification path that starts at any of

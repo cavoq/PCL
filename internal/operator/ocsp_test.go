@@ -158,7 +158,7 @@ func loadOCSPOperatorContext(t *testing.T, responseFile string, afterNextUpdate 
 		return ctx
 	}
 
-	responses, err := ocsp.GetOCSPs(filepath.Join("..", "..", "tests", "ocsps", responseFile))
+	responses, err := ocsp.GetOCSPs(filepath.Join("..", "..", "tests", "ocsps", responseFile), nil)
 	if err != nil {
 		t.Fatalf("load OCSP response %s: %v", responseFile, err)
 	}
@@ -178,7 +178,7 @@ func loadOCSPOperatorContext(t *testing.T, responseFile string, afterNextUpdate 
 
 func loadSingleCertificate(t *testing.T, path string) *cert.Info {
 	t.Helper()
-	certificates, err := cert.LoadCertificates(path)
+	certificates, err := cert.LoadCertificates(path, nil)
 	if err != nil {
 		t.Fatalf("load certificate %s: %v", path, err)
 	}

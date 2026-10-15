@@ -16,7 +16,7 @@ import (
 )
 
 func TestLoadCertificates_Chain(t *testing.T) {
-	certs, err := LoadCertificates("../../tests/certs")
+	certs, err := LoadCertificates("../../tests/certs", nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -44,7 +44,7 @@ func TestLoadCertificates_Chain(t *testing.T) {
 }
 
 func TestLoadCertificates_SingleCert(t *testing.T) {
-	certs, err := LoadCertificates("../../tests/certs/leaf.pem")
+	certs, err := LoadCertificates("../../tests/certs/leaf.pem", nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -136,7 +136,7 @@ func TestParseCertificates_inputs(t *testing.T) {
 
 // A PEM bundle passed as --issuer supplies every certificate it contains.
 func TestLoadCertificates_PEMBundleBuildsChain(t *testing.T) {
-	certs, err := LoadCertificates("../../tests/certs/chain.pem")
+	certs, err := LoadCertificates("../../tests/certs/chain.pem", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -177,7 +177,7 @@ func TestGetCertFiles_SingleFile(t *testing.T) {
 }
 
 func TestBuildChain_Positions(t *testing.T) {
-	certs, err := LoadCertificates("../../tests/certs")
+	certs, err := LoadCertificates("../../tests/certs", nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -195,7 +195,7 @@ func TestBuildChain_Positions(t *testing.T) {
 }
 
 func TestBuildChain_Hashes(t *testing.T) {
-	certs, err := LoadCertificates("../../tests/certs")
+	certs, err := LoadCertificates("../../tests/certs", nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -216,7 +216,7 @@ func TestBuildChain_Hashes(t *testing.T) {
 }
 
 func TestBuildChain_FilePaths(t *testing.T) {
-	certs, err := LoadCertificates("../../tests/certs")
+	certs, err := LoadCertificates("../../tests/certs", nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -273,5 +273,28 @@ func TestGetCertType_ClassifiesIndependentOfPosition(t *testing.T) {
 	}
 	if got := GetCertType(leaf); got != "leaf" {
 		t.Fatalf("expected leaf independent of position, got %q", got)
+	}
+}
+
+func TestLoadCertificates_ReportsSkippedFiles(t *testing.T) {
+	dir := t.TempDir()
+	valid, err := os.ReadFile("../../tests/certs/leaf.pem")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "leaf.pem"), valid, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "broken.pem"), []byte("garbage"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var diagnostics bytes.Buffer
+	certs, err := LoadCertificates(dir, &diagnostics)
+	if err != nil || len(certs) != 1 {
+		t.Fatalf("LoadCertificates() = %d certificates, %v; want the valid one", len(certs), err)
+	}
+	if !strings.Contains(diagnostics.String(), "Warning: skipped "+filepath.Join(dir, "broken.pem")) {
+		t.Fatalf("diagnostics = %q, want a warning for broken.pem", diagnostics.String())
 	}
 }

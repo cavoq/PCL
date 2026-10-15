@@ -2,11 +2,11 @@
 package ocsp
 
 import (
-	"cmp"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/pem"
 	"fmt"
+	"io"
 	"os"
 
 	"golang.org/x/crypto/ocsp"
@@ -54,27 +54,23 @@ func GetOCSPFiles(path string) ([]string, error) {
 	return fsutil.GetFilesWithExtensions(path, extensions...)
 }
 
-func GetOCSPs(path string) ([]*Info, error) {
+// GetOCSPs loads the OCSP response of a file, or of every OCSP response file
+// in a directory. Directory files that cannot be read or parsed are reported
+// to w and skipped; the load fails when no file yields a response.
+func GetOCSPs(path string, w io.Writer) ([]*Info, error) {
 	files, err := GetOCSPFiles(path)
 	if err != nil {
 		return nil, err
 	}
 
 	infos := make([]*Info, 0, len(files))
-	var firstErr error
+	var skipped []error
 	for _, file := range files {
-		data, err := os.ReadFile(file)
+		resp, format, err := loadOCSPFile(file)
 		if err != nil {
-			firstErr = cmp.Or(firstErr, fmt.Errorf("%s: %w", file, err))
+			skipped = append(skipped, fmt.Errorf("%s: %w", file, err))
 			continue
 		}
-
-		resp, format, err := parseOCSP(data)
-		if err != nil {
-			firstErr = cmp.Or(firstErr, fmt.Errorf("%s: %w", file, err))
-			continue
-		}
-
 		hash := sha256.Sum256(resp.Raw)
 		infos = append(infos, &Info{
 			Response: resp,
@@ -85,10 +81,19 @@ func GetOCSPs(path string) ([]*Info, error) {
 		})
 	}
 
-	if len(infos) == 0 && len(files) > 0 {
-		return nil, fmt.Errorf("no valid items found in %s: %w", path, firstErr)
+	if len(infos) == 0 && len(skipped) > 0 {
+		return nil, fmt.Errorf("no valid items found in %s: %w", path, skipped[0])
 	}
+	fsutil.ReportSkipped(w, skipped)
 	return infos, nil
+}
+
+func loadOCSPFile(file string) (*ocsp.Response, source.Format, error) {
+	data, err := os.ReadFile(file)
+	if err != nil {
+		return nil, "", err
+	}
+	return parseOCSP(data)
 }
 
 func infoFromDownloadedResponse(resp *ocsp.Response, requestInfo *RequestInfo, url string) *Info {

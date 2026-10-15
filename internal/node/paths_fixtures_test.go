@@ -23,7 +23,7 @@ func TestPathsResolveToTheirNodes(t *testing.T) {
 			if err != nil || info.IsDir() || !slices.Contains([]string{".pem", ".der", ".crt", ".cer"}, filepath.Ext(path)) {
 				return nil
 			}
-			certificates, loadErr := cert.LoadCertificates(path)
+			certificates, loadErr := cert.LoadCertificates(path, nil)
 			if loadErr != nil {
 				return nil
 			}
@@ -34,7 +34,7 @@ func TestPathsResolveToTheirNodes(t *testing.T) {
 		})
 	}
 	for _, dir := range []string{"../../tests/crls", "../crl/testdata"} {
-		lists, err := crl.GetCRLs(dir)
+		lists, err := crl.GetCRLs(dir, nil)
 		if err != nil {
 			t.Fatalf("GetCRLs(%s): %v", dir, err)
 		}
@@ -42,7 +42,7 @@ func TestPathsResolveToTheirNodes(t *testing.T) {
 			trees = append(trees, crl.BuildTree(list.CRL))
 		}
 	}
-	responses, err := ocsp.GetOCSPs("../../tests/ocsps")
+	responses, err := ocsp.GetOCSPs("../../tests/ocsps", nil)
 	if err != nil {
 		t.Fatalf("GetOCSPs: %v", err)
 	}

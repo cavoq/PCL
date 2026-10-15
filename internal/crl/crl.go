@@ -2,11 +2,11 @@
 package crl
 
 import (
-	"cmp"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/pem"
 	"fmt"
+	"io"
 	"os"
 	"time"
 
@@ -57,27 +57,23 @@ func GetCRLFiles(path string) ([]string, error) {
 	return fsutil.GetFilesWithExtensions(path, extensions...)
 }
 
-func GetCRLs(path string) ([]*Info, error) {
+// GetCRLs loads the CRL of a file, or of every CRL file in a directory.
+// Directory files that cannot be read or parsed are reported to w and
+// skipped; the load fails when no file yields a CRL.
+func GetCRLs(path string, w io.Writer) ([]*Info, error) {
 	files, err := GetCRLFiles(path)
 	if err != nil {
 		return nil, err
 	}
 
 	infos := make([]*Info, 0, len(files))
-	var firstErr error
+	var skipped []error
 	for _, file := range files {
-		data, err := os.ReadFile(file)
+		crl, format, err := loadCRLFile(file)
 		if err != nil {
-			firstErr = cmp.Or(firstErr, fmt.Errorf("%s: %w", file, err))
+			skipped = append(skipped, fmt.Errorf("%s: %w", file, err))
 			continue
 		}
-
-		crl, format, err := parseCRL(data)
-		if err != nil {
-			firstErr = cmp.Or(firstErr, fmt.Errorf("%s: %w", file, err))
-			continue
-		}
-
 		infos = append(infos, &Info{
 			CRL:      crl,
 			FilePath: file,
@@ -87,11 +83,19 @@ func GetCRLs(path string) ([]*Info, error) {
 		})
 	}
 
-	if len(infos) == 0 && len(files) > 0 {
-		return nil, fmt.Errorf("no valid items found in %s: %w", path, firstErr)
+	if len(infos) == 0 && len(skipped) > 0 {
+		return nil, fmt.Errorf("no valid items found in %s: %w", path, skipped[0])
 	}
-
+	fsutil.ReportSkipped(w, skipped)
 	return infos, nil
+}
+
+func loadCRLFile(file string) (*x509.RevocationList, source.Format, error) {
+	data, err := os.ReadFile(file)
+	if err != nil {
+		return nil, "", err
+	}
+	return parseCRL(data)
 }
 
 func crlHash(revocationList *x509.RevocationList) string {

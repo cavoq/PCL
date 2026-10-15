@@ -89,7 +89,7 @@ func DownloadAndLoadCertificates(urls []string, timeout time.Duration, saveDir s
 		sourceInfo.URL = urls[0]
 	}
 
-	certs, err := LoadCertificatesWithSource(dir, sourceInfo)
+	certs, err := LoadCertificatesWithSource(dir, sourceInfo, nil)
 	if err != nil {
 		return nil, cleanup, err
 	}

@@ -61,15 +61,15 @@ type lintInputs struct {
 func acquireInputs(cfg Config, diagnostics io.Writer, cleanups *cleanupStack) (lintInputs, error) {
 	var inputs lintInputs
 	var err error
-	if inputs.crls, err = loadCRLs(cfg.CRLPath); err != nil {
+	if inputs.crls, err = loadCRLs(cfg.CRLPath, diagnostics); err != nil {
 		return lintInputs{}, err
 	}
-	if inputs.ocsps, err = loadOCSPs(cfg.OCSPPath); err != nil {
+	if inputs.ocsps, err = loadOCSPs(cfg.OCSPPath, diagnostics); err != nil {
 		return lintInputs{}, err
 	}
 
 	// Issuers support chain building and CRL/OCSP signature verification.
-	issuers, issuerCleanup, err := loadIssuersIfProvided(cfg)
+	issuers, issuerCleanup, err := loadIssuersIfProvided(cfg, diagnostics)
 	cleanups.Add(issuerCleanup)
 	if err != nil {
 		return lintInputs{}, err
@@ -83,7 +83,7 @@ func acquireInputs(cfg Config, diagnostics io.Writer, cleanups *cleanupStack) (l
 		return inputs, nil
 	}
 
-	certs, certCleanup, err := loadCertificates(cfg)
+	certs, certCleanup, err := loadCertificates(cfg, diagnostics)
 	cleanups.Add(certCleanup)
 	if err != nil {
 		return lintInputs{}, err
@@ -219,33 +219,33 @@ func loadPolicies(paths []string, reg *operator.Registry) ([]policy.Policy, erro
 	return policies, nil
 }
 
-func loadCRLs(path string) ([]*crl.Info, error) {
+func loadCRLs(path string, w io.Writer) ([]*crl.Info, error) {
 	if path == "" {
 		return nil, nil
 	}
-	crls, err := crl.GetCRLs(path)
+	crls, err := crl.GetCRLs(path, w)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load CRLs: %w", err)
 	}
 	return crls, nil
 }
 
-func loadOCSPs(path string) ([]*ocsp.Info, error) {
+func loadOCSPs(path string, w io.Writer) ([]*ocsp.Info, error) {
 	if path == "" {
 		return nil, nil
 	}
-	ocsps, err := ocsp.GetOCSPs(path)
+	ocsps, err := ocsp.GetOCSPs(path, w)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load OCSP responses: %w", err)
 	}
 	return ocsps, nil
 }
 
-func loadIssuersIfProvided(cfg Config) ([]*cert.Info, func(), error) {
+func loadIssuersIfProvided(cfg Config, w io.Writer) ([]*cert.Info, func(), error) {
 	if !cfg.hasIssuerInput() {
 		return nil, nil, nil
 	}
-	return loadIssuers(cfg)
+	return loadIssuers(cfg, w)
 }
 
 // climbChains extends each leaf towards a root via CA Issuers URLs, falling

@@ -376,7 +376,7 @@ func TestConfigValidateRequiresPolicy(t *testing.T) {
 
 func TestLoadCRLs(t *testing.T) {
 	// Test with empty path
-	crls, err := loadCRLs("")
+	crls, err := loadCRLs("", nil)
 	if err != nil {
 		t.Errorf("unexpected error for empty path: %v", err)
 	}
@@ -387,7 +387,7 @@ func TestLoadCRLs(t *testing.T) {
 
 func TestLoadOCSPs(t *testing.T) {
 	// Test with empty path
-	ocsps, err := loadOCSPs("")
+	ocsps, err := loadOCSPs("", nil)
 	if err != nil {
 		t.Errorf("unexpected error for empty path: %v", err)
 	}
@@ -398,7 +398,7 @@ func TestLoadOCSPs(t *testing.T) {
 
 func TestLoadIssuersIfProvided(t *testing.T) {
 	// Test with no issuers
-	issuers, cleanup, err := loadIssuersIfProvided(Config{})
+	issuers, cleanup, err := loadIssuersIfProvided(Config{}, nil)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -444,7 +444,7 @@ func TestCleanupStack_closesInReverseOrderOnce(t *testing.T) {
 }
 
 func TestLoadCertificates_returnsCleanupOnDownloadError(t *testing.T) {
-	_, cleanup, err := loadCertificates(Config{CertURLs: []string{"://invalid"}})
+	_, cleanup, err := loadCertificates(Config{CertURLs: []string{"://invalid"}}, nil)
 	if err == nil {
 		t.Fatal("expected invalid URL error")
 	}
@@ -455,7 +455,7 @@ func TestLoadCertificates_returnsCleanupOnDownloadError(t *testing.T) {
 }
 
 func TestLoadIssuers_returnsCleanupOnDownloadError(t *testing.T) {
-	_, cleanup, err := loadIssuers(Config{IssuerURLs: []string{"://invalid"}})
+	_, cleanup, err := loadIssuers(Config{IssuerURLs: []string{"://invalid"}}, nil)
 	if err == nil {
 		t.Fatal("expected invalid URL error")
 	}

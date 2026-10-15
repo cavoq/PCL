@@ -3,6 +3,7 @@ package fsutil
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 )
@@ -41,4 +42,15 @@ func GetFilesWithExtensions(path string, extensions ...string) ([]string, error)
 	}
 
 	return files, nil
+}
+
+// ReportSkipped writes a warning to w for each input file that was skipped
+// because it could not be read or parsed. A nil w discards the warnings.
+func ReportSkipped(w io.Writer, skipped []error) {
+	if w == nil {
+		return
+	}
+	for _, err := range skipped {
+		_, _ = fmt.Fprintf(w, "Warning: skipped %v\n", err)
+	}
 }

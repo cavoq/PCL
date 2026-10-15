@@ -294,18 +294,21 @@ func (probe ocspAssessmentProbe) Evaluate(
 func TestChainSuppliesTargetScopedOCSPAssessments(t *testing.T) {
 	leafCertificates, err := cert.LoadCertificates(
 		filepath.Join("..", "..", "tests", "certs", "ocsp-leaf.pem"),
+		nil,
 	)
 	if err != nil || len(leafCertificates) != 1 {
 		t.Fatalf("load OCSP leaf: certificates=%d err=%v", len(leafCertificates), err)
 	}
 	issuerCertificates, err := cert.LoadCertificates(
 		filepath.Join("..", "..", "tests", "certs", "ocsp-intermediate.pem"),
+		nil,
 	)
 	if err != nil || len(issuerCertificates) != 1 {
 		t.Fatalf("load OCSP issuer: certificates=%d err=%v", len(issuerCertificates), err)
 	}
 	responses, err := ocsp.GetOCSPs(
 		filepath.Join("..", "..", "tests", "ocsps", "good-leaf.ocsp"),
+		nil,
 	)
 	if err != nil || len(responses) != 1 || responses[0] == nil || responses[0].Response == nil {
 		t.Fatalf("load OCSP response: responses=%d err=%v", len(responses), err)
