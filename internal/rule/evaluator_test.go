@@ -2,7 +2,9 @@ package rule
 
 import (
 	"fmt"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/cavoq/PCL/internal/node"
 	"github.com/cavoq/PCL/internal/operator"
@@ -120,6 +122,83 @@ func TestRuleEvaluationFailureUsesConfiguredMessage(t *testing.T) {
 	}
 }
 
+func TestRuleEvaluationExplainsEveryVerdict(t *testing.T) {
+	root := node.New("root", nil)
+	root.Children["algorithm"] = node.New("algorithm", "1.2.3")
+	root.Children["enabled"] = node.New("enabled", true)
+
+	reg := operator.NewRegistry()
+	reg.RegisterAll([]operator.Operator{operator.Eq{}, operator.In{}})
+	ctx := &operator.EvaluationContext{Input: operator.Input{Kind: "leaf"}}
+
+	passed := Evaluate(root, Rule{
+		ID:       "algorithm",
+		Target:   "algorithm",
+		Operator: "in",
+		Operands: []any{"1.2.3", "1.2.4"},
+	}, reg, ctx)
+	if passed.Verdict != VerdictPass || passed.Details != "actual: 1.2.3; allowed: [1.2.3, 1.2.4]" {
+		t.Fatalf("passing result = %#v", passed)
+	}
+
+	failed := Evaluate(root, Rule{
+		ID:       "missing",
+		Target:   "missing",
+		Operator: "eq",
+		Operands: []any{true},
+		Message:  "the required capability is absent",
+	}, reg, ctx)
+	if failed.Verdict != VerdictFail || failed.Message != "the required capability is absent" ||
+		failed.Details != "actual: absent; expected: true" {
+		t.Fatalf("failing result = %#v", failed)
+	}
+
+	skippedType := Evaluate(root, Rule{
+		ID:       "ca-only",
+		Target:   "enabled",
+		Operator: "eq",
+		Operands: []any{true},
+		CertType: []string{"intermediate", "root"},
+	}, reg, ctx)
+	if skippedType.Verdict != VerdictSkip ||
+		!strings.Contains(skippedType.Details, "not applicable to certificate type leaf") {
+		t.Fatalf("certificate-type skip = %#v", skippedType)
+	}
+
+	skippedCondition := Evaluate(root, Rule{
+		ID:       "conditional",
+		Target:   "enabled",
+		Operator: "eq",
+		Operands: []any{true},
+		When: &Condition{
+			Target:   "algorithm",
+			Operator: "eq",
+			Operands: []any{"9.9.9"},
+		},
+	}, reg, ctx)
+	if skippedCondition.Verdict != VerdictSkip || skippedCondition.Details !=
+		"condition not met: actual: 1.2.3; expected: 9.9.9" {
+		t.Fatalf("conditional skip = %#v", skippedCondition)
+	}
+
+	validity := node.New("validity", nil)
+	validity.Children["notBefore"] = node.New("notBefore", time.Date(2026, 5, 26, 0, 0, 0, 0, time.UTC))
+	validity.Children["notAfter"] = node.New("notAfter", time.Date(2124, 5, 26, 0, 0, 0, 0, time.UTC))
+	root.Children["validity"] = validity
+	reg.Register(operator.DateDiff{})
+	date := Evaluate(root, Rule{
+		ID:       "validity",
+		Target:   "validity",
+		Operator: "dateDiff",
+		Operands: map[string]any{"start": "notBefore", "end": "notAfter", "maxMonths": 36},
+	}, reg, ctx)
+	if date.Verdict != VerdictFail ||
+		!strings.Contains(date.Details, "actual: 2026-05-26T00:00:00Z to 2124-05-26T00:00:00Z") ||
+		!strings.Contains(date.Details, `"maxMonths":36`) {
+		t.Fatalf("date result = %#v", date)
+	}
+}
+
 func TestRuleEvaluationWithReference(t *testing.T) {
 	root := node.New("root", nil)
 	root.Children["a"] = node.New("a", 42)
@@ -152,12 +231,18 @@ func TestRuleEvaluationMissingTargetUsesInputNamespace(t *testing.T) {
 	reg.Register(operator.Eq{})
 
 	tests := []struct {
-		name   string
-		target string
-		want   string
+		name        string
+		target      string
+		want        string
+		wantDetails string
 	}{
 		{name: "missing applicable certificate field fails", target: "certificate.missing", want: VerdictFail},
-		{name: "unavailable CRL input skips", target: "crl.missing", want: VerdictSkip},
+		{
+			name:        "unavailable CRL input skips",
+			target:      "crl.missing",
+			want:        VerdictSkip,
+			wantDetails: "input unavailable; actual: absent; expected: true",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -169,6 +254,9 @@ func TestRuleEvaluationMissingTargetUsesInputNamespace(t *testing.T) {
 			}, reg, nil)
 			if result.Verdict != tt.want {
 				t.Fatalf("verdict = %s, want %s", result.Verdict, tt.want)
+			}
+			if tt.wantDetails != "" && result.Details != tt.wantDetails {
+				t.Fatalf("details = %q, want %q", result.Details, tt.wantDetails)
 			}
 		})
 	}

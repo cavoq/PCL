@@ -210,36 +210,37 @@ func writeRulesTable(w io.Writer, colors palette, results []rule.Result, total i
 		if err := writeTableLine(w, cells); err != nil {
 			return err
 		}
-		if rr.Message != "" {
-			if _, err := fmt.Fprintf(w, "          -> %s\n", rr.Message); err != nil {
-				return err
-			}
-		}
 	}
 
 	return nil
 }
 
-// rulesTableColumns returns the SEVERITY, RULE and REFERENCE columns, omitting
-// SEVERITY and REFERENCE when no result has a value for them.
+// rulesTableColumns returns the optional SEVERITY, REFERENCE and DETAILS
+// columns after the always-present RULE column. Empty optional columns are
+// omitted.
 func rulesTableColumns(results []rule.Result) []tableColumn {
 	severity := tableColumn{header: "SEVERITY", value: func(rr rule.Result) string { return severityLabel(rr.Severity) }}
 	ruleID := tableColumn{header: "RULE", value: func(rr rule.Result) string { return rr.RuleID }}
+	details := tableColumn{header: "DETAILS", value: resultDetails}
 	reference := tableColumn{header: "REFERENCE", value: func(rr rule.Result) string { return rr.Reference }}
 
 	showSeverity := false
+	showDetails := false
 	showReference := false
 	ruleID.width = len(ruleID.header)
+	details.width = len(details.header)
 	reference.width = len(reference.header)
 	for _, rr := range results {
 		showSeverity = showSeverity || rr.Severity != ""
+		showDetails = showDetails || resultDetails(rr) != ""
 		showReference = showReference || rr.Reference != ""
 		ruleID.width = max(ruleID.width, len(rr.RuleID))
+		details.width = max(details.width, len(resultDetails(rr)))
 		reference.width = max(reference.width, len(rr.Reference))
 	}
 	severity.width = len(severity.header)
 
-	columns := make([]tableColumn, 0, 3)
+	columns := make([]tableColumn, 0, 4)
 	if showSeverity {
 		columns = append(columns, severity)
 	}
@@ -247,7 +248,20 @@ func rulesTableColumns(results []rule.Result) []tableColumn {
 	if showReference {
 		columns = append(columns, reference)
 	}
+	if showDetails {
+		columns = append(columns, details)
+	}
 	return columns
+}
+
+func resultDetails(result rule.Result) string {
+	if result.Message == "" {
+		return result.Details
+	}
+	if result.Details == "" || result.Details == result.Message {
+		return result.Message
+	}
+	return result.Message + "; " + result.Details
 }
 
 func writeTableLine(w io.Writer, cells []string) error {

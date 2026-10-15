@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Text results include a `DETAILS` column with the reason for failed and
+  skipped verdicts and actual-versus-expected facts for passing checks. JSON
+  and YAML rule results expose the same information as `details`.
 - `--fail-on error|warning|info|none` makes `pcl` exit with status 1 after
   writing the results when a rule of that severity or higher failed. The
   default, `none`, keeps the exit status independent of the results.
@@ -27,6 +30,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   updated to versions that fix their published security advisories.
 
 ### Fixed
+- A configured rule failure message is preserved when its target is absent;
+  the internal `target not found` error no longer replaces the actionable
+  policy explanation.
 - The chain is built from the certificates passed with `--cert`. A
   certificate whose issuer was missing used to be skipped silently while a
   longer chain from the `--issuer` inputs was linted instead; it is now

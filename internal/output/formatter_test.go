@@ -42,7 +42,8 @@ func TestStructuredFormatters(t *testing.T) {
 			format := func(showMeta bool, into any) {
 				t.Helper()
 				var buf bytes.Buffer
-				if err := tt.formatter(Options{ShowMeta: showMeta}).Format(&buf, createTestOutput()); err != nil {
+				opts := Options{ShowMeta: showMeta, ShowPassed: true, ShowFailed: true}
+				if err := tt.formatter(opts).Format(&buf, createTestOutput()); err != nil {
 					t.Fatalf("unexpected error: %v", err)
 				}
 				if err := tt.unmarshal(buf.Bytes(), into); err != nil {
@@ -60,6 +61,9 @@ func TestStructuredFormatters(t *testing.T) {
 			format(false, &results)
 			if len(results) != 1 {
 				t.Errorf("expected 1 result, got %d", len(results))
+			}
+			if got := results[0].Results[0].Details; got != "actual: 1; expected: 1" {
+				t.Errorf("details = %q", got)
 			}
 		})
 	}
@@ -112,7 +116,12 @@ func createTestOutput() LintOutput {
 				CertPath: "/test/cert.pem",
 				Verdict:  "fail",
 				Results: []rule.Result{
-					{RuleID: "r1", Verdict: rule.VerdictPass, Severity: "error"},
+					{
+						RuleID:   "r1",
+						Verdict:  rule.VerdictPass,
+						Severity: "error",
+						Details:  "actual: 1; expected: 1",
+					},
 					{RuleID: "r2", Verdict: rule.VerdictFail, Severity: "error"},
 				},
 			},

@@ -118,8 +118,13 @@ func TestWriteRulesTable_EmptyWithCounts(t *testing.T) {
 
 func TestWriteRulesTable_WithResults(t *testing.T) {
 	results := []rule.Result{
-		{RuleID: "rule-1", Verdict: rule.VerdictPass},
-		{RuleID: "rule-2", Verdict: rule.VerdictFail, Message: "failed check"},
+		{RuleID: "rule-1", Verdict: rule.VerdictPass, Details: "actual: 42; expected: 42"},
+		{
+			RuleID:  "rule-2",
+			Verdict: rule.VerdictFail,
+			Message: "failed check",
+			Details: "actual: absent; expected: true",
+		},
 	}
 
 	var buf bytes.Buffer
@@ -140,6 +145,13 @@ func TestWriteRulesTable_WithResults(t *testing.T) {
 	}
 	if !strings.Contains(result, "VERDICT") {
 		t.Error("should contain header")
+	}
+	if !strings.Contains(result, "DETAILS") ||
+		!strings.Contains(result, "failed check; actual: absent; expected: true") {
+		t.Errorf("should contain inline verdict details:\n%s", result)
+	}
+	if strings.Contains(result, "->") {
+		t.Errorf("should not render details on a detached continuation line:\n%s", result)
 	}
 }
 

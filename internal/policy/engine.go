@@ -47,6 +47,7 @@ func Evaluate(
 				Reference: r.Reference,
 				Verdict:   rule.VerdictSkip,
 				Severity:  r.Severity,
+				Details:   "not applicable to input type " + inputType,
 			})
 			continue
 		}
