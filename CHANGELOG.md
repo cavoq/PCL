@@ -40,6 +40,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   inapplicable.
 - Load errors for certificates, CRLs and OCSP responses include the parse
   error.
+- A delegated OCSP responder issued by an intermediate above the first one
+  no longer shifts the chain positions of the certificates it shares with
+  the certificate chain, which made `signatureValid`, `issuedBy` and
+  `akiMatchesSki` check those certificates against the wrong issuer.
 
 ## [5.1.0] - 2026-10-14
 

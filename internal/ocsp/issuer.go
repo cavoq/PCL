@@ -81,15 +81,11 @@ func BuildSignerEvalChain(
 	pool := ResolveSignerIssuerPool(tlsChain, signer, timeout, maxDepth, w)
 	issuerCert := SigningIssuerFromPool(signer, pool)
 	if issuerCert == nil {
-		out := []*cert.Info{signerInfo}
-		cert.RebuildChainMetadata(out)
-		return out
+		return signerChain(signerInfo, nil)
 	}
 
 	if idx, ok := indexInInfoChain(issuerCert, tlsChain); ok {
-		out := append([]*cert.Info{signerInfo}, tlsChain[idx:]...)
-		cert.RebuildChainMetadata(out)
-		return out
+		return signerChain(signerInfo, tlsChain[idx:])
 	}
 
 	issuerInfo := infoFromPoolCert(issuerCert, tlsChain)
@@ -97,8 +93,22 @@ func BuildSignerEvalChain(
 	poolInfos := append([]*cert.Info(nil), tlsChain...)
 	poolInfos = append(poolInfos, tail...)
 	tail = cert.ClimbChainWithPool(tail, poolInfos, timeout, maxDepth, w)
+	return signerChain(signerInfo, tail)
+}
 
-	out := append([]*cert.Info{signerInfo}, tail...)
+// signerChain returns [signerInfo, tail…] with chain positions and types set.
+// The tail entries are copied: they may belong to the TLS chain, whose own
+// positions must not change.
+func signerChain(signerInfo *cert.Info, tail []*cert.Info) []*cert.Info {
+	out := make([]*cert.Info, 0, len(tail)+1)
+	out = append(out, signerInfo)
+	for _, info := range tail {
+		if info == nil {
+			continue
+		}
+		copied := *info
+		out = append(out, &copied)
+	}
 	cert.RebuildChainMetadata(out)
 	return out
 }

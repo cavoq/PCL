@@ -106,3 +106,41 @@ func TestOCSP_evaluatesEmbeddedSigningCert(t *testing.T) {
 		t.Fatalf("expected policy results for embedded OCSP signing cert, got %d results", len(results))
 	}
 }
+
+// A delegated responder issued by an upper intermediate shares that part of
+// the certificate chain. Building its signer chain must not move the shared
+// certificates, or chain operators would look up the wrong issuer.
+func TestOCSPSubjects_keepChainSubjectPositions(t *testing.T) {
+	root := testpki.Issue(t, "Root", nil, testpki.CA())
+	upper := testpki.Issue(t, "Upper Intermediate", root, testpki.CA(), testpki.Serial(2))
+	lower := testpki.Issue(t, "Lower Intermediate", upper, testpki.CA(), testpki.Serial(3))
+	leaf := testpki.Issue(t, "Leaf", lower, testpki.Serial(4))
+	responder := testpki.Issue(t, "OCSP Responder", upper, testpki.Serial(5), testpki.OCSPSigning())
+	resp := testpki.OCSPResponse(t, upper, responder, stdocsp.Response{
+		Status:       stdocsp.Good,
+		SerialNumber: big.NewInt(3),
+		ThisUpdate:   testpki.NotBefore,
+		NextUpdate:   testpki.NotAfter,
+		Certificate:  responder.Std,
+	})
+
+	chain := []*cert.Info{{Cert: leaf.Cert}, {Cert: lower.Cert}, {Cert: upper.Cert}, {Cert: root.Cert}}
+	cert.RebuildChainMetadata(chain)
+	ctx := Context{
+		Registry:       operator.DefaultRegistry(),
+		Chain:          chain,
+		OCSPs:          []*ocsp.Info{{Response: resp, FilePath: "responder.ocsp"}},
+		ValidationTime: testpki.NotBefore.AddDate(0, 1, 0),
+	}
+
+	subjects := ChainSubjects(ctx)
+	if signers := OCSPSubjects(ctx); len(signers) != 2 {
+		t.Fatalf("OCSP subjects = %d, want the response and its signer", len(signers))
+	}
+	for i, subject := range subjects {
+		valid, err := operator.SignatureValid{}.Evaluate(nil, subject.Context, nil)
+		if err != nil || !valid {
+			t.Errorf("chain certificate %d: signatureValid = %v, %v after building OCSP subjects", i, valid, err)
+		}
+	}
+}
