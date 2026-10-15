@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math"
 	"net/http"
 	"net/url"
 	"strings"
@@ -15,6 +14,7 @@ import (
 
 	"github.com/cavoq/PCL/internal/cert"
 	crlzcrypto "github.com/cavoq/PCL/internal/crl/zcrypto"
+	"github.com/cavoq/PCL/internal/httpread"
 	"github.com/cavoq/PCL/internal/oid"
 	"github.com/cavoq/PCL/internal/source"
 	"github.com/cavoq/PCL/internal/x509ext"
@@ -419,23 +419,9 @@ func (retriever httpRetriever) Retrieve(
 	}
 	defer func() { _ = response.Body.Close() }()
 
-	if response.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("CRL server returned status %d", response.StatusCode)
-	}
-	if response.ContentLength > maxBytes {
-		return nil, fmt.Errorf("CRL response exceeds %d bytes", maxBytes)
-	}
-
-	readLimit := maxBytes
-	if readLimit < math.MaxInt64 {
-		readLimit++
-	}
-	body, err := io.ReadAll(io.LimitReader(response.Body, readLimit))
+	body, err := httpread.Body(response, maxBytes)
 	if err != nil {
-		return nil, fmt.Errorf("reading CRL response: %w", err)
-	}
-	if int64(len(body)) > maxBytes {
-		return nil, fmt.Errorf("CRL response exceeds %d bytes", maxBytes)
+		return nil, fmt.Errorf("CRL %w", err)
 	}
 	return body, nil
 }

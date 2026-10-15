@@ -59,6 +59,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `--psl-file`, `--use-psl` and `--data-dir`, so public suffix and TLD
   operators give the same verdicts as in a lint run. The warning for a
   missing list no longer mentions a regex fallback that does not exist.
+- Downloaded OCSP responses and CA Issuers certificates are limited to 1 MiB,
+  like CRLs are limited, instead of being read to any size. `pcl update-data`
+  has a timeout, a size limit, and replaces the Public Suffix List only after
+  a complete download.
 
 ## [5.1.0] - 2026-10-14
 

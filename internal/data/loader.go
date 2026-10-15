@@ -1,24 +1,23 @@
-// Package data provides external data loading for PCL.
-//
-// Currently supports:
-//   - Public Suffix List (PSL) from publicsuffix.org
-//   - IANA Root Zone Database TLD list
+// Package data provides external data loading for PCL: the Public Suffix
+// List from publicsuffix.org, whose ICANN section also serves as the list of
+// registered top-level domains.
 //
 // Data files can be updated via:
 //
-//	pcl --update-data
+//	pcl update-data
 package data
 
 import (
 	"bufio"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/cavoq/PCL/internal/httpread"
 )
 
 // PSL represents the Public Suffix List loaded from external file.
@@ -255,40 +254,63 @@ func (l *Loader) Stats() (icann, private int, loaded bool) {
 	return len(l.psl.ICANNDomains), len(l.psl.PrivateDomains), true
 }
 
-// DownloadPSL downloads the Public Suffix List from publicsuffix.org.
+// pslDownloadTimeout bounds the whole Public Suffix List download.
+const pslDownloadTimeout = time.Minute
+
+// maxPSLBytes bounds the downloaded Public Suffix List, which is a few
+// hundred kilobytes.
+const maxPSLBytes = 16 << 20
+
+// DownloadPSL downloads the Public Suffix List from publicsuffix.org. The
+// file at destPath is replaced only after a complete download.
 func DownloadPSL(url string, destPath string) error {
 	if url == "" {
 		url = "https://publicsuffix.org/list/public_suffix_list.dat"
 	}
 
-	resp, err := http.Get(url)
+	client := &http.Client{Timeout: pslDownloadTimeout}
+	resp, err := client.Get(url)
 	if err != nil {
 		return fmt.Errorf("failed to download PSL: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to download PSL: HTTP %d", resp.StatusCode)
+	body, err := httpread.Body(resp, maxPSLBytes)
+	if err != nil {
+		return fmt.Errorf("failed to download PSL: %w", err)
 	}
 
-	// Ensure destination directory exists
 	destDir := filepath.Dir(destPath)
 	if err := os.MkdirAll(destDir, 0755); err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
+	return writeFileAtomically(destPath, body)
+}
 
-	// Write to file
-	file, err := os.Create(destPath)
+// writeFileAtomically writes data to a temporary file next to path and
+// renames it over path, so readers never see a partial file.
+func writeFileAtomically(path string, data []byte) error {
+	file, err := os.CreateTemp(filepath.Dir(path), filepath.Base(path)+".*.tmp")
 	if err != nil {
 		return fmt.Errorf("failed to create file: %w", err)
 	}
-	defer func() { _ = file.Close() }()
+	tempPath := file.Name()
+	defer func() { _ = os.Remove(tempPath) }()
 
-	_, err = io.Copy(file, resp.Body)
-	if err != nil {
+	if _, err := file.Write(data); err != nil {
+		_ = file.Close()
 		return fmt.Errorf("failed to write file: %w", err)
 	}
-
+	if err := file.Chmod(0o644); err != nil {
+		_ = file.Close()
+		return fmt.Errorf("failed to write file: %w", err)
+	}
+	if err := file.Close(); err != nil {
+		return fmt.Errorf("failed to write file: %w", err)
+	}
+	if err := os.Rename(tempPath, path); err != nil {
+		return fmt.Errorf("failed to replace file: %w", err)
+	}
 	return nil
 }
 

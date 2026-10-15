@@ -1,6 +1,8 @@
 package data
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -296,4 +298,62 @@ func matchesWildcard(domain, wildcard string) bool {
 	}
 
 	return false
+}
+
+func TestDownloadPSL(t *testing.T) {
+	const list = "// ===BEGIN ICANN DOMAINS===\ncom\n// ===END ICANN DOMAINS===\n"
+	tests := []struct {
+		name    string
+		handler http.HandlerFunc
+		want    string
+		wantErr string
+	}{
+		{
+			name:    "replaces the list",
+			handler: func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte(list)) },
+			want:    list,
+		},
+		{
+			name: "keeps the list on an error status",
+			handler: func(w http.ResponseWriter, _ *http.Request) {
+				http.Error(w, "unavailable", http.StatusServiceUnavailable)
+			},
+			want:    "previous",
+			wantErr: "status 503",
+		},
+		{
+			name: "keeps the list when the download is too large",
+			handler: func(w http.ResponseWriter, _ *http.Request) {
+				_, _ = w.Write(make([]byte, maxPSLBytes+1))
+			},
+			want:    "previous",
+			wantErr: "exceeds",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(tt.handler)
+			defer server.Close()
+			dir := t.TempDir()
+			dest := filepath.Join(dir, "public_suffix_list.dat")
+			if err := os.WriteFile(dest, []byte("previous"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+
+			err := DownloadPSL(server.URL, dest)
+			if tt.wantErr == "" && err != nil {
+				t.Fatal(err)
+			}
+			if tt.wantErr != "" && (err == nil || !strings.Contains(err.Error(), tt.wantErr)) {
+				t.Fatalf("error = %v, want one containing %q", err, tt.wantErr)
+			}
+			got, readErr := os.ReadFile(dest)
+			if readErr != nil || string(got) != tt.want {
+				t.Fatalf("list = %q, %v; want %q", got, readErr, tt.want)
+			}
+			if entries, _ := os.ReadDir(dir); len(entries) != 1 {
+				t.Fatalf("directory holds %d files, want only the list", len(entries))
+			}
+		})
+	}
 }

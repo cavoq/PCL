@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"crypto/x509"
 	"fmt"
-	"io"
 	"net/http"
 	"time"
 
 	"github.com/cavoq/PCL/internal/cert"
+	"github.com/cavoq/PCL/internal/httpread"
 	"github.com/cavoq/PCL/internal/x509node"
 	"golang.org/x/crypto/ocsp"
 )
@@ -45,6 +45,10 @@ func validateOCSPFetchInput(cert, issuer *x509.Certificate, url string) error {
 	return nil
 }
 
+// maxOCSPResponseBytes bounds a downloaded OCSP response. Responses are a
+// few kilobytes; the limit leaves room for embedded responder chains.
+const maxOCSPResponseBytes = 1 << 20
+
 func postOCSPRequest(url string, req []byte, timeout time.Duration) (*ocsp.Response, error) {
 	httpReq, err := http.NewRequest("POST", url, bytes.NewReader(req))
 	if err != nil {
@@ -60,13 +64,9 @@ func postOCSPRequest(url string, req []byte, timeout time.Duration) (*ocsp.Respo
 	}
 	defer func() { _ = httpResp.Body.Close() }()
 
-	if httpResp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("OCSP server returned status %d", httpResp.StatusCode)
-	}
-
-	body, err := io.ReadAll(httpResp.Body)
+	body, err := httpread.Body(httpResp, maxOCSPResponseBytes)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read OCSP response: %w", err)
+		return nil, fmt.Errorf("OCSP %w", err)
 	}
 
 	resp, err := ocsp.ParseResponse(body, nil)

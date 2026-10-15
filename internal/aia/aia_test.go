@@ -3,6 +3,7 @@ package aia
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -112,6 +113,14 @@ func TestFetchCAIssuerErrors(t *testing.T) {
 		_, err := FetchCAIssuer(testpki.Serve(t, []byte("not a certificate")), time.Second)
 		if err == nil {
 			t.Fatal("expected invalid body to fail")
+		}
+	})
+
+	t.Run("oversized body", func(t *testing.T) {
+		oversized := make([]byte, maxCAIssuersResponseBytes+1)
+		_, err := FetchCAIssuer(testpki.Serve(t, oversized), time.Second)
+		if err == nil || !strings.Contains(err.Error(), "exceeds") {
+			t.Fatalf("error = %v, want the size limit", err)
 		}
 	})
 }

@@ -2,10 +2,10 @@ package aia
 
 import (
 	"fmt"
-	"io"
 	"net/http"
 	"time"
 
+	"github.com/cavoq/PCL/internal/httpread"
 	"github.com/cavoq/PCL/internal/source"
 	"github.com/zmap/zcrypto/x509"
 )
@@ -15,6 +15,10 @@ type IssuerResult struct {
 	Certs  []*x509.Certificate
 	Source source.Info
 }
+
+// maxCAIssuersResponseBytes bounds a downloaded certificate or PKCS#7
+// bundle from a CA Issuers URL.
+const maxCAIssuersResponseBytes = 1 << 20
 
 // FetchCAIssuer downloads and parses a certificate from a CA Issuers URL.
 // Per RFC 5280 Section 4.2.2.1, the CA Issuers URL must point to:
@@ -36,13 +40,9 @@ func FetchCAIssuer(url string, timeout time.Duration) (*IssuerResult, error) {
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("CA Issuers server returned status %d", resp.StatusCode)
-	}
-
-	body, err := io.ReadAll(resp.Body)
+	body, err := httpread.Body(resp, maxCAIssuersResponseBytes)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read CA Issuers response: %w", err)
+		return nil, fmt.Errorf("CA Issuers %w", err)
 	}
 
 	certs, format, err := ParseIssuerResponse(body)
