@@ -22,7 +22,7 @@ type Info struct {
 // ParseCertificates parses a DER certificate or every CERTIFICATE block of
 // PEM data. Other PEM blocks, such as keys, are ignored.
 func ParseCertificates(data []byte) ([]*x509.Certificate, source.Format, error) {
-	return source.DecodePEMOrDER(data, "CERTIFICATE", x509.ParseCertificate)
+	return source.DecodePEMOrDER(data, "CERTIFICATE", parseCertificate)
 }
 
 // IsSelfSigned reports whether the certificate is self-issued and verifies

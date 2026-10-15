@@ -6,11 +6,13 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"math/big"
 	"slices"
 	"time"
 
 	"github.com/cavoq/PCL/internal/source"
 	"github.com/cavoq/PCL/internal/x509asn1"
+	"github.com/zmap/zcrypto/dsa"
 	"github.com/zmap/zcrypto/x509"
 )
 
@@ -64,6 +66,8 @@ func BuildChain(certs []*Info) ([]*Info, error) {
 // rollover and separate CRL-signing certificates with equal names do not
 // replace each other.
 func BuildChainFor(targets, pool []*Info) ([]*Info, error) {
+	resolveInheritedDSAParameters(targets, pool)
+
 	var longest []*Info
 	for _, target := range targets {
 		if target == nil || target.Cert == nil {
@@ -87,6 +91,107 @@ func BuildChainFor(targets, pool []*Info) ([]*Info, error) {
 	}
 
 	return longest, nil
+}
+
+// resolveInheritedDSAParameters applies RFC 3279 section 2.3.2 before path
+// construction. A DSA subjectPublicKeyInfo may omit P, Q, and G when they are
+// inherited from the issuer. Parameters are resolved recursively because more
+// than one adjacent certificate may omit them.
+func resolveInheritedDSAParameters(targets, pool []*Info) {
+	resolver := dsaParameterResolver{
+		pool:      pool,
+		resolving: make(map[*x509.Certificate]bool),
+		resolved:  make(map[*x509.Certificate]bool),
+	}
+	for _, infos := range [][]*Info{pool, targets} {
+		for _, info := range infos {
+			if info != nil {
+				resolver.resolve(info.Cert)
+			}
+		}
+	}
+}
+
+type dsaParameterResolver struct {
+	pool      []*Info
+	resolving map[*x509.Certificate]bool
+	resolved  map[*x509.Certificate]bool
+}
+
+func (resolver *dsaParameterResolver) resolve(certificate *x509.Certificate) {
+	if certificate == nil || !hasInheritedDSAParameters(certificate) ||
+		resolver.resolving[certificate] || resolver.resolved[certificate] {
+		return
+	}
+	resolver.resolving[certificate] = true
+	defer func() {
+		delete(resolver.resolving, certificate)
+		resolver.resolved[certificate] = true
+	}()
+
+	if parameters, ok := resolver.issuerParameters(certificate); ok {
+		setDSAParameters(certificate, parameters)
+	}
+}
+
+func (resolver *dsaParameterResolver) issuerParameters(certificate *x509.Certificate) (dsa.Parameters, bool) {
+	var byKeyIdentifier, byName *x509.Certificate
+	for _, info := range resolver.pool {
+		if info == nil || info.Cert == nil || info.Cert == certificate ||
+			!issuerNameMatches(certificate, info.Cert) {
+			continue
+		}
+		candidate := info.Cert
+		resolver.resolve(candidate)
+		parameters, ok := completeDSAParameters(candidate)
+		if !ok {
+			continue
+		}
+		if SignedBy(certificate, candidate) {
+			return parameters, true
+		}
+		if byKeyIdentifier == nil && len(certificate.AuthorityKeyId) > 0 &&
+			bytes.Equal(certificate.AuthorityKeyId, candidate.SubjectKeyId) {
+			byKeyIdentifier = candidate
+		}
+		if byName == nil {
+			byName = candidate
+		}
+	}
+	if byKeyIdentifier != nil {
+		return completeDSAParameters(byKeyIdentifier)
+	}
+	return completeDSAParameters(byName)
+}
+
+func hasInheritedDSAParameters(certificate *x509.Certificate) bool {
+	publicKey, ok := certificate.PublicKey.(*dsa.PublicKey)
+	return ok && publicKey.P != nil && publicKey.Q != nil && publicKey.G != nil &&
+		publicKey.P.Sign() == 0 && publicKey.Q.Sign() == 0 && publicKey.G.Sign() == 0
+}
+
+func completeDSAParameters(certificate *x509.Certificate) (dsa.Parameters, bool) {
+	if certificate == nil {
+		return dsa.Parameters{}, false
+	}
+	publicKey, ok := certificate.PublicKey.(*dsa.PublicKey)
+	if !ok || publicKey.P == nil || publicKey.Q == nil || publicKey.G == nil ||
+		publicKey.P.Sign() <= 0 || publicKey.Q.Sign() <= 0 || publicKey.G.Sign() <= 0 {
+		return dsa.Parameters{}, false
+	}
+	return publicKey.Parameters, true
+}
+
+func setDSAParameters(certificate *x509.Certificate, parameters dsa.Parameters) {
+	publicKey, ok := certificate.PublicKey.(*dsa.PublicKey)
+	if !ok {
+		return
+	}
+	publicKey.Parameters = dsa.Parameters{
+		P: new(big.Int).Set(parameters.P),
+		Q: new(big.Int).Set(parameters.Q),
+		G: new(big.Int).Set(parameters.G),
+	}
 }
 
 func selectIssuer(current *Info, pool, chain []*Info) *Info {
