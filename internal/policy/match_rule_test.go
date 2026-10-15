@@ -4,7 +4,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cavoq/PCL/internal/cert"
 	"github.com/cavoq/PCL/internal/crl"
 	"github.com/cavoq/PCL/internal/operator"
 	"github.com/cavoq/PCL/internal/rule"
@@ -62,8 +61,9 @@ func TestEvaluate_skipsCertificateRulesOnCRLContext(t *testing.T) {
 	reg := operator.DefaultRegistry()
 	evalCtx := operator.NewEvaluationContext(
 		tree,
-		&cert.Info{Type: "crl", FilePath: "test.crl"},
 		nil,
+		nil,
+		operator.WithInput(operator.Input{Kind: operator.KindCRL, Path: "test.crl"}),
 	)
 
 	p := Policy{
@@ -93,10 +93,10 @@ func TestEvaluate_skipsCertificateRulesOnCRLContext(t *testing.T) {
 }
 
 func TestInputTypeFromContext(t *testing.T) {
-	if inputTypeFromContext(operator.NewEvaluationContext(nil, &cert.Info{Type: "crl"}, nil)) != InputCRL {
+	if inputTypeFromContext(operator.NewEvaluationContext(nil, nil, nil, operator.WithInput(operator.Input{Kind: "crl"}))) != InputCRL {
 		t.Fatal("crl type")
 	}
-	if inputTypeFromContext(operator.NewEvaluationContext(nil, &cert.Info{Type: "leaf"}, nil)) != InputCert {
+	if inputTypeFromContext(operator.NewEvaluationContext(nil, nil, nil, operator.WithInput(operator.Input{Kind: "leaf"}))) != InputCert {
 		t.Fatal("leaf type")
 	}
 }
@@ -138,7 +138,7 @@ func TestInputTypeFromContext_ocspAndNil(t *testing.T) {
 	if inputTypeFromContext(nil) != InputCert {
 		t.Fatal("nil ctx defaults to cert input")
 	}
-	if inputTypeFromContext(operator.NewEvaluationContext(nil, &cert.Info{Type: "ocsp"}, nil)) != InputOCSP {
+	if inputTypeFromContext(operator.NewEvaluationContext(nil, nil, nil, operator.WithInput(operator.Input{Kind: "ocsp"}))) != InputOCSP {
 		t.Fatal("ocsp cert type")
 	}
 }

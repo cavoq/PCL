@@ -86,7 +86,6 @@ func BuildChainFor(targets, pool []*Info) ([]*Info, error) {
 		return nil, fmt.Errorf("no certificates provided")
 	}
 
-	RebuildChainMetadata(longest)
 	return longest, nil
 }
 
@@ -149,7 +148,6 @@ func ClimbChainWithPool(chain, pool []*Info, timeout time.Duration, maxDepth int
 				warnf(w, "Warning: circular certificate detected at %s\n", parent.FilePath)
 				break
 			}
-			parent.Type = GetCertType(parent.Cert)
 			result = append(result, parent)
 			continue
 		}
@@ -171,12 +169,10 @@ func ClimbChainWithPool(chain, pool []*Info, timeout time.Duration, maxDepth int
 		result = append(result, &Info{
 			Cert:     issuerCert,
 			FilePath: url,
-			Type:     GetCertType(issuerCert),
 			Source:   sourceInfo,
 		})
 	}
 
-	RebuildChainMetadata(result)
 	return result
 }
 
@@ -201,12 +197,6 @@ func findSigningParentInPool(child *x509.Certificate, pool []*Info, seen *Certif
 		}
 	}
 	return nil
-}
-
-func RebuildChainMetadata(chain []*Info) {
-	for _, c := range chain {
-		c.Type = GetCertType(c.Cert)
-	}
 }
 
 func warnf(w io.Writer, format string, args ...any) {

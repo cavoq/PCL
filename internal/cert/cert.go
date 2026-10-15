@@ -16,7 +16,6 @@ type Info struct {
 	Cert     *x509.Certificate
 	FilePath string
 	Hash     string
-	Type     string
 	Source   source.Info
 }
 
@@ -81,16 +80,13 @@ func IsCA(cert *x509.Certificate) bool {
 	return valid && basicConstraints.CA
 }
 
-// Evaluation-context types. GetCertType assigns the certificate roles, and
-// rule-level certType filters match against all of them.
+// Certificate roles. GetCertType assigns them, and policy and rule certType
+// filters match evaluation inputs against them.
 const (
 	TypeRoot         = "root"
 	TypeIntermediate = "intermediate"
 	TypeLeaf         = "leaf"
 	TypeOCSPSigning  = "ocspSigning"
-	// TypeCRL and TypeOCSP mark contexts for CRL and OCSP response inputs.
-	TypeCRL  = "crl"
-	TypeOCSP = "ocsp"
 )
 
 // GetCertType classifies a certificate's role from its own contents.

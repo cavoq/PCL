@@ -7,12 +7,32 @@ import (
 	"github.com/cavoq/PCL/internal/crl"
 	"github.com/cavoq/PCL/internal/node"
 	"github.com/cavoq/PCL/internal/ocsp"
+	"github.com/cavoq/PCL/internal/source"
 	"github.com/zmap/zcrypto/x509"
 )
 
+// Kinds of evaluated inputs other than certificates, whose kinds are their
+// roles (cert.TypeRoot, cert.TypeIntermediate, cert.TypeLeaf and
+// cert.TypeOCSPSigning).
+const (
+	KindCRL  = "crl"
+	KindOCSP = "ocsp"
+)
+
+// Input identifies the evaluated input for rule filters and results.
+type Input struct {
+	// Kind is a certificate's role, KindCRL or KindOCSP.
+	Kind   string
+	Path   string
+	Source source.Info
+}
+
 type EvaluationContext struct {
-	Root  *node.Node
-	Now   time.Time
+	Root *node.Node
+	Now  time.Time
+	// Input identifies the evaluated input. Cert is set only when it is a
+	// certificate.
+	Input Input
 	Cert  *cert.Info
 	Chain []*cert.Info
 	CRLs  []*crl.Info
@@ -152,12 +172,24 @@ func WithApplicationPurpose(purpose string) ContextOption {
 	}
 }
 
+// WithInput identifies an input that is not a certificate.
+func WithInput(input Input) ContextOption {
+	return func(ctx *EvaluationContext) {
+		ctx.Input = input
+	}
+}
+
+// NewEvaluationContext creates the context for evaluating root. For a
+// certificate c, the input kind is its role.
 func NewEvaluationContext(root *node.Node, c *cert.Info, chain []*cert.Info, opts ...ContextOption) *EvaluationContext {
 	ctx := &EvaluationContext{
 		Root:  root,
 		Now:   time.Now(),
 		Cert:  c,
 		Chain: chain,
+	}
+	if c != nil {
+		ctx.Input = Input{Kind: cert.GetCertType(c.Cert), Path: c.FilePath, Source: c.Source}
 	}
 	for _, opt := range opts {
 		opt(ctx)

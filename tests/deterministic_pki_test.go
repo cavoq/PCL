@@ -12,7 +12,6 @@ import (
 
 func TestDeterministicApplicationPurposeVectors(t *testing.T) {
 	leaf := &cert.Info{
-		Type: "leaf",
 		Cert: &x509.Certificate{
 			KeyUsage:    x509.KeyUsageDigitalSignature,
 			ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
@@ -51,14 +50,12 @@ func TestDeterministicApplicationPurposeVectors(t *testing.T) {
 
 func TestDeterministicPathLengthVectors(t *testing.T) {
 	leaf := &cert.Info{
-		Type: "leaf",
 		Cert: &x509.Certificate{
 			Subject: pkix.Name{CommonName: "Leaf"},
 			Issuer:  pkix.Name{CommonName: "Intermediate"},
 		},
 	}
 	intermediate := &cert.Info{
-		Type: "intermediate",
 		Cert: &x509.Certificate{
 			Subject:               pkix.Name{CommonName: "Intermediate"},
 			Issuer:                pkix.Name{CommonName: "Root"},
@@ -67,7 +64,6 @@ func TestDeterministicPathLengthVectors(t *testing.T) {
 		},
 	}
 	root := &cert.Info{
-		Type: "root",
 		Cert: &x509.Certificate{
 			Subject:               pkix.Name{CommonName: "Root"},
 			Issuer:                pkix.Name{CommonName: "Root"},

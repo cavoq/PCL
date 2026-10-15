@@ -96,21 +96,10 @@ func BuildSignerEvalChain(
 	return signerChain(signerInfo, tail)
 }
 
-// signerChain returns [signerInfo, tail…] with chain positions and types set.
-// The tail entries are copied: they may belong to the TLS chain, whose own
-// positions must not change.
+// signerChain returns [signerInfo, tail…]. The tail may share Info values
+// with the certificate chain, which evaluation never modifies.
 func signerChain(signerInfo *cert.Info, tail []*cert.Info) []*cert.Info {
-	out := make([]*cert.Info, 0, len(tail)+1)
-	out = append(out, signerInfo)
-	for _, info := range tail {
-		if info == nil {
-			continue
-		}
-		copied := *info
-		out = append(out, &copied)
-	}
-	cert.RebuildChainMetadata(out)
-	return out
+	return append([]*cert.Info{signerInfo}, tail...)
 }
 
 func indexInInfoChain(target *x509.Certificate, chain []*cert.Info) (int, bool) {

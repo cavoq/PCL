@@ -106,16 +106,14 @@ func pathLine(entry node.PathEntry) string {
 
 func subjectHeading(subject evaluator.Subject) string {
 	heading := subject.Tree.Name
-	if subject.Info == nil {
-		return heading
+	input := subject.Context.Input
+	if input.Kind != "" && input.Kind != subject.Tree.Name {
+		heading += " (" + input.Kind + ")"
 	}
-	if subject.Info.Type != "" && subject.Info.Type != subject.Tree.Name {
-		heading += " (" + subject.Info.Type + ")"
+	if input.Path != "" {
+		heading += " " + input.Path
 	}
-	if subject.Info.FilePath != "" {
-		heading += " " + subject.Info.FilePath
-	}
-	if source := subject.Info.Source.String(); source != "" {
+	if source := input.Source.String(); source != "" {
 		heading += " [" + source + "]"
 	}
 	return heading
@@ -147,11 +145,9 @@ func inspectDocument(subjects []evaluator.Subject, opts InspectOptions) []inspec
 	document := make([]inspectedInput, 0, len(subjects))
 	for _, subject := range subjects {
 		input := inspectedInput{Input: subject.Tree.Name}
-		if subject.Info != nil {
-			input.Type = subject.Info.Type
-			input.File = subject.Info.FilePath
-			input.Source = subject.Info.Source.String()
-		}
+		input.Type = subject.Context.Input.Kind
+		input.File = subject.Context.Input.Path
+		input.Source = subject.Context.Input.Source.String()
 		if opts.Paths {
 			for _, entry := range node.Paths(subject.Tree) {
 				input.Paths = append(input.Paths, inspectedPath{

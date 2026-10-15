@@ -69,7 +69,6 @@ func TestContextDefaults(t *testing.T) {
 func TestChainProjectsAndPropagatesApplicationPurpose(t *testing.T) {
 	certificate := &cert.Info{
 		Cert: &x509.Certificate{},
-		Type: "leaf",
 	}
 	profile := policy.Policy{
 		ID: "application-purpose",
@@ -117,7 +116,6 @@ func TestProjectApplicationPurposeOmitsAbsentInput(t *testing.T) {
 func TestChainProjectsExplicitUnknownRevocationWithoutAttachingACRL(t *testing.T) {
 	certificate := &cert.Info{
 		Cert: &x509.Certificate{SerialNumber: big.NewInt(42)},
-		Type: "leaf",
 	}
 	profile := policy.Policy{
 		ID: "revocation-projection",
@@ -177,7 +175,7 @@ func TestChainOmitsRevocationWhenItWasNotRequested(t *testing.T) {
 		Policies: []policy.Policy{profile},
 		Registry: operator.DefaultRegistry(),
 		Chain: []*cert.Info{{
-			Cert: &x509.Certificate{SerialNumber: big.NewInt(42)}, Type: "leaf",
+			Cert: &x509.Certificate{SerialNumber: big.NewInt(42)},
 		}},
 		ValidationTime: time.Date(2026, 8, 14, 12, 0, 0, 0, time.UTC),
 	})
@@ -214,7 +212,7 @@ func TestChainUsesConfiguredValidationTime(t *testing.T) {
 	results := Chain(Context{
 		Policies:       []policy.Policy{profile},
 		Registry:       registry,
-		Chain:          []*cert.Info{{Cert: &x509.Certificate{}, Type: "leaf"}},
+		Chain:          []*cert.Info{{Cert: &x509.Certificate{}}},
 		ValidationTime: expected,
 	})
 	if len(results) != 1 || results[0].Verdict != rule.VerdictPass {
@@ -313,11 +311,9 @@ func TestChainSuppliesTargetScopedOCSPAssessments(t *testing.T) {
 	}
 
 	applicable := leafCertificates[0]
-	applicable.Type = "leaf"
 	unrelatedCertificate := *applicable.Cert
 	unrelatedCertificate.SerialNumber = new(big.Int).Add(applicable.Cert.SerialNumber, big.NewInt(1))
-	unrelated := &cert.Info{Cert: &unrelatedCertificate, Type: "leaf"}
-	issuerCertificates[0].Type = "intermediate"
+	unrelated := &cert.Info{Cert: &unrelatedCertificate}
 
 	state := &ocspAssessmentProbeState{
 		applicableSerial: applicable.Cert.SerialNumber.String(),

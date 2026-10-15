@@ -30,16 +30,16 @@ func TestLoadCertificates_Chain(t *testing.T) {
 		t.Fatalf("expected 3 certs in chain, got %d", len(chain))
 	}
 
-	if chain[0].Type != "leaf" {
-		t.Errorf("expected first cert to be leaf, got %s", chain[0].Type)
+	if GetCertType(chain[0].Cert) != "leaf" {
+		t.Errorf("expected first cert to be leaf, got %s", GetCertType(chain[0].Cert))
 	}
 
-	if chain[1].Type != "intermediate" {
-		t.Errorf("expected second cert to be intermediate, got %s", chain[1].Type)
+	if GetCertType(chain[1].Cert) != "intermediate" {
+		t.Errorf("expected second cert to be intermediate, got %s", GetCertType(chain[1].Cert))
 	}
 
-	if chain[2].Type != "root" {
-		t.Errorf("expected third cert to be root, got %s", chain[2].Type)
+	if GetCertType(chain[2].Cert) != "root" {
+		t.Errorf("expected third cert to be root, got %s", GetCertType(chain[2].Cert))
 	}
 }
 
@@ -58,8 +58,8 @@ func TestLoadCertificates_SingleCert(t *testing.T) {
 		t.Fatalf("expected 1 cert, got %d", len(chain))
 	}
 
-	if chain[0].Type != "leaf" {
-		t.Errorf("expected cert type leaf, got %s", chain[0].Type)
+	if GetCertType(chain[0].Cert) != "leaf" {
+		t.Errorf("expected cert type leaf, got %s", GetCertType(chain[0].Cert))
 	}
 }
 
@@ -146,7 +146,7 @@ func TestLoadCertificates_PEMBundleBuildsChain(t *testing.T) {
 	}
 	var roles []string
 	for _, info := range chain {
-		roles = append(roles, info.Type)
+		roles = append(roles, GetCertType(info.Cert))
 	}
 	if want := []string{TypeLeaf, TypeIntermediate, TypeRoot}; !slices.Equal(roles, want) {
 		t.Fatalf("chain from chain.pem = %v, want %v", roles, want)

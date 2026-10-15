@@ -16,7 +16,7 @@ import (
 
 func TestNewEvaluationContext_Basic(t *testing.T) {
 	root := node.New("root", nil)
-	certInfo := &cert.Info{Type: "leaf"}
+	certInfo := &cert.Info{}
 	chain := []*cert.Info{certInfo}
 
 	ctx := NewEvaluationContext(root, certInfo, chain)
@@ -43,7 +43,7 @@ func TestNewEvaluationContext_Basic(t *testing.T) {
 
 func TestNewEvaluationContext_WithCRLs(t *testing.T) {
 	root := node.New("root", nil)
-	certInfo := &cert.Info{Type: "leaf"}
+	certInfo := &cert.Info{}
 	chain := []*cert.Info{certInfo}
 
 	crls := []*crl.Info{
@@ -63,7 +63,7 @@ func TestNewEvaluationContext_WithCRLs(t *testing.T) {
 
 func TestNewEvaluationContext_WithOCSPs(t *testing.T) {
 	root := node.New("root", nil)
-	certInfo := &cert.Info{Type: "leaf"}
+	certInfo := &cert.Info{}
 	chain := []*cert.Info{certInfo}
 
 	ocsps := []*ocsp.Info{
@@ -92,7 +92,7 @@ func TestNewEvaluationContext_WithOCSPAssessmentPreservesPointer(t *testing.T) {
 
 func TestNewEvaluationContext_MultipleOptions(t *testing.T) {
 	root := node.New("root", nil)
-	certInfo := &cert.Info{Type: "leaf"}
+	certInfo := &cert.Info{}
 	chain := []*cert.Info{certInfo}
 
 	crls := []*crl.Info{{Hash: "crl1"}}

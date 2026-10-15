@@ -55,10 +55,8 @@ func TestAKIMatchesSKINilContext(t *testing.T) {
 func TestSignatureValidRootSelfCheck(t *testing.T) {
 	op := SignatureValid{}
 	ctx := &EvaluationContext{
-		Cert: &cert.Info{
-			Type: "root",
-			Cert: nil,
-		},
+		Input: Input{Kind: "root"},
+		Cert:  &cert.Info{},
 	}
 	got, _ := op.Evaluate(nil, ctx, nil)
 	if got != false {
@@ -69,10 +67,8 @@ func TestSignatureValidRootSelfCheck(t *testing.T) {
 func TestIssuedByChainBoundary(t *testing.T) {
 	op := IssuedBy{}
 	ctx := &EvaluationContext{
-		Cert: &cert.Info{
-			Type: "leaf",
-			Cert: nil,
-		},
+		Input: Input{Kind: "leaf"},
+		Cert:  &cert.Info{},
 		Chain: []*cert.Info{},
 	}
 	got, _ := op.Evaluate(nil, ctx, nil)
@@ -85,10 +81,8 @@ func TestAKIMatchesSKINoAKI(t *testing.T) {
 	op := AKIMatchesSKI{}
 	n := node.New("test", nil)
 	ctx := &EvaluationContext{
-		Cert: &cert.Info{
-			Type: "leaf",
-			Cert: nil,
-		},
+		Input: Input{Kind: "leaf"},
+		Cert:  &cert.Info{},
 	}
 	got, _ := op.Evaluate(n, ctx, nil)
 	if got != false {

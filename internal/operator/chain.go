@@ -19,7 +19,7 @@ func (SignatureValid) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (b
 
 	cert := ctx.Cert.Cert
 
-	if ctx.Cert.Type == certpkg.TypeRoot {
+	if ctx.Input.Kind == certpkg.TypeRoot {
 		err := certpkg.CheckSignatureFrom(cert, cert)
 		return err == nil, nil
 	}
@@ -44,7 +44,7 @@ func (IssuedBy) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (bool, e
 
 	cert := ctx.Cert.Cert
 
-	if ctx.Cert.Type == certpkg.TypeRoot {
+	if ctx.Input.Kind == certpkg.TypeRoot {
 		return certpkg.IsSelfIssued(cert), nil
 	}
 
@@ -73,7 +73,7 @@ func (AKIMatchesSKI) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (bo
 	}
 
 	// Root certificates: AKI should match own SKI (if present)
-	if ctx.Cert.Type == certpkg.TypeRoot {
+	if ctx.Input.Kind == certpkg.TypeRoot {
 		if len(cert.SubjectKeyId) == 0 {
 			return true, nil
 		}

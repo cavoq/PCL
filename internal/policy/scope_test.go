@@ -140,7 +140,7 @@ func TestEvaluateOwnsRuleRoleFiltering(t *testing.T) {
 		t.Fatalf("nil role context verdict = %q, want skip", got)
 	}
 
-	leafContext := operator.NewEvaluationContext(root, &cert.Info{Type: "leaf"}, nil)
+	leafContext := operator.NewEvaluationContext(root, nil, nil, operator.WithInput(operator.Input{Kind: "leaf"}))
 	withRole := Evaluate(policy, root, operator.DefaultRegistry(), leafContext)
 	if got := withRole.Results[0].Verdict; got != rule.VerdictPass {
 		t.Fatalf("leaf role context verdict = %q, want pass", got)
@@ -170,17 +170,17 @@ func TestInputTypeFromContextCoversDeclaredInputs(t *testing.T) {
 	}{
 		{name: "nil defaults to certificate", want: InputCert},
 		{name: "empty defaults to certificate", ctx: &operator.EvaluationContext{}, want: InputCert},
-		{name: "certificate role", ctx: &operator.EvaluationContext{Cert: &cert.Info{Type: "root"}}, want: InputCert},
-		{name: "crl type", ctx: &operator.EvaluationContext{Cert: &cert.Info{Type: InputCRL}}, want: InputCRL},
-		{name: "ocsp type", ctx: &operator.EvaluationContext{Cert: &cert.Info{Type: InputOCSP}}, want: InputOCSP},
-		{name: "tst type", ctx: &operator.EvaluationContext{Cert: &cert.Info{Type: InputTST}}, want: InputTST},
-		{name: "sct type", ctx: &operator.EvaluationContext{Cert: &cert.Info{Type: InputSCT}}, want: InputSCT},
-		{name: "attribute certificate type", ctx: &operator.EvaluationContext{Cert: &cert.Info{Type: InputAttrCert}}, want: InputAttrCert},
+		{name: "certificate role", ctx: &operator.EvaluationContext{Input: operator.Input{Kind: "root"}}, want: InputCert},
+		{name: "crl type", ctx: &operator.EvaluationContext{Input: operator.Input{Kind: InputCRL}}, want: InputCRL},
+		{name: "ocsp type", ctx: &operator.EvaluationContext{Input: operator.Input{Kind: InputOCSP}}, want: InputOCSP},
+		{name: "tst type", ctx: &operator.EvaluationContext{Input: operator.Input{Kind: InputTST}}, want: InputTST},
+		{name: "sct type", ctx: &operator.EvaluationContext{Input: operator.Input{Kind: InputSCT}}, want: InputSCT},
+		{name: "attribute certificate type", ctx: &operator.EvaluationContext{Input: operator.Input{Kind: InputAttrCert}}, want: InputAttrCert},
 		{
 			name: "tree identifies evaluated object",
 			ctx: &operator.EvaluationContext{
-				Root: node.New(node.CRLNamespace, nil),
-				Cert: &cert.Info{Type: "leaf"},
+				Root:  node.New(node.CRLNamespace, nil),
+				Input: operator.Input{Kind: "leaf"},
 			},
 			want: InputCRL,
 		},

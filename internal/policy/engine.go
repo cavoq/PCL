@@ -59,20 +59,16 @@ func Evaluate(
 		}
 	}
 
-	certType := ""
-	certPath := ""
-	source := ""
-	if ctx != nil && ctx.Cert != nil {
-		certType = ctx.Cert.Type
-		certPath = ctx.Cert.FilePath
-		source = ctx.Cert.Source.String()
+	var input operator.Input
+	if ctx != nil {
+		input = ctx.Input
 	}
 
 	return Result{
 		PolicyID:  p.ID,
-		CertType:  certType,
-		CertPath:  certPath,
-		Source:    source,
+		CertType:  input.Kind,
+		CertPath:  input.Path,
+		Source:    input.Source.String(),
 		Results:   results,
 		Verdict:   verdict,
 		CheckedAt: time.Now(),

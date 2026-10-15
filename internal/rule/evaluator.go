@@ -131,8 +131,8 @@ func certTypeMatches(r Rule, ctx *operator.EvaluationContext) bool {
 	if len(r.CertType) == 0 {
 		return true
 	}
-	if ctx == nil || ctx.Cert == nil {
+	if ctx == nil {
 		return false
 	}
-	return slices.Contains(r.CertType, ctx.Cert.Type)
+	return slices.Contains(r.CertType, ctx.Input.Kind)
 }

@@ -87,7 +87,7 @@ func TestOCSP_evaluatesEmbeddedSigningCert(t *testing.T) {
 		Policies: []policy.Policy{pol},
 		Registry: operator.DefaultRegistry(),
 		OCSPs:    []*ocsp.Info{{Response: resp, FilePath: "test.ocsp"}},
-		Chain:    []*cert.Info{{Cert: issuerZ, FilePath: "issuer.pem", Type: "root"}},
+		Chain:    []*cert.Info{{Cert: issuerZ, FilePath: "issuer.pem"}},
 	}
 
 	results := OCSP(ctx)
@@ -125,7 +125,6 @@ func TestOCSPSubjects_keepChainSubjectPositions(t *testing.T) {
 	})
 
 	chain := []*cert.Info{{Cert: leaf.Cert}, {Cert: lower.Cert}, {Cert: upper.Cert}, {Cert: root.Cert}}
-	cert.RebuildChainMetadata(chain)
 	ctx := Context{
 		Registry:       operator.DefaultRegistry(),
 		Chain:          chain,

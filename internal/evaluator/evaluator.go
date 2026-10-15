@@ -55,9 +55,9 @@ type Context struct {
 }
 
 // Subject is one evaluated input: the node tree policies see, the context
-// operators receive, and the policies selected for it.
+// operators receive, and the policies selected for it. Context.Input
+// identifies the input.
 type Subject struct {
-	Info     *cert.Info
 	Tree     *node.Node
 	Context  *operator.EvaluationContext
 	Policies []policy.Policy
@@ -142,7 +142,6 @@ func ChainSubjects(ctx Context) []Subject {
 			operator.WithCRLIssuers(allCRLIssuers),
 		}
 		subjects = append(subjects, Subject{
-			Info:     c,
 			Tree:     tree,
 			Context:  operator.NewEvaluationContext(tree, c, ctx.Chain, evalOpts...),
 			Policies: policy.ByCertificate(ctx.Policies, c.Cert),
@@ -168,20 +167,18 @@ func OCSPSubjects(ctx Context) []Subject {
 			continue
 		}
 
-		ocspCertInfo := &cert.Info{
-			FilePath: ocspInfo.FilePath,
-			Type:     cert.TypeOCSP,
-			Source:   ocspInfo.Source,
-		}
-
 		evalOpts := []operator.ContextOption{
+			operator.WithInput(operator.Input{
+				Kind:   operator.KindOCSP,
+				Path:   ocspInfo.FilePath,
+				Source: ocspInfo.Source,
+			}),
 			operator.WithOCSPs(ctx.OCSPs),
 			operator.WithEvaluationTime(now),
 		}
 		subjects = append(subjects, Subject{
-			Info:     ocspCertInfo,
 			Tree:     tree,
-			Context:  operator.NewEvaluationContext(tree, ocspCertInfo, ctx.Chain, evalOpts...),
+			Context:  operator.NewEvaluationContext(tree, nil, ctx.Chain, evalOpts...),
 			Policies: filteredPolicies,
 		})
 
@@ -213,22 +210,20 @@ func CRLSubjects(ctx Context) []Subject {
 			continue
 		}
 
-		crlCertInfo := &cert.Info{
-			FilePath: crlInfo.FilePath,
-			Type:     cert.TypeCRL,
-			Source:   crlInfo.Source,
-		}
-
 		evalOpts := []operator.ContextOption{
+			operator.WithInput(operator.Input{
+				Kind:   operator.KindCRL,
+				Path:   crlInfo.FilePath,
+				Source: crlInfo.Source,
+			}),
 			operator.WithCRLs(ctx.CRLs),
 			operator.WithCurrentCRL(crlInfo),
 			operator.WithCRLIssuers(issuerCerts),
 			operator.WithEvaluationTime(now),
 		}
 		subjects = append(subjects, Subject{
-			Info:     crlCertInfo,
 			Tree:     tree,
-			Context:  operator.NewEvaluationContext(tree, crlCertInfo, ctx.Chain, evalOpts...),
+			Context:  operator.NewEvaluationContext(tree, nil, ctx.Chain, evalOpts...),
 			Policies: policy.ByCRL(ctx.Policies, crlInfo.CRL),
 		})
 	}
@@ -246,7 +241,6 @@ func ocspSignerSubject(ctx Context, ocspInfo *ocsp.Info, now time.Time) (Subject
 	ocspSignerInfo := &cert.Info{
 		Cert:     zcryptoSignerCert,
 		FilePath: ocspInfo.FilePath + " (signing cert)",
-		Type:     cert.TypeOCSPSigning,
 		Source:   source.Info{Type: source.Extracted, Description: "extracted from OCSP response"},
 	}
 
@@ -273,7 +267,6 @@ func ocspSignerSubject(ctx Context, ocspInfo *ocsp.Info, now time.Time) (Subject
 		operator.WithEvaluationTime(now),
 	}
 	return Subject{
-		Info:     ocspSignerInfo,
 		Tree:     ocspSignerTree,
 		Context:  operator.NewEvaluationContext(ocspSignerTree, ocspSignerInfo, signerChain, evalOpts...),
 		Policies: policy.ByCertificate(ctx.Policies, zcryptoSignerCert),

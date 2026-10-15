@@ -146,19 +146,17 @@ func inputKindFromContext(ctx *operator.EvaluationContext) inputKind {
 		}
 	}
 
-	if ctx.Cert != nil {
-		switch ctx.Cert.Type {
-		case InputCRL:
-			return crlInput
-		case InputOCSP:
-			return ocspInput
-		case InputTST:
-			return tstInput
-		case InputSCT:
-			return sctInput
-		case InputAttrCert:
-			return attrCertInput
-		}
+	switch ctx.Input.Kind {
+	case InputCRL:
+		return crlInput
+	case InputOCSP:
+		return ocspInput
+	case InputTST:
+		return tstInput
+	case InputSCT:
+		return sctInput
+	case InputAttrCert:
+		return attrCertInput
 	}
 
 	// Certificate roles such as leaf, intermediate, root, and ocspSigning all

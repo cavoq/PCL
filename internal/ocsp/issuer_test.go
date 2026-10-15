@@ -37,7 +37,7 @@ func TestBuildSignerEvalChain_usesTLSChainSuffix(t *testing.T) {
 		{Cert: intermediate, FilePath: "intermediate.pem"},
 		{Cert: root, FilePath: "root.pem"},
 	}
-	signerInfo := &cert.Info{Cert: ocspSigner, FilePath: "ocsp.pem (signing cert)", Type: "ocspSigning"}
+	signerInfo := &cert.Info{Cert: ocspSigner, FilePath: "ocsp.pem (signing cert)"}
 
 	got := BuildSignerEvalChain(ocspSigner, signerInfo, tlsChain, 0, 0, nil)
 	if len(got) != 3 {
@@ -50,11 +50,11 @@ func TestBuildSignerEvalChain_usesTLSChainSuffix(t *testing.T) {
 		t.Fatalf("tail = %q -> %q, want intermediate -> root",
 			got[1].Cert.Subject.CommonName, got[2].Cert.Subject.CommonName)
 	}
-	if got[0].Type != "ocspSigning" {
-		t.Fatalf("signer type = %q, want ocspSigning", got[0].Type)
+	if cert.GetCertType(got[0].Cert) != "ocspSigning" {
+		t.Fatalf("signer type = %q, want ocspSigning", cert.GetCertType(got[0].Cert))
 	}
-	if got[1].Type != "intermediate" || got[2].Type != "root" {
-		t.Fatalf("types = %q, %q", got[1].Type, got[2].Type)
+	if cert.GetCertType(got[1].Cert) != "intermediate" || cert.GetCertType(got[2].Cert) != "root" {
+		t.Fatalf("types = %q, %q", cert.GetCertType(got[1].Cert), cert.GetCertType(got[2].Cert))
 	}
 }
 
@@ -141,7 +141,7 @@ func TestResolveSignerIssuerPool_signerAlreadyInChain(t *testing.T) {
 
 func TestBuildSignerEvalChain_noIssuerReturnsResponderOnly(t *testing.T) {
 	signer := testpki.Issue(t, "Orphan OCSP", nil, testpki.Serial(99), testpki.OCSPSigning()).Cert
-	signerInfo := &cert.Info{Cert: signer, FilePath: "ocsp.pem", Type: "ocspSigning"}
+	signerInfo := &cert.Info{Cert: signer, FilePath: "ocsp.pem"}
 	got := BuildSignerEvalChain(signer, signerInfo, nil, 0, 0, nil)
 	if len(got) != 1 || got[0].Cert != signer {
 		t.Fatalf("got %d entries, want responder only", len(got))

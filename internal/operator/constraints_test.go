@@ -26,10 +26,8 @@ func TestPathLenValidNilContext(t *testing.T) {
 func TestPathLenValidNilCert(t *testing.T) {
 	op := PathLenValid{}
 	ctx := &EvaluationContext{
-		Cert: &cert.Info{
-			Type: "root",
-			Cert: nil,
-		},
+		Input: Input{Kind: "root"},
+		Cert:  &cert.Info{},
 	}
 	got, err := op.Evaluate(nil, ctx, nil)
 	if err != nil {
