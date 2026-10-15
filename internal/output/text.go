@@ -292,12 +292,26 @@ func resultDetailParts(result rule.Result) []string {
 	if result.Message != "" {
 		parts = append(parts, result.Message)
 	}
-	if result.Details != "" && result.Details != result.Message {
-		parts = append(parts, result.Details)
+	// Findings that agree with the verdict explain it. A rule's own
+	// explanation is one finding; domain evidence such as a path has many,
+	// so only its failures are listed and a pass is counted.
+	var matching []finding.Finding
+	for _, explanation := range result.Findings {
+		if explanation.Status == finding.Status(result.Verdict) &&
+			explanation.Message != "" && explanation.Message != result.Message {
+			matching = append(matching, explanation)
+		}
 	}
-	for _, reported := range result.Findings {
-		if reported.Status == finding.StatusFail {
-			parts = append(parts, reported.Code+": "+reported.Message)
+	switch {
+	case len(result.Findings) == 1:
+		for _, explanation := range matching {
+			parts = append(parts, explanation.Message)
+		}
+	case result.Verdict == rule.VerdictPass && len(matching) > 0:
+		parts = append(parts, fmt.Sprintf("%d findings passed", len(matching)))
+	default:
+		for _, explanation := range matching {
+			parts = append(parts, explanation.Code+": "+explanation.Message)
 		}
 	}
 	return parts

@@ -2,7 +2,6 @@ package rule
 
 import (
 	"fmt"
-	"strings"
 	"testing"
 	"time"
 
@@ -138,9 +137,10 @@ func TestRuleEvaluationExplainsEveryVerdict(t *testing.T) {
 		Operator: "in",
 		Operands: []any{"1.2.3", "1.2.4"},
 	}, reg, ctx)
-	if passed.Verdict != VerdictPass || passed.Details != "actual: 1.2.3; allowed: [1.2.3, 1.2.4]" {
+	if passed.Verdict != VerdictPass {
 		t.Fatalf("passing result = %#v", passed)
 	}
+	wantFinding(t, passed, "in", "actual: 1.2.3; allowed: [1.2.3, 1.2.4]")
 
 	failed := Evaluate(root, Rule{
 		ID:       "missing",
@@ -149,10 +149,10 @@ func TestRuleEvaluationExplainsEveryVerdict(t *testing.T) {
 		Operands: []any{true},
 		Message:  "the required capability is absent",
 	}, reg, ctx)
-	if failed.Verdict != VerdictFail || failed.Message != "the required capability is absent" ||
-		failed.Details != "actual: absent; expected: true" {
+	if failed.Verdict != VerdictFail || failed.Message != "the required capability is absent" {
 		t.Fatalf("failing result = %#v", failed)
 	}
+	wantFinding(t, failed, "eq", "actual: absent; expected: true")
 
 	skippedType := Evaluate(root, Rule{
 		ID:       "ca-only",
@@ -161,10 +161,10 @@ func TestRuleEvaluationExplainsEveryVerdict(t *testing.T) {
 		Operands: []any{true},
 		CertType: []string{"intermediate", "root"},
 	}, reg, ctx)
-	if skippedType.Verdict != VerdictSkip ||
-		!strings.Contains(skippedType.Details, "not applicable to certificate type leaf") {
+	if skippedType.Verdict != VerdictSkip {
 		t.Fatalf("certificate-type skip = %#v", skippedType)
 	}
+	wantFinding(t, skippedType, CodeCertificateType, "not applicable to certificate type leaf; applies to: intermediate, root")
 
 	skippedCondition := Evaluate(root, Rule{
 		ID:       "conditional",
@@ -177,10 +177,10 @@ func TestRuleEvaluationExplainsEveryVerdict(t *testing.T) {
 			Operands: []any{"9.9.9"},
 		},
 	}, reg, ctx)
-	if skippedCondition.Verdict != VerdictSkip || skippedCondition.Details !=
-		"condition not met: actual: 1.2.3; expected: 9.9.9" {
+	if skippedCondition.Verdict != VerdictSkip {
 		t.Fatalf("conditional skip = %#v", skippedCondition)
 	}
+	wantFinding(t, skippedCondition, CodeCondition, "condition not met: actual: 1.2.3; expected: 9.9.9")
 
 	validity := node.New("validity", nil)
 	validity.Children["notBefore"] = node.New("notBefore", time.Date(2026, 5, 26, 0, 0, 0, 0, time.UTC))
@@ -193,11 +193,10 @@ func TestRuleEvaluationExplainsEveryVerdict(t *testing.T) {
 		Operator: "dateDiff",
 		Operands: map[string]any{"start": "notBefore", "end": "notAfter", "maxMonths": 36},
 	}, reg, ctx)
-	if date.Verdict != VerdictFail ||
-		!strings.Contains(date.Details, "actual: 2026-05-26T00:00:00Z to 2124-05-26T00:00:00Z") ||
-		!strings.Contains(date.Details, `"maxMonths":36`) {
+	if date.Verdict != VerdictFail {
 		t.Fatalf("date result = %#v", date)
 	}
+	wantFinding(t, date, "dateDiff", `actual: 2026-05-26T00:00:00Z to 2124-05-26T00:00:00Z; limits: {"end":"notAfter","maxMonths":36,"start":"notBefore"}`)
 }
 
 func TestRuleEvaluationWithReference(t *testing.T) {
@@ -235,6 +234,7 @@ func TestRuleEvaluationMissingTargetUsesInputNamespace(t *testing.T) {
 		name        string
 		target      string
 		want        string
+		wantCode    string
 		wantDetails string
 	}{
 		{name: "missing applicable certificate field fails", target: "certificate.missing", want: VerdictFail},
@@ -242,6 +242,7 @@ func TestRuleEvaluationMissingTargetUsesInputNamespace(t *testing.T) {
 			name:        "unavailable CRL input skips",
 			target:      "crl.missing",
 			want:        VerdictSkip,
+			wantCode:    CodeInputUnavailable,
 			wantDetails: "input unavailable; actual: absent; expected: true",
 		},
 	}
@@ -256,8 +257,8 @@ func TestRuleEvaluationMissingTargetUsesInputNamespace(t *testing.T) {
 			if result.Verdict != tt.want {
 				t.Fatalf("verdict = %s, want %s", result.Verdict, tt.want)
 			}
-			if tt.wantDetails != "" && result.Details != tt.wantDetails {
-				t.Fatalf("details = %q, want %q", result.Details, tt.wantDetails)
+			if tt.wantCode != "" {
+				wantFinding(t, result, tt.wantCode, tt.wantDetails)
 			}
 		})
 	}
@@ -287,8 +288,19 @@ func TestEvaluateAttachesReportedFindings(t *testing.T) {
 		if len(result.Findings) != 1 || result.Findings[0].Code != "reported.subject" {
 			t.Fatalf("pass=%v: findings = %#v, want the operator's findings for the resolved target", pass, result.Findings)
 		}
-		if plain := Evaluate(root, Rule{ID: "plain", Target: "subject", Operator: "present"}, reg, nil); plain.Findings != nil {
-			t.Fatalf("operator without findings reported %#v", plain.Findings)
-		}
+		plain := Evaluate(root, Rule{ID: "plain", Target: "subject", Operator: "present"}, reg, nil)
+		wantFinding(t, plain, "present", "actual: present; expected: present")
+	}
+}
+
+// wantFinding checks that result is explained by exactly one rule finding.
+func wantFinding(t *testing.T, result Result, code, message string) {
+	t.Helper()
+	if len(result.Findings) != 1 {
+		t.Fatalf("findings = %#v, want one", result.Findings)
+	}
+	got := result.Findings[0]
+	if got.Code != code || string(got.Status) != result.Verdict || got.CertificateIndex != -1 || got.Message != message {
+		t.Fatalf("finding = %#v, want code %q, status %q, message %q", got, code, result.Verdict, message)
 	}
 }

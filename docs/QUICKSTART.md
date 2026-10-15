@@ -175,7 +175,7 @@ accepted. See the [node model](NODE_MODEL.md) for representation contracts.
 | `-v` | Failed and passed rules |
 | `-vv` | Failed, passed, and skipped rules; acquisition diagnostics |
 | `--details` | Wrapped explanations under displayed text rows |
-| `--output json` / `--output yaml` | Structured results, including details for displayed rules |
+| `--output json` / `--output yaml` | Structured results, including findings for displayed rules |
 
 Verbosity also filters JSON/YAML rule lists. Use `-v` for passing path findings
 or `-vv` for the complete rule list. `--details` affects text formatting only.

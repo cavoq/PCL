@@ -96,7 +96,7 @@ and acquisition controls.
 | Default | Show failed rules |
 | `-v` / `-vv` | Include passed / passed and skipped rules |
 | `--details` | Show explanations beneath text rows |
-| `--output json` or `yaml` | Structured details for displayed rules |
+| `--output json` or `yaml` | Structured findings for displayed rules |
 | `--fail-on error` | Exit nonzero on failed error-severity rules |
 
 Run errors always exit nonzero. Completed runs default to `--fail-on none`,

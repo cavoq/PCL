@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/cavoq/PCL/internal/operator"
 )
 
 // TestDomainPackagesDoNotDependOnNodeProjections keeps domain decisions on
@@ -94,5 +96,37 @@ func TestCertificatesParseThroughCertparse(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+	}
+}
+
+// TestRuleEvaluationNamesNoOperator keeps operator semantics, including how an
+// evaluation is explained, inside the operators.
+func TestRuleEvaluationNamesNoOperator(t *testing.T) {
+	names := make(map[string]bool)
+	for _, name := range operator.DefaultRegistry().Names() {
+		names[name] = true
+	}
+	files, err := filepath.Glob(filepath.Join("..", "internal", "rule", "*.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, file := range files {
+		if strings.HasSuffix(file, "_test.go") {
+			continue
+		}
+		parsed, err := parser.ParseFile(token.NewFileSet(), file, nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ast.Inspect(parsed, func(n ast.Node) bool {
+			literal, ok := n.(*ast.BasicLit)
+			if !ok || literal.Kind != token.STRING {
+				return true
+			}
+			if value, err := strconv.Unquote(literal.Value); err == nil && names[value] {
+				t.Errorf("%s names operator %q", file, value)
+			}
+			return true
+		})
 	}
 }

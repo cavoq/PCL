@@ -55,13 +55,7 @@ func Evaluate(
 
 	for _, r := range p.Rules {
 		if !RuleAppliesToInput(r, inputType) {
-			results = append(results, rule.Result{
-				RuleID:    r.ID,
-				Reference: r.Reference,
-				Verdict:   rule.VerdictSkip,
-				Severity:  r.Severity,
-				Details:   "not applicable to input type " + inputType,
-			})
+			results = append(results, rule.Skipped(r, rule.CodeInputType, "not applicable to input type "+inputType))
 			continue
 		}
 

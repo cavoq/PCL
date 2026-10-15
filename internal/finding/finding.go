@@ -13,7 +13,8 @@ const (
 )
 
 // Finding is one structured validation decision. CertificateIndex uses
-// target-to-anchor ordering and is -1 for path-wide findings.
+// target-to-anchor ordering and is -1 for findings about no single position,
+// such as path-wide or rule findings.
 type Finding struct {
 	Code               string         `json:"code" yaml:"code"`
 	Reference          string         `json:"reference,omitempty" yaml:"reference,omitempty"`

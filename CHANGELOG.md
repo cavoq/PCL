@@ -47,8 +47,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   checks, executable evidence, and limits; the README is a short entry point.
 - PCL is presented as a policy-driven PKI conformance engine to reflect its
   certificate, chain, CRL, OCSP, policy-testing, and standards-evidence scope.
+- Rule results explain their verdict only through `findings`. The `details`
+  string is gone: its text is now the message of a finding whose code names
+  the operator, and skipped rules carry a `rule.*` finding stating why.
+  Operators describe their own evaluations. Text `--details` is unchanged
+  except that path decisions list failed findings or count passed ones.
 
 ### Migration notes
+- JSON/YAML consumers that read a rule's `details` read
+  `findings[].message` instead; codes are listed in the node model's result
+  format section.
 - Policies without metadata remain valid. Packs using the new `metadata`
   field require a binary/schema from this version or later; older strict
   parsers reject that field.

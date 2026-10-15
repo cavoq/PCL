@@ -148,7 +148,8 @@ func TestChainProjectsExplicitPathValidation(t *testing.T) {
 		PathRevocation: pathpkg.RevocationNone,
 	})
 	if expired[0].Results[0].Verdict != rule.VerdictFail ||
-		!strings.Contains(expired[0].Results[0].Details, "path.validity") {
+		len(expired[0].Results[0].Findings) != 1 ||
+		!strings.Contains(expired[0].Results[0].Findings[0].Message, "path.validity") {
 		t.Fatalf("expired path result = %#v", expired[0].Results[0])
 	}
 }

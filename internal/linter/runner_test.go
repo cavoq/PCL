@@ -737,12 +737,13 @@ func TestRunProjectsExplicitPathValidation(t *testing.T) {
 	intermediatePath := writePEMCert(t, dir, "intermediate.pem", intermediate.DER)
 	rootPath := writePEMCert(t, dir, "root.pem", root.DER)
 
-	// Findings follow the operator that decided the rule, not the spelling of
-	// its target.
+	// Path findings follow the operator that decided the rule, not the
+	// spelling of its target. Other operators explain themselves in one
+	// finding named after the operator.
 	tests := []struct {
-		name         string
-		rule         string
-		wantFindings bool
+		name             string
+		rule             string
+		wantPathFindings bool
 	}{
 		{
 			name: "pathValid with qualified targets",
@@ -752,7 +753,7 @@ func TestRunProjectsExplicitPathValidation(t *testing.T) {
     target: certificate
     operator: pathValid
 `,
-			wantFindings: true,
+			wantPathFindings: true,
 		},
 		{
 			name: "pathValid with unqualified targets",
@@ -762,7 +763,7 @@ func TestRunProjectsExplicitPathValidation(t *testing.T) {
     target: subject
     operator: pathValid
 `,
-			wantFindings: true,
+			wantPathFindings: true,
 		},
 		{
 			name: "node operator on the path projection",
@@ -803,8 +804,11 @@ func TestRunProjectsExplicitPathValidation(t *testing.T) {
 				t.Fatalf("path validation results = %#v", results)
 			}
 			got := results[0].Results[0]
-			if got.Verdict != rule.VerdictPass || (len(got.Findings) > 0) != test.wantFindings {
-				t.Fatalf("result = %#v, want pass with findings %v", got, test.wantFindings)
+			pathFindings := len(got.Findings) > 1 && strings.HasPrefix(got.Findings[0].Code, "path.")
+			explained := len(got.Findings) == 1 && got.Findings[0].Code == "eq"
+			if got.Verdict != rule.VerdictPass || pathFindings != test.wantPathFindings ||
+				explained == test.wantPathFindings {
+				t.Fatalf("result = %#v, want pass with path findings %v", got, test.wantPathFindings)
 			}
 		})
 	}

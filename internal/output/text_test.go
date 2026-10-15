@@ -120,12 +120,16 @@ func TestWriteRulesTable_EmptyWithCounts(t *testing.T) {
 
 func TestWriteRulesTable_WithResults(t *testing.T) {
 	results := []rule.Result{
-		{RuleID: "rule-1", Verdict: rule.VerdictPass, Details: "actual: 42; expected: 42"},
+		{RuleID: "rule-1", Verdict: rule.VerdictPass, Findings: []finding.Finding{
+			{Code: "eq", Status: finding.StatusPass, Message: "actual: 42; expected: 42"},
+		}},
 		{
 			RuleID:  "rule-2",
 			Verdict: rule.VerdictFail,
 			Message: "failed check",
-			Details: "actual: absent; expected: true",
+			Findings: []finding.Finding{
+				{Code: "eq", Status: finding.StatusFail, Message: "actual: absent; expected: true"},
+			},
 		},
 	}
 
@@ -378,23 +382,45 @@ func TestTextFormatterCountsHiddenRules(t *testing.T) {
 	}
 }
 
-func TestWriteRulesTableDetailsListFailedFindings(t *testing.T) {
-	results := []rule.Result{{
-		RuleID:  "certification-path-valid",
-		Verdict: rule.VerdictFail,
-		Details: "check failed: pathValid",
-		Findings: []finding.Finding{
-			{Code: "path.trust-anchor", Status: finding.StatusPass, Message: "anchored"},
-			{Code: "path.signature", Status: finding.StatusFail, Message: "certificate signature is invalid"},
-		},
-	}}
-
-	var buf bytes.Buffer
-	if err := writeRulesTable(&buf, palette(false), results, 1, true); err != nil {
-		t.Fatal(err)
+func TestWriteRulesTableDetailsExplainFindings(t *testing.T) {
+	pathFindings := []finding.Finding{
+		{Code: "path.trust-anchor", Status: finding.StatusPass, Message: "the path is anchored"},
+		{Code: "path.validity", Status: finding.StatusPass, Message: "certificate is valid"},
+		{Code: "path.signature", Status: finding.StatusFail, Message: "certificate signature is invalid"},
 	}
-	if got := buf.String(); !strings.Contains(got, "└─ path.signature: certificate signature is invalid") ||
-		strings.Contains(got, "path.trust-anchor") {
-		t.Fatalf("details should list only failed findings:\n%s", got)
+	tests := []struct {
+		name   string
+		result rule.Result
+		want   string
+	}{
+		{
+			name: "single explanation",
+			result: rule.Result{Verdict: rule.VerdictSkip, Findings: []finding.Finding{
+				{Code: rule.CodeCondition, Status: finding.StatusSkip, Message: "condition not met"},
+			}},
+			want: "└─ condition not met",
+		},
+		{
+			name:   "failed domain findings",
+			result: rule.Result{Verdict: rule.VerdictFail, Findings: pathFindings},
+			want:   "└─ path.signature: certificate signature is invalid",
+		},
+		{
+			name:   "passed domain findings",
+			result: rule.Result{Verdict: rule.VerdictPass, Findings: pathFindings[:2]},
+			want:   "└─ 2 findings passed",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			test.result.RuleID = "rule"
+			if err := writeRulesTable(&buf, palette(false), []rule.Result{test.result}, 1, true); err != nil {
+				t.Fatal(err)
+			}
+			if got := buf.String(); !strings.Contains(got, test.want) || strings.Count(got, "─ ") != 1 {
+				t.Fatalf("details should be only %q:\n%s", test.want, got)
+			}
+		})
 	}
 }

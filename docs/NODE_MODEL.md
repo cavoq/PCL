@@ -325,8 +325,8 @@ set. Adding an OID alias does not authorize processing.
 ## Result format
 
 Text output shows verdict, severity, rule ID, and reference. `--details` adds
-wrapped explanations. JSON and YAML retain structured details for displayed
-rules; verbosity still filters the rule list.
+wrapped explanations. JSON and YAML carry each displayed rule's findings;
+verbosity still filters the rule list.
 
 | Field | Meaning |
 |---|---|
@@ -335,5 +335,20 @@ rules; verbosity still filters the rule list.
 | `checked_at` | Result creation time |
 | `rules` | Emitted rule results, filtered by verbosity |
 
+Each rule result has `rule_id`, `reference`, `verdict`, `severity`, an optional
+`message` from the policy or an evaluation error, and `findings` that explain
+the verdict. Every finding has `code`, `status`, `certificate_index`, and
+`message`; domain findings may add `reference`, `certificate_subject`, and
+structured `details`.
+
+| Finding code | Meaning |
+|---|---|
+| Operator name, such as `eq` or `dateDiff` | What the operator observed and required; `certificate_index` is `-1` |
+| `path.*` | The path engine's findings, reported by `pathValid` |
+| `rule.certificate-type` | Skipped: the rule's `certType` excludes the input |
+| `rule.input-type` | Skipped: the rule does not apply to this input type |
+| `rule.condition` | Skipped: the `when` condition was not met |
+| `rule.input-unavailable` | Skipped: the target's input namespace was not supplied |
+
 See [output controls](QUICKSTART.md#output-and-exit-status) for verbosity and
-exit-status behavior. Path findings are attached to the aggregate rule result.
+exit-status behavior.

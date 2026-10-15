@@ -10,6 +10,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/cavoq/PCL/internal/finding"
 	"github.com/cavoq/PCL/internal/policy"
 	"github.com/cavoq/PCL/internal/rule"
 )
@@ -62,8 +63,8 @@ func TestStructuredFormatters(t *testing.T) {
 			if len(results) != 1 {
 				t.Errorf("expected 1 result, got %d", len(results))
 			}
-			if got := results[0].Results[0].Details; got != "actual: 1; expected: 1" {
-				t.Errorf("details = %q", got)
+			if got := results[0].Results[0].Findings; len(got) != 1 || got[0].Message != "actual: 1; expected: 1" {
+				t.Errorf("findings = %#v", got)
 			}
 		})
 	}
@@ -120,7 +121,10 @@ func createTestOutput() LintOutput {
 						RuleID:   "r1",
 						Verdict:  rule.VerdictPass,
 						Severity: "error",
-						Details:  "actual: 1; expected: 1",
+						Findings: []finding.Finding{{
+							Code: "eq", Status: finding.StatusPass, CertificateIndex: -1,
+							Message: "actual: 1; expected: 1",
+						}},
 					},
 					{RuleID: "r2", Verdict: rule.VerdictFail, Severity: "error"},
 				},
