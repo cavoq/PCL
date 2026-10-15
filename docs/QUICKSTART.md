@@ -28,7 +28,15 @@ be self-signed.
 
 Purpose: apply certificate and CRL profile rules without an explicit trust decision.
 
-Inputs: a certificate, a policy, and issuer certificates for issuer-dependent checks.
+Inputs: a certificate and policy; provide the chain together or supply issuers separately.
+
+Leaf and chain certificates in one directory:
+
+```bash
+pcl --policy policies/RFC5280.yaml --cert chain/ --details
+```
+
+Leaf and issuer candidates in separate locations:
 
 ```bash
 pcl --policy policies/RFC5280.yaml --cert leaf.pem --issuer issuers/ --details
@@ -45,6 +53,16 @@ Failure behavior: missing or invalid evidence can fail dependent rules. Use
 Purpose: validate one constructed path against a caller-selected trust set.
 
 Inputs: a target, issuer candidates, trusted certificates, and revocation evidence.
+
+Acquire issuers and revocation evidence automatically; only the target and
+explicit trust anchors need to be local:
+
+```bash
+pcl --policy policies/RFC5280.yaml --cert leaf.pem --trust-anchor roots/ \
+  --auto-validate --path-revocation required --fail-on error --details
+```
+
+Use local chain and CRL evidence instead:
 
 ```bash
 pcl --policy policies/RFC5280.yaml \
@@ -77,6 +95,22 @@ Purpose: retrieve missing issuers, CRLs, and OCSP responses before evaluation.
 
 Inputs: a target certificate, policies, network access, and local trust anchors
 if an explicit path decision is wanted.
+
+Start with just the leaf:
+
+```bash
+pcl --policy policies/RFC5280.yaml --cert leaf.pem --auto-validate
+```
+
+`--issuer` is optional: PCL follows advertised CA Issuers URLs. If those URLs
+are absent or unreachable, add `--issuer issuers/` or supply the available
+chain with `--cert chain/`. Automatic acquisition also works with that directory:
+
+```bash
+pcl --policy policies/RFC5280.yaml --cert chain/ --auto-validate -v --details
+```
+
+Combine policies for a TLS server profile:
 
 ```bash
 pcl --policy policies/TR03116-TLS-SERVER.yaml \
@@ -122,7 +156,8 @@ Purpose: discover the exact paths and values available to profile rules.
 Inputs: the same profile inputs as a lint run; no policy is needed.
 
 ```bash
-pcl inspect --cert leaf.pem --issuer issuers/ --paths
+pcl inspect --cert chain/ --paths
+pcl inspect --cert leaf.pem --auto-validate --paths
 pcl inspect --crl list.crl --output json
 ```
 

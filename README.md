@@ -30,28 +30,62 @@ go build -o pcl ./cmd/pcl
 
 ## 🚀 Quick Start
 
-Check a certificate profile:
+**Start with just a leaf certificate** — automatically acquire issuers and
+revocation evidence:
+
+```bash
+pcl --policy policies/RFC5280.yaml --cert leaf.pem --auto-validate
+```
+
+No `--issuer` is needed when the certificates advertise reachable CA Issuers
+URLs. If an issuer cannot be acquired, supply it locally.
+
+**Use a chain directory** containing the leaf, intermediates, and root:
+
+```bash
+pcl --policy policies/RFC5280.yaml --cert chain/ --details
+```
+
+Add `--auto-validate` to acquire missing issuers and revocation evidence.
+The directory supplies one chain, not a batch of unrelated leaf certificates.
+
+**Keep the leaf and issuers separate** for a run using local inputs:
 
 ```bash
 pcl --policy policies/RFC5280.yaml --cert leaf.pem --issuer issuers/ --details
 ```
 
-Validate a path against explicit trust, acquiring missing evidence:
+**Check a live TLS endpoint** — replace the example URL with your server:
 
 ```bash
-pcl --policy policies/RFC5280.yaml --cert leaf.pem --issuer intermediates/ \
-  --trust-anchor roots/ --auto-validate --path-revocation required --fail-on error
+pcl --policy policies/RFC5280.yaml --cert-url https://example.test --auto-validate
 ```
 
-Discover paths for writing a policy:
+**Validate against explicit trust** while acquiring issuers and revocation evidence:
 
 ```bash
-pcl inspect --cert leaf.pem --issuer issuers/ --paths
+pcl --policy policies/RFC5280.yaml --cert leaf.pem --auto-validate \
+  --trust-anchor roots/ --path-revocation required --fail-on error
+```
+
+**Save structured results**, including passed and skipped rules:
+
+```bash
+pcl --policy policies/RFC5280.yaml --cert chain/ --output json -vv > results.json
+```
+
+**Discover paths for writing a policy**, using a local chain or automatic acquisition:
+
+```bash
+pcl inspect --cert chain/ --paths
+pcl inspect --cert leaf.pem --auto-validate --paths
 ```
 
 `--cert`, `--issuer`, and `--trust-anchor` accept files or directories.
 Issuer candidates supply chain data; trust anchors state what you trust.
 A root supplied only as an issuer is not automatically trusted.
+See [Run PCL](docs/QUICKSTART.md) for combined policies, local CRL/OCSP evidence,
+and acquisition controls.
 
 ---
 
