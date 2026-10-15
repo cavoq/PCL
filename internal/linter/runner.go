@@ -18,7 +18,6 @@ import (
 	"github.com/cavoq/PCL/internal/policy"
 	"github.com/cavoq/PCL/internal/rule"
 	"github.com/cavoq/PCL/internal/source"
-	"github.com/cavoq/PCL/internal/x509node"
 )
 
 func Run(cfg Config, w io.Writer) error {
@@ -174,11 +173,8 @@ func discoverSignerIssuers(cfg Config, inputs lintInputs, w io.Writer) []*cert.I
 		}
 	}
 	for _, ocspInfo := range inputs.ocsps {
-		if ocspInfo == nil || ocspInfo.Response == nil || ocspInfo.Response.Certificate == nil {
-			continue
-		}
-		signer, err := x509node.FromStdCert(ocspInfo.Response.Certificate)
-		if err != nil {
+		signer, err := ocspInfo.ResponderCertificate()
+		if err != nil || signer == nil {
 			continue
 		}
 		for _, info := range ocsp.DiscoverSignerIssuers(signer, inputs.chain, cfg.CertTimeout, cfg.MaxChainDepth, w) {

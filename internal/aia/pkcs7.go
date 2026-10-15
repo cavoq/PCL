@@ -1,11 +1,9 @@
 package aia
 
 import (
-	certstd "crypto/x509"
 	"encoding/asn1"
 	"fmt"
 
-	"github.com/cavoq/PCL/internal/x509node"
 	"github.com/zmap/zcrypto/x509"
 )
 
@@ -135,14 +133,7 @@ func parseCertificateSet(data []byte) ([]*x509.Certificate, error) {
 
 		cert, err := x509.ParseCertificate(certRaw.FullBytes)
 		if err != nil {
-			stdCert, stdErr := certstd.ParseCertificate(certRaw.FullBytes)
-			if stdErr != nil {
-				return nil, fmt.Errorf("failed to parse certificate: %w", err)
-			}
-			cert, err = x509node.FromStdCert(stdCert)
-			if err != nil {
-				return nil, fmt.Errorf("failed to convert certificate: %w", err)
-			}
+			return nil, fmt.Errorf("failed to parse certificate: %w", err)
 		}
 
 		certs = append(certs, cert)

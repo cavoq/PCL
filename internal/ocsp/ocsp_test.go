@@ -2,6 +2,7 @@ package ocsp
 
 import (
 	"bytes"
+	"math/big"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	xocsp "golang.org/x/crypto/ocsp"
 
 	"github.com/cavoq/PCL/internal/source"
+	"github.com/cavoq/PCL/internal/testpki"
 )
 
 func TestParseOCSP_Invalid(t *testing.T) {
@@ -142,5 +144,31 @@ func TestGetOCSPs_ReportsSkippedFiles(t *testing.T) {
 	}
 	if !strings.Contains(diagnostics.String(), "Warning: skipped "+filepath.Join(dir, "broken.ocsp")) {
 		t.Fatalf("diagnostics = %q, want a warning for broken.ocsp", diagnostics.String())
+	}
+}
+
+func TestResponderCertificate(t *testing.T) {
+	issuer := testpki.Issue(t, "Issuer", nil, testpki.CA())
+	responder := testpki.Issue(t, "Responder", issuer, testpki.Serial(2), testpki.OCSPSigning())
+	withCertificate := testpki.OCSPResponse(t, issuer, responder, xocsp.Response{
+		Status:       xocsp.Good,
+		SerialNumber: big.NewInt(3),
+		ThisUpdate:   testpki.NotBefore,
+		Certificate:  responder.Std,
+	})
+	withoutCertificate := testpki.OCSPResponse(t, issuer, issuer, xocsp.Response{
+		Status:       xocsp.Good,
+		SerialNumber: big.NewInt(3),
+		ThisUpdate:   testpki.NotBefore,
+	})
+
+	got, err := (&Info{Response: withCertificate}).ResponderCertificate()
+	if err != nil || got == nil || got.Subject.CommonName != "Responder" {
+		t.Fatalf("ResponderCertificate() = %v, %v; want the embedded responder", got, err)
+	}
+	for _, info := range []*Info{nil, {}, {Response: withoutCertificate}} {
+		if got, err := info.ResponderCertificate(); got != nil || err != nil {
+			t.Fatalf("ResponderCertificate() without an embedded certificate = %v, %v", got, err)
+		}
 	}
 }

@@ -10,16 +10,6 @@ import (
 	"github.com/zmap/zcrypto/x509/pkix"
 )
 
-func TestToStdCert_Nil(t *testing.T) {
-	cert, err := ToStdCert(nil)
-	if err != nil {
-		t.Errorf("unexpected error for nil cert: %v", err)
-	}
-	if cert != nil {
-		t.Error("expected nil result for nil input")
-	}
-}
-
 func TestBuildPkixName_Empty(t *testing.T) {
 	name := pkix.Name{}
 	node := BuildPkixName("subject", name)

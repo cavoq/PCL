@@ -13,7 +13,6 @@ import (
 	"github.com/cavoq/PCL/internal/operator"
 	"github.com/cavoq/PCL/internal/policy"
 	"github.com/cavoq/PCL/internal/source"
-	"github.com/cavoq/PCL/internal/x509node"
 	"github.com/zmap/zcrypto/x509"
 )
 
@@ -222,7 +221,7 @@ func CRLSubjects(ctx Context) []Subject {
 }
 
 func ocspSignerSubject(ctx Context, ocspInfo *ocsp.Info, now time.Time) (Subject, bool) {
-	zcryptoSignerCert, err := x509node.FromStdCert(ocspInfo.Response.Certificate)
+	zcryptoSignerCert, err := ocspInfo.ResponderCertificate()
 	if err != nil || zcryptoSignerCert == nil {
 		return Subject{}, false
 	}

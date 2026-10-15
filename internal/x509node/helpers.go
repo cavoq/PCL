@@ -1,32 +1,16 @@
 // Package x509node projects X.509 structures (names, extensions, algorithm
 // identifiers, general names) into node trees shared by the certificate, CRL
-// and OCSP builders, and converts between crypto/x509 and zcrypto certificates.
+// and OCSP builders.
 package x509node
 
 import (
-	stdx509 "crypto/x509"
 	stdpkix "crypto/x509/pkix"
 
-	zx509 "github.com/zmap/zcrypto/x509"
 	zpkix "github.com/zmap/zcrypto/x509/pkix"
 
 	"github.com/cavoq/PCL/internal/node"
 	"github.com/cavoq/PCL/internal/oid"
 )
-
-func ToStdCert(cert *zx509.Certificate) (*stdx509.Certificate, error) {
-	if cert == nil {
-		return nil, nil
-	}
-	return stdx509.ParseCertificate(cert.Raw)
-}
-
-func FromStdCert(cert *stdx509.Certificate) (*zx509.Certificate, error) {
-	if cert == nil {
-		return nil, nil
-	}
-	return zx509.ParseCertificate(cert.Raw)
-}
 
 type extensionFacts struct {
 	oid      string

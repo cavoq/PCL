@@ -3,10 +3,12 @@ package ocsp
 
 import (
 	"crypto/sha256"
+	"crypto/x509"
 	"encoding/hex"
 	"fmt"
 	"io"
 
+	zx509 "github.com/zmap/zcrypto/x509"
 	"golang.org/x/crypto/ocsp"
 
 	"github.com/cavoq/PCL/internal/source"
@@ -22,6 +24,24 @@ type Info struct {
 
 	// Request debug info (populated when auto-fetching)
 	RequestInfo *RequestInfo
+}
+
+// ResponderCertificate returns the responder certificate embedded in the
+// response, parsed by zcrypto, or nil when there is none.
+func (info *Info) ResponderCertificate() (*zx509.Certificate, error) {
+	if info == nil || info.Response == nil || info.Response.Certificate == nil {
+		return nil, nil
+	}
+	return zx509.ParseCertificate(info.Response.Certificate.Raw)
+}
+
+// standardCertificate parses a zcrypto certificate with crypto/x509, which
+// golang.org/x/crypto/ocsp works with.
+func standardCertificate(certificate *zx509.Certificate) (*x509.Certificate, error) {
+	if certificate == nil {
+		return nil, nil
+	}
+	return x509.ParseCertificate(certificate.Raw)
 }
 
 // ParseOCSP parses a single DER or PEM OCSP response.

@@ -8,7 +8,6 @@ import (
 
 	"github.com/cavoq/PCL/internal/cert"
 	"github.com/cavoq/PCL/internal/httpfetch"
-	"github.com/cavoq/PCL/internal/x509node"
 	"golang.org/x/crypto/ocsp"
 )
 
@@ -93,11 +92,11 @@ func fetchForPair(c, issuer *cert.Info, timeout time.Duration, nonceOpts *NonceO
 		return nil, fmt.Errorf("issuer certificate is required for OCSP request")
 	}
 
-	stdCert, err := x509node.ToStdCert(c.Cert)
+	stdCert, err := standardCertificate(c.Cert)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert certificate to standard format: %w", err)
 	}
-	stdIssuer, err := x509node.ToStdCert(issuer.Cert)
+	stdIssuer, err := standardCertificate(issuer.Cert)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert issuer certificate to standard format: %w", err)
 	}
