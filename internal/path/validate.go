@@ -12,11 +12,9 @@ import (
 	"github.com/zmap/zcrypto/x509"
 
 	"github.com/cavoq/PCL/internal/cert"
-	"github.com/cavoq/PCL/internal/certnode"
 	"github.com/cavoq/PCL/internal/finding"
-	"github.com/cavoq/PCL/internal/oid"
 	"github.com/cavoq/PCL/internal/x509asn1"
-	"github.com/cavoq/PCL/internal/x509node"
+	"github.com/cavoq/PCL/internal/x509ext"
 )
 
 // FindingStatus is retained as the path-domain name for a shared finding
@@ -316,10 +314,7 @@ func validateValidity(result *Result, index int, certificate *x509.Certificate, 
 }
 
 func validateCriticalExtensions(result *Result, index int, certificate *x509.Certificate) {
-	valid := certificate != nil && x509node.CriticalExtensionsProcessable(
-		certnode.BuildTree(certificate),
-		oid.ExtensionInCertificate,
-	)
+	valid := certificate != nil && x509ext.CertificateCriticalExtensionsProcessable(certificate.Extensions)
 	result.add(certificateFinding(
 		"path.critical-extensions", "RFC5280 6.1.3(a)(4), 6.1.4", index, certificate, valid,
 		"all critical certificate extensions are processed",

@@ -110,3 +110,20 @@ func TestProcessedExtensionRegistryStableSets(t *testing.T) {
 		t.Fatalf("processed extension sets = %#v, want %#v", got, want)
 	}
 }
+
+func TestProcessedExtensionsAtListsExactLocation(t *testing.T) {
+	got := ProcessedExtensionsAt(ExtensionInCRLEntry)
+	want := []string{CRLReason, CertificateIssuer, InvalidityDate}
+	sort.Strings(want)
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("ProcessedExtensionsAt(CRL entry) = %v, want %v", got, want)
+	}
+	for _, identifier := range ProcessedExtensionsAt(ExtensionInCertificate) {
+		if !ExtensionProcessableAt(identifier, ExtensionInCertificate) {
+			t.Errorf("listed certificate extension %q is not processable", identifier)
+		}
+	}
+	if combined := ProcessedExtensionsAt(ExtensionInCertificate | ExtensionInCRL); len(combined) != 0 {
+		t.Fatalf("combined locations listed %v", combined)
+	}
+}

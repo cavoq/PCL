@@ -1,5 +1,7 @@
 package oid
 
+import "slices"
+
 // processedExtensionDefinition records extension support implemented by PCL.
 // It is deliberately separate from extensionCatalog: knowing an RFC-defined
 // identifier and its legal location is not evidence that PCL processes its
@@ -70,4 +72,15 @@ func ExtensionProcessableAt(identifier string, location ExtensionLocation) bool 
 	}
 	_, ok = identifiers[identifier]
 	return ok
+}
+
+// ProcessedExtensionsAt returns the identifiers registered as processable at
+// the exact signed-object location, sorted.
+func ProcessedExtensionsAt(location ExtensionLocation) []string {
+	identifiers := make([]string, 0, len(processedExtensionsByLocation[location]))
+	for identifier := range processedExtensionsByLocation[location] {
+		identifiers = append(identifiers, identifier)
+	}
+	slices.Sort(identifiers)
+	return identifiers
 }

@@ -54,6 +54,10 @@ Raw DER is authoritative for encoding-sensitive checks. Strict decoders retain
 malformed/presence facts; node builders expose them for policies. A successfully
 decoded extension is not automatically processable as a critical extension.
 The location-specific registry only authorizes implemented semantics.
+`x509ext` decides certificate critical-extension processability for path
+validation; certificate node markers come from the same decoders, so
+`noUnknownCriticalExtensions` reaches the same verdict on the tree. `path` and
+`operator` never import node builders.
 
 Keep reusable decoding in the shared parsing layer, representation in node
 builders, and cross-certificate decisions in their domain. See the
