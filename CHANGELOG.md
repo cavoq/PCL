@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `--fail-on error|warning|info|none` makes `pcl` exit with status 1 after
+  writing the results when a rule of that severity or higher failed. The
+  default, `none`, keeps the exit status independent of the results.
 - NIST PKITS 1.0.1 conformance suite in the integration tests (224 tests,
   247 runs); 240 of the 244 runs PCL can express reach the PKITS result.
 - `nameConstraintsValid` enforces directoryName constraints on the subject

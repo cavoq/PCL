@@ -3,6 +3,7 @@ package linter
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"time"
 
@@ -27,7 +28,11 @@ type Config struct {
 	Verbosity      int
 	ShowMeta       bool
 	// Color marks text results with ANSI colors.
-	Color       bool
+	Color bool
+	// FailOn is the lowest severity of a failed rule that makes Run return
+	// an error after writing the results: error, warning or info. Empty or
+	// FailOnNone never fails the run.
+	FailOn      string
 	Diagnostics io.Writer // Optional warning/debug stream, separate from formatted results.
 
 	// ApplicationPurpose is the explicit RFC 5280 extended-key-usage purpose
@@ -56,6 +61,9 @@ type Config struct {
 func (cfg Config) Validate() error {
 	if len(cfg.PolicyPaths) == 0 {
 		return errors.New("at least one policy path is required")
+	}
+	if _, ok := failOnRanks[cfg.FailOn]; !ok {
+		return fmt.Errorf("unknown --fail-on severity %q: use error, warning, info or none", cfg.FailOn)
 	}
 	return cfg.validateInputs()
 }

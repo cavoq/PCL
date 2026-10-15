@@ -858,3 +858,57 @@ func TestInvalidOCSPRequestOptionsAreRejected(t *testing.T) {
 		}
 	}
 }
+
+func TestRunFailOn(t *testing.T) {
+	dir := t.TempDir()
+	policyPath := filepath.Join(dir, "policy.yaml")
+	err := os.WriteFile(policyPath, []byte(`id: fail-on
+version: "1"
+rules:
+  - id: version-is-two
+    target: certificate.version
+    operator: eq
+    operands: [2]
+    severity: warning
+  - id: version-is-three
+    target: certificate.version
+    operator: eq
+    operands: [3]
+    severity: error
+`), 0o644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		failOn  string
+		wantErr string
+	}{
+		{failOn: ""},
+		{failOn: FailOnNone},
+		{failOn: rule.SeverityError},
+		{failOn: rule.SeverityWarning, wantErr: "1 failed rule(s) with severity warning or higher"},
+		{failOn: rule.SeverityInfo, wantErr: "1 failed rule(s) with severity info or higher"},
+		{failOn: "critical", wantErr: `unknown --fail-on severity "critical"`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.failOn, func(t *testing.T) {
+			var out bytes.Buffer
+			err := Run(Config{
+				PolicyPaths: []string{policyPath},
+				CertPath:    filepath.Join("..", "..", "tests", "certs", "leaf.pem"),
+				OutputFmt:   output.FormatJSON,
+				FailOn:      tt.failOn,
+			}, &out)
+			if tt.wantErr == "" && err != nil {
+				t.Fatalf("Run() = %v", err)
+			}
+			if tt.wantErr != "" && (err == nil || !strings.HasPrefix(err.Error(), tt.wantErr)) {
+				t.Fatalf("Run() = %v, want %q", err, tt.wantErr)
+			}
+			if tt.failOn != "critical" && !json.Valid(out.Bytes()) {
+				t.Fatalf("results were not written before the run failed:\n%s", out.String())
+			}
+		})
+	}
+}

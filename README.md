@@ -26,6 +26,16 @@ pcl schema                          # print the policy JSON Schema for editors
 
 By default, only failed rules are shown. Use `-v` to include passed rules and `-vv` to include skipped rules.
 
+`pcl` exits with status 1 when it cannot complete the run. Failed rules do not
+change the exit status unless `--fail-on` names a severity: with
+`--fail-on error`, any failed rule of severity `error` makes `pcl` exit with
+status 1 after writing the results; `warning` and `info` also count failed rules
+of those and higher severities. This makes `pcl` usable as a CI gate:
+
+```bash
+pcl --policy policies/RFC5280.yaml --cert leaf.pem --fail-on error
+```
+
 Use `--purpose serverAuth` (or another supported friendly EKU name or dotted
 OID) to activate RFC 5280 application-purpose evaluation. The shipped rule
 checks EKU across the supplied certificate chain and compatible end-entity Key

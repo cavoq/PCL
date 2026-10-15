@@ -14,6 +14,7 @@ import (
 	"github.com/cavoq/PCL/internal/operator"
 	"github.com/cavoq/PCL/internal/output"
 	"github.com/cavoq/PCL/internal/policy"
+	"github.com/cavoq/PCL/internal/rule"
 )
 
 func Run(cfg Config, w io.Writer) error {
@@ -44,7 +45,44 @@ func Run(cfg Config, w io.Writer) error {
 		return fmt.Errorf("no loaded policy applies to the supplied input")
 	}
 
-	return outputResults(cfg, results, w)
+	if err := outputResults(cfg, results, w); err != nil {
+		return err
+	}
+	if failed := failedRulesAtOrAbove(results, cfg.FailOn); failed > 0 {
+		return fmt.Errorf("%d failed rule(s) with severity %s or higher", failed, cfg.FailOn)
+	}
+	return nil
+}
+
+// FailOnNone is the FailOn value that never fails a run on its results.
+const FailOnNone = "none"
+
+// failOnRanks orders the FailOn thresholds; rule severities share the ranks.
+// Zero never fails a run.
+var failOnRanks = map[string]int{
+	"":                   0,
+	FailOnNone:           0,
+	rule.SeverityInfo:    1,
+	rule.SeverityWarning: 2,
+	rule.SeverityError:   3,
+}
+
+// failedRulesAtOrAbove counts the failed rules whose severity ranks at or
+// above threshold.
+func failedRulesAtOrAbove(results []policy.Result, threshold string) int {
+	minimum := failOnRanks[threshold]
+	if minimum == 0 {
+		return 0
+	}
+	failed := 0
+	for _, result := range results {
+		for _, ruleResult := range result.Results {
+			if ruleResult.Verdict == rule.VerdictFail && failOnRanks[ruleResult.Severity] >= minimum {
+				failed++
+			}
+		}
+	}
+	return failed
 }
 
 // lintInputs is everything a run evaluates, after loading, chain building
