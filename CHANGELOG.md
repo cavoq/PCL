@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   policy inputs: the path must satisfy its own requireExplicitPolicy,
   inhibitPolicyMapping and inhibitAnyPolicy constraints.
 
+### Changed
+- Building PCL requires Go 1.26. golang.org/x/crypto, x/net and x/text are
+  updated to versions that fix their published security advisories.
+
 ### Fixed
 - The chain is built from the certificates passed with `--cert`. A
   certificate whose issuer was missing used to be skipped silently while a
