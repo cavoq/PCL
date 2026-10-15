@@ -18,23 +18,18 @@ func (SignatureValid) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (b
 	}
 
 	cert := ctx.Cert.Cert
-	position := ctx.Cert.Position
 
 	if ctx.Cert.Type == certpkg.TypeRoot {
 		err := certpkg.CheckSignatureFrom(cert, cert)
 		return err == nil, nil
 	}
 
-	if position+1 >= len(ctx.Chain) {
+	issuer, ok := ctx.ChainIssuer()
+	if !ok {
 		return false, nil
 	}
 
-	issuer := ctx.Chain[position+1]
-	if issuer == nil || issuer.Cert == nil {
-		return false, nil
-	}
-
-	err := certpkg.CheckSignatureFrom(cert, issuer.Cert)
+	err := certpkg.CheckSignatureFrom(cert, issuer)
 	return err == nil, nil
 }
 
@@ -48,22 +43,17 @@ func (IssuedBy) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (bool, e
 	}
 
 	cert := ctx.Cert.Cert
-	position := ctx.Cert.Position
 
 	if ctx.Cert.Type == certpkg.TypeRoot {
 		return certpkg.IsSelfIssued(cert), nil
 	}
 
-	if position+1 >= len(ctx.Chain) {
+	issuer, ok := ctx.ChainIssuer()
+	if !ok {
 		return false, nil
 	}
 
-	issuer := ctx.Chain[position+1]
-	if issuer == nil || issuer.Cert == nil {
-		return false, nil
-	}
-
-	return x509asn1.NamesMatchOrText(cert.RawIssuer, issuer.Cert.RawSubject, cert.Issuer.String(), issuer.Cert.Subject.String()), nil
+	return x509asn1.NamesMatchOrText(cert.RawIssuer, issuer.RawSubject, cert.Issuer.String(), issuer.Subject.String()), nil
 }
 
 type AKIMatchesSKI struct{}
@@ -76,7 +66,6 @@ func (AKIMatchesSKI) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (bo
 	}
 
 	cert := ctx.Cert.Cert
-	position := ctx.Cert.Position
 
 	// If no AKI, this check doesn't apply
 	if len(cert.AuthorityKeyId) == 0 {
@@ -92,19 +81,15 @@ func (AKIMatchesSKI) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (bo
 	}
 
 	// For other certificates, check against issuer's SKI
-	if position+1 >= len(ctx.Chain) {
-		return false, nil
-	}
-
-	issuer := ctx.Chain[position+1]
-	if issuer == nil || issuer.Cert == nil {
+	issuer, ok := ctx.ChainIssuer()
+	if !ok {
 		return false, nil
 	}
 
 	// If issuer has no SKI, we can't verify
-	if len(issuer.Cert.SubjectKeyId) == 0 {
+	if len(issuer.SubjectKeyId) == 0 {
 		return true, nil
 	}
 
-	return bytes.Equal(cert.AuthorityKeyId, issuer.Cert.SubjectKeyId), nil
+	return bytes.Equal(cert.AuthorityKeyId, issuer.SubjectKeyId), nil
 }

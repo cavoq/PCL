@@ -176,7 +176,9 @@ func TestIndexInInfoChain_sameSerialDifferentIssuer(t *testing.T) {
 	}
 }
 
-func TestBuildSignerEvalChain_keepsTLSChainPositions(t *testing.T) {
+// The signer chain continues with the part of the certificate chain above
+// the responder's issuer.
+func TestBuildSignerEvalChain_sharesUpperChain(t *testing.T) {
 	root := testpki.Issue(t, "Root", nil, testpki.CA())
 	upper := testpki.Issue(t, "Upper Intermediate", root, testpki.CA(), testpki.Serial(2))
 	lower := testpki.Issue(t, "Lower Intermediate", upper, testpki.CA(), testpki.Serial(3))
@@ -184,17 +186,11 @@ func TestBuildSignerEvalChain_keepsTLSChainPositions(t *testing.T) {
 	responder := testpki.Issue(t, "OCSP", upper, testpki.Serial(5), testpki.OCSPSigning())
 
 	tlsChain := []*cert.Info{{Cert: leaf.Cert}, {Cert: lower.Cert}, {Cert: upper.Cert}, {Cert: root.Cert}}
-	cert.RebuildChainMetadata(tlsChain)
 	signerInfo := &cert.Info{Cert: responder.Cert}
 
 	got := BuildSignerEvalChain(responder.Cert, signerInfo, tlsChain, 0, 0, nil)
-	if len(got) != 3 || got[1].Cert != upper.Cert || got[1].Position != 1 {
-		t.Fatalf("signer chain = %d certificates, issuer at position %d; want 3 with the issuer at 1", len(got), got[1].Position)
-	}
-	for i, info := range tlsChain {
-		if info.Position != i {
-			t.Errorf("TLS chain certificate %d has position %d after building the signer chain", i, info.Position)
-		}
+	if len(got) != 3 || got[0] != signerInfo || got[1].Cert != upper.Cert || got[2].Cert != root.Cert {
+		t.Fatalf("signer chain = %d certificates, want responder, upper intermediate, root", len(got))
 	}
 }
 

@@ -16,7 +16,6 @@ type Info struct {
 	Cert     *x509.Certificate
 	FilePath string
 	Hash     string
-	Position int
 	Type     string
 	Source   source.Info
 }

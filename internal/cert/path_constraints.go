@@ -18,7 +18,7 @@ func PathLenConstraintValid(current *Info, chain []*Info) bool {
 		return false
 	}
 
-	position, ok := certificatePosition(current, chain)
+	position, ok := ChainIndex(current, chain)
 	if !ok {
 		return false
 	}
@@ -69,11 +69,10 @@ func IsSelfIssued(certificate *x509.Certificate) bool {
 	)
 }
 
-func certificatePosition(current *Info, chain []*Info) (int, bool) {
-	position := current.Position
-	if position >= 0 && position < len(chain) && sameCertificateInfo(current, chain[position]) {
-		return position, true
-	}
+// ChainIndex returns the position of current in chain, the target at 0 and
+// its issuers after it. Positions belong to a chain, not to a certificate:
+// the same certificate can sit at different positions in different chains.
+func ChainIndex(current *Info, chain []*Info) (int, bool) {
 	for index, candidate := range chain {
 		if sameCertificateInfo(current, candidate) {
 			return index, true

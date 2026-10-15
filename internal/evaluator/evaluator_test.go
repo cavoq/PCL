@@ -68,9 +68,8 @@ func TestContextDefaults(t *testing.T) {
 
 func TestChainProjectsAndPropagatesApplicationPurpose(t *testing.T) {
 	certificate := &cert.Info{
-		Cert:     &x509.Certificate{},
-		Type:     "leaf",
-		Position: 0,
+		Cert: &x509.Certificate{},
+		Type: "leaf",
 	}
 	profile := policy.Policy{
 		ID: "application-purpose",
@@ -117,9 +116,8 @@ func TestProjectApplicationPurposeOmitsAbsentInput(t *testing.T) {
 
 func TestChainProjectsExplicitUnknownRevocationWithoutAttachingACRL(t *testing.T) {
 	certificate := &cert.Info{
-		Cert:     &x509.Certificate{SerialNumber: big.NewInt(42)},
-		Type:     "leaf",
-		Position: 0,
+		Cert: &x509.Certificate{SerialNumber: big.NewInt(42)},
+		Type: "leaf",
 	}
 	profile := policy.Policy{
 		ID: "revocation-projection",

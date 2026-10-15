@@ -98,11 +98,11 @@ func TestNameConstraintsValidChains(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			chain := []*cert.Info{{Cert: tt.leaf, Position: 0}}
-			for index, ca := range tt.cas {
-				chain = append(chain, &cert.Info{Cert: ca, Position: index + 1})
+			chain := []*cert.Info{{Cert: tt.leaf}}
+			for _, ca := range tt.cas {
+				chain = append(chain, &cert.Info{Cert: ca})
 			}
-			ctx := &EvaluationContext{Cert: &cert.Info{Cert: tt.leaf, Position: 0}, Chain: chain}
+			ctx := &EvaluationContext{Cert: &cert.Info{Cert: tt.leaf}, Chain: chain}
 			got, err := NameConstraintsValid{}.Evaluate(nil, ctx, nil)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)

@@ -149,7 +149,6 @@ func ClimbChainWithPool(chain, pool []*Info, timeout time.Duration, maxDepth int
 				warnf(w, "Warning: circular certificate detected at %s\n", parent.FilePath)
 				break
 			}
-			parent.Position = len(result)
 			parent.Type = GetCertType(parent.Cert)
 			result = append(result, parent)
 			continue
@@ -173,7 +172,6 @@ func ClimbChainWithPool(chain, pool []*Info, timeout time.Duration, maxDepth int
 			Cert:     issuerCert,
 			FilePath: url,
 			Type:     GetCertType(issuerCert),
-			Position: len(result),
 			Source:   sourceInfo,
 		})
 	}
@@ -206,8 +204,7 @@ func findSigningParentInPool(child *x509.Certificate, pool []*Info, seen *Certif
 }
 
 func RebuildChainMetadata(chain []*Info) {
-	for i, c := range chain {
-		c.Position = i
+	for _, c := range chain {
 		c.Type = GetCertType(c.Cert)
 	}
 }

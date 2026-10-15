@@ -51,16 +51,14 @@ func TestDeterministicApplicationPurposeVectors(t *testing.T) {
 
 func TestDeterministicPathLengthVectors(t *testing.T) {
 	leaf := &cert.Info{
-		Position: 0,
-		Type:     "leaf",
+		Type: "leaf",
 		Cert: &x509.Certificate{
 			Subject: pkix.Name{CommonName: "Leaf"},
 			Issuer:  pkix.Name{CommonName: "Intermediate"},
 		},
 	}
 	intermediate := &cert.Info{
-		Position: 1,
-		Type:     "intermediate",
+		Type: "intermediate",
 		Cert: &x509.Certificate{
 			Subject:               pkix.Name{CommonName: "Intermediate"},
 			Issuer:                pkix.Name{CommonName: "Root"},
@@ -69,8 +67,7 @@ func TestDeterministicPathLengthVectors(t *testing.T) {
 		},
 	}
 	root := &cert.Info{
-		Position: 2,
-		Type:     "root",
+		Type: "root",
 		Cert: &x509.Certificate{
 			Subject:               pkix.Name{CommonName: "Root"},
 			Issuer:                pkix.Name{CommonName: "Root"},

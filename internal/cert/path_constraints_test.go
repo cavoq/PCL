@@ -11,15 +11,14 @@ import (
 )
 
 func TestPathLenConstraintValidCountsNonSelfIssuedIntermediates(t *testing.T) {
-	leaf := &Info{Cert: &x509.Certificate{Subject: pkix.Name{CommonName: "leaf"}}, Position: 0}
+	leaf := &Info{Cert: &x509.Certificate{Subject: pkix.Name{CommonName: "leaf"}}}
 	intermediate := &Info{Cert: &x509.Certificate{
 		Subject: pkix.Name{CommonName: "intermediate"},
 		Issuer:  pkix.Name{CommonName: "root"},
-	}, Position: 1}
+	}}
 
 	t.Run("root zero rejects one intermediate", func(t *testing.T) {
 		root := constrainedCA(0, true)
-		root.Position = 2
 		chain := []*Info{leaf, intermediate, root}
 		if PathLenConstraintValid(root, chain) {
 			t.Fatal("root pathLenConstraint=0 accepted a non-self-issued intermediate")
@@ -28,7 +27,6 @@ func TestPathLenConstraintValidCountsNonSelfIssuedIntermediates(t *testing.T) {
 
 	t.Run("root one accepts one intermediate", func(t *testing.T) {
 		root := constrainedCA(1, false)
-		root.Position = 2
 		chain := []*Info{leaf, intermediate, root}
 		if !PathLenConstraintValid(root, chain) {
 			t.Fatal("root pathLenConstraint=1 rejected one non-self-issued intermediate")
@@ -39,9 +37,8 @@ func TestPathLenConstraintValidCountsNonSelfIssuedIntermediates(t *testing.T) {
 		selfIssued := &Info{Cert: &x509.Certificate{
 			Subject: pkix.Name{CommonName: "rollover"},
 			Issuer:  pkix.Name{CommonName: "rollover"},
-		}, Position: 1}
+		}}
 		root := constrainedCA(0, true)
-		root.Position = 2
 		chain := []*Info{leaf, selfIssued, root}
 		if !PathLenConstraintValid(root, chain) {
 			t.Fatal("self-issued intermediate consumed path length")
@@ -53,9 +50,8 @@ func TestPathLenConstraintValidCountsNonSelfIssuedIntermediates(t *testing.T) {
 			BasicConstraintsValid: true,
 			IsCA:                  true,
 			Subject:               pkix.Name{CommonName: "target CA"},
-		}, Position: 0}
+		}}
 		root := constrainedCA(0, true)
-		root.Position = 1
 		if !PathLenConstraintValid(root, []*Info{target, root}) {
 			t.Fatal("target certificate incorrectly consumed path length")
 		}
@@ -63,7 +59,7 @@ func TestPathLenConstraintValidCountsNonSelfIssuedIntermediates(t *testing.T) {
 }
 
 func TestPathLenConstraintValidBoundaries(t *testing.T) {
-	certificate := &Info{Cert: &x509.Certificate{}, Position: 0}
+	certificate := &Info{Cert: &x509.Certificate{}}
 	if PathLenConstraintValid(nil, []*Info{certificate}) {
 		t.Fatal("nil current certificate passed")
 	}
@@ -93,11 +89,11 @@ func TestPathLenConstraintValidAcceptsStrictCounterBeyondNativeInt(t *testing.T)
 	basicConstraints := extensionForCertificateTest(oid.BasicConstraints)
 	basicConstraints.Value = builder.BytesOrPanic()
 
-	leaf := &Info{Cert: &x509.Certificate{Subject: pkix.Name{CommonName: "leaf"}}, Position: 0}
+	leaf := &Info{Cert: &x509.Certificate{Subject: pkix.Name{CommonName: "leaf"}}}
 	intermediate := &Info{Cert: &x509.Certificate{
 		Subject: pkix.Name{CommonName: "intermediate"},
 		Issuer:  pkix.Name{CommonName: "root"},
-	}, Position: 1}
+	}}
 	root := &Info{Cert: &x509.Certificate{
 		Subject:  pkix.Name{CommonName: "root"},
 		Issuer:   pkix.Name{CommonName: "root"},
@@ -106,7 +102,7 @@ func TestPathLenConstraintValidAcceptsStrictCounterBeyondNativeInt(t *testing.T)
 			basicConstraints,
 			extensionForCertificateTest(oid.KeyUsage),
 		},
-	}, Position: 2}
+	}}
 
 	if !BasicConstraintsDependenciesValid(root.Cert) {
 		t.Fatal("strict large pathLenConstraint dependencies failed")

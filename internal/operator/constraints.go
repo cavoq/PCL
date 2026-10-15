@@ -59,9 +59,10 @@ func (SerialNumberUnique) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any
 	}
 
 	serialStr := cert.SerialNumber.String()
+	position, inChain := ctx.ChainPosition()
 
 	for i, other := range ctx.Chain {
-		if i == ctx.Cert.Position {
+		if inChain && i == position {
 			continue
 		}
 		if other == nil || other.Cert == nil || other.Cert.SerialNumber == nil {

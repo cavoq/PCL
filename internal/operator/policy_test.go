@@ -448,8 +448,8 @@ func withPolicyExtension(certificate *x509.Certificate, identifier string, value
 // policyChainContext evaluates the first certificate of a leaf-first chain.
 func policyChainContext(chain ...*x509.Certificate) *EvaluationContext {
 	infos := make([]*cert.Info, 0, len(chain))
-	for position, certificate := range chain {
-		infos = append(infos, &cert.Info{Cert: certificate, Position: position})
+	for _, certificate := range chain {
+		infos = append(infos, &cert.Info{Cert: certificate})
 	}
 	return &EvaluationContext{Cert: infos[0], Chain: infos}
 }

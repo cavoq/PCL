@@ -165,8 +165,8 @@ func TestBuildChain_Positions(t *testing.T) {
 	}
 
 	for i, c := range chain {
-		if c.Position != i {
-			t.Errorf("cert %d: expected position %d, got %d", i, i, c.Position)
+		if position, ok := ChainIndex(c, chain); !ok || position != i {
+			t.Errorf("cert %d: ChainIndex = %d, %v", i, position, ok)
 		}
 	}
 }

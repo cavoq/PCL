@@ -37,6 +37,29 @@ func (ctx *EvaluationContext) HasCert() bool {
 	return ctx != nil && ctx.Cert != nil && ctx.Cert.Cert != nil
 }
 
+// ChainPosition returns the position of the evaluated certificate in
+// Chain.
+func (ctx *EvaluationContext) ChainPosition() (int, bool) {
+	if !ctx.HasCert() {
+		return 0, false
+	}
+	return cert.ChainIndex(ctx.Cert, ctx.Chain)
+}
+
+// ChainIssuer returns the certificate after the evaluated one in Chain,
+// which issued it.
+func (ctx *EvaluationContext) ChainIssuer() (*x509.Certificate, bool) {
+	position, ok := ctx.ChainPosition()
+	if !ok || position+1 >= len(ctx.Chain) {
+		return nil, false
+	}
+	issuer := ctx.Chain[position+1]
+	if issuer == nil || issuer.Cert == nil {
+		return nil, false
+	}
+	return issuer.Cert, true
+}
+
 func (ctx *EvaluationContext) HasChain() bool {
 	return ctx != nil && len(ctx.Chain) > 0
 }

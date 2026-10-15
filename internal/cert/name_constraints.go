@@ -22,7 +22,7 @@ func NameConstraintsValid(current *Info, chain []*Info) bool {
 	if current == nil || current.Cert == nil || len(chain) == 0 {
 		return false
 	}
-	position, ok := certificatePosition(current, chain)
+	position, ok := ChainIndex(current, chain)
 	if !ok {
 		return false
 	}

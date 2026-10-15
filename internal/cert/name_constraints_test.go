@@ -64,8 +64,8 @@ func TestNameConstraintsValidSupportedNameForms(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			current := &Info{Cert: test.certificate, Position: 0}
-			chain := []*Info{current, {Cert: issuer, Position: 1}}
+			current := &Info{Cert: test.certificate}
+			chain := []*Info{current, {Cert: issuer}}
 			if got := NameConstraintsValid(current, chain); got != test.want {
 				t.Fatalf("NameConstraintsValid() = %v, want %v", got, test.want)
 			}
@@ -74,14 +74,14 @@ func TestNameConstraintsValidSupportedNameForms(t *testing.T) {
 }
 
 func TestNameConstraintsValidIntersectsPermittedAndUnionsExcluded(t *testing.T) {
-	leaf := &Info{Cert: &x509.Certificate{DNSNames: []string{"www.sub.example.test"}}, Position: 0}
+	leaf := &Info{Cert: &x509.Certificate{DNSNames: []string{"www.sub.example.test"}}}
 	intermediate := &Info{Cert: &x509.Certificate{
 		PermittedDNSNames: []x509.GeneralSubtreeString{{Data: ".sub.example.test"}},
-	}, Position: 1}
+	}}
 	root := &Info{Cert: &x509.Certificate{
 		PermittedDNSNames: []x509.GeneralSubtreeString{{Data: ".example.test"}},
 		ExcludedDNSNames:  []x509.GeneralSubtreeString{{Data: ".blocked.example.test"}},
-	}, Position: 2}
+	}}
 	chain := []*Info{leaf, intermediate, root}
 	if !NameConstraintsValid(leaf, chain) {
 		t.Fatal("name inside both permitted sets failed")
@@ -101,10 +101,10 @@ func TestNameConstraintsValidIntersectsPermittedAndUnionsExcluded(t *testing.T) 
 func TestNameConstraintsValidConstrainsSubjectEmailWhenSANAbsent(t *testing.T) {
 	issuer := &Info{Cert: &x509.Certificate{
 		ExcludedEmailAddresses: []x509.GeneralSubtreeString{{Data: ".example.test"}},
-	}, Position: 1}
+	}}
 	leaf := &Info{Cert: &x509.Certificate{
 		Subject: pkix.Name{EmailAddress: []string{"user@blocked.example.test"}},
-	}, Position: 0}
+	}}
 
 	if NameConstraintsValid(leaf, []*Info{leaf, issuer}) {
 		t.Fatal("excluded subject-DN email passed when SAN was absent")
@@ -119,7 +119,7 @@ func TestNameConstraintsValidConstrainsSubjectEmailWhenSANAbsent(t *testing.T) {
 func TestNameConstraintsValidSelfIssuedExemption(t *testing.T) {
 	root := &Info{Cert: &x509.Certificate{
 		PermittedDNSNames: []x509.GeneralSubtreeString{{Data: ".example.test"}},
-	}, Position: 2}
+	}}
 	rollover := &Info{Cert: &x509.Certificate{
 		Subject:  pkix.Name{CommonName: "rollover"},
 		Issuer:   pkix.Name{CommonName: "rollover"},
@@ -127,8 +127,8 @@ func TestNameConstraintsValidSelfIssuedExemption(t *testing.T) {
 		PermittedDNSNames: []x509.GeneralSubtreeString{
 			{Data: ".example.test"},
 		},
-	}, Position: 1}
-	leaf := &Info{Cert: &x509.Certificate{DNSNames: []string{"www.example.test"}}, Position: 0}
+	}}
+	leaf := &Info{Cert: &x509.Certificate{DNSNames: []string{"www.example.test"}}}
 	chain := []*Info{leaf, rollover, root}
 
 	if !NameConstraintsValid(rollover, chain) {
@@ -146,7 +146,7 @@ func TestNameConstraintsValidSelfIssuedExemption(t *testing.T) {
 		Subject:  pkix.Name{CommonName: "target"},
 		Issuer:   pkix.Name{CommonName: "target"},
 		DNSNames: []string{"outside.other.test"},
-	}, Position: 0}
+	}}
 	if NameConstraintsValid(selfIssuedTarget, []*Info{selfIssuedTarget, root}) {
 		t.Fatal("self-issued final target incorrectly received the exemption")
 	}
@@ -175,11 +175,11 @@ func TestNameConstraintsValidRejectsDuplicateExtensionsRegardlessOfOrder(t *test
 		{nameConstraints, malformedNameConstraints},
 		{malformedNameConstraints, nameConstraints},
 	} {
-		leaf := &Info{Cert: &x509.Certificate{DNSNames: []string{"www.example.test"}}, Position: 0}
+		leaf := &Info{Cert: &x509.Certificate{DNSNames: []string{"www.example.test"}}}
 		issuer := &Info{Cert: &x509.Certificate{
 			Extensions:        extensions,
 			PermittedDNSNames: []x509.GeneralSubtreeString{{Data: ".example.test"}},
-		}, Position: 1}
+		}}
 		if NameConstraintsValid(leaf, []*Info{leaf, issuer}) {
 			t.Fatalf("extension order %d accepted duplicate issuer NameConstraints", index)
 		}
@@ -192,7 +192,7 @@ func TestNameConstraintsValidRejectsDuplicateExtensionsRegardlessOfOrder(t *test
 		{firstSubjectAlternativeName, secondSubjectAlternativeName},
 		{secondSubjectAlternativeName, firstSubjectAlternativeName},
 	} {
-		leaf := &Info{Cert: &x509.Certificate{Extensions: extensions}, Position: 0}
+		leaf := &Info{Cert: &x509.Certificate{Extensions: extensions}}
 		if NameConstraintsValid(leaf, []*Info{leaf}) {
 			t.Fatalf("extension order %d accepted duplicate SubjectAlternativeName", index)
 		}
