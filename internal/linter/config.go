@@ -16,8 +16,7 @@ type Config struct {
 	CertURLs    []string
 	CertTimeout time.Duration
 	CertSaveDir string
-	IssuerPath  string   // Single issuer path (backward compatible)
-	IssuerPaths []string // Multiple issuer paths
+	IssuerPaths []string
 	IssuerURLs  []string
 	CRLPath     string
 	OCSPPath    string

@@ -397,9 +397,6 @@ func crlRevocationRequested(cfg Config) bool {
 }
 
 func applyDefaults(cfg *Config) {
-	if cfg.IssuerPath != "" && !containsString(cfg.IssuerPaths, cfg.IssuerPath) {
-		cfg.IssuerPaths = append([]string{cfg.IssuerPath}, cfg.IssuerPaths...)
-	}
 	if cfg.CertTimeout <= 0 {
 		cfg.CertTimeout = 10 * time.Second
 	}
@@ -416,15 +413,6 @@ func applyDefaults(cfg *Config) {
 			cfg.MaxChainDepth = 10
 		}
 	}
-}
-
-func containsString(values []string, target string) bool {
-	for _, value := range values {
-		if value == target {
-			return true
-		}
-	}
-	return false
 }
 
 func isDirectory(path string) (bool, error) {

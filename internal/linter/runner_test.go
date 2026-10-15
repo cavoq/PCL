@@ -413,24 +413,6 @@ func TestLoadIssuersIfProvided(t *testing.T) {
 	}
 }
 
-func TestApplyDefaults_normalizesLegacyIssuerPath(t *testing.T) {
-	cfg := Config{
-		IssuerPath:  "legacy.pem",
-		IssuerPaths: []string{"other.pem"},
-	}
-	applyDefaults(&cfg)
-
-	want := []string{"legacy.pem", "other.pem"}
-	if len(cfg.IssuerPaths) != len(want) {
-		t.Fatalf("IssuerPaths = %v, want %v", cfg.IssuerPaths, want)
-	}
-	for i := range want {
-		if cfg.IssuerPaths[i] != want[i] {
-			t.Fatalf("IssuerPaths = %v, want %v", cfg.IssuerPaths, want)
-		}
-	}
-}
-
 func TestCleanupStack_closesInReverseOrderOnce(t *testing.T) {
 	var got []int
 	var cleanups cleanupStack
