@@ -245,8 +245,9 @@ func restoreCertificateRepresentation(certificate *x509.Certificate, original ce
 			return fmt.Errorf("rewritten DSA key has type %T", certificate.PublicKey)
 		}
 		// Explicit zero values cannot pass zcrypto's strict DSA parser, making
-		// this an unambiguous marker until BuildChainFor supplies the issuer's
-		// parameters. They also make dsa.Verify fail safely instead of panic.
+		// this an unambiguous marker until ResolveInheritedDSAParameters
+		// supplies the issuer's parameters. They also make dsa.Verify fail
+		// safely instead of panic.
 		publicKey.Parameters = dsa.Parameters{P: new(big.Int), Q: new(big.Int), G: new(big.Int)}
 	}
 

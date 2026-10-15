@@ -66,8 +66,6 @@ func BuildChain(certs []*Info) ([]*Info, error) {
 // rollover and separate CRL-signing certificates with equal names do not
 // replace each other.
 func BuildChainFor(targets, pool []*Info) ([]*Info, error) {
-	ResolveInheritedDSAParameters(targets, pool)
-
 	var longest []*Info
 	for _, target := range targets {
 		if target == nil || target.Cert == nil {
@@ -93,22 +91,24 @@ func BuildChainFor(targets, pool []*Info) ([]*Info, error) {
 	return longest, nil
 }
 
-// ResolveInheritedDSAParameters applies RFC 3279 section 2.3.2 before path
-// construction or validation. A DSA subjectPublicKeyInfo may omit P, Q, and G
-// when they are inherited from the issuer. Parameters are resolved recursively
-// because more than one adjacent certificate may omit them. The path domain
-// calls this function so the compatibility behavior has one implementation.
-func ResolveInheritedDSAParameters(targets, pool []*Info) {
+// ResolveInheritedDSAParameters applies RFC 3279 section 2.3.2: a DSA
+// subjectPublicKeyInfo may omit P, Q, and G when they are inherited from the
+// issuer. Such a certificate takes the parameters of a certificate in
+// certificates whose key verifies its signature; issuers that inherit their
+// own parameters are resolved first. Without a verifying issuer the
+// parameters stay unresolved, so signatures made with the key do not verify.
+//
+// It updates the certificates in place. Acquisition calls it once, before the
+// certificates are shared; chain building and path validation never do.
+func ResolveInheritedDSAParameters(certificates []*Info) {
 	resolver := dsaParameterResolver{
-		pool:      pool,
+		pool:      certificates,
 		resolving: make(map[*x509.Certificate]bool),
 		resolved:  make(map[*x509.Certificate]bool),
 	}
-	for _, infos := range [][]*Info{pool, targets} {
-		for _, info := range infos {
-			if info != nil {
-				resolver.resolve(info.Cert)
-			}
+	for _, info := range certificates {
+		if info != nil {
+			resolver.resolve(info.Cert)
 		}
 	}
 }
@@ -130,13 +130,15 @@ func (resolver *dsaParameterResolver) resolve(certificate *x509.Certificate) {
 		resolver.resolved[certificate] = true
 	}()
 
-	if parameters, ok := resolver.issuerParameters(certificate); ok {
+	if parameters, ok := resolver.signerParameters(certificate); ok {
 		setDSAParameters(certificate, parameters)
 	}
 }
 
-func (resolver *dsaParameterResolver) issuerParameters(certificate *x509.Certificate) (dsa.Parameters, bool) {
-	var byKeyIdentifier, byName *x509.Certificate
+// signerParameters returns the complete DSA parameters of the first pool
+// certificate whose key verifies certificate's signature. A name or key
+// identifier match alone never supplies parameters.
+func (resolver *dsaParameterResolver) signerParameters(certificate *x509.Certificate) (dsa.Parameters, bool) {
 	for _, info := range resolver.pool {
 		if info == nil || info.Cert == nil || info.Cert == certificate ||
 			!issuerNameMatches(certificate, info.Cert) {
@@ -145,24 +147,11 @@ func (resolver *dsaParameterResolver) issuerParameters(certificate *x509.Certifi
 		candidate := info.Cert
 		resolver.resolve(candidate)
 		parameters, ok := completeDSAParameters(candidate)
-		if !ok {
-			continue
-		}
-		if SignedBy(certificate, candidate) {
+		if ok && SignedBy(certificate, candidate) {
 			return parameters, true
 		}
-		if byKeyIdentifier == nil && len(certificate.AuthorityKeyId) > 0 &&
-			bytes.Equal(certificate.AuthorityKeyId, candidate.SubjectKeyId) {
-			byKeyIdentifier = candidate
-		}
-		if byName == nil {
-			byName = candidate
-		}
 	}
-	if byKeyIdentifier != nil {
-		return completeDSAParameters(byKeyIdentifier)
-	}
-	return completeDSAParameters(byName)
+	return dsa.Parameters{}, false
 }
 
 func hasInheritedDSAParameters(certificate *x509.Certificate) bool {

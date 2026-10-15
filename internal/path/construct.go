@@ -28,7 +28,6 @@ func Construct(targets, intermediates, trustAnchors []*cert.Info, maxDepth int) 
 		return Construction{}, fmt.Errorf("no path targets provided")
 	}
 	pool := uniqueInfos(append(append([]*cert.Info(nil), intermediates...), trustAnchors...))
-	cert.ResolveInheritedDSAParameters(targets, pool)
 	if maxDepth <= 0 {
 		maxDepth = len(pool) + 1
 	}

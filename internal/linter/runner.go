@@ -126,6 +126,7 @@ func acquireInputs(cfg Config, diagnostics io.Writer, cleanups *cleanupStack) (l
 		if len(inputs.crls) == 0 && len(inputs.ocsps) == 0 {
 			return lintInputs{}, fmt.Errorf("no CRL or OCSP response files found in the given paths")
 		}
+		cert.ResolveInheritedDSAParameters(append(slices.Clone(inputs.issuers), inputs.trustAnchors...))
 		return inputs, nil
 	}
 
@@ -152,6 +153,9 @@ func acquireInputs(cfg Config, diagnostics io.Writer, cleanups *cleanupStack) (l
 	}
 	if cfg.climbsCAIssuers() {
 		inputs.certificates = append(inputs.certificates, discoverSignerIssuers(cfg, inputs, diagnostics)...)
+		// Signer issuers can supply parameters to certificates that had no
+		// verifying issuer during chain building.
+		cert.ResolveInheritedDSAParameters(inputs.certificates)
 	}
 	return inputs, nil
 }
@@ -214,6 +218,9 @@ func buildCertificateChain(
 		allCerts = append(climbChains(cfg, certs, allCerts, w), issuers...)
 		allCerts = append(allCerts, trustAnchors...)
 	}
+	// Issuer selection verifies signatures, so inherited DSA parameters are
+	// resolved before any path is built.
+	cert.ResolveInheritedDSAParameters(allCerts)
 
 	var (
 		chain []*cert.Info

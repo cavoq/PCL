@@ -1,11 +1,13 @@
 package path
 
 import (
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/cavoq/PCL/internal/cert"
 	"github.com/cavoq/PCL/internal/testpki"
+	"github.com/zmap/zcrypto/dsa"
 	"github.com/zmap/zcrypto/x509"
 )
 
@@ -139,4 +141,54 @@ func hasFailedFinding(result Result, code string) bool {
 		}
 	}
 	return false
+}
+
+func TestConstructAndValidateDoNotResolveDSAParameters(t *testing.T) {
+	var loaded []*cert.Info
+	for _, file := range []string{
+		"ValidDSAParameterInheritanceTest5EE.crt",
+		"DSAParametersInheritedCACert.crt",
+		"DSACACert.crt",
+		"TrustAnchorRootCertificate.crt",
+	} {
+		infos, err := cert.LoadCertificates(filepath.Join("..", "..", "tests", "pkits", "certs", file), nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		loaded = append(loaded, infos...)
+	}
+	unresolved := func() bool {
+		for _, info := range loaded[:2] {
+			if info.Cert.PublicKey.(*dsa.PublicKey).P.Sign() != 0 {
+				return false
+			}
+		}
+		return true
+	}
+	validate := func() Result {
+		construction, err := Construct(loaded[:1], loaded[1:3], loaded[3:], 10)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return Validate(Inputs{
+			Chain:          construction.Chain,
+			TrustAnchors:   loaded[3:],
+			ValidationTime: time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
+			Policy:         PolicyInputs{Configured: true},
+			RevocationMode: RevocationNone,
+		})
+	}
+
+	result := validate()
+	if !unresolved() {
+		t.Fatal("path construction or validation changed caller certificates")
+	}
+	if !hasFailedFinding(result, "path.signature") {
+		t.Fatalf("unresolved DSA parameters did not fail closed: %q", result.FailureSummary())
+	}
+
+	cert.ResolveInheritedDSAParameters(loaded)
+	if result := validate(); !result.Valid {
+		t.Fatalf("resolved path is invalid: %q", result.FailureSummary())
+	}
 }

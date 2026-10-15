@@ -144,7 +144,6 @@ func Validate(inputs Inputs) Result {
 		return result
 	}
 	result.Target = chain[0]
-	cert.ResolveInheritedDSAParameters(chain, append(slices.Clone(chain), anchors...))
 
 	anchor, included := selectTrustAnchor(chain[len(chain)-1], anchors)
 	if anchor == nil {
