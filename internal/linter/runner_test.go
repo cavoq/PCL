@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/x509"
 	"encoding/json"
+	"io"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -841,5 +842,19 @@ func TestUnknownOutputFormatIsRejected(t *testing.T) {
 	}
 	if out.Len() != 0 {
 		t.Fatalf("output written before the format was rejected:\n%s", out.String())
+	}
+}
+
+func TestInvalidOCSPRequestOptionsAreRejected(t *testing.T) {
+	for _, cfg := range []Config{
+		{OCSPHashAlgorithm: "md5"},
+		{OCSPNonceValue: "not hex"},
+		{OCSPNonceLength: 500},
+	} {
+		cfg.PolicyPaths = []string{filepath.Join("..", "..", "tests", "policies", "basic.yaml")}
+		cfg.CertPath = filepath.Join("..", "..", "tests", "certs", "leaf.pem")
+		if err := Run(cfg, io.Discard); err == nil {
+			t.Errorf("Run(%+v) accepted invalid OCSP request options", cfg)
+		}
 	}
 }

@@ -3,6 +3,7 @@ package ocsp
 import (
 	"bytes"
 	"crypto"
+	"strings"
 	"testing"
 
 	"github.com/cavoq/PCL/internal/x509asn1"
@@ -58,9 +59,35 @@ func TestNonceBytes(t *testing.T) {
 	if len(nonce) != 4 {
 		t.Fatalf("expected 4 byte nonce, got %d", len(nonce))
 	}
+}
 
-	if _, err := nonceBytes(&NonceOptions{Length: 129}); err == nil {
-		t.Fatal("expected error for oversized nonce")
+func TestNonceOptionsValidate(t *testing.T) {
+	tests := []struct {
+		name    string
+		opts    NonceOptions
+		wantErr string
+	}{
+		{name: "defaults"},
+		{name: "sha1 CertID", opts: NonceOptions{Hash: "sha1"}},
+		{name: "unknown CertID hash", opts: NonceOptions{Hash: "md5"}, wantErr: `unknown OCSP CertID hash "md5"`},
+		{name: "longest nonce", opts: NonceOptions{Length: 128}},
+		{name: "oversized nonce", opts: NonceOptions{Length: 129}, wantErr: "1-128 bytes"},
+		{name: "negative nonce length", opts: NonceOptions{Length: -1}, wantErr: "1-128 bytes"},
+		{name: "oversized nonce value", opts: NonceOptions{Value: strings.Repeat("ab", 129)}, wantErr: "1-128 bytes"},
+		{name: "nonce value that is not hex", opts: NonceOptions{Value: "xyz"}, wantErr: "invalid nonce hex value"},
+		{name: "disabled nonce ignores its length", opts: NonceOptions{Disabled: true, Length: 500}},
+		{name: "disabled nonce still checks the hash", opts: NonceOptions{Disabled: true, Hash: "md5"}, wantErr: "md5"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.opts.Validate()
+			if tt.wantErr == "" && err != nil {
+				t.Fatalf("Validate() = %v", err)
+			}
+			if tt.wantErr != "" && (err == nil || !strings.Contains(err.Error(), tt.wantErr)) {
+				t.Fatalf("Validate() = %v, want an error containing %q", err, tt.wantErr)
+			}
+		})
 	}
 }
 

@@ -20,6 +20,37 @@ type NonceOptions struct {
 	Hash     string // Hash algorithm for CertID: "sha1" or "sha256" (default)
 }
 
+// Validate reports options that cannot produce an OCSP request: an unknown
+// CertID hash, a nonce value that is not hex, or a nonce outside 1-128 bytes.
+// A zero Length selects the default nonce length.
+func (opts NonceOptions) Validate() error {
+	switch opts.Hash {
+	case "", "sha1", "sha256":
+	default:
+		return fmt.Errorf("unknown OCSP CertID hash %q: use sha1 or sha256", opts.Hash)
+	}
+	if opts.Disabled {
+		return nil
+	}
+	length := opts.Length
+	if opts.Value != "" {
+		nonce, err := parseNonceHex(opts.Value)
+		if err != nil {
+			return fmt.Errorf("invalid nonce hex value: %w", err)
+		}
+		length = len(nonce)
+	}
+	if length < 0 || length > maxNonceLength || opts.Value != "" && length == 0 {
+		return fmt.Errorf("nonce length must be 1-%d bytes (RFC 9654)", maxNonceLength)
+	}
+	return nil
+}
+
+const (
+	defaultNonceLength = 32
+	maxNonceLength     = 128
+)
+
 // RequestInfo contains OCSP request debug information.
 type RequestInfo struct {
 	Nonce         []byte // Nonce sent in request (nil if no nonce)
@@ -30,6 +61,11 @@ type RequestInfo struct {
 }
 
 func buildOCSPRequest(cert, issuer *x509.Certificate, nonceOpts *NonceOptions) ([]byte, *RequestInfo, error) {
+	if nonceOpts != nil {
+		if err := nonceOpts.Validate(); err != nil {
+			return nil, nil, err
+		}
+	}
 	hashAlgorithm, hashName := certIDHash(nonceOpts)
 	req, err := ocsp.CreateRequest(cert, issuer, &ocsp.RequestOptions{Hash: hashAlgorithm})
 	if err != nil {
@@ -72,21 +108,12 @@ func certIDHash(nonceOpts *NonceOptions) (crypto.Hash, string) {
 
 func nonceBytes(opts *NonceOptions) ([]byte, error) {
 	if opts.Value != "" {
-		nonce, err := parseNonceHex(opts.Value)
-		if err != nil {
-			return nil, fmt.Errorf("invalid nonce hex value: %w", err)
-		}
-		return nonce, nil
+		return parseNonceHex(opts.Value)
 	}
-
-	length := opts.Length
-	if length <= 0 {
-		length = 32
+	if opts.Length == 0 {
+		return generateNonce(defaultNonceLength)
 	}
-	if length < 1 || length > 128 {
-		return nil, fmt.Errorf("nonce length must be 1-128 bytes (RFC 9654)")
-	}
-	return generateNonce(length)
+	return generateNonce(opts.Length)
 }
 
 func generateNonce(length int) ([]byte, error) {

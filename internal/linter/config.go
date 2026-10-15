@@ -65,7 +65,10 @@ func (cfg Config) validateInputs() error {
 	if !cfg.hasCertificateInput() && cfg.CRLPath == "" && cfg.OCSPPath == "" {
 		return errors.New("no certificates, CRLs, or OCSP responses provided")
 	}
-	return output.CheckFormat(cfg.OutputFmt)
+	if err := output.CheckFormat(cfg.OutputFmt); err != nil {
+		return err
+	}
+	return buildNonceOptions(cfg).Validate()
 }
 
 func (cfg Config) hasCertificateInput() bool {

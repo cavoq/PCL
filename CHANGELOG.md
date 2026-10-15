@@ -64,6 +64,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   has a timeout, a size limit, and replaces the Public Suffix List only after
   a complete download.
 - An unknown `--output` format is an error instead of falling back to text.
+- An unknown `--ocsp-hash`, a `--ocsp-nonce-value` that is not hex, and a
+  nonce outside 1-128 bytes are rejected before the run starts. `--ocsp-hash`
+  used to fall back to SHA-256 for any value but `sha1`, and a negative nonce
+  length to the default.
 
 ## [5.1.0] - 2026-10-14
 
