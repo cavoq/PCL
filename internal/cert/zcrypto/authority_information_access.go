@@ -7,6 +7,7 @@ import (
 
 	"github.com/cavoq/PCL/internal/node"
 	"github.com/cavoq/PCL/internal/oid"
+	"github.com/cavoq/PCL/internal/x509ext"
 	"github.com/cavoq/PCL/internal/x509node"
 	"golang.org/x/crypto/cryptobyte"
 	cryptobyte_asn1 "golang.org/x/crypto/cryptobyte/asn1"
@@ -19,7 +20,7 @@ import (
 //	    accessLocation  GeneralName }
 type decodedAccessDescription struct {
 	Method   string
-	Location parsedGeneralName
+	Location x509ext.GeneralName
 }
 
 // ParseAIAStrict parses exactly one AuthorityInfoAccessSyntax value.
@@ -62,7 +63,7 @@ func decodeAccessDescription(input *cryptobyte.String, index int) (decodedAccess
 	if !encodedDescription.ReadASN1ObjectIdentifier(&method) {
 		return decodedAccessDescription{}, fmt.Errorf("invalid accessMethod in AccessDescription %d", index)
 	}
-	location, err := readGeneralName(&encodedDescription)
+	location, err := x509ext.ReadGeneralName(&encodedDescription)
 	if err != nil {
 		return decodedAccessDescription{}, fmt.Errorf(
 			"invalid accessLocation in AccessDescription %d: %w",

@@ -7,22 +7,7 @@ import (
 	"github.com/cavoq/PCL/internal/oid"
 	"github.com/cavoq/PCL/internal/x509ext"
 	"github.com/cavoq/PCL/internal/x509node"
-	"golang.org/x/crypto/cryptobyte"
 )
-
-type parsedGeneralName = x509ext.GeneralName
-
-func generalNameType(tag int) string {
-	return x509ext.GeneralNameType(tag)
-}
-
-func readGeneralName(input *cryptobyte.String) (parsedGeneralName, error) {
-	return x509ext.ReadGeneralName(input)
-}
-
-func parseGeneralNames(value []byte) ([]parsedGeneralName, error) {
-	return x509ext.DecodeGeneralNames(value)
-}
 
 func buildSubjectAltName(extensions x509ext.ExtensionIndex) *node.Node {
 	return buildCertificateGeneralNames(
@@ -51,7 +36,7 @@ func buildCertificateGeneralNames(
 		return n
 	}
 
-	names, err := parseGeneralNames(extension.Value)
+	names, err := x509ext.DecodeGeneralNames(extension.Value)
 	if err != nil {
 		n.Children["raw"] = node.New("raw", append([]byte(nil), extension.Value...))
 		n.Children["malformed"] = node.New("malformed", true)
@@ -77,7 +62,7 @@ func buildCertificateGeneralNames(
 			}
 		}
 
-		collectionName := generalNameType(parsed.Tag)
+		collectionName := x509ext.GeneralNameType(parsed.Tag)
 		collection := n.Children[collectionName]
 		if collection == nil {
 			collection = node.New(collectionName, nil)

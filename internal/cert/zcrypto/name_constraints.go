@@ -19,7 +19,7 @@ type decodedNameConstraints struct {
 }
 
 type decodedGeneralSubtree struct {
-	Base           parsedGeneralName
+	Base           x509ext.GeneralName
 	Minimum        NonNegativeIntegerValue
 	MinimumPresent bool
 	MinimumRaw     []byte
@@ -270,7 +270,7 @@ func projectGeneralSubtrees(name string, decoded []decodedGeneralSubtree) *node.
 		projected := projectGeneralSubtree(key, subtree)
 		n.Children[key] = projected
 
-		typeName := generalNameType(subtree.Base.Tag)
+		typeName := x509ext.GeneralNameType(subtree.Base.Tag)
 		typeCollection := n.Children[typeName]
 		if typeCollection == nil {
 			typeCollection = node.New(typeName, nil)
@@ -288,7 +288,7 @@ func projectGeneralSubtree(name string, decoded decodedGeneralSubtree) *node.Nod
 	n := node.New(name, x509node.CloneScalar(base.Value))
 	n.Children["base"] = base
 	n.Children["value"] = node.New("value", x509node.CloneScalar(base.Value))
-	n.Children["type"] = node.New("type", generalNameType(decoded.Base.Tag))
+	n.Children["type"] = node.New("type", x509ext.GeneralNameType(decoded.Base.Tag))
 	n.Children["tag"] = node.New("tag", decoded.Base.Tag)
 	n.Children["raw"] = node.New("raw", append([]byte(nil), decoded.RawDER...))
 	n.Children["minimum"] = integerFactNode(
@@ -334,7 +334,7 @@ func integerFactNode(
 	return n
 }
 
-func buildNameConstraintGeneralName(name string, parsed parsedGeneralName) *node.Node {
+func buildNameConstraintGeneralName(name string, parsed x509ext.GeneralName) *node.Node {
 	n := x509node.BuildGeneralName(name, parsed)
 	if parsed.Tag != 7 {
 		return n

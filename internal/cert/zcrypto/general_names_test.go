@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"testing"
 
+	"github.com/cavoq/PCL/internal/x509ext"
 	"github.com/cavoq/PCL/internal/x509node"
 	"golang.org/x/crypto/cryptobyte"
 	cryptobyte_asn1 "golang.org/x/crypto/cryptobyte/asn1"
@@ -17,7 +18,7 @@ func TestParseGeneralNamesPreservesEntriesAndOwnsRawBytes(t *testing.T) {
 		{tag: 6, value: []byte("https://example.test/path")},
 	}
 	der := buildTestGeneralNames(values)
-	parsed, err := parseGeneralNames(der)
+	parsed, err := x509ext.DecodeGeneralNames(der)
 	if err != nil {
 		t.Fatalf("parse GeneralNames: %v", err)
 	}
@@ -44,7 +45,7 @@ func TestParseGeneralNamesPreservesEntriesAndOwnsRawBytes(t *testing.T) {
 
 func TestBuildParsedGeneralNamePreservesScalarAndEncodingMetadata(t *testing.T) {
 	rawValue := []byte{'n', 'o', 'n', 0xe9, 'a', 's', 'c', 'i', 'i'}
-	parsed := parsedGeneralName{
+	parsed := x509ext.GeneralName{
 		Tag:      2,
 		RawDER:   append([]byte{0x82, byte(len(rawValue))}, rawValue...),
 		RawValue: rawValue,
@@ -67,7 +68,7 @@ func TestBuildParsedGeneralNamePreservesScalarAndEncodingMetadata(t *testing.T) 
 
 func TestBuildParsedEDIPartyNameProjectsValidatedDirectoryStrings(t *testing.T) {
 	der := buildTestEDIPartyGeneralNames("Earth", "Party")
-	parsed, err := parseGeneralNames(der)
+	parsed, err := x509ext.DecodeGeneralNames(der)
 	if err != nil {
 		t.Fatalf("parse ediPartyName: %v", err)
 	}
@@ -125,7 +126,7 @@ func TestParseGeneralNamesRejectsInvalidNames(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if _, err := parseGeneralNames(test.value); err == nil {
+			if _, err := x509ext.DecodeGeneralNames(test.value); err == nil {
 				t.Fatal("expected invalid GeneralName to be rejected")
 			}
 		})

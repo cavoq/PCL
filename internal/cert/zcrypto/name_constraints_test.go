@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/cavoq/PCL/internal/x509ext"
 	"golang.org/x/crypto/cryptobyte"
 	cryptobyte_asn1 "golang.org/x/crypto/cryptobyte/asn1"
 )
@@ -46,9 +47,9 @@ func TestNameConstraintsStrictProjectsAllGeneralNameFormsLosslessly(t *testing.T
 			t.Fatalf("missing ordered subtree %d", tag)
 		}
 		assertExtensionSchemaValue(t, entry, "tag", tag)
-		assertExtensionSchemaValue(t, entry, "type", generalNameType(tag))
-		if permitted.Children[generalNameType(tag)] == nil {
-			t.Fatalf("missing %s compatibility collection", generalNameType(tag))
+		assertExtensionSchemaValue(t, entry, "type", x509ext.GeneralNameType(tag))
+		if permitted.Children[x509ext.GeneralNameType(tag)] == nil {
+			t.Fatalf("missing %s compatibility collection", x509ext.GeneralNameType(tag))
 		}
 		assertExtensionSchemaValue(t, entry, "minimumPresent", false)
 		assertExtensionSchemaValue(t, entry, "maximumPresent", false)
