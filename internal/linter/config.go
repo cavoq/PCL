@@ -59,7 +59,8 @@ type Config struct {
 	MaximumPathLength           int
 	MaximumPathLengthConfigured bool
 	// PathRevocation controls path revocation integration: none, if-present, or
-	// required. It is used only when explicit trust anchors enable validation.
+	// required; unset means pathpkg.DefaultRevocationMode. It is used only
+	// when explicit trust anchors enable validation.
 	PathRevocation pathpkg.RevocationMode
 
 	// Auto-validate mode options

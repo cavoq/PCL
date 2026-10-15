@@ -59,7 +59,9 @@ type Context struct {
 	// trust from a self-signed chain top.
 	TrustAnchors      []*cert.Info
 	MaximumPathLength *int
-	PathRevocation    pathpkg.RevocationMode
+	// PathRevocation is the path revocation mode; unset means
+	// pathpkg.DefaultRevocationMode.
+	PathRevocation pathpkg.RevocationMode
 }
 
 // Subject is one evaluated input: the node tree policies see, the context
@@ -407,10 +409,6 @@ func validateCertificationPath(
 	if len(ctx.TrustAnchors) == 0 || len(ctx.Chain) == 0 {
 		return nil
 	}
-	mode := ctx.PathRevocation
-	if mode == "" {
-		mode = pathpkg.RevocationIfPresent
-	}
 	checker := pathpkg.RevocationCheckerFunc(func(certificate *x509.Certificate) pathpkg.RevocationDecision {
 		crlAssessment := catalog.AssessCertificate(certificate)
 		ocspAssessment := ocsp.AssessCertificate(certificate, ctx.OCSPs, ocspIssuers, now)
@@ -440,7 +438,7 @@ func validateCertificationPath(
 		Policy:             ctx.CertificatePolicyInputs,
 		MaximumPathLength:  ctx.MaximumPathLength,
 		ApplicationPurpose: ctx.ApplicationPurpose,
-		RevocationMode:     mode,
+		RevocationMode:     ctx.PathRevocation,
 		CheckRevocation:    checker,
 	})
 	return &result

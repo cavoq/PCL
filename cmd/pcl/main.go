@@ -14,6 +14,7 @@ import (
 	"github.com/cavoq/PCL/internal/linter"
 	"github.com/cavoq/PCL/internal/operator"
 	"github.com/cavoq/PCL/internal/output"
+	pathpkg "github.com/cavoq/PCL/internal/path"
 	"github.com/cavoq/PCL/internal/policy"
 )
 
@@ -111,7 +112,7 @@ func markPathInputsConfigured(flags *pflag.FlagSet, opts *linter.Config) {
 func addPathValidationFlags(flags *pflag.FlagSet, opts *linter.Config) {
 	flags.StringSliceVar(&opts.TrustAnchorPaths, "trust-anchor", nil, "Explicit trust-anchor certificate file or directory (repeatable, PEM/DER)")
 	flags.IntVar(&opts.MaximumPathLength, "max-path-length", -1, "Maximum non-self-issued intermediate certificates for path validation")
-	flags.StringVar((*string)(&opts.PathRevocation), "path-revocation", "if-present", "Path revocation mode: none, if-present, or required")
+	flags.StringVar((*string)(&opts.PathRevocation), "path-revocation", string(pathpkg.DefaultRevocationMode), "Path revocation mode: none, if-present, or required")
 }
 
 // colorOutput reports whether text results written to w are colored: only

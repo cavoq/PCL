@@ -483,9 +483,6 @@ func applyDefaults(cfg *Config) {
 	if cfg.OutputFmt == "" {
 		cfg.OutputFmt = output.FormatText
 	}
-	if cfg.PathRevocation == "" {
-		cfg.PathRevocation = pathpkg.RevocationIfPresent
-	}
 	if !cfg.MaximumPathLengthConfigured && cfg.MaximumPathLength > 0 {
 		cfg.MaximumPathLengthConfigured = true
 	}

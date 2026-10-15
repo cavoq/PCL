@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/cavoq/PCL/internal/linter"
+	pathpkg "github.com/cavoq/PCL/internal/path"
 )
 
 func TestRootCommandAcceptsApplicationPurpose(t *testing.T) {
@@ -241,5 +242,16 @@ func TestDataOptionsLoad(t *testing.T) {
 	}
 	if err := (dataOptions{PSLFile: missing}).load(&warnings); err == nil || !strings.Contains(err.Error(), "--psl-file") {
 		t.Errorf("missing --psl-file: error = %v, want it reported", err)
+	}
+}
+
+func TestRootCommandDefaultsToDomainRevocationMode(t *testing.T) {
+	var config linter.Config
+	command := newRootCmd(&config)
+	if err := command.ParseFlags(nil); err != nil {
+		t.Fatal(err)
+	}
+	if config.PathRevocation != pathpkg.DefaultRevocationMode {
+		t.Fatalf("--path-revocation defaults to %q, want %q", config.PathRevocation, pathpkg.DefaultRevocationMode)
 	}
 }

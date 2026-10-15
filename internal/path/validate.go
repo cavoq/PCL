@@ -34,7 +34,19 @@ const (
 	RevocationNone      RevocationMode = "none"
 	RevocationIfPresent RevocationMode = "if-present"
 	RevocationRequired  RevocationMode = "required"
+
+	// DefaultRevocationMode is the mode of an unset RevocationMode: supplied
+	// revocation evidence is applied, and its absence is not a failure.
+	DefaultRevocationMode = RevocationIfPresent
 )
+
+// OrDefault returns mode, or DefaultRevocationMode when mode is unset.
+func (mode RevocationMode) OrDefault() RevocationMode {
+	if mode == "" {
+		return DefaultRevocationMode
+	}
+	return mode
+}
 
 // RevocationStatus is the mechanism-independent status returned to the path
 // domain by the existing CRL/OCSP assessment adapters.
@@ -131,10 +143,7 @@ func Validate(inputs Inputs) Result {
 		})
 		return result
 	}
-	mode := inputs.RevocationMode
-	if mode == "" {
-		mode = RevocationNone
-	}
+	mode := inputs.RevocationMode.OrDefault()
 	if mode != RevocationNone && mode != RevocationIfPresent && mode != RevocationRequired {
 		result.add(Finding{
 			Code: "path.revocation-input", Reference: "RFC5280 6.1.1", Status: FindingFail,

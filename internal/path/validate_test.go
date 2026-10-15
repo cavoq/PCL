@@ -2,6 +2,7 @@ package path
 
 import (
 	"path/filepath"
+	"reflect"
 	"testing"
 	"time"
 
@@ -190,5 +191,30 @@ func TestConstructAndValidateDoNotResolveDSAParameters(t *testing.T) {
 	cert.ResolveInheritedDSAParameters(loaded)
 	if result := validate(); !result.Valid {
 		t.Fatalf("resolved path is invalid: %q", result.FailureSummary())
+	}
+}
+
+// TestValidateUnsetRevocationModeIsTheDefault keeps one meaning for an unset
+// mode across the CLI, the evaluator and direct callers.
+func TestValidateUnsetRevocationModeIsTheDefault(t *testing.T) {
+	if RevocationMode("").OrDefault() != DefaultRevocationMode || RevocationRequired.OrDefault() != RevocationRequired {
+		t.Fatal("OrDefault does not keep set modes and default unset ones")
+	}
+	root := testpki.Issue(t, "Root", nil, testpki.CA())
+	leaf := testpki.Issue(t, "Leaf", root)
+	validate := func(mode RevocationMode) Result {
+		return Validate(Inputs{
+			Chain:          []*cert.Info{pathInfo(leaf), pathInfo(root)},
+			TrustAnchors:   []*cert.Info{pathInfo(root)},
+			ValidationTime: time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
+			RevocationMode: mode,
+		})
+	}
+	unset, defaulted, none := validate(""), validate(DefaultRevocationMode), validate(RevocationNone)
+	if !reflect.DeepEqual(unset.Findings, defaulted.Findings) {
+		t.Fatalf("unset mode findings = %#v, want the default mode's %#v", unset.Findings, defaulted.Findings)
+	}
+	if reflect.DeepEqual(unset.Findings, none.Findings) {
+		t.Fatal("unset mode behaves like none")
 	}
 }
