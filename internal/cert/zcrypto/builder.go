@@ -332,6 +332,9 @@ func buildSubjectPublicKeyInfo(cert *x509.Certificate) *node.Node {
 			n.Children["publicKey"] = buildRSAKey(key)
 		case *dsa.PublicKey:
 			n.Children["publicKey"] = buildDSAKey(key)
+		case *x509.AugmentedECDSA:
+			// zcrypto wraps parsed ECDSA keys together with their raw bits.
+			n.Children["publicKey"] = buildECDSAKey(key.Pub)
 		case *ecdsa.PublicKey:
 			n.Children["publicKey"] = buildECDSAKey(key)
 		case ed25519.PublicKey:

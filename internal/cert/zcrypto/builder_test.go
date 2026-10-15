@@ -2,7 +2,10 @@ package zcrypto
 
 import (
 	"bytes"
+	"crypto"
 	"crypto/dsa"
+	"crypto/ed25519"
+	"crypto/rand"
 	"encoding/pem"
 	"errors"
 	"math/big"
@@ -12,6 +15,7 @@ import (
 	"time"
 
 	"github.com/cavoq/PCL/internal/node"
+	"github.com/cavoq/PCL/internal/testpki"
 	zasn1 "github.com/zmap/zcrypto/encoding/asn1"
 	"github.com/zmap/zcrypto/x509"
 	"github.com/zmap/zcrypto/x509/pkix"
@@ -306,6 +310,37 @@ func TestBuilder_SubjectPublicKeyInfo_RSA4096(t *testing.T) {
 	root := loadCert(t, "intermediate.pem")
 
 	assertPathValue(t, root, "certificate.subjectPublicKeyInfo.publicKey.keySize", 4096)
+}
+
+func TestBuilder_SubjectPublicKeyInfo_ECDSAAndEd25519(t *testing.T) {
+	_, ed25519Key, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tests := []struct {
+		name      string
+		key       crypto.Signer
+		algorithm string
+		keySize   int
+		curve     string
+	}{
+		{name: "ECDSA P-256", key: testpki.ECDSAKey(t), algorithm: "ECDSA", keySize: 256, curve: "P-256"},
+		{name: "Ed25519", key: ed25519Key, algorithm: "Ed25519", keySize: 256},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			issued := testpki.IssueWithKey(t, tt.name, tt.key, nil)
+			root := BuildTree(issued.Cert)
+
+			assertPathValue(t, root, "certificate.subjectPublicKeyInfo.algorithm.algorithm", tt.algorithm)
+			assertPathValue(t, root, "certificate.subjectPublicKeyInfo.publicKey.keySize", tt.keySize)
+			if tt.curve != "" {
+				assertPathValue(t, root, "certificate.subjectPublicKeyInfo.publicKey.curve", tt.curve)
+			} else {
+				assertPathNotExists(t, root, "certificate.subjectPublicKeyInfo.publicKey.curve")
+			}
+		})
+	}
 }
 
 func TestBuilder_SubjectPublicKeyInfo_DSA(t *testing.T) {

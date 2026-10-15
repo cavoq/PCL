@@ -74,6 +74,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Text results are colored only when written to a terminal, and never when
   `NO_COLOR` is set, so piped and redirected output no longer contains ANSI
   escape codes.
+- ECDSA public keys project `subjectPublicKeyInfo.publicKey.keySize` and
+  `curve` again. zcrypto wraps parsed ECDSA keys in its own type, which the
+  projection did not recognize, so rules on those paths found no value.
 
 ## [5.1.0] - 2026-10-14
 
