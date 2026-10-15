@@ -8,10 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Dedicated RFC 5280 certification-path construction and validation domain
+  with explicit trust anchors, validation time, caller maximum path length,
+  application purpose, certificate-policy inputs, and selectable revocation
+  mode. The CLI adds `--trust-anchor`, `--max-path-length`, and
+  `--path-revocation`.
+- Structured path findings with stable codes, RFC references, certificate
+  positions, and pass/fail/skip status. The shipped RFC 5280 policy exposes
+  one conditional `certification-path-valid` aggregate decision.
+- CRL signer paths are validated to the same explicit trust anchors before
+  their revocation evidence is accepted. Path validation reuses the existing
+  CRL and OCSP assessment domains.
 - RFC 5280 certificate-policy validation accepts independent initial policy
   set, explicit-policy, policy-mapping-inhibit and any-policy-inhibit inputs
   through the CLI, API and policy-test cases. All 247 NIST PKITS runs now
-  reach their expected result with no gaps or unsupported inputs.
+  execute through the explicit-anchor path engine and reach their expected
+  result with no gaps or unsupported inputs.
 
 ### Fixed
 - Certificate parsing now supports inherited DSA parameters and uncommon
@@ -206,21 +218,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   locations in a bounded second stage. Explicit `--crl` inputs continue to
   accept PEM or DER.
 - CRL signer evidence now requires `cRLSign` when the signer certificate has a
-  Key Usage extension. Full same-trust-anchor signer-path validation remains
-  the P4 boundary.
-- P3 revocation processing is complete within its documented exact-name and
-  supplied-signer boundaries; P4 certification-path and Section 7 name
-  validation are next.
+  Key Usage extension. At this release boundary, same-trust-anchor signer-path
+  validation was not yet available.
+- Revocation processing covers its documented exact-name and supplied-signer
+  boundaries; certification-path and Section 7 name validation were still
+  pending in this release.
 
 ## [3.0.0] - 2026-07-19
 
 ### Breaking Changes
 - `noUnknownCriticalExtensions` now uses an explicit, conservative
   certificate-only processed-extension registry. A catalog-known but
-  unprocessed OID or value, non-certificate, P3-only, or malformed critical
+  unprocessed OID or value, CRL/entry-only, or malformed critical
   extension now fails closed, and repeated instances of an extension OID fail
   before criticality lookup.
-- Strict P2 extension nodes distinguish omitted DEFAULT/OPTIONAL fields from
+- Strict extension nodes distinguish omitted DEFAULT/OPTIONAL fields from
   encoded zero values with `*Present` facts. Custom policies that inferred
   absence from zero should migrate to those presence nodes.
 - Removed the lossy root-level `certificate.ocspURL`, `certificate.caIssuersURL`, `certificate.cRLDistributionPoints`, and `certificate.certificatePolicies` projections. Use `certificate.extensions.authorityInfoAccess.accessDescriptions.*.accessLocation.value` (or its `containsOCSP` / `containsCaIssuers` facts), `certificate.extensions.cRLDistributionPoints.distributionPoints.*.distributionPoint.fullName.generalNames.*.value`, and `certificate.extensions.certificatePolicies.<policy OID>` respectively.
@@ -244,13 +256,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   structures
 - Exact decimal and native-range metadata for unbounded extension counters, so
   large valid `(0..MAX)` INTEGER values remain well-formed
-- Domain-owned P2 dependency operators for Basic Constraints/Key Usage, Name
+- Domain-owned dependency operators for Basic Constraints/Key Usage, Name
   Constraints distances, CRL Distribution Points, Policy Mappings, Policy
   Constraints, and `inhibitAnyPolicy`
 - A processed-extension registry separate from the RFC extension identity
   catalog, with a conservative certificate-only processed set and stable-set
-  tests; critical CRL and CRL-entry extensions fail closed pending P3
-- Deterministic P2 purpose/path vectors, malformed-DER vectors, and an
+  tests; critical CRL and CRL-entry extensions fail closed until their strict
+  handlers are available
+- Deterministic purpose/path vectors, malformed-DER vectors, and an
   executable invariant that every active RFC 5280 rule is classified in the
   coverage matrix
 - Lossless X.501 Name projection for certificate subjects and issuers, CRL issuers, and raw `directoryName` values in SAN, IAN, AIA, and CRL distribution-point GeneralNames, including RDN grouping, duplicate attributes, raw DER, and ASN.1 value tags
@@ -261,9 +274,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Integration wiring for the opt-in RFC 6960 bundle, which requires valid, matching, good OCSP evidence for leaf certificates
 
 ### Changed
-- RFC 5280 roadmap P2 is complete as bounded certificate-profile semantics;
-  CRL scope/delta/indirect processing remains P3 and complete Sections 6/7
-  validation remains P4
+- RFC 5280 certificate-profile semantics are bounded explicitly; CRL
+  scope/delta/indirect processing and complete Sections 6/7 validation were
+  not yet included in this release
 - `pathLenValid` counts non-self-issued intermediates below the current CA in
   the supplied leaf-to-root chain
 - Name Constraints apply supported DNS, email, URI, and IP forms while

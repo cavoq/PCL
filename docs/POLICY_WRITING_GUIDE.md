@@ -7,6 +7,7 @@ the policy-driven PKI conformance engine.
 
 - [Overview](#overview)
 - [Application Purpose Input](#application-purpose-input)
+- [Certification-Path Inputs](#certification-path-inputs)
 - [Policy File Structure](#policy-file-structure)
 - [Rule Structure](#rule-structure)
 - [Target Paths](#target-paths)
@@ -16,7 +17,7 @@ the policy-driven PKI conformance engine.
 - [Conditional Rules (when)](#conditional-rules-when)
 - [Testing Policies](#testing-policies)
 - [Best Practices](#best-practices)
-- [P2 Migration Notes](#p2-migration-notes)
+- [Migration Notes](#migration-notes)
 - [Examples](#examples)
 
 ---
@@ -37,7 +38,7 @@ Key concepts:
 The repository ships `RFC5280.yaml`, `RFC4055.yaml`, `RFC6960.yaml`,
 `TR03116-TLS-SERVER.yaml`, and `LOCAL-PROFILE.yaml`. Their names describe the
 source of their rules, not a claim of complete implementation; consult the
-coverage matrices and roadmap for exact scope. `RFC6960.yaml` is a
+coverage matrices for exact scope. `RFC6960.yaml` is a
 certificate-evidence policy: it runs for leaf certificates and fails closed
 unless a valid, matching, good OCSP response is supplied. The TR-03116 policy
 profiles TLS server certificate chains and documents its external evidence
@@ -60,8 +61,9 @@ present. Omitting `--purpose` skips that conditional rule. An invalid friendly
 name or a purpose disallowed by EKU and compatible end-entity Key Usage fails
 it. A private EKU OID can identify a purpose, but when an end-entity
 certificate has a Key Usage extension the check fails closed because RFC 5280
-defines no Key Usage mapping for private purposes. This is a bounded profile
-check, not a trust-anchor or complete RFC 5280 Section 6 input.
+defines no Key Usage mapping for private purposes. Without explicit trust
+anchors this remains a bounded profile check; the path engine consumes the
+same value as one of its explicit validation inputs.
 
 ## Certificate Policy Processing Inputs
 
@@ -79,6 +81,25 @@ does not by itself require an explicit policy. Supplying any of the flags
 overrides rule operands for `certificatePolicyValid`. With no flags, existing
 policies retain the legacy behavior in which operands are the initial policy
 set and also enable initial-explicit-policy.
+
+## Certification-Path Inputs
+
+The root lint command activates deterministic path validation only when the
+caller supplies at least one `--trust-anchor` certificate or directory.
+`--issuer` certificates are candidates, never implicit trust anchors.
+
+- `--max-path-length N` limits non-self-issued intermediate certificates.
+- `--path-revocation none|if-present|required` controls how the existing CRL
+  and OCSP assessments affect the aggregate decision.
+- `--purpose` and the `--initial-*` certificate-policy inputs are passed into
+  the same path validation operation.
+
+The shipped `certification-path-valid` rule is conditional on
+`certificate.pathValidation`. The node exists only on the target certificate
+and contains `valid`, `anchored`, `findingCount`, optional `failureSummary`,
+and a `findings` collection. Structured result formats also expose the typed
+findings directly. Use the aggregate node in policy rules; do not reproduce
+signature, path-length, policy-tree, or revocation algorithms in YAML.
 
 ---
 
@@ -252,9 +273,10 @@ These guarantees are lossless only when raw Name DER is available. Synthetic
 `pkix.Name` inputs preserve the values and grouping exposed by that parsed
 structure, but report `encodingName: unknown`, tag/encoding `0`, and empty raw
 fields. Malformed raw Names retain `raw` plus `malformed: true` and do not
-silently substitute lossy attribute collections. This is the P1.1 Name
-boundary. P2 reuses it for Name Constraints and relative CRL distribution-
-point names; complete Section 7 comparison remains P4 work. Attribute
+silently substitute lossy attribute collections. Name Constraints and
+relative CRL distribution-point names reuse the same representation; the
+path domain uses the shared Section 7 distinguished-name
+comparison when binding issuers and directoryName subtrees. Attribute
 values with unknown tags remain opaque raw bytes; validating a locally defined
 attribute's syntax belongs to the policy or domain that defines that OID.
 
@@ -342,7 +364,7 @@ certificate.extensions.cRLDistributionPoints.distributionPoints.0.reasons      #
 certificate.extensions.cRLDistributionPoints.distributionPoints.0.cRLIssuer.entries # ordered GeneralNames
 ```
 
-#### P2 profile extension schemas
+#### Strict profile extension schemas
 
 Strictly decoded extensions retain raw DER and put `malformed: true` on the
 concrete `certificate.extensions.<oid-or-alias>` node when decoding fails.
@@ -381,7 +403,7 @@ certificate.extensions.nameConstraints
     └── maximum / maximumPresent
 ```
 
-Every projected P2 counter that is present has `decimal` and `fitsInt`
+Every projected extension counter that is present has `decimal` and `fitsInt`
 metadata. Its scalar remains an integer when representable; larger valid
 `(0..MAX)` values use the exact decimal string and remain well-formed.
 
@@ -761,7 +783,7 @@ Key Usage bits are ordinary boolean children. Express role-specific rules with
   certType: [root, intermediate]
 ```
 
-### P2 Certificate Profile Operators
+### Certificate Profile Operators
 
 These no-operand operators are thin adapters over decisions owned by
 `internal/cert`.
@@ -781,7 +803,9 @@ These no-operand operators are thin adapters over decisions owned by
 | `inhibitAnyPolicyDependenciesValid` | Restricts inhibitAnyPolicy to CA certificates |
 
 `pathLenValid` and `nameConstraintsValid` are bounded checks over the supplied
-ordered chain, not a complete Section 6 engine.
+ordered chain. The aggregate `certificate.pathValidation` decision is owned by
+the explicit-anchor Section 6 path engine; these operators remain available
+for profile policies and backward compatibility.
 
 ### 9. Certificate Chain Operators
 
@@ -1181,10 +1205,14 @@ tests:
     error: failed to load certificates   # the lint must fail with this text
 ```
 
-Cases also accept `crl`, `ocsp`, `purpose`, their own `time`, and the same
+Cases also accept `crl`, `ocsp`, `purpose`, their own `time`, explicit path
+inputs (`trustAnchors`, `maximumPathLength`, `pathRevocation`), and the same
 certificate-policy inputs under `certificatePolicyInputs`:
 
 ```yaml
+trustAnchors: [certs/root.pem]
+maximumPathLength: 2
+pathRevocation: required
 certificatePolicyInputs:
   initialPolicySet: [1.2.3.4]
   initialExplicitPolicy: true
@@ -1242,7 +1270,7 @@ Use per-rule `certType` to avoid confusing SKIP messages:
 
 ---
 
-## P2 Migration Notes
+## Migration Notes
 
 - `noUnknownCriticalExtensions` no longer treats a catalog-known OID as
   processed. Custom policies may now report known-but-unprocessed or malformed

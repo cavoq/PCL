@@ -27,7 +27,7 @@ func materializeCaseFixture(t *testing.T, tc lintCase) lintCase {
 	dir := t.TempDir()
 
 	switch tc.Fixture {
-	case "crl-invalid-p3-profile":
+	case "crl-invalid-profile":
 		issuer := makeIntegrationCertificate(t, nil)
 		tc.Certs = writePEMFixture(t, dir, "issuer.pem", "CERTIFICATE", issuer.DER)
 		freshest := []byte{

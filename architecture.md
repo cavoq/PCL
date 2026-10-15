@@ -1,6 +1,8 @@
 # PCL Architecture
 
-**Policy-based X.509 Certificate Linter** — A modular system for validating X.509 certificates against configurable YAML-based policies.
+**Policy-driven PKI conformance engine** — A modular system for linting and
+validating X.509 certificates, certification paths, CRLs, and OCSP evidence
+against configurable YAML policy packs and explicit runtime trust inputs.
 
 ---
 

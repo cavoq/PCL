@@ -13,7 +13,7 @@ packs.
 
 ```bash
 go install github.com/cavoq/PCL/cmd/pcl@latest
-pcl --policy <path> [--policy <path>...] --cert <path> [--crl <path>] [--ocsp <path>] [--purpose <eku-name-or-oid>] [--output text|json|yaml]
+pcl --policy <path> [--policy <path>...] --cert <path> [--issuer <path>] [--trust-anchor <path>] [--crl <path>] [--ocsp <path>] [--output text|json|yaml]
 ```
 
 Multiple policies can be specified with repeatable `--policy` flags. All rules from all policies will be applied.
@@ -67,6 +67,30 @@ OIDs and defaults to `anyPolicy`. The three boolean flags initialize their RFC
 5280 counters independently. Supplying any of these flags selects the
 first-class input model; without them, existing `certificatePolicyValid`
 rules retain their operand-based behavior for compatibility.
+
+### Explicit Certification-Path Validation
+
+Supplying one or more local trust anchors activates the dedicated RFC 5280
+path engine and the shipped `certification-path-valid` rule:
+
+```bash
+pcl --policy policies/RFC5280.yaml \
+  --cert leaf.pem \
+  --issuer intermediates/ \
+  --trust-anchor root.pem \
+  --path-revocation required \
+  --details
+```
+
+Trust is never inferred from a self-signed certificate in `--issuer`.
+Construction deterministically chooses a path from supplied or already
+acquired candidates; validation is a separate, fail-closed step.
+`--max-path-length N` limits non-self-issued intermediates.
+`--path-revocation` accepts `none`, `if-present` (the default), or `required`.
+CRL and OCSP assessment is reused by the path engine, and CRL signers must
+validate to the same explicit trust set. JSON and YAML include structured path
+findings for emitted rules (`-v` includes passing rules); compact text shows
+their summary with `--details`.
 
 ### Auto-Validate Mode
 
@@ -157,9 +181,11 @@ pcl --policy <path> --cert-url https://example.test --cert-url-timeout 10s --cer
 ### Inspect the Node Tree
 
 `pcl inspect` prints the node tree that policies evaluate, after the same
-loading, chain building and automatic retrieval as a lint run. It accepts the
-same input flags (`--cert`, `--issuer`, `--crl`, `--ocsp`, `--purpose`,
-`--auto-validate`, ...) and needs no policy.
+profile loading, chain building and automatic retrieval as a lint run. It
+accepts the profile input flags (`--cert`, `--issuer`, `--crl`, `--ocsp`,
+`--purpose`, `--auto-validate`, ...) and needs no policy. Explicit path
+validation is a lint decision, so its `--trust-anchor`, `--max-path-length`,
+and `--path-revocation` flags belong to the root lint command.
 
 ```bash
 # Tree for every certificate in the chain
@@ -352,9 +378,8 @@ rules:
 - `policies/TR03116-TLS-SERVER.yaml` — BSI TR-03116 TLS server certificate profile
 - `policies/LOCAL-PROFILE.yaml` — explicitly supplemental local/WebPKI checks
 
-These are lint policies, not claims that PCL implements every state machine in
-the named standard. See the coverage matrices and conformance roadmap for the
-exact scope.
+Policy names identify their source standard; the coverage matrices define the
+exact implemented scope.
 
 The TR-03116 profile implements the certificate checklist from TR-03116-TS
 v1.1 using the certificate cryptography requirements from TR-03116-4 (2025).
@@ -362,13 +387,10 @@ Its [coverage matrix](policies/TR03116-TLS-SERVER-COVERAGE.md) identifies the
 hostname, service-availability, and application-context checks that require
 evidence outside a standalone certificate.
 
-RFC 5280 P3 revocation processing is complete within its documented boundary:
-strict extension parsing, scoped complete and delta CRLs, indirect issuer
-inheritance, reason coverage, explicit Good/Revoked/Unknown status, and bounded
-CRLDP/Freshest acquisition. Full Sections 6 and 7 path, policy, signer-path,
-and name processing remains P4. See the
-[coverage matrix](policies/RFC5280-COVERAGE.md) and
-[roadmap](docs/RFC5280_ROADMAP.md).
+The RFC 5280 bundle combines certificate/CRL profile rules with the
+explicit-trust path engine, scoped CRL processing, OCSP evidence, and bounded
+acquisition. See its [coverage matrix](policies/RFC5280-COVERAGE.md) for exact
+boundaries and executable evidence.
 
 Load independent bundles together by repeating `--policy`, for example
 `--policy policies/RFC5280.yaml --policy policies/RFC6960.yaml`.
@@ -469,7 +491,7 @@ lint command: all 247 PKITS runs reach the expected result. See
 | `anyExtendedKeyUsageNotCritical` | Rejects critical EKU when it asserts anyExtendedKeyUsage |
 | `basicConstraintsDependenciesValid`, `keyUsageDependenciesValid` | Basic Constraints/Key Usage profile dependencies, including keyCertSign => CA |
 | `nameConstraintsDependenciesValid`, `nameConstraintsDistancesValid` | CA-only and GeneralSubtree distance requirements |
-| `crlDistributionPointsDependenciesValid` | CRLDP structural dependencies; P3 status scope remains domain-owned |
+| `crlDistributionPointsDependenciesValid` | CRLDP structural dependencies; revocation status and scope remain domain-owned |
 | `policyMappingsDependenciesValid`, `policyMappingsIssuerPoliciesPresent` | Policy Mapping profile restrictions |
 | `policyConstraintsDependenciesValid`, `inhibitAnyPolicyDependenciesValid` | CA-only policy-extension restrictions |
 
@@ -676,6 +698,11 @@ certificate
 │   ├── usages.0.oid       # Ordered known or private KeyPurposeId
 │   └── ...
 ├── applicationPurpose     # Present only with --purpose
+├── pathValidation         # Present on the target with explicit trust anchors
+│   ├── valid
+│   ├── anchored
+│   ├── failureSummary     # Present only when validation fails
+│   └── findings.*         # Code, RFC reference, status, certificate position, message
 ├── subjectKeyIdentifier   # Bytes
 ├── authorityKeyIdentifier # Bytes
 ├── subjectAltName
@@ -692,7 +719,7 @@ certificate
 └── ...                    # AIA, CRLDP, policies, and constraints decode under extensions
 ```
 
-P2 adds presence-preserving schemas under
+Strict presence-preserving schemas are available under
 `certificate.extensions.policyMappings` (`mappings.*.{issuerDomainPolicy,subjectDomainPolicy}`),
 `policyConstraints` (the two counters and `*Present` facts),
 `inhibitAnyPolicy.skipCerts`, and
@@ -702,7 +729,7 @@ presence facts. Counter nodes retain exact `decimal` text and a `fitsInt` fact,
 so a valid `(0..MAX)` value larger than the native integer range is not
 misreported as malformed. CRLDP supports both full GeneralNames and a lossless
 `nameRelativeToCRLIssuer` RDN. See the
-[policy-writing guide](docs/POLICY_WRITING_GUIDE.md#p2-profile-extension-schemas)
+[policy-writing guide](docs/POLICY_WRITING_GUIDE.md#strict-profile-extension-schemas)
 for canonical paths.
 
 The extension identity catalog and processed-extension registry are separate.
@@ -743,7 +770,7 @@ crl
 │   │       ├── invalidityDate
 │   │       └── certificateIssuer
 └── extensions
-    └── <oid-or-alias>     # raw/critical plus strict P3 projections
+    └── <oid-or-alias>     # raw/critical plus strict projections
 ```
 
 **CRL type detection (`isCACRL`):** True when a verified or identity-matched
@@ -770,7 +797,7 @@ ocsp
 └── responderID            # Responder identification
 ```
 
-## P2/P3 Migration Notes
+## Migration Notes
 
 - Custom policies relying on catalog membership for critical-extension
   acceptance may now fail closed; only strict processing registered for the
@@ -780,6 +807,9 @@ ocsp
   `malformed` child before consuming decoded values.
 - `pathLenValid` uses the supplied leaf-to-root chain and excludes self-issued
   intermediates. It does not build or establish trust in a path.
+- `certification-path-valid` is separate from `pathLenValid` and the other
+  profile operators. It runs only with explicit `--trust-anchor` inputs and
+  reports one aggregate decision on the target certificate.
 - Add `--purpose` only when application-specific EKU enforcement is desired;
   omitting it preserves conditional-skip behavior.
 
