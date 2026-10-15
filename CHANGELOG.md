@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.2.0] - 2026-10-15
+
 ### Added
 - Text results support `--details` to show wrapped explanations below failed
   and skipped verdicts and actual-versus-expected facts for passing checks.
@@ -331,7 +333,8 @@ Review any policies using `isNull` or absent-field checks against the updated no
 
 - See git history for earlier changes
 
-[Unreleased]: https://github.com/cavoq/PCL/compare/v5.1.0...HEAD
+[Unreleased]: https://github.com/cavoq/PCL/compare/v5.2.0...HEAD
+[5.2.0]: https://github.com/cavoq/PCL/compare/v5.1.0...v5.2.0
 [5.1.0]: https://github.com/cavoq/PCL/compare/v5.0.0...v5.1.0
 [5.0.0]: https://github.com/cavoq/PCL/compare/v4.0.0...v5.0.0
 [4.0.0]: https://github.com/cavoq/PCL/compare/v3.0.0...v4.0.0
