@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	stdocsp "golang.org/x/crypto/ocsp"
+
 	"github.com/cavoq/PCL/internal/cert"
 	"github.com/cavoq/PCL/internal/evaluator"
 	"github.com/cavoq/PCL/internal/ocsp"
@@ -748,6 +750,75 @@ func TestBuildCertificateChain_reportsCertificatesLeftOut(t *testing.T) {
 				if !strings.Contains(diagnostics.String(), path) {
 					t.Errorf("no warning for %s:\n%s", path, diagnostics.String())
 				}
+			}
+		})
+	}
+}
+
+// Finding the signer of a CRL or the issuer of a delegated OCSP responder may
+// download certificates from CA Issuers URLs, but only when chain climbing is
+// enabled. Without --auto-validate a run stays offline.
+func TestRun_downloadsSignerIssuersOnlyWhenClimbing(t *testing.T) {
+	root := testpki.Issue(t, "Root", nil, testpki.CA())
+	unsupplied := testpki.Issue(t, "Unsupplied CA", nil, testpki.CA(), testpki.Serial(2))
+	url, hits := testpki.ServeCounted(t, unsupplied.DER)
+
+	leaf := testpki.Issue(t, "Leaf", root, testpki.Serial(3), testpki.IssuingCertificateURLs(url))
+	responder := testpki.Issue(t, "Responder", unsupplied, testpki.Serial(4),
+		testpki.OCSPSigning(), testpki.IssuingCertificateURLs(url))
+	response := testpki.OCSPResponse(t, root, responder, stdocsp.Response{
+		Status:       stdocsp.Good,
+		SerialNumber: big.NewInt(3),
+		ThisUpdate:   testpki.NotBefore,
+		NextUpdate:   testpki.NotAfter,
+		Certificate:  responder.Std,
+	})
+
+	dir := t.TempDir()
+	files := map[string][]byte{
+		"leaf.pem":       testpki.PEM("CERTIFICATE", leaf.DER),
+		"root.pem":       testpki.PEM("CERTIFICATE", root.DER),
+		"unsupplied.crl": unsupplied.RevocationList(t, &x509.RevocationList{}),
+		"responder.ocsp": response.Raw,
+	}
+	for name, data := range files {
+		if err := os.WriteFile(filepath.Join(dir, name), data, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	pol, err := policy.ParseFile(filepath.Join("..", "..", "tests", "policies", "crl-validity.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		name      string
+		auto      bool
+		noChain   bool
+		wantFetch bool
+	}{
+		{name: "without auto-validate"},
+		{name: "auto-validate without chain climbing", auto: true, noChain: true},
+		{name: "auto-validate", auto: true, wantFetch: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			hits.Store(0)
+			cfg := Config{
+				CertPath:       filepath.Join(dir, "leaf.pem"),
+				IssuerPaths:    []string{filepath.Join(dir, "root.pem")},
+				CRLPath:        filepath.Join(dir, "unsupplied.crl"),
+				OCSPPath:       filepath.Join(dir, "responder.ocsp"),
+				AutoValidate:   tt.auto,
+				NoAutoChain:    tt.noChain,
+				NoAutoCRL:      true,
+				NoAutoOCSP:     true,
+				ValidationTime: testpki.NotBefore.AddDate(0, 1, 0),
+			}
+			applyDefaults(&cfg)
+			lintForTest(t, cfg, pol)
+			if fetched := hits.Load() > 0; fetched != tt.wantFetch {
+				t.Fatalf("CA Issuers requests = %d, want fetching %v", hits.Load(), tt.wantFetch)
 			}
 		})
 	}

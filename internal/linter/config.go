@@ -77,3 +77,9 @@ func (cfg Config) hasCertificateInput() bool {
 func (cfg Config) hasIssuerInput() bool {
 	return len(cfg.IssuerPaths) > 0 || len(cfg.IssuerURLs) > 0
 }
+
+// climbsCAIssuers reports whether certificates may be downloaded from CA
+// Issuers URLs, to extend the chain or to find CRL and OCSP signers.
+func (cfg Config) climbsCAIssuers() bool {
+	return cfg.AutoValidate && !cfg.NoAutoChain
+}

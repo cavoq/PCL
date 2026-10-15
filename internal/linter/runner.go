@@ -111,7 +111,7 @@ func buildCertificateChain(cfg Config, certs, issuers []*cert.Info, w io.Writer)
 		return nil, nil, fmt.Errorf("no certificates available to build a chain")
 	}
 
-	if cfg.AutoValidate && !cfg.NoAutoChain {
+	if cfg.climbsCAIssuers() {
 		allCerts = append(climbChains(cfg, certs, allCerts, w), issuers...)
 	}
 
@@ -162,6 +162,7 @@ func buildSubjects(
 		return subjects
 	}
 
+	issuerTimeout, issuerDepth := issuerDiscovery(cfg)
 	evalCtx := evaluator.PrepareCRLIssuers(evaluator.Context{
 		Policies:            policies,
 		Registry:            reg,
@@ -172,8 +173,8 @@ func buildSubjects(
 		RevocationRequested: crlRevocationRequested(cfg),
 		ValidationTime:      validationTime(cfg),
 		ApplicationPurpose:  cfg.ApplicationPurpose,
-		CRLResolveTimeout:   crlResolveTimeout(cfg),
-		CRLResolveMaxDepth:  crlResolveMaxDepth(cfg),
+		CRLResolveTimeout:   issuerTimeout,
+		CRLResolveMaxDepth:  issuerDepth,
 		CRLResolveWarn:      w,
 	})
 	subjects := evaluator.ChainSubjects(evalCtx)
@@ -326,6 +327,16 @@ func validationTime(cfg Config) time.Time {
 		return cfg.ValidationTime
 	}
 	return time.Now()
+}
+
+// issuerDiscovery returns the timeout and depth for finding CRL and OCSP
+// signer issuers through CA Issuers URLs. Zero values disable the download,
+// which happens only when chain climbing is enabled.
+func issuerDiscovery(cfg Config) (time.Duration, int) {
+	if !cfg.climbsCAIssuers() {
+		return 0, 0
+	}
+	return crlResolveTimeout(cfg), crlResolveMaxDepth(cfg)
 }
 
 func crlResolveTimeout(cfg Config) time.Duration {

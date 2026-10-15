@@ -44,7 +44,9 @@ pcl --policy <path> --cert leaf.pem --auto-validate
 ```
 
 This mode:
-- **Chain Climbing**: Recursively fetches issuer certificates via CA Issuers URLs
+- **Chain Climbing**: Recursively fetches issuer certificates via CA Issuers URLs,
+  also to find the signers of CRLs and delegated OCSP responders. Without
+  `--auto-validate`, or with `--no-auto-chain`, PCL makes no CA Issuers requests.
 - **PKCS#7 Support**: Parses `.p7c` certificate bundles per RFC 5280/5652
 - **Auto OCSP/CRL**: Fetches OCSP from AIA and bounded DER CRLs over HTTP(S)
   from certificate CRL Distribution Points and Freshest CRL locations, then

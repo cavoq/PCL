@@ -51,6 +51,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Files in a `--cert`, `--issuer`, `--crl` or `--ocsp` directory that cannot
   be read or parsed are reported as warnings instead of being skipped
   silently.
+- Runs without `--auto-validate`, `pcl inspect` and `pcl test` no longer
+  download certificates from CA Issuers URLs to find the signer of a CRL or
+  the issuer of a delegated OCSP responder. `--no-auto-chain` disables those
+  downloads as well.
 
 ## [5.1.0] - 2026-10-14
 
