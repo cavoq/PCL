@@ -1,95 +1,94 @@
-# PCL Architecture
+# 🏗️ PCL Architecture
 
-**Policy-driven PKI conformance engine** — A modular system for linting and
-validating X.509 certificates, certification paths, CRLs, and OCSP evidence
-against configurable YAML policy packs and explicit runtime trust inputs.
+[Documentation](docs/POLICY_WRITING_GUIDE.md)
 
----
+PCL separates acquisition, parsing facts, domain decisions, policy evaluation,
+and output. Network access belongs to acquisition; evaluation consumes prepared
+evidence.
 
-## Data Flow Pipeline
-
-The system processes data through a well-defined pipeline: raw certificate data and policies are transformed into a unified representation, validated against rules, and finally formatted for presentation.
+## 🔄 Data Flow
 
 ```mermaid
-graph LR
-    subgraph Input["📥 Input Data"]
-        Certs["X.509 Certificates<br/>CRL Responses<br/>OCSP Responses"]
-        Policies["YAML Policy Files<br/>Validation Rules"]
-    end
-    
-    subgraph Transform["🔄 Transformation"]
-        NodeTree["Certificate Node Tree<br/>Unified Abstraction"]
-        RuleSet["Parsed Rule Set<br/>Normalized Format"]
-    end
-    
-    subgraph Validate["✓ Validation"]
-        Engine["Rule Evaluation Engine<br/>80+ Operators<br/>Field Resolution"]
-    end
-    
-    subgraph Export["📤 Export"]
-        Formatter["Output Formatter<br/>Text/JSON/YAML"]
-        Results["Structured Results<br/>Pass/Fail/Skip Status"]
-    end
-    
-    Certs -->|Parse| NodeTree
-    Policies -->|Parse| RuleSet
-    NodeTree -->|Feed| Engine
-    RuleSet -->|Apply| Engine
-    Engine -->|Generate| Formatter
-    Formatter -->|Produce| Results
-    
-    style Input fill:#e8f4f8,stroke:#333,stroke-width:2px,color:#000
-    style Transform fill:#e8f4f8,stroke:#333,stroke-width:2px,color:#000
-    style Validate fill:#e8f4f8,stroke:#333,stroke-width:2px,color:#000
-    style Export fill:#e8f4f8,stroke:#333,stroke-width:2px,color:#000
-    style Certs fill:#ffffff,stroke:#333,stroke-width:2px,color:#000
-    style Policies fill:#ffffff,stroke:#333,stroke-width:2px,color:#000
-    style NodeTree fill:#ffffff,stroke:#333,stroke-width:2px,color:#000
-    style RuleSet fill:#ffffff,stroke:#333,stroke-width:2px,color:#000
-    style Engine fill:#ffffff,stroke:#333,stroke-width:2px,color:#000
-    style Formatter fill:#ffffff,stroke:#333,stroke-width:2px,color:#000
-    style Results fill:#ffffff,stroke:#333,stroke-width:2px,color:#000
+flowchart LR
+    Inputs["📥 Files and endpoints"] --> Acquire[Acquisition]
+    Acquire --> Facts[Parsed facts and node projections]
+    Facts --> Domains[Certificate, path, CRL and OCSP decisions]
+    Trust["🔐 Explicit runtime inputs"] --> Domains
+    Facts --> Subjects[Evaluator subjects]
+    Domains --> Subjects
+    YAML["📝 YAML policies"] --> Parse[Policy and operand validation]
+    Parse --> Evaluate[Rule evaluation]
+    Subjects --> Evaluate
+    Evaluate --> Results["✅ Text / JSON / YAML"]
+    Subjects --> Inspect["🌳 Inspect"]
+
+    classDef input fill:#e8f4f8,stroke:#39758a,color:#173c49
+    classDef processing fill:#f3edff,stroke:#8064ad,color:#36224f
+    classDef output fill:#e8f5e9,stroke:#4d8651,color:#204323
+    class Inputs,Trust,YAML input
+    class Acquire,Facts,Domains,Subjects,Parse,Evaluate processing
+    class Results,Inspect output
 ```
 
 ---
 
-## Key Components
+## 🧩 Ownership
 
-| Component | Purpose |
-|-----------|---------|
-| **Data Acquisition** | Load certificates from files, directories, or HTTPS endpoints |
-| **Policy Engine** | Parse YAML policies and extract validation rules |
-| **Evaluation Engine** | Apply rules to certificates using a registry of 80+ operators |
-| **Certificate Abstraction** | Unified node-tree representation for flexible field access |
-| **Output Formatter** | Generate results in text, JSON, or YAML format |
+| Package | Owns | Does not own |
+|---|---|---|
+| `internal/linter` | Configuration, acquisition, command orchestration, policy suites | Rule or cryptographic semantics |
+| `internal/x509asn1`, `internal/x509ext` | Shared strict DER facts, optional-field presence, raw encodings | Trust decisions or rule verdicts |
+| `internal/x509node`, `internal/certnode`, `internal/crlnode`, `internal/ocspnode` | Shared and object-specific node projections | Network acquisition |
+| `internal/cert` | Certificate loading, profile semantics, names, purpose and constraints | Generic policy execution |
+| `internal/path` | Bounded construction and explicit-anchor validation, policy processing | Network discovery |
+| `internal/crl`, `internal/ocsp` | Evidence acquisition helpers and authenticated status assessment | Policy selection |
+| `internal/evaluator` | Subject preparation, shared assessments, projected path findings | YAML syntax or rendering |
+| `internal/policy`, `internal/rule` | Policy shape, includes, input filtering and rule evaluation | ASN.1 parsing or trust configuration |
+| `internal/operator` | Registry, operand contracts, generic checks and domain adapters | Duplicate domain algorithms |
+| `internal/node`, `internal/finding` | Shared tree and structured finding types | Policy or acquisition decisions |
+| `internal/output` | Formatting and verbosity | Verdict calculation |
 
-### Policy execution boundary
+## 🔍 Parsing Boundary
 
-Policy parsing and operator semantics are deliberately separate. The policy
-package owns YAML shape, metadata, includes, and rule structure. Operators own
-their operand contracts, while the registry binds those contracts to the exact
-operator implementations used for evaluation.
+Raw DER is authoritative for encoding-sensitive checks. Strict decoders retain
+malformed/presence facts; node builders expose them for policies. A successfully
+decoded extension is not automatically processable as a critical extension.
+The location-specific registry only authorizes implemented semantics.
 
-`Parse`, `ParseFile`, and `ParseDir` perform structural parsing. Execution
-paths use their `WithRegistry` counterparts to reject unknown operators and
-malformed main, conditional, or nested operands before processing inputs.
-`Registry.Evaluate` enforces the same contract as a final boundary for callers
-that construct policies or invocations programmatically. Composite operators
-such as `every` resolve and invoke inner operators through that same registry,
-including custom registrations.
+Keep reusable decoding in the shared parsing layer, representation in node
+builders, and cross-certificate decisions in their domain. See the
+[node contracts](docs/NODE_MODEL.md#strict-profile-extension-schemas).
 
-Each built-in operand contract pairs the Go validator with a JSON Schema
-fragment. `pcl schema` assembles the policy schema from the registry, and
-tests require schema and validator to agree on every contract case, so editor
-validation cannot drift from execution.
+## 📝 Policy Boundary
 
-### One pipeline for lint, inspect and test
+`Parse`, `ParseFile`, and `ParseDir` validate structure. Execution uses their
+`WithRegistry` variants to validate operators and main, conditional, and nested
+operands before processing inputs. `Registry.Evaluate` enforces contracts for
+programmatically constructed invocations too.
 
-The linter acquires inputs once (loading, chain building, automatic CRL/OCSP
-retrieval, and downloading the issuers of CRL signers and delegated OCSP
-responders) and turns them into evaluator subjects. Only acquisition touches
-the network; evaluation reads the acquired inputs and changes none of them.
-There is one subject per certificate, CRL and OCSP response, each with the
-node tree policies see, its operator context and the selected policies. `pcl` evaluates the subjects, `pcl inspect` prints
-their trees, and `pcl test` evaluates them against expected verdicts, so all
-three commands see exactly the same inputs and projections.
+Each built-in operand contract supplies validation and a schema fragment.
+`pcl schema` assembles the editor schema from the registry; tests compare it
+with the committed schema and exercise parser/schema agreement.
+
+Metadata describes a pack. Includes merge rules only; the parent retains its
+metadata and execution filters. Trust anchors, purpose, evidence and validation
+time remain caller inputs. Generic policy evaluation does not depend on the
+path engine.
+
+## 🔐 Path Boundary
+
+Construction selects one deterministic path from supplied/acquired candidates.
+Validation separately checks it against explicit anchors and produces structured
+findings. The evaluator projects those findings onto the target certificate;
+a policy rule decides whether to require a successful aggregate result.
+
+CRL and OCSP assessments are shared by path validation and profile operators.
+CRL signer paths must reach the same explicit trust set when anchors are supplied.
+See [coverage limits](policies/RFC5280-COVERAGE.md#limits) for supported forms.
+
+## 🔧 Shared Commands
+
+Lint, inspect, and policy tests use the same acquisition and profile-subject
+pipeline. Lint evaluates rules; inspect prints trees; policy tests compare
+evaluation results with expectations. Explicit path validation is prepared
+for lint/test execution, while inspect exposes profile projections.

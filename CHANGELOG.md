@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Optional descriptive policy `metadata` with title, standard, edition, source,
+  description, and relevant input names. The parser and editor schema validate
+  it; it does not change evaluation or inherit through includes.
 - Dedicated RFC 5280 certification-path construction and validation domain
   with explicit trust anchors, validation time, caller maximum path length,
   application purpose, certificate-policy inputs, and selectable revocation
@@ -31,8 +34,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   closing the final four expressible NIST PKITS gaps (244/244).
 
 ### Changed
+- Consolidated documentation into CLI workflows, policy format, operator and
+  node references, and policy testing. Coverage pages now separate implemented
+  checks, executable evidence, and limits; the README is a short entry point.
 - PCL is presented as a policy-driven PKI conformance engine to reflect its
   certificate, chain, CRL, OCSP, policy-testing, and standards-evidence scope.
+
+### Migration notes
+- Policies without metadata remain valid. Packs using the new `metadata`
+  field require a binary/schema from this version or later; older strict
+  parsers reject that field.
+- Critical-extension acceptance requires strict processing registered for the
+  exact certificate, CRL, or entry location. A known OID alone does not suffice.
+- Use optional/default field presence nodes (`cAPresent`, `minimumPresent`,
+  `requireExplicitPolicyPresent`, etc.) and check extension `malformed` facts;
+  numeric zero does not imply absence.
+- `pathLenValid` counts non-self-issued intermediates in the supplied chain.
+  Use explicit `--trust-anchor` inputs and the conditional
+  `certification-path-valid` rule for an aggregate path decision.
+- Purpose-aware policies use `--purpose` and `applicationPurposeValid`.
+  Wildcard purposes are rejected; private EKUs fail closed when end-entity
+  Key Usage is present. Fixed-purpose `ekuContains` rules remain available.
 
 ## [5.2.0] - 2026-10-15
 
