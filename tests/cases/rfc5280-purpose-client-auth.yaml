@@ -5,6 +5,7 @@ rules:
 certs: certs/leaf.pem
 issuers: [certs/intermediate.pem, certs/root.pem]
 purpose: clientAuth
+time: 2026-10-01T00:00:00Z
 expected:
   intermediate: {pass: 1, fail: 0, skip: 0}
   leaf: {pass: 0, fail: 1, skip: 0}

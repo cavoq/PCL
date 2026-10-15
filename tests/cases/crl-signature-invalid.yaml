@@ -2,5 +2,6 @@ name: crl-signature-invalid
 policy: policies/crl-signed-by.yaml
 certs: certs
 crl: crls/revoked-leaf.crl
+time: 2026-10-01T00:00:00Z
 expected:
   crl: {pass: 0, fail: 1, skip: 0, verdict: fail}

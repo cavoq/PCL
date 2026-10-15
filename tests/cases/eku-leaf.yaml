@@ -2,6 +2,7 @@ name: eku-leaf
 policy: policies/eku.yaml
 certs: certs/leaf.pem
 issuers: [certs/intermediate.pem, certs/root.pem]
+time: 2026-10-01T00:00:00Z
 expected:
   intermediate: {pass: 0, fail: 0, skip: 3, verdict: pass}
   leaf: {pass: 3, fail: 0, skip: 0, verdict: pass}

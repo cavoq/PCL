@@ -3,6 +3,7 @@ policy: ../policies/RFC5280.yaml
 certs: certs/leaf.pem
 issuers: [certs/intermediate.pem, certs/root.pem]
 purpose: clientAuth
+time: 2026-10-01T00:00:00Z
 expected:
   intermediate: {pass: 54, fail: 0, skip: 85, verdict: pass}
   leaf: {pass: 51, fail: 1, skip: 87, verdict: fail}

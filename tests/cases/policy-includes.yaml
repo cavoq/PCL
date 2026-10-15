@@ -1,6 +1,7 @@
 name: policy-includes
 policy: policies/with-include.yaml
 certs: certs
+time: 2026-10-01T00:00:00Z
 expected:
   intermediate: {pass: 2, fail: 0, skip: 1}
   leaf: {pass: 2, fail: 0, skip: 1}

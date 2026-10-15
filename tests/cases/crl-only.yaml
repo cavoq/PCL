@@ -1,5 +1,6 @@
 name: crl-only
 policy: policies/crl-validity.yaml
 crl: ../internal/crl/testdata/test.crl
+time: 2026-10-01T00:00:00Z
 expected:
   crl: {pass: 0, fail: 2, skip: 0, verdict: fail}

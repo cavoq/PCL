@@ -1,6 +1,7 @@
 name: extensions-criticality
 policy: policies/extensions-criticality.yaml
 certs: certs
+time: 2026-10-01T00:00:00Z
 expected:
   intermediate: {pass: 2, fail: 0, skip: 0}
   leaf: {pass: 1, fail: 0, skip: 1}

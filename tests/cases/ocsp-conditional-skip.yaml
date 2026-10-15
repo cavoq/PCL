@@ -1,6 +1,7 @@
 name: ocsp-conditional-skip
 policy: policies/ocsp-conditional-skip.yaml
 certs: certs
+time: 2026-10-01T00:00:00Z
 expected:
   intermediate: {pass: 0, fail: 0, skip: 1}
   leaf: {pass: 0, fail: 0, skip: 1}

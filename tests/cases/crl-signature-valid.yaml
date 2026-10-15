@@ -3,5 +3,6 @@ policy: policies/crl-signed-by.yaml
 certs: certs/crl-signature-leaf.pem
 issuers: [certs/crl-signature-intermediate.pem, certs/crl-signature-root.pem]
 crl: crls/crl-signature-intermediate.crl
+time: 2026-10-01T00:00:00Z
 expected:
   crl: {pass: 1, fail: 0, skip: 0, verdict: pass}

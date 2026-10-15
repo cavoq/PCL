@@ -1,6 +1,7 @@
 name: leaf-keycertsign-fails
 policy: policies/leaf-keycertsign-fails.yaml
 certs: certs
+time: 2026-10-01T00:00:00Z
 output: text
 contains:
   - "[Summary]"
