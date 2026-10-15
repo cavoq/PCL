@@ -49,3 +49,24 @@ func TestReadDERLength(t *testing.T) {
 		t.Fatalf("got length=%d contentStart=%d", length, contentStart)
 	}
 }
+
+func TestReadDERLengthRejectsInvalidLengths(t *testing.T) {
+	tests := []struct {
+		name string
+		data []byte
+	}{
+		{name: "offset outside the data", data: []byte{}},
+		{name: "indefinite length", data: []byte{0x30, 0x80}},
+		{name: "length octets missing", data: []byte{0x30, 0x82, 0x01}},
+		{name: "leading zero octet", data: []byte{0x30, 0x82, 0x00, 0xff}},
+		{name: "long form for a short length", data: []byte{0x30, 0x81, 0x7f}},
+		{name: "length beyond the int range", data: append([]byte{0x30, 0x89, 0x01}, make([]byte, 8)...)},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if length, next, err := ReadDERLength(tt.data, 1); err == nil {
+				t.Fatalf("ReadDERLength(%x) = %d, %d; want an error", tt.data, length, next)
+			}
+		})
+	}
+}

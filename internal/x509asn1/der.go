@@ -4,6 +4,7 @@ package x509asn1
 import (
 	stdasn1 "encoding/asn1"
 	"fmt"
+	"math"
 )
 
 // EncodeOctetString encodes content as a DER OCTET STRING.
@@ -31,6 +32,7 @@ func EncodeObjectIdentifier(oid stdasn1.ObjectIdentifier) ([]byte, error) {
 }
 
 // ReadDERLength reads a DER length at pos and returns the length and content start offset.
+// The long form must be minimal, as DER requires, and fit in an int.
 func ReadDERLength(data []byte, pos int) (int, int, error) {
 	if pos < 0 || pos >= len(data) {
 		return 0, 0, fmt.Errorf("invalid DER length offset")
@@ -43,13 +45,22 @@ func ReadDERLength(data []byte, pos int) (int, int, error) {
 	if lenBytes == 0 {
 		return 0, 0, fmt.Errorf("indefinite DER length is not allowed")
 	}
-	if pos+lenBytes >= len(data) {
+	if lenBytes >= len(data)-pos {
 		return 0, 0, fmt.Errorf("invalid DER length")
+	}
+	if data[pos+1] == 0 {
+		return 0, 0, fmt.Errorf("DER length has leading zero octets")
 	}
 
 	length := 0
 	for i := range lenBytes {
+		if length > math.MaxInt>>8 {
+			return 0, 0, fmt.Errorf("DER length exceeds the int range")
+		}
 		length = (length << 8) | int(data[pos+1+i])
+	}
+	if length < 128 {
+		return 0, 0, fmt.Errorf("DER length %d must use the short form", length)
 	}
 	return length, pos + 1 + lenBytes, nil
 }
