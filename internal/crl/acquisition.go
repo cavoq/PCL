@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net/http"
 	"net/url"
 	"strings"
 	"sync"
@@ -14,7 +13,7 @@ import (
 
 	"github.com/cavoq/PCL/internal/cert"
 	crlzcrypto "github.com/cavoq/PCL/internal/crl/zcrypto"
-	"github.com/cavoq/PCL/internal/httpread"
+	"github.com/cavoq/PCL/internal/httpfetch"
 	"github.com/cavoq/PCL/internal/oid"
 	"github.com/cavoq/PCL/internal/source"
 	"github.com/cavoq/PCL/internal/x509ext"
@@ -82,7 +81,7 @@ func newFetchSession(cfg FetchConfig, allowPEM bool) *FetchSession {
 	}
 	retriever := cfg.Retriever
 	if retriever == nil {
-		retriever = httpRetriever{client: &http.Client{}}
+		retriever = httpRetriever{}
 	}
 	return &FetchSession{
 		timeout:          timeout,
@@ -399,26 +398,13 @@ func writeAcquisitionErrors(w io.Writer, errs []error) {
 	}
 }
 
+// httpRetriever retrieves CRLs with httpfetch.
 type httpRetriever struct {
-	client *http.Client
+	client httpfetch.Client
 }
 
-func (retriever httpRetriever) Retrieve(
-	ctx context.Context,
-	resourceURL string,
-	maxBytes int64,
-) ([]byte, error) {
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, resourceURL, nil)
-	if err != nil {
-		return nil, err
-	}
-	response, err := retriever.client.Do(request)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = response.Body.Close() }()
-
-	body, err := httpread.Body(response, maxBytes)
+func (retriever httpRetriever) Retrieve(ctx context.Context, resourceURL string, maxBytes int64) ([]byte, error) {
+	body, err := retriever.client.Get(ctx, resourceURL, maxBytes)
 	if err != nil {
 		return nil, fmt.Errorf("CRL %w", err)
 	}

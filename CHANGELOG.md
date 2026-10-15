@@ -21,6 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   inhibitPolicyMapping and inhibitAnyPolicy constraints.
 
 ### Changed
+- CRL, CA Issuers, OCSP and Public Suffix List downloads identify PCL with
+  the user agent `pcl/<version>` instead of Go's default.
 - Building PCL requires Go 1.26. golang.org/x/crypto, x/net and x/text are
   updated to versions that fix their published security advisories.
 

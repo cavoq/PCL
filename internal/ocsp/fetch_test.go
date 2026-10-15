@@ -62,7 +62,7 @@ func TestFetchOCSP_Server(t *testing.T) {
 		}},
 		{name: "error status", handler: func(w http.ResponseWriter, _ *http.Request) {
 			http.Error(w, "unavailable", http.StatusServiceUnavailable)
-		}, wantErr: "OCSP server returned status 503"},
+		}, wantErr: "server returned status 503"},
 		{name: "oversized response", handler: func(w http.ResponseWriter, _ *http.Request) {
 			_, _ = w.Write(make([]byte, maxOCSPResponseBytes+1))
 		}, wantErr: "exceeds"},

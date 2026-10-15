@@ -9,16 +9,16 @@ package data
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"fmt"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/cavoq/PCL/internal/httpread"
+	"github.com/cavoq/PCL/internal/httpfetch"
 )
 
 // PSL represents the Public Suffix List loaded from external file.
@@ -280,14 +280,9 @@ func DownloadPSL(url string, destPath string) error {
 		url = "https://publicsuffix.org/list/public_suffix_list.dat"
 	}
 
-	client := &http.Client{Timeout: pslDownloadTimeout}
-	resp, err := client.Get(url)
-	if err != nil {
-		return fmt.Errorf("failed to download PSL: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	body, err := httpread.Body(resp, maxPSLBytes)
+	ctx, cancel := context.WithTimeout(context.Background(), pslDownloadTimeout)
+	defer cancel()
+	body, err := httpfetch.Client{}.Get(ctx, url, maxPSLBytes)
 	if err != nil {
 		return fmt.Errorf("failed to download PSL: %w", err)
 	}

@@ -1,11 +1,11 @@
 package aia
 
 import (
+	"context"
 	"fmt"
-	"net/http"
 	"time"
 
-	"github.com/cavoq/PCL/internal/httpread"
+	"github.com/cavoq/PCL/internal/httpfetch"
 	"github.com/cavoq/PCL/internal/source"
 	"github.com/zmap/zcrypto/x509"
 )
@@ -31,18 +31,11 @@ func FetchCAIssuer(url string, timeout time.Duration) (*IssuerResult, error) {
 		return nil, fmt.Errorf("CA Issuers URL is required")
 	}
 
-	client := &http.Client{
-		Timeout: timeout,
-	}
-	resp, err := client.Get(url)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	body, err := httpfetch.Client{}.Get(ctx, url, maxCAIssuersResponseBytes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch CA Issuers from %s: %w", url, err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	body, err := httpread.Body(resp, maxCAIssuersResponseBytes)
-	if err != nil {
-		return nil, fmt.Errorf("CA Issuers %w", err)
 	}
 
 	certs, format, err := ParseIssuerResponse(body)

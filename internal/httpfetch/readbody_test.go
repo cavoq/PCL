@@ -1,4 +1,4 @@
-package httpread
+package httpfetch
 
 import (
 	"io"
@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestBody(t *testing.T) {
+func TestReadBody(t *testing.T) {
 	response := func(status int, contentLength int64, body string) *http.Response {
 		return &http.Response{
 			StatusCode:    status,
@@ -29,7 +29,7 @@ func TestBody(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			body, err := Body(tt.response, 8)
+			body, err := readBody(tt.response, 8)
 			if tt.wantErr != "" {
 				if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
 					t.Fatalf("error = %v, want one containing %q", err, tt.wantErr)
@@ -37,7 +37,7 @@ func TestBody(t *testing.T) {
 				return
 			}
 			if err != nil || string(body) != tt.want {
-				t.Fatalf("Body() = %q, %v; want %q", body, err, tt.want)
+				t.Fatalf("readBody() = %q, %v; want %q", body, err, tt.want)
 			}
 		})
 	}

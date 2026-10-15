@@ -1,14 +1,13 @@
 package ocsp
 
 import (
-	"bytes"
+	"context"
 	"crypto/x509"
 	"fmt"
-	"net/http"
 	"time"
 
 	"github.com/cavoq/PCL/internal/cert"
-	"github.com/cavoq/PCL/internal/httpread"
+	"github.com/cavoq/PCL/internal/httpfetch"
 	"github.com/cavoq/PCL/internal/x509node"
 	"golang.org/x/crypto/ocsp"
 )
@@ -50,23 +49,13 @@ func validateOCSPFetchInput(cert, issuer *x509.Certificate, url string) error {
 const maxOCSPResponseBytes = 1 << 20
 
 func postOCSPRequest(url string, req []byte, timeout time.Duration) (*ocsp.Response, error) {
-	httpReq, err := http.NewRequest("POST", url, bytes.NewReader(req))
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	body, err := httpfetch.Client{}.Post(
+		ctx, url, "application/ocsp-request", "application/ocsp-response", req, maxOCSPResponseBytes,
+	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create HTTP request: %w", err)
-	}
-	httpReq.Header.Set("Content-Type", "application/ocsp-request")
-	httpReq.Header.Set("Accept", "application/ocsp-response")
-
-	client := &http.Client{Timeout: timeout}
-	httpResp, err := client.Do(httpReq)
-	if err != nil {
-		return nil, fmt.Errorf("failed to send OCSP request: %w", err)
-	}
-	defer func() { _ = httpResp.Body.Close() }()
-
-	body, err := httpread.Body(httpResp, maxOCSPResponseBytes)
-	if err != nil {
-		return nil, fmt.Errorf("OCSP %w", err)
+		return nil, fmt.Errorf("OCSP request to %s failed: %w", url, err)
 	}
 
 	resp, err := ocsp.ParseResponse(body, nil)

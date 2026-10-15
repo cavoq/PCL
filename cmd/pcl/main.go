@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/cavoq/PCL/internal/data"
+	"github.com/cavoq/PCL/internal/httpfetch"
 	"github.com/cavoq/PCL/internal/linter"
 	"github.com/cavoq/PCL/internal/operator"
 	"github.com/cavoq/PCL/internal/output"
@@ -231,6 +232,7 @@ func newUpdateDataCmd() *cobra.Command {
 }
 
 func main() {
+	httpfetch.UserAgent = "pcl/" + version
 	var opts linter.Config
 
 	root := newRootCmd(&opts)
