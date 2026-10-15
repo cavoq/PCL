@@ -63,6 +63,23 @@ certificate has a Key Usage extension the check fails closed because RFC 5280
 defines no Key Usage mapping for private purposes. This is a bounded profile
 check, not a trust-anchor or complete RFC 5280 Section 6 input.
 
+## Certificate Policy Processing Inputs
+
+The `certificatePolicyValid` operator accepts the RFC 5280 Section 6.1.1
+inputs from the lint invocation:
+
+- `--initial-policy-set <oid[,oid...]>` selects the user-initial-policy-set;
+  repeat the flag to add values, and omit it for `anyPolicy`.
+- `--initial-explicit-policy` initializes explicit-policy to zero.
+- `--initial-policy-mapping-inhibit` initializes policy-mapping to zero.
+- `--initial-any-policy-inhibit` initializes inhibit-any-policy to zero.
+
+These inputs are independent. In particular, selecting an initial policy set
+does not by itself require an explicit policy. Supplying any of the flags
+overrides rule operands for `certificatePolicyValid`. With no flags, existing
+policies retain the legacy behavior in which operands are the initial policy
+set and also enable initial-explicit-policy.
+
 ---
 
 ## Policy File Structure
@@ -887,7 +904,7 @@ inside `every` as well.
 | Operator | Operands | Description |
 |----------|----------|-------------|
 | `nameConstraintsValid` | None | Applies DNS, email, URI, IP and directoryName constraints across the supplied chain; directory names are compared by the RFC 5280 Section 7.1 rules |
-| `certificatePolicyValid` | [oid, ...] or none | RFC 5280 6.1 policy processing (mappings, requireExplicitPolicy, inhibitPolicyMapping, inhibitAnyPolicy) from the trust anchor to the certificate. With operands, an operand policy (or any policy for `anyPolicy`) must be valid for the path; without operands, the RFC default inputs apply and the path must satisfy its own policy constraints. The self-signed chain top is the trust anchor and is not processed. No active `RFC5280.yaml` rule uses it |
+| `certificatePolicyValid` | [oid, ...] or none | RFC 5280 6.1 policy processing (mappings, requireExplicitPolicy, inhibitPolicyMapping, inhibitAnyPolicy) from the trust anchor to the certificate. The `--initial-*` inputs take precedence when supplied. Otherwise operands preserve the legacy initial-policy-set plus explicit-policy behavior, and no operands select RFC defaults. The self-signed chain top is the trust anchor and is not processed. No active `RFC5280.yaml` rule uses it |
 
 ### 14. Component Operators (Multi-Valued Fields)
 
@@ -1164,8 +1181,19 @@ tests:
     error: failed to load certificates   # the lint must fail with this text
 ```
 
-Cases also accept `crl`, `ocsp`, `purpose` and their own `time`. Run a file or
-a directory of suites; the command exits non-zero when any case fails:
+Cases also accept `crl`, `ocsp`, `purpose`, their own `time`, and the same
+certificate-policy inputs under `certificatePolicyInputs`:
+
+```yaml
+certificatePolicyInputs:
+  initialPolicySet: [1.2.3.4]
+  initialExplicitPolicy: true
+  initialPolicyMappingInhibit: true
+  initialAnyPolicyInhibit: true
+```
+
+Run a file or a directory of suites; the command exits non-zero when any case
+fails:
 
 ```bash
 pcl test policies/tests

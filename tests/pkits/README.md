@@ -35,13 +35,10 @@ Each run lints the end entity with `--issuer` set to the path's certificates,
 `--crl` to its CRLs and an evaluation time of 2020-01-01 (inside the
 2010-2030 validity of the data). The path is valid when no error rule of
 `path-policy.yaml` fails for any certificate of the chain, and the
-`certificatePolicyValid` rule added for the run passes for the end entity:
+operand-free `certificatePolicyValid` rule added for the run passes for the
+end entity. The harness supplies every run's initial policy set,
+explicit-policy, policy-mapping-inhibit and any-policy-inhibit inputs through
+the evaluator context, independently of the rule definition.
 
-- with an `initial-policy-set`, its policies are the operands;
-- with only `initial-explicit-policy`, the operand is `anyPolicy`;
-- otherwise the rule runs without operands, the RFC 5280 default inputs.
-
-Runs that need `initial-policy-mapping-inhibit` or `initial-inhibit-any-policy`
-are skipped, because PCL has no such input. Of the remaining 244 runs, 240
-reach the PKITS result; `known-gaps.yaml` lists the four certificates the
-zcrypto parser cannot load.
+All 247 runs reach the PKITS result. `known-gaps.yaml` is retained as an empty
+ratchet: any future exception must be explicit and documented there.

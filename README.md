@@ -49,6 +49,25 @@ purpose identifiers, but fail closed when end-entity Key Usage is present
 because RFC 5280 defines no Key Usage mapping for them. Without `--purpose`, the
 conditional rule is skipped.
 
+### Certificate Policy Processing Inputs
+
+When a policy enables the `certificatePolicyValid` operator, RFC 5280
+Section 6.1 policy processing can be initialized independently with:
+
+```bash
+pcl --policy policy.yaml --cert leaf.pem --issuer issuers/ \
+  --initial-policy-set 1.2.3.4,1.2.3.5 \
+  --initial-explicit-policy \
+  --initial-policy-mapping-inhibit \
+  --initial-any-policy-inhibit
+```
+
+`--initial-policy-set` accepts comma-separated or repeatable canonical dotted
+OIDs and defaults to `anyPolicy`. The three boolean flags initialize their RFC
+5280 counters independently. Supplying any of these flags selects the
+first-class input model; without them, existing `certificatePolicyValid`
+rules retain their operand-based behavior for compatibility.
+
 ### Auto-Validate Mode
 
 Automatically fetch PKI resources from certificate extensions (OCSP, CRL, CA Issuers) and climb the certificate chain:
@@ -373,9 +392,8 @@ Related profiles used by selected rules and acquisition features include:
 
 The integration tests run the NIST Public Key Interoperability Test Suite
 (PKITS 1.0.1), the reference suite for RFC 5280 path validation, through the
-lint command: 240 of the 244 runs PCL can express reach the PKITS result. The
-remaining four use certificates the underlying zcrypto parser cannot load. See
-[`tests/pkits`](tests/pkits/README.md) for the mapping and the known gaps.
+lint command: all 247 PKITS runs reach the expected result. See
+[`tests/pkits`](tests/pkits/README.md) for the mapping and coverage details.
 
 ## ➕ Supported Operators
 
@@ -492,7 +510,7 @@ remaining four use certificates the underlying zcrypto parser cannot load. See
 | Operator | Description |
 |----------|-------------|
 | `nameConstraintsValid` | Applies DNS, email, URI, IP and directoryName constraints across the chain (RFC 5280 4.2.1.10) |
-| `certificatePolicyValid` | RFC 5280 6.1 policy processing from the trust anchor to the certificate. With operands, one of the listed policies must be valid for the path; without operands, the path must satisfy its own policy constraints (not active in `RFC5280.yaml`) |
+| `certificatePolicyValid` | RFC 5280 6.1 policy processing from the trust anchor to the certificate. The `--initial-*` flags provide independent path-validation inputs; without them, operands retain the legacy initial-policy-set plus explicit-policy behavior (not active in `RFC5280.yaml`) |
 
 ASN.1 time details are projected as ordinary fields (`encoding`, `rawValue`,
 `hasSeconds`, `hasFraction`, and `hasZulu`) and are checked with generic

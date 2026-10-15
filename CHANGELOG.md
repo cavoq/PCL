@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- RFC 5280 certificate-policy validation accepts independent initial policy
+  set, explicit-policy, policy-mapping-inhibit and any-policy-inhibit inputs
+  through the CLI, API and policy-test cases. All 247 NIST PKITS runs now
+  reach their expected result with no gaps or unsupported inputs.
+
+### Fixed
+- Certificate parsing now supports inherited DSA parameters and uncommon
+  CRL distribution-point encodings while preserving strict DER validation,
+  closing the final four expressible NIST PKITS gaps (244/244).
+
 ### Changed
 - PCL is presented as a policy-driven PKI conformance engine to reflect its
   certificate, chain, CRL, OCSP, policy-testing, and standards-evidence scope.

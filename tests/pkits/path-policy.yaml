@@ -2,8 +2,8 @@
 #
 # Certification path checks used to run NIST PKITS through PCL. A PKITS path
 # is valid when no error rule fails for any certificate of the chain. Policy
-# processing for runs with an initial-policy-set or initial-explicit-policy
-# is added per run by the test harness.
+# processing and its four RFC 5280 initial inputs are added per run by the
+# test harness.
 id: pkits-path
 version: "1.0"
 appliesTo: [cert]

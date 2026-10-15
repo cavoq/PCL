@@ -365,8 +365,10 @@ Section 7 internationalized-name comparison.
 PCL implements the bounded CRL assessment described under Section 6.3 below.
 The remaining checks are independent profile checks, not the complete RFC
 5280 Section 6 certification-path state machine. PCL has an explicit
-application-purpose input, but no explicit trust-anchor, initial-policy-set,
-or policy-inhibition state.
+application-purpose input and first-class initial-policy-set,
+explicit-policy, policy-mapping-inhibit and any-policy-inhibit inputs. It does
+not yet expose an explicit trust-anchor input or implement the complete
+Section 6 state machine.
 
 | Requirement | Status | Rule |
 |-------------|--------|------|
