@@ -46,6 +46,21 @@ jobs:
       - name: Check for reachable vulnerabilities
         run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
 
+  fuzz:
+    name: Fuzz
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run each fuzz target briefly
+        run: tests/scripts/fuzz.sh 10s
+
   unit-tests:
     name: Unit Tests
     runs-on: ubuntu-latest
