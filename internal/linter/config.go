@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/cavoq/PCL/internal/oid"
-	"github.com/cavoq/PCL/internal/operator"
 	"github.com/cavoq/PCL/internal/output"
+	pathpkg "github.com/cavoq/PCL/internal/path"
 )
 
 type Config struct {
@@ -20,10 +20,14 @@ type Config struct {
 	CertSaveDir string
 	IssuerPaths []string
 	IssuerURLs  []string
-	CRLPath     string
-	OCSPPath    string
-	OCSPTimeout time.Duration
-	OutputFmt   string
+	// TrustAnchorPaths are explicit, locally trusted certificate files or
+	// directories used by RFC 5280 path validation. They are not inferred from
+	// self-signed certificates in the issuer pool.
+	TrustAnchorPaths []string
+	CRLPath          string
+	OCSPPath         string
+	OCSPTimeout      time.Duration
+	OutputFmt        string
 	// ValidationTime fixes the evaluation time; zero means the current time.
 	ValidationTime time.Time
 	Verbosity      int
@@ -47,7 +51,16 @@ type Config struct {
 	// CertificatePolicyInputs are optional RFC 5280 Section 6.1.1 inputs.
 	// Unconfigured inputs preserve certificatePolicyValid's operand-based
 	// compatibility mode.
-	CertificatePolicyInputs operator.CertificatePolicyInputs
+	CertificatePolicyInputs pathpkg.PolicyInputs
+
+	// MaximumPathLength is the caller's initial maximum number of non-self-
+	// issued intermediate certificates. The companion bit preserves an
+	// explicit zero value.
+	MaximumPathLength           int
+	MaximumPathLengthConfigured bool
+	// PathRevocation controls path revocation integration: none, if-present, or
+	// required. It is used only when explicit trust anchors enable validation.
+	PathRevocation pathpkg.RevocationMode
 
 	// Auto-validate mode options
 	AutoValidate  bool // Enable automatic PKI resource fetching (OCSP, CRL, chain climbing)
@@ -87,6 +100,20 @@ func (cfg Config) validateInputs() error {
 				return fmt.Errorf("initial policy set contains invalid object identifier %q", identifier)
 			}
 		}
+	}
+	if len(cfg.TrustAnchorPaths) > 0 && !cfg.hasCertificateInput() {
+		return errors.New("--trust-anchor requires a certificate input")
+	}
+	if cfg.MaximumPathLengthConfigured && cfg.MaximumPathLength < 0 {
+		return errors.New("--max-path-length must not be negative")
+	}
+	if cfg.MaximumPathLengthConfigured && len(cfg.TrustAnchorPaths) == 0 {
+		return errors.New("--max-path-length requires --trust-anchor")
+	}
+	switch cfg.PathRevocation {
+	case "", pathpkg.RevocationNone, pathpkg.RevocationIfPresent, pathpkg.RevocationRequired:
+	default:
+		return fmt.Errorf("unknown --path-revocation mode %q: use none, if-present or required", cfg.PathRevocation)
 	}
 	if !cfg.hasCertificateInput() && cfg.CRLPath == "" && cfg.OCSPPath == "" {
 		return errors.New("no certificates, CRLs, or OCSP responses provided")

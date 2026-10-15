@@ -45,6 +45,24 @@ func TestRootCommandAcceptsCertificatePolicyInputs(t *testing.T) {
 	}
 }
 
+func TestRootCommandAcceptsPathValidationInputs(t *testing.T) {
+	var config linter.Config
+	command := newRootCmd(&config)
+	if err := command.ParseFlags([]string{
+		"--trust-anchor", "root.pem",
+		"--max-path-length", "0",
+		"--path-revocation", "required",
+	}); err != nil {
+		t.Fatalf("parse path validation inputs: %v", err)
+	}
+	markPathInputsConfigured(command.Flags(), &config)
+	if len(config.TrustAnchorPaths) != 1 || config.TrustAnchorPaths[0] != "root.pem" ||
+		!config.MaximumPathLengthConfigured || config.MaximumPathLength != 0 ||
+		config.PathRevocation != "required" {
+		t.Fatalf("path validation config = %#v", config)
+	}
+}
+
 func TestRootCommandAcceptsDetails(t *testing.T) {
 	var config linter.Config
 	command := newRootCmd(&config)
@@ -69,6 +87,11 @@ func TestInspectCommandSharesInputFlags(t *testing.T) {
 	}
 	if command.Flags().Lookup("policy") != nil {
 		t.Error("inspect must not accept --policy")
+	}
+	for _, name := range []string{"trust-anchor", "max-path-length", "path-revocation"} {
+		if command.Flags().Lookup(name) != nil {
+			t.Errorf("inspect must not accept --%s", name)
+		}
 	}
 }
 

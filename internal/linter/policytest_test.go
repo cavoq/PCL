@@ -100,6 +100,9 @@ policy: policy.yaml
 tests:
   - name: policy processing inputs
     cert: leaf.pem
+    trustAnchors: [root.pem]
+    maximumPathLength: 0
+    pathRevocation: required
     certificatePolicyInputs:
       initialPolicySet: [1.2.3.4]
       initialExplicitPolicy: true
@@ -116,6 +119,11 @@ tests:
 		!inputs.InitialExplicitPolicy || !inputs.InitialPolicyMappingInhibit ||
 		!inputs.InitialAnyPolicyInhibit {
 		t.Fatalf("certificate policy inputs = %#v", inputs)
+	}
+	caseInputs := suite.Tests[0]
+	if len(caseInputs.TrustAnchors) != 1 || caseInputs.MaximumPathLength == nil ||
+		*caseInputs.MaximumPathLength != 0 || caseInputs.PathRevocation != "required" {
+		t.Fatalf("path inputs = %#v", caseInputs)
 	}
 }
 

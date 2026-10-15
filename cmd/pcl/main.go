@@ -35,6 +35,7 @@ func newRootCmd(opts *linter.Config) *cobra.Command {
 			opts.Diagnostics = cmd.ErrOrStderr()
 			opts.Color = colorOutput(cmd.OutOrStdout())
 			markCertificatePolicyInputsConfigured(cmd.Flags(), opts)
+			markPathInputsConfigured(cmd.Flags(), opts)
 			if err := dataOpts.load(opts.Diagnostics); err != nil {
 				return err
 			}
@@ -45,6 +46,7 @@ func newRootCmd(opts *linter.Config) *cobra.Command {
 	root.Flags().StringSliceVar(&opts.PolicyPaths, "policy", nil, "Path to policy YAML file or directory (repeatable)")
 	addInputFlags(root.Flags(), opts)
 	addCertificatePolicyFlags(root.Flags(), opts)
+	addPathValidationFlags(root.Flags(), opts)
 	root.Flags().StringVar(&opts.OutputFmt, "output", output.FormatText, "Output format: text, json, or yaml")
 	root.Flags().CountVarP(&opts.Verbosity, "verbose", "v", "Increase output detail: -v shows passed, -vv includes skipped")
 	root.Flags().BoolVar(&opts.ShowDetails, "details", false, "Show wrapped rule explanations in text output")
@@ -98,6 +100,18 @@ func markCertificatePolicyInputsConfigured(flags *pflag.FlagSet, opts *linter.Co
 			return
 		}
 	}
+}
+
+func markPathInputsConfigured(flags *pflag.FlagSet, opts *linter.Config) {
+	if flags.Changed("max-path-length") {
+		opts.MaximumPathLengthConfigured = true
+	}
+}
+
+func addPathValidationFlags(flags *pflag.FlagSet, opts *linter.Config) {
+	flags.StringSliceVar(&opts.TrustAnchorPaths, "trust-anchor", nil, "Explicit trust-anchor certificate file or directory (repeatable, PEM/DER)")
+	flags.IntVar(&opts.MaximumPathLength, "max-path-length", -1, "Maximum non-self-issued intermediate certificates for path validation")
+	flags.StringVar((*string)(&opts.PathRevocation), "path-revocation", "if-present", "Path revocation mode: none, if-present, or required")
 }
 
 // colorOutput reports whether text results written to w are colored: only

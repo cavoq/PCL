@@ -65,6 +65,24 @@ func loadIssuers(cfg Config, w io.Writer) ([]*cert.Info, func(), error) {
 	return issuers, cleanup, nil
 }
 
+// loadTrustAnchors loads only local, explicitly trusted certificates. Trust
+// is a caller decision, so anchors are never downloaded or inferred from the
+// issuer pool.
+func loadTrustAnchors(paths []string, w io.Writer) ([]*cert.Info, error) {
+	var anchors []*cert.Info
+	for _, path := range paths {
+		loaded, err := cert.LoadCertificates(path, w)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load trust anchors from %s: %w", path, err)
+		}
+		anchors = append(anchors, loaded...)
+	}
+	if len(paths) > 0 && len(anchors) == 0 {
+		return nil, fmt.Errorf("no trust-anchor certificates provided")
+	}
+	return anchors, nil
+}
+
 func composeCleanup(first, second func()) func() {
 	if first == nil {
 		return second

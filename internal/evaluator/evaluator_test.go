@@ -4,6 +4,7 @@ import (
 	cryptox509 "crypto/x509"
 	"math/big"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/cavoq/PCL/internal/node"
 	"github.com/cavoq/PCL/internal/ocsp"
 	"github.com/cavoq/PCL/internal/operator"
+	pathpkg "github.com/cavoq/PCL/internal/path"
 	"github.com/cavoq/PCL/internal/policy"
 	"github.com/cavoq/PCL/internal/rule"
 	"github.com/cavoq/PCL/internal/testpki"
@@ -103,6 +105,51 @@ func TestChainProjectsAndPropagatesApplicationPurpose(t *testing.T) {
 		if result.Verdict != rule.VerdictPass {
 			t.Fatalf("rule %q verdict = %q, want pass", result.RuleID, result.Verdict)
 		}
+	}
+}
+
+func TestChainProjectsExplicitPathValidation(t *testing.T) {
+	root := testpki.Issue(t, "Root", nil, testpki.CA(), testpki.Serial(1))
+	leaf := testpki.Issue(t, "Leaf", root, testpki.Serial(2))
+	profile := policy.Policy{
+		ID: "path-validation",
+		Rules: []rule.Rule{{
+			ID:       "path-valid",
+			Target:   "certificate.pathValidation.failureSummary",
+			Operator: "absent",
+			Severity: rule.SeverityError,
+			When: &rule.Condition{
+				Target: "certificate.pathValidation", Operator: "present",
+			},
+		}},
+	}
+	chain := []*cert.Info{{Cert: leaf.Cert}, {Cert: root.Cert}}
+	results := Chain(Context{
+		Policies:       []policy.Policy{profile},
+		Registry:       operator.DefaultRegistry(),
+		Chain:          chain,
+		Certificates:   chain,
+		TrustAnchors:   []*cert.Info{{Cert: root.Cert}},
+		ValidationTime: time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
+		PathRevocation: pathpkg.RevocationNone,
+	})
+	if len(results) != 2 || results[0].Results[0].Verdict != rule.VerdictPass ||
+		results[1].Results[0].Verdict != rule.VerdictSkip {
+		t.Fatalf("path validation results = %#v", results)
+	}
+
+	expired := Chain(Context{
+		Policies:       []policy.Policy{profile},
+		Registry:       operator.DefaultRegistry(),
+		Chain:          chain,
+		Certificates:   chain,
+		TrustAnchors:   []*cert.Info{{Cert: root.Cert}},
+		ValidationTime: time.Date(2028, 1, 1, 0, 0, 0, 0, time.UTC),
+		PathRevocation: pathpkg.RevocationNone,
+	})
+	if expired[0].Results[0].Verdict != rule.VerdictFail ||
+		!strings.Contains(expired[0].Results[0].Details, "path.validity") {
+		t.Fatalf("expired path result = %#v", expired[0].Results[0])
 	}
 }
 

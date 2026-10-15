@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cavoq/PCL/internal/finding"
 	"github.com/cavoq/PCL/internal/node"
 	"github.com/cavoq/PCL/internal/operator"
 )
@@ -20,12 +21,13 @@ const (
 )
 
 type Result struct {
-	RuleID    string `json:"rule_id" yaml:"rule_id"`
-	Reference string `json:"reference,omitempty" yaml:"reference,omitempty"`
-	Verdict   string `json:"verdict" yaml:"verdict"`
-	Severity  string `json:"severity" yaml:"severity"`
-	Message   string `json:"message,omitempty" yaml:"message,omitempty"`
-	Details   string `json:"details,omitempty" yaml:"details,omitempty"`
+	RuleID    string            `json:"rule_id" yaml:"rule_id"`
+	Reference string            `json:"reference,omitempty" yaml:"reference,omitempty"`
+	Verdict   string            `json:"verdict" yaml:"verdict"`
+	Severity  string            `json:"severity" yaml:"severity"`
+	Message   string            `json:"message,omitempty" yaml:"message,omitempty"`
+	Details   string            `json:"details,omitempty" yaml:"details,omitempty"`
+	Findings  []finding.Finding `json:"findings,omitempty" yaml:"findings,omitempty"`
 }
 
 func Evaluate(
@@ -119,6 +121,9 @@ func evaluationDetails(
 	case "present":
 		return fmt.Sprintf("actual: %s; expected: present", presence(found))
 	case "absent":
+		if found {
+			return fmt.Sprintf("actual: %s; expected: absent", actual)
+		}
 		return fmt.Sprintf("actual: %s; expected: absent", presence(found))
 	case "eq":
 		return fmt.Sprintf("actual: %s; expected: %s", actual, firstDiagnosticOperand(normalized))

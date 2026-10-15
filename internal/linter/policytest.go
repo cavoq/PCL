@@ -15,6 +15,7 @@ import (
 
 	"github.com/cavoq/PCL/internal/evaluator"
 	"github.com/cavoq/PCL/internal/operator"
+	pathpkg "github.com/cavoq/PCL/internal/path"
 	"github.com/cavoq/PCL/internal/policy"
 	"github.com/cavoq/PCL/internal/rule"
 )
@@ -49,10 +50,13 @@ type policyTestCase struct {
 	Name                    string                      `yaml:"name"`
 	Cert                    string                      `yaml:"cert,omitempty"`
 	Issuers                 []string                    `yaml:"issuers,omitempty"`
+	TrustAnchors            []string                    `yaml:"trustAnchors,omitempty"`
 	CRL                     string                      `yaml:"crl,omitempty"`
 	OCSP                    string                      `yaml:"ocsp,omitempty"`
 	Purpose                 string                      `yaml:"purpose,omitempty"`
 	CertificatePolicyInputs *policyTestCertificateInput `yaml:"certificatePolicyInputs,omitempty"`
+	MaximumPathLength       *int                        `yaml:"maximumPathLength,omitempty"`
+	PathRevocation          string                      `yaml:"pathRevocation,omitempty"`
 	Time                    string                      `yaml:"time,omitempty"`
 	Error                   string                      `yaml:"error,omitempty"`
 	Expect                  []policyExpectation         `yaml:"expect,omitempty"`
@@ -273,11 +277,17 @@ func lintPolicyTestCase(
 	cfg := Config{
 		CertPath:                resolvePath(dir, testCase.Cert),
 		IssuerPaths:             resolvePaths(dir, testCase.Issuers),
+		TrustAnchorPaths:        resolvePaths(dir, testCase.TrustAnchors),
 		CRLPath:                 resolvePath(dir, testCase.CRL),
 		OCSPPath:                resolvePath(dir, testCase.OCSP),
 		ApplicationPurpose:      testCase.Purpose,
 		CertificatePolicyInputs: testCase.CertificatePolicyInputs.operatorInputs(),
 		ValidationTime:          evaluationTime,
+		PathRevocation:          pathpkg.RevocationMode(testCase.PathRevocation),
+	}
+	if testCase.MaximumPathLength != nil {
+		cfg.MaximumPathLength = *testCase.MaximumPathLength
+		cfg.MaximumPathLengthConfigured = true
 	}
 	applyDefaults(&cfg)
 	if err := cfg.validateInputs(); err != nil {

@@ -7,6 +7,7 @@ import (
 	"github.com/cavoq/PCL/internal/crl"
 	"github.com/cavoq/PCL/internal/node"
 	"github.com/cavoq/PCL/internal/ocsp"
+	pathpkg "github.com/cavoq/PCL/internal/path"
 	"github.com/cavoq/PCL/internal/source"
 	"github.com/zmap/zcrypto/x509"
 )
@@ -56,6 +57,10 @@ type EvaluationContext struct {
 	// the caller. When unconfigured, certificatePolicyValid retains its legacy
 	// operand-based behavior.
 	CertificatePolicyInputs CertificatePolicyInputs
+
+	// PathValidation is the single path-domain decision for the evaluated target
+	// certificate. It is nil for profile-only runs and non-target certificates.
+	PathValidation *pathpkg.Result
 }
 
 func (ctx *EvaluationContext) HasCert() bool {
@@ -180,6 +185,12 @@ func WithApplicationPurpose(purpose string) ContextOption {
 func WithCertificatePolicyInputs(inputs CertificatePolicyInputs) ContextOption {
 	return func(ctx *EvaluationContext) {
 		ctx.CertificatePolicyInputs = inputs
+	}
+}
+
+func WithPathValidation(result *pathpkg.Result) ContextOption {
+	return func(ctx *EvaluationContext) {
+		ctx.PathValidation = result
 	}
 }
 

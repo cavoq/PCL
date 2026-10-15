@@ -369,6 +369,35 @@ func TestConfigValidateRejectsInvalidInitialPolicyOID(t *testing.T) {
 	}
 }
 
+func TestConfigValidateRejectsInvalidPathInputs(t *testing.T) {
+	base := Config{PolicyPaths: []string{"policy.yaml"}, CertPath: "leaf.pem"}
+	invalidMode := base
+	invalidMode.PathRevocation = "sometimes"
+	if err := invalidMode.Validate(); err == nil || !strings.Contains(err.Error(), "path-revocation") {
+		t.Fatalf("invalid revocation mode error = %v", err)
+	}
+	invalidMaximum := base
+	invalidMaximum.MaximumPathLengthConfigured = true
+	invalidMaximum.MaximumPathLength = -1
+	if err := invalidMaximum.Validate(); err == nil || !strings.Contains(err.Error(), "max-path-length") {
+		t.Fatalf("invalid maximum path length error = %v", err)
+	}
+	maximumWithoutAnchor := base
+	maximumWithoutAnchor.MaximumPathLengthConfigured = true
+	maximumWithoutAnchor.MaximumPathLength = 1
+	if err := maximumWithoutAnchor.Validate(); err == nil || !strings.Contains(err.Error(), "trust-anchor") {
+		t.Fatalf("maximum path length without trust anchor error = %v", err)
+	}
+	withoutCertificate := Config{
+		PolicyPaths:      []string{"policy.yaml"},
+		TrustAnchorPaths: []string{"root.pem"},
+		CRLPath:          "list.crl",
+	}
+	if err := withoutCertificate.Validate(); err == nil || !strings.Contains(err.Error(), "trust-anchor") {
+		t.Fatalf("trust anchor without certificate error = %v", err)
+	}
+}
+
 func TestLoadCRLs(t *testing.T) {
 	// Test with empty path
 	crls, err := loadCRLs("", nil)
@@ -683,7 +712,7 @@ func TestBuildCertificateChain_reportsCertificatesLeftOut(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var diagnostics bytes.Buffer
-			if _, _, err := buildCertificateChain(Config{}, tt.certs, nil, &diagnostics); err != nil {
+			if _, _, err := buildCertificateChain(Config{}, tt.certs, nil, nil, &diagnostics); err != nil {
 				t.Fatal(err)
 			}
 			warnings := strings.Count(diagnostics.String(), "is not part of the evaluated certificate chain")
@@ -696,6 +725,53 @@ func TestBuildCertificateChain_reportsCertificatesLeftOut(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestRunProjectsExplicitPathValidation(t *testing.T) {
+	root := testpki.Issue(t, "Root", nil, testpki.CA(), testpki.Serial(1))
+	intermediate := testpki.Issue(t, "Intermediate", root, testpki.CA(), testpki.Serial(2))
+	leaf := testpki.Issue(t, "Leaf", intermediate, testpki.Serial(3))
+	dir := t.TempDir()
+	leafPath := writePEMCert(t, dir, "leaf.pem", leaf.DER)
+	intermediatePath := writePEMCert(t, dir, "intermediate.pem", intermediate.DER)
+	rootPath := writePEMCert(t, dir, "root.pem", root.DER)
+	policyPath := filepath.Join(dir, "path-policy.yaml")
+	if err := os.WriteFile(policyPath, []byte(`id: path-validation
+version: "1"
+rules:
+  - id: certification-path-valid
+    when:
+      target: certificate.pathValidation
+      operator: present
+    target: certificate.pathValidation.failureSummary
+    operator: absent
+    severity: error
+`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	var output bytes.Buffer
+	err := Run(Config{
+		PolicyPaths:      []string{policyPath},
+		CertPath:         leafPath,
+		IssuerPaths:      []string{intermediatePath},
+		TrustAnchorPaths: []string{rootPath},
+		ValidationTime:   time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
+		PathRevocation:   "none",
+		OutputFmt:        "json",
+		Verbosity:        1,
+	}, &output)
+	if err != nil {
+		t.Fatalf("Run: %v\n%s", err, output.String())
+	}
+	var results []policy.Result
+	if err := json.Unmarshal(output.Bytes(), &results); err != nil {
+		t.Fatal(err)
+	}
+	if len(results) != 3 || results[0].Results[0].Verdict != rule.VerdictPass ||
+		len(results[0].Results[0].Findings) == 0 {
+		t.Fatalf("path validation results = %#v", results)
 	}
 }
 

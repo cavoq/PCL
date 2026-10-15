@@ -15,6 +15,7 @@ import (
 	"github.com/cavoq/PCL/internal/ocsp"
 	"github.com/cavoq/PCL/internal/operator"
 	"github.com/cavoq/PCL/internal/output"
+	pathpkg "github.com/cavoq/PCL/internal/path"
 	"github.com/cavoq/PCL/internal/policy"
 	"github.com/cavoq/PCL/internal/rule"
 	"github.com/cavoq/PCL/internal/source"
@@ -95,6 +96,7 @@ type lintInputs struct {
 	// certificates holds every supplied, climbed or downloaded certificate.
 	certificates []*cert.Info
 	issuers      []*cert.Info
+	trustAnchors []*cert.Info
 	crls         []*crl.Info
 	ocsps        []*ocsp.Info
 }
@@ -116,6 +118,9 @@ func acquireInputs(cfg Config, diagnostics io.Writer, cleanups *cleanupStack) (l
 		return lintInputs{}, err
 	}
 	inputs.issuers = issuers
+	if inputs.trustAnchors, err = loadTrustAnchors(cfg.TrustAnchorPaths, diagnostics); err != nil {
+		return lintInputs{}, err
+	}
 
 	if !cfg.hasCertificateInput() {
 		if len(inputs.crls) == 0 && len(inputs.ocsps) == 0 {
@@ -129,7 +134,13 @@ func acquireInputs(cfg Config, diagnostics io.Writer, cleanups *cleanupStack) (l
 	if err != nil {
 		return lintInputs{}, err
 	}
-	if inputs.chain, inputs.certificates, err = buildCertificateChain(cfg, certs, issuers, diagnostics); err != nil {
+	if inputs.chain, inputs.certificates, err = buildCertificateChain(
+		cfg,
+		certs,
+		issuers,
+		inputs.trustAnchors,
+		diagnostics,
+	); err != nil {
 		return lintInputs{}, err
 	}
 
@@ -186,19 +197,37 @@ func discoverSignerIssuers(cfg Config, inputs lintInputs, w io.Writer) []*cert.I
 
 // buildCertificateChain returns the evaluated chain and every certificate
 // that was available to build it.
-func buildCertificateChain(cfg Config, certs, issuers []*cert.Info, w io.Writer) ([]*cert.Info, []*cert.Info, error) {
-	allCerts := make([]*cert.Info, 0, len(certs)+len(issuers))
+func buildCertificateChain(
+	cfg Config,
+	certs, issuers, trustAnchors []*cert.Info,
+	w io.Writer,
+) ([]*cert.Info, []*cert.Info, error) {
+	allCerts := make([]*cert.Info, 0, len(certs)+len(issuers)+len(trustAnchors))
 	allCerts = append(allCerts, certs...)
 	allCerts = append(allCerts, issuers...)
+	allCerts = append(allCerts, trustAnchors...)
 	if len(allCerts) == 0 {
 		return nil, nil, fmt.Errorf("no certificates available to build a chain")
 	}
 
 	if cfg.climbsCAIssuers() {
 		allCerts = append(climbChains(cfg, certs, allCerts, w), issuers...)
+		allCerts = append(allCerts, trustAnchors...)
 	}
 
-	chain, err := cert.BuildChainFor(certs, allCerts)
+	var (
+		chain []*cert.Info
+		err   error
+	)
+	if len(trustAnchors) > 0 {
+		construction, constructionErr := pathpkg.Construct(certs, allCerts, trustAnchors, cfg.MaxChainDepth)
+		if constructionErr != nil {
+			return nil, nil, fmt.Errorf("failed to construct certificate path: %w", constructionErr)
+		}
+		chain = construction.Chain
+	} else {
+		chain, err = cert.BuildChainFor(certs, allCerts)
+	}
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to build certificate chain: %w", err)
 	}
@@ -256,6 +285,9 @@ func buildSubjects(
 		ValidationTime:          now,
 		ApplicationPurpose:      cfg.ApplicationPurpose,
 		CertificatePolicyInputs: cfg.CertificatePolicyInputs,
+		TrustAnchors:            inputs.trustAnchors,
+		MaximumPathLength:       configuredMaximumPathLength(cfg),
+		PathRevocation:          cfg.PathRevocation,
 	}
 	subjects := evaluator.ChainSubjects(evalCtx)
 	if len(inputs.ocsps) > 0 {
@@ -412,6 +444,14 @@ func crlRevocationRequested(cfg Config) bool {
 	return cfg.CRLPath != "" || (cfg.AutoValidate && !cfg.NoAutoCRL)
 }
 
+func configuredMaximumPathLength(cfg Config) *int {
+	if !cfg.MaximumPathLengthConfigured {
+		return nil
+	}
+	maximum := cfg.MaximumPathLength
+	return &maximum
+}
+
 // Defaults for unset Config fields; the command line flags use them too.
 const (
 	DefaultCertTimeout   = 10 * time.Second
@@ -431,6 +471,12 @@ func applyDefaults(cfg *Config) {
 	}
 	if cfg.OutputFmt == "" {
 		cfg.OutputFmt = output.FormatText
+	}
+	if cfg.PathRevocation == "" {
+		cfg.PathRevocation = pathpkg.RevocationIfPresent
+	}
+	if !cfg.MaximumPathLengthConfigured && cfg.MaximumPathLength > 0 {
+		cfg.MaximumPathLengthConfigured = true
 	}
 }
 

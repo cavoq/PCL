@@ -2,6 +2,9 @@
 package evaluator
 
 import (
+	"fmt"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/cavoq/PCL/internal/cert"
@@ -12,6 +15,7 @@ import (
 	"github.com/cavoq/PCL/internal/ocsp"
 	"github.com/cavoq/PCL/internal/ocspnode"
 	"github.com/cavoq/PCL/internal/operator"
+	pathpkg "github.com/cavoq/PCL/internal/path"
 	"github.com/cavoq/PCL/internal/policy"
 	"github.com/cavoq/PCL/internal/source"
 	"github.com/zmap/zcrypto/x509"
@@ -49,6 +53,13 @@ type Context struct {
 	// CertificatePolicyInputs are the caller's RFC 5280 Section 6.1.1
 	// certificate-policy processing inputs.
 	CertificatePolicyInputs operator.CertificatePolicyInputs
+
+	// Explicit certification-path validation inputs. Without trust anchors,
+	// evaluation preserves the profile-linting behavior and does not infer
+	// trust from a self-signed chain top.
+	TrustAnchors      []*cert.Info
+	MaximumPathLength *int
+	PathRevocation    pathpkg.RevocationMode
 }
 
 // Subject is one evaluated input: the node tree policies see, the context
@@ -96,7 +107,7 @@ func ChainSubjects(ctx Context) []Subject {
 	authorizer := ctx.CRLSignerAuthorizer
 	var pathAuthorizer *pathSignerAuthorizer
 	if authorizer == nil {
-		pathAuthorizer = newPathSignerAuthorizer(ctx.Chain, now)
+		pathAuthorizer = newPathSignerAuthorizer(ctx, now)
 		authorizer = pathAuthorizer
 	}
 	catalog := crl.NewCatalog(lists, crl.RevocationContext{
@@ -108,14 +119,18 @@ func ChainSubjects(ctx Context) []Subject {
 	if pathAuthorizer != nil {
 		pathAuthorizer.catalog = catalog
 	}
+	pathValidation := validateCertificationPath(ctx, now, catalog, ocspIssuers)
 
 	var subjects []Subject
-	for _, c := range ctx.Chain {
+	for index, c := range ctx.Chain {
 		if c == nil || c.Cert == nil {
 			continue
 		}
 		tree := certnode.BuildTree(c.Cert)
 		projectApplicationPurpose(tree, ctx.ApplicationPurpose)
+		if index == 0 && pathValidation != nil {
+			projectPathValidation(tree, *pathValidation)
+		}
 
 		if c.Source.Format != "" && c.Source.Type != source.Local {
 			tree.Children["downloadFormat"] = node.New("downloadFormat", c.Source.Format)
@@ -137,6 +152,9 @@ func ChainSubjects(ctx Context) []Subject {
 			operator.WithCertificatePolicyInputs(ctx.CertificatePolicyInputs),
 			operator.WithEvaluationTime(now),
 			operator.WithCRLIssuers(allCRLIssuers),
+		}
+		if index == 0 && pathValidation != nil {
+			evalOpts = append(evalOpts, operator.WithPathValidation(pathValidation))
 		}
 		subjects = append(subjects, Subject{
 			Tree:     tree,
@@ -270,7 +288,21 @@ func evaluatePolicies(
 ) []policy.Result {
 	results := make([]policy.Result, 0, len(policies))
 	for _, p := range policies {
-		results = append(results, policy.Evaluate(p, tree, registry, evalCtx))
+		result := policy.Evaluate(p, tree, registry, evalCtx)
+		if evalCtx != nil && evalCtx.PathValidation != nil {
+			for index, configuredRule := range p.Rules {
+				if index >= len(result.Results) {
+					break
+				}
+				if strings.HasPrefix(configuredRule.Target, "certificate.pathValidation") {
+					result.Results[index].Findings = append(
+						[]pathpkg.Finding(nil),
+						evalCtx.PathValidation.Findings...,
+					)
+				}
+			}
+		}
+		results = append(results, result)
 	}
 	return results
 }
@@ -281,17 +313,24 @@ func evaluatePolicies(
 // validity period and have Good status under the same CRLs (RFC 5280 6.3.3
 // (f)). A signer may be covered by a CRL it signed itself.
 type pathSignerAuthorizer struct {
-	chain    *cert.CertificateSet
-	now      time.Time
-	catalog  *crl.Catalog
-	visiting *cert.CertificateSet
+	chain        *cert.CertificateSet
+	candidates   []*cert.Info
+	trustAnchors []*cert.Info
+	maxDepth     int
+	now          time.Time
+	catalog      *crl.Catalog
+	visiting     *cert.CertificateSet
+	visitingMu   sync.Mutex
 }
 
-func newPathSignerAuthorizer(chain []*cert.Info, now time.Time) *pathSignerAuthorizer {
+func newPathSignerAuthorizer(ctx Context, now time.Time) *pathSignerAuthorizer {
 	return &pathSignerAuthorizer{
-		chain:    cert.NewCertificateSet(cert.CertsFromInfos(chain)...),
-		now:      now,
-		visiting: cert.NewCertificateSet(),
+		chain:        cert.NewCertificateSet(cert.CertsFromInfos(ctx.Chain)...),
+		candidates:   crlSignerCandidates(ctx),
+		trustAnchors: append([]*cert.Info(nil), ctx.TrustAnchors...),
+		maxDepth:     len(ctx.Certificates) + len(ctx.Chain) + len(ctx.TrustAnchors) + 1,
+		now:          now,
+		visiting:     cert.NewCertificateSet(),
 	}
 }
 
@@ -299,7 +338,30 @@ func (authorizer *pathSignerAuthorizer) AuthorizeCRLSigner(
 	_, signer *x509.Certificate,
 	_ *x509.RevocationList,
 ) bool {
-	if authorizer.chain.Contains(signer) {
+	if len(authorizer.trustAnchors) > 0 {
+		construction, err := pathpkg.Construct(
+			[]*cert.Info{{Cert: signer}},
+			authorizer.candidates,
+			authorizer.trustAnchors,
+			authorizer.maxDepth,
+		)
+		if err != nil || !construction.Anchored {
+			return false
+		}
+		validation := pathpkg.Validate(pathpkg.Inputs{
+			Chain:          construction.Chain,
+			TrustAnchors:   authorizer.trustAnchors,
+			ValidationTime: authorizer.now,
+			Policy:         pathpkg.PolicyInputs{Configured: true},
+			RevocationMode: pathpkg.RevocationNone,
+		})
+		if !validation.Valid {
+			return false
+		}
+		if authorizer.chain.Contains(signer) {
+			return true
+		}
+	} else if authorizer.chain.Contains(signer) {
 		return true
 	}
 	if authorizer.now.Before(signer.NotBefore) || authorizer.now.After(signer.NotAfter) {
@@ -308,16 +370,111 @@ func (authorizer *pathSignerAuthorizer) AuthorizeCRLSigner(
 	if authorizer.catalog == nil {
 		return false
 	}
-	if !authorizer.visiting.Add(signer) {
+	authorizer.visitingMu.Lock()
+	added := authorizer.visiting.Add(signer)
+	authorizer.visitingMu.Unlock()
+	if !added {
 		// The signer's own status is being assessed and depends on a CRL it
 		// signed, as for an indirect CRL issuer covered by its own CRL (PKITS
 		// 4.14.30). Accept provisionally; that CRL decides whether the
 		// signer is revoked.
 		return true
 	}
-	defer authorizer.visiting.Remove(signer)
+	defer func() {
+		authorizer.visitingMu.Lock()
+		authorizer.visiting.Remove(signer)
+		authorizer.visitingMu.Unlock()
+	}()
 	assessment := authorizer.catalog.AssessCertificate(signer)
 	return assessment.Status() == crl.RevocationGood
+}
+
+func validateCertificationPath(
+	ctx Context,
+	now time.Time,
+	catalog *crl.Catalog,
+	ocspIssuers []*x509.Certificate,
+) *pathpkg.Result {
+	if len(ctx.TrustAnchors) == 0 || len(ctx.Chain) == 0 {
+		return nil
+	}
+	mode := ctx.PathRevocation
+	if mode == "" {
+		mode = pathpkg.RevocationIfPresent
+	}
+	checker := pathpkg.RevocationCheckerFunc(func(certificate *x509.Certificate) pathpkg.RevocationDecision {
+		crlAssessment := catalog.AssessCertificate(certificate)
+		ocspAssessment := ocsp.AssessCertificate(certificate, ctx.OCSPs, ocspIssuers, now)
+		crlStatus := crlAssessment.Status()
+		ocspStatus := ocspAssessment.Status()
+		decision := pathpkg.RevocationDecision{
+			Available: len(crlAssessment.Evidence) > 0 || ocspStatus != ocsp.StatusNotApplicable,
+			Status:    pathpkg.RevocationUnknown,
+			Details: fmt.Sprintf(
+				"CRL=%s, OCSP=%s",
+				revocationStatusName(crlStatus),
+				ocspStatusName(ocspStatus),
+			),
+		}
+		switch {
+		case crlStatus == crl.RevocationRevoked || ocspStatus == ocsp.StatusRevoked:
+			decision.Status = pathpkg.RevocationRevoked
+		case crlStatus == crl.RevocationGood || ocspStatus == ocsp.StatusGood:
+			decision.Status = pathpkg.RevocationGood
+		}
+		return decision
+	})
+	result := pathpkg.Validate(pathpkg.Inputs{
+		Chain:              ctx.Chain,
+		TrustAnchors:       ctx.TrustAnchors,
+		ValidationTime:     now,
+		Policy:             ctx.CertificatePolicyInputs,
+		MaximumPathLength:  ctx.MaximumPathLength,
+		ApplicationPurpose: ctx.ApplicationPurpose,
+		RevocationMode:     mode,
+		CheckRevocation:    checker,
+	})
+	return &result
+}
+
+func projectPathValidation(tree *node.Node, result pathpkg.Result) {
+	if tree == nil {
+		return
+	}
+	validation := node.New("pathValidation", nil)
+	validation.Children["valid"] = node.New("valid", result.Valid)
+	validation.Children["anchored"] = node.New("anchored", result.Anchored)
+	validation.Children["findingCount"] = node.New("findingCount", len(result.Findings))
+	if summary := result.FailureSummary(); summary != "" {
+		validation.Children["failureSummary"] = node.New("failureSummary", summary)
+	}
+	findings := node.New("findings", nil)
+	for _, finding := range result.Findings {
+		findingNode := node.New("finding", finding.Message)
+		findingNode.Children["code"] = node.New("code", finding.Code)
+		findingNode.Children["reference"] = node.New("reference", finding.Reference)
+		findingNode.Children["status"] = node.New("status", string(finding.Status))
+		findingNode.Children["certificateIndex"] = node.New("certificateIndex", finding.CertificateIndex)
+		if finding.CertificateSubject != "" {
+			findingNode.Children["certificateSubject"] = node.New("certificateSubject", finding.CertificateSubject)
+		}
+		findings.AddElement(findingNode)
+	}
+	validation.Children["findings"] = findings
+	tree.Children["pathValidation"] = validation
+}
+
+func ocspStatusName(status ocsp.Status) string {
+	switch status {
+	case ocsp.StatusGood:
+		return "good"
+	case ocsp.StatusRevoked:
+		return "revoked"
+	case ocsp.StatusUnknown:
+		return "unknown"
+	default:
+		return "not-applicable"
+	}
 }
 
 func projectApplicationPurpose(tree *node.Node, purpose string) {
