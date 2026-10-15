@@ -2,6 +2,7 @@
 package evaluator
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"sync"
 	"time"
@@ -306,6 +307,12 @@ type pathSignerAuthorizer struct {
 	catalog      *crl.Catalog
 	visiting     *cert.CertificateSet
 	visitingMu   sync.Mutex
+
+	// anchoredSigners caches whether a signer has a valid path to the trust
+	// anchors. Every input to that decision is fixed for the authorizer, and
+	// the same signer is checked once per CRL and certificate it covers.
+	anchoredSigners   map[[32]byte]bool
+	anchoredSignersMu sync.Mutex
 }
 
 func newPathSignerAuthorizer(ctx Context, now time.Time) *pathSignerAuthorizer {
@@ -316,6 +323,8 @@ func newPathSignerAuthorizer(ctx Context, now time.Time) *pathSignerAuthorizer {
 		maxDepth:     len(ctx.Certificates) + len(ctx.Chain) + len(ctx.TrustAnchors) + 1,
 		now:          now,
 		visiting:     cert.NewCertificateSet(),
+
+		anchoredSigners: make(map[[32]byte]bool),
 	}
 }
 
@@ -324,23 +333,7 @@ func (authorizer *pathSignerAuthorizer) AuthorizeCRLSigner(
 	_ *x509.RevocationList,
 ) bool {
 	if len(authorizer.trustAnchors) > 0 {
-		construction, err := pathpkg.Construct(
-			[]*cert.Info{{Cert: signer}},
-			authorizer.candidates,
-			authorizer.trustAnchors,
-			authorizer.maxDepth,
-		)
-		if err != nil || !construction.Anchored {
-			return false
-		}
-		validation := pathpkg.Validate(pathpkg.Inputs{
-			Chain:          construction.Chain,
-			TrustAnchors:   authorizer.trustAnchors,
-			ValidationTime: authorizer.now,
-			Policy:         pathpkg.PolicyInputs{Configured: true},
-			RevocationMode: pathpkg.RevocationNone,
-		})
-		if !validation.Valid {
+		if !authorizer.signerAnchored(signer) {
 			return false
 		}
 		if authorizer.chain.Contains(signer) {
@@ -372,6 +365,37 @@ func (authorizer *pathSignerAuthorizer) AuthorizeCRLSigner(
 	}()
 	assessment := authorizer.catalog.AssessCertificate(signer)
 	return assessment.Status() == crl.RevocationGood
+}
+
+// signerAnchored reports whether signer has a valid path to the trust
+// anchors at the validation time, deciding each signer once.
+func (authorizer *pathSignerAuthorizer) signerAnchored(signer *x509.Certificate) bool {
+	key := sha256.Sum256(signer.Raw)
+	authorizer.anchoredSignersMu.Lock()
+	anchored, decided := authorizer.anchoredSigners[key]
+	authorizer.anchoredSignersMu.Unlock()
+	if decided {
+		return anchored
+	}
+
+	construction, err := pathpkg.Construct(
+		[]*cert.Info{{Cert: signer}},
+		authorizer.candidates,
+		authorizer.trustAnchors,
+		authorizer.maxDepth,
+	)
+	anchored = err == nil && construction.Anchored && pathpkg.Validate(pathpkg.Inputs{
+		Chain:          construction.Chain,
+		TrustAnchors:   authorizer.trustAnchors,
+		ValidationTime: authorizer.now,
+		Policy:         pathpkg.PolicyInputs{Configured: true},
+		RevocationMode: pathpkg.RevocationNone,
+	}).Valid
+
+	authorizer.anchoredSignersMu.Lock()
+	authorizer.anchoredSigners[key] = anchored
+	authorizer.anchoredSignersMu.Unlock()
+	return anchored
 }
 
 func validateCertificationPath(

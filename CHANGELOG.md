@@ -32,6 +32,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   result with no gaps or unsupported inputs.
 
 ### Fixed
+- Path construction no longer enumerates every candidate path. It finds the
+  same best anchored path in polynomial time, verifying each issuer signature
+  once (a 3x4 cross-certified mesh: 1.9 s to 14 ms). The unanchored fallback
+  stops at a work limit and the CLI warns when it does. CRL signer paths are
+  constructed and validated once per signer instead of once per use.
 - Certificate parsing now supports inherited DSA parameters and uncommon
   CRL distribution-point encodings while preserving strict DER validation,
   closing the final four expressible NIST PKITS gaps (244/244). The same

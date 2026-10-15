@@ -17,12 +17,26 @@ type Construction struct {
 	Chain       []*cert.Info
 	Anchored    bool
 	TrustAnchor *cert.Info
+	// Truncated reports that no anchored path exists and the search for the
+	// best unanchored path stopped at its work budget. Chain is then the best
+	// unanchored path found before the budget ran out.
+	Truncated bool
 }
+
+// unanchoredSearchBudget bounds the number of partial paths the unanchored
+// search extends per Construct call. Anchored paths are found without
+// enumerating paths, so the budget only limits the choice of chain for inputs
+// that cannot reach an anchor. Tests lower it.
+var unanchoredSearchBudget = 1 << 16
 
 // Construct builds a deterministic path from one of targets through the
 // supplied intermediates to an explicit trust anchor. It performs only the
 // name/signature work needed to rank issuer candidates; all RFC 5280 semantic
 // decisions are left to Validate.
+//
+// Paths are ranked by reaching an anchor, then by fewer issuer signatures
+// that do not verify, then anchored paths by fewer and unanchored paths by
+// more certificates, then by the certificate fingerprints in path order.
 func Construct(targets, intermediates, trustAnchors []*cert.Info, maxDepth int) (Construction, error) {
 	if len(targets) == 0 {
 		return Construction{}, fmt.Errorf("no path targets provided")
@@ -31,13 +45,17 @@ func Construct(targets, intermediates, trustAnchors []*cert.Info, maxDepth int) 
 	if maxDepth <= 0 {
 		maxDepth = len(pool) + 1
 	}
+	search := newPathSearch(pool, trustAnchors, maxDepth)
 
 	var best constructedCandidate
 	for _, target := range uniqueInfos(targets) {
 		if target == nil || target.Cert == nil {
 			continue
 		}
-		candidate := constructFrom(target, pool, trustAnchors, maxDepth, nil)
+		candidate := search.bestAnchored(target)
+		if candidate.anchor == nil {
+			candidate = search.bestUnanchored(target, constructedCandidate{})
+		}
 		if candidate.betterTargetThan(best) {
 			best = candidate
 		}
@@ -49,35 +67,41 @@ func Construct(targets, intermediates, trustAnchors []*cert.Info, maxDepth int) 
 		Chain:       best.chain,
 		Anchored:    best.anchor != nil,
 		TrustAnchor: best.anchor,
+		Truncated:   best.anchor == nil && search.truncated,
 	}, nil
-}
-
-func (candidate constructedCandidate) betterTargetThan(other constructedCandidate) bool {
-	if len(candidate.chain) == 0 {
-		return false
-	}
-	if len(other.chain) == 0 {
-		return true
-	}
-	if (candidate.anchor != nil) != (other.anchor != nil) {
-		return candidate.anchor != nil
-	}
-	if candidate.invalidSignatures != other.invalidSignatures {
-		return candidate.invalidSignatures < other.invalidSignatures
-	}
-	if len(candidate.chain) != len(other.chain) {
-		return len(candidate.chain) > len(other.chain)
-	}
-	return compareChains(candidate.chain, other.chain) < 0
 }
 
 type constructedCandidate struct {
 	chain             []*cert.Info
+	fingerprints      [][sha256.Size]byte
 	anchor            *cert.Info
 	invalidSignatures int
 }
 
+func (candidate constructedCandidate) extend(issuer issuerCandidate) constructedCandidate {
+	extended := constructedCandidate{
+		chain:             append(slices.Clone(candidate.chain), issuer.info),
+		fingerprints:      append(slices.Clone(candidate.fingerprints), issuer.fingerprint),
+		invalidSignatures: candidate.invalidSignatures,
+	}
+	if !issuer.signatureValid {
+		extended.invalidSignatures++
+	}
+	return extended
+}
+
+// betterThan ranks paths from the same target.
 func (candidate constructedCandidate) betterThan(other constructedCandidate) bool {
+	return candidate.ranksBefore(other, true)
+}
+
+// betterTargetThan ranks the best paths of different targets, where the
+// longer path wins even when both are anchored.
+func (candidate constructedCandidate) betterTargetThan(other constructedCandidate) bool {
+	return candidate.ranksBefore(other, false)
+}
+
+func (candidate constructedCandidate) ranksBefore(other constructedCandidate, shorterAnchored bool) bool {
 	if len(candidate.chain) == 0 {
 		return false
 	}
@@ -91,35 +115,109 @@ func (candidate constructedCandidate) betterThan(other constructedCandidate) boo
 		return candidate.invalidSignatures < other.invalidSignatures
 	}
 	if len(candidate.chain) != len(other.chain) {
-		if candidate.anchor != nil {
+		if candidate.anchor != nil && shorterAnchored {
 			return len(candidate.chain) < len(other.chain)
 		}
 		return len(candidate.chain) > len(other.chain)
 	}
-	return compareChains(candidate.chain, other.chain) < 0
+	return compareFingerprints(candidate.fingerprints, other.fingerprints) < 0
 }
 
-func constructFrom(
-	current *cert.Info,
-	pool, trustAnchors []*cert.Info,
-	maxDepth int,
-	chain []*cert.Info,
-) constructedCandidate {
-	chain = append(slices.Clone(chain), current)
-	if anchor := matchingTrustAnchor(current, trustAnchors); anchor != nil {
-		return constructedCandidate{chain: chain, anchor: anchor}
-	}
-	if len(chain) >= maxDepth {
-		return constructedCandidate{chain: chain}
-	}
+// pathSearch holds the facts every partial path of one Construct call
+// reuses, so each issuer signature is verified at most once.
+type pathSearch struct {
+	pool         []*cert.Info
+	trustAnchors []*cert.Info
+	maxDepth     int
+	issuers      map[*cert.Info][]issuerCandidate
+	budget       int
+	truncated    bool
+}
 
-	candidates := issuerCandidates(current, pool, chain, trustAnchors)
-	best := constructedCandidate{chain: chain}
-	for _, candidate := range candidates {
-		next := constructFrom(candidate.info, pool, trustAnchors, maxDepth, chain)
-		if !candidate.signatureValid {
-			next.invalidSignatures++
+func newPathSearch(pool, trustAnchors []*cert.Info, maxDepth int) *pathSearch {
+	return &pathSearch{
+		pool:         pool,
+		trustAnchors: trustAnchors,
+		maxDepth:     maxDepth,
+		issuers:      make(map[*cert.Info][]issuerCandidate),
+		budget:       unanchoredSearchBudget,
+	}
+}
+
+func (search *pathSearch) start(target *cert.Info) constructedCandidate {
+	return constructedCandidate{
+		chain:        []*cert.Info{target},
+		fingerprints: [][sha256.Size]byte{sha256.Sum256(target.Cert.Raw)},
+		anchor:       matchingTrustAnchor(target, search.trustAnchors),
+	}
+}
+
+// bestAnchored returns the best path from target to a trust anchor within
+// maxDepth, or a candidate without anchor when none exists. It extends one
+// best partial path per certificate and length. A path that revisits a
+// certificate is worse than the same path without the cycle, so the best
+// path found this way is the best path without repeated certificates.
+func (search *pathSearch) bestAnchored(target *cert.Info) constructedCandidate {
+	initial := search.start(target)
+	if initial.anchor != nil {
+		return initial
+	}
+	var best constructedCandidate
+	frontier := map[*cert.Info]constructedCandidate{target: initial}
+	for length := 1; length < search.maxDepth && len(frontier) > 0; length++ {
+		next := make(map[*cert.Info]constructedCandidate)
+		for child, partial := range frontier {
+			// A longer anchored path only wins with fewer invalid signatures;
+			// one of equal length can still win on fingerprints.
+			if best.anchor != nil && (partial.invalidSignatures > best.invalidSignatures ||
+				partial.invalidSignatures == best.invalidSignatures && len(partial.chain) >= len(best.chain)) {
+				continue
+			}
+			for _, issuer := range search.issuerCandidates(child) {
+				extended := partial.extend(issuer)
+				if anchor := matchingTrustAnchor(issuer.info, search.trustAnchors); anchor != nil {
+					extended.anchor = anchor
+					if extended.betterThan(best) {
+						best = extended
+					}
+					continue
+				}
+				current, seen := next[issuer.info]
+				if !seen || extended.invalidSignatures < current.invalidSignatures ||
+					extended.invalidSignatures == current.invalidSignatures &&
+						compareFingerprints(extended.fingerprints, current.fingerprints) < 0 {
+					next[issuer.info] = extended
+				}
+			}
 		}
+		frontier = next
+	}
+	return best
+}
+
+// bestUnanchored searches the paths without repeated certificates for the
+// best one when no anchor is reachable. Longest-path ranking has no
+// polynomial shortcut, so the search stops at the work budget.
+func (search *pathSearch) bestUnanchored(target *cert.Info, partial constructedCandidate) constructedCandidate {
+	if len(partial.chain) == 0 {
+		partial = search.start(target)
+	}
+	if len(partial.chain) >= search.maxDepth {
+		return partial
+	}
+	if search.budget == 0 {
+		search.truncated = true
+		return partial
+	}
+	search.budget--
+
+	best := partial
+	current := partial.chain[len(partial.chain)-1]
+	for _, issuer := range search.issuerCandidates(current) {
+		if containsCertificate(partial.chain, issuer.info) {
+			continue
+		}
+		next := search.bestUnanchored(target, partial.extend(issuer))
 		if next.betterThan(best) {
 			best = next
 		}
@@ -129,18 +227,20 @@ func constructFrom(
 
 type issuerCandidate struct {
 	info           *cert.Info
-	anchor         bool
 	signatureValid bool
 	fingerprint    [sha256.Size]byte
 }
 
-func issuerCandidates(
-	child *cert.Info,
-	pool, chain, trustAnchors []*cert.Info,
-) []issuerCandidate {
+// issuerCandidates returns the pool certificates whose subject matches the
+// child's issuer, other than the child itself. They are computed once per
+// child.
+func (search *pathSearch) issuerCandidates(child *cert.Info) []issuerCandidate {
+	if candidates, ok := search.issuers[child]; ok {
+		return candidates
+	}
 	var candidates []issuerCandidate
-	for _, candidate := range pool {
-		if candidate == nil || candidate.Cert == nil || containsCertificate(chain, candidate) ||
+	for _, candidate := range search.pool {
+		if candidate == nil || candidate.Cert == nil || cert.SameCertificate(child.Cert, candidate.Cert) ||
 			!x509asn1.NamesMatchOrText(
 				child.Cert.RawIssuer,
 				candidate.Cert.RawSubject,
@@ -151,11 +251,12 @@ func issuerCandidates(
 		}
 		candidates = append(candidates, issuerCandidate{
 			info:           candidate,
-			anchor:         matchingTrustAnchor(candidate, trustAnchors) != nil,
 			signatureValid: cert.SignedBy(child.Cert, candidate.Cert),
 			fingerprint:    sha256.Sum256(candidate.Cert.Raw),
 		})
 	}
+	// Verifying issuers first, then fingerprint order, makes a budgeted
+	// search explore the most plausible paths first.
 	slices.SortFunc(candidates, func(left, right issuerCandidate) int {
 		if left.signatureValid != right.signatureValid {
 			if left.signatureValid {
@@ -163,14 +264,9 @@ func issuerCandidates(
 			}
 			return 1
 		}
-		if left.anchor != right.anchor {
-			if left.anchor {
-				return -1
-			}
-			return 1
-		}
 		return bytes.Compare(left.fingerprint[:], right.fingerprint[:])
 	})
+	search.issuers[child] = candidates
 	return candidates
 }
 
@@ -204,11 +300,9 @@ func containsCertificate(infos []*cert.Info, candidate *cert.Info) bool {
 	})
 }
 
-func compareChains(left, right []*cert.Info) int {
+func compareFingerprints(left, right [][sha256.Size]byte) int {
 	for index := 0; index < min(len(left), len(right)); index++ {
-		leftFingerprint := sha256.Sum256(left[index].Cert.Raw)
-		rightFingerprint := sha256.Sum256(right[index].Cert.Raw)
-		if comparison := bytes.Compare(leftFingerprint[:], rightFingerprint[:]); comparison != 0 {
+		if comparison := bytes.Compare(left[index][:], right[index][:]); comparison != 0 {
 			return comparison
 		}
 	}

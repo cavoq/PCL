@@ -83,6 +83,9 @@ path engine.
 ## 🔐 Path Boundary
 
 Construction selects one deterministic path from supplied/acquired candidates.
+The best anchored path is found in polynomial time, verifying each issuer
+signature once; only the fallback search for an unanchored path is bounded by
+a work budget, and the CLI warns when it stops early.
 Validation separately checks it against explicit anchors and produces structured
 findings. The evaluator projects those findings onto the target certificate;
 a policy rule decides whether to require a successful aggregate result.

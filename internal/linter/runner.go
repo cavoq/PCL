@@ -231,6 +231,10 @@ func buildCertificateChain(
 		if constructionErr != nil {
 			return nil, nil, fmt.Errorf("failed to construct certificate path: %w", constructionErr)
 		}
+		if construction.Truncated {
+			_, _ = fmt.Fprintln(w, "Warning: no certificate path reaches a trust anchor; the search for the "+
+				"longest unanchored path stopped at its work limit, so the evaluated chain may not be the longest")
+		}
 		chain = construction.Chain
 	} else {
 		chain, err = cert.BuildChainFor(certs, allCerts)

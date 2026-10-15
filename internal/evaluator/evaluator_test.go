@@ -644,3 +644,32 @@ func TestSubjectsDoNotDownload(t *testing.T) {
 		t.Fatalf("building subjects made %d CA Issuers requests", hits.Load())
 	}
 }
+
+func TestPathSignerAuthorizerDecidesEachSignerOnce(t *testing.T) {
+	root := testpki.Issue(t, "Root", nil, testpki.CA(), testpki.Serial(1))
+	intermediate := testpki.Issue(t, "Intermediate", root, testpki.CA(), testpki.Serial(2))
+	leaf := testpki.Issue(t, "Leaf", intermediate, testpki.Serial(3))
+	untrusted := testpki.Issue(t, "Untrusted", nil, testpki.CA(), testpki.Serial(4))
+	authorizer := newPathSignerAuthorizer(Context{
+		Chain:        []*cert.Info{{Cert: leaf.Cert}, {Cert: intermediate.Cert}, {Cert: root.Cert}},
+		TrustAnchors: []*cert.Info{{Cert: root.Cert}},
+	}, testpki.NotBefore.AddDate(0, 1, 0))
+
+	if !authorizer.AuthorizeCRLSigner(nil, intermediate.Cert, nil) {
+		t.Fatal("chain CA with a valid path was not authorized")
+	}
+	if authorizer.AuthorizeCRLSigner(nil, untrusted.Cert, nil) {
+		t.Fatal("signer without a path to the trust anchors was authorized")
+	}
+
+	// Without candidates a new path decision would reject the chain CA, so
+	// unchanged answers show that both decisions were reused.
+	authorizer.candidates = nil
+	if !authorizer.AuthorizeCRLSigner(nil, intermediate.Cert, nil) ||
+		authorizer.AuthorizeCRLSigner(nil, untrusted.Cert, nil) {
+		t.Fatal("cached signer decisions changed")
+	}
+	if len(authorizer.anchoredSigners) != 2 {
+		t.Fatalf("decided %d signers, want 2", len(authorizer.anchoredSigners))
+	}
+}
