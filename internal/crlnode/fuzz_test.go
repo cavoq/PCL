@@ -1,12 +1,12 @@
-package crl
+package crlnode
 
 import (
 	"testing"
 
 	"github.com/zmap/zcrypto/x509"
 
-	crlzcrypto "github.com/cavoq/PCL/internal/crl/zcrypto"
 	"github.com/cavoq/PCL/internal/testpki"
+	"github.com/cavoq/PCL/internal/x509ext"
 )
 
 // FuzzBuildTree projects every CRL zcrypto accepts and decodes its
@@ -23,6 +23,6 @@ func FuzzBuildTree(f *testing.F) {
 		if BuildTreeWithChain(list, nil) == nil {
 			t.Fatal("BuildTreeWithChain returned no tree")
 		}
-		_, _ = crlzcrypto.DecodeRevocationListStrict(list)
+		_, _ = x509ext.DecodeRevocationListStrict(list)
 	})
 }

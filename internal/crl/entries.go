@@ -4,7 +4,6 @@ import (
 	"math/big"
 	"time"
 
-	crlzcrypto "github.com/cavoq/PCL/internal/crl/zcrypto"
 	"github.com/cavoq/PCL/internal/x509ext"
 	"github.com/zmap/zcrypto/x509"
 )
@@ -101,7 +100,7 @@ func prepareEntryIndex(record decodedList) entryIndex {
 // after it. A certificateIssuer outside an indirect CRL, or one without a
 // directoryName, invalidates the issuer chain for the rest of the list.
 func (index *entryIndex) inheritIssuers(
-	entry crlzcrypto.EntryFacts,
+	entry x509ext.EntryFacts,
 	current []entryIssuerKey,
 	indirect bool,
 ) []entryIssuerKey {
@@ -120,14 +119,14 @@ func (index *entryIndex) inheritIssuers(
 // noteReasonCode records list-wide facts carried by an entry reasonCode:
 // unspecified is not allowed in a reason-partitioned CRL, and removeFromCRL
 // marks delta semantics.
-func (index *entryIndex) noteReasonCode(entry crlzcrypto.EntryFacts, reasonPartitioned bool) {
+func (index *entryIndex) noteReasonCode(entry x509ext.EntryFacts, reasonPartitioned bool) {
 	if entry.ReasonCode == nil {
 		return
 	}
-	if reasonPartitioned && entry.ReasonCode.Value == crlzcrypto.CRLReasonUnspecified {
+	if reasonPartitioned && entry.ReasonCode.Value == x509ext.CRLReasonUnspecified {
 		index.semanticInvalid = true
 	}
-	if entry.ReasonCode.Value == crlzcrypto.CRLReasonRemoveFromCRL {
+	if entry.ReasonCode.Value == x509ext.CRLReasonRemoveFromCRL {
 		index.containsRemoveFromCRL = true
 	}
 }
@@ -230,5 +229,5 @@ func (m entryMatch) revocation(
 }
 
 func (m entryMatch) removesFromCRL() bool {
-	return m.reasonCode == int(crlzcrypto.CRLReasonRemoveFromCRL)
+	return m.reasonCode == int(x509ext.CRLReasonRemoveFromCRL)
 }

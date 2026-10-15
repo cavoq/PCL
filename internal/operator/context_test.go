@@ -10,6 +10,7 @@ import (
 
 	"github.com/cavoq/PCL/internal/cert"
 	"github.com/cavoq/PCL/internal/crl"
+	"github.com/cavoq/PCL/internal/crlnode"
 	"github.com/cavoq/PCL/internal/node"
 	"github.com/cavoq/PCL/internal/ocsp"
 )
@@ -353,7 +354,7 @@ func TestIsCACRL_matchesPolicyNodeForValidityInference(t *testing.T) {
 	}
 	crlInfo := &crl.Info{CRL: revocationList}
 
-	tree := crl.BuildTreeWithChain(revocationList, []*x509.Certificate{ee})
+	tree := crlnode.BuildTreeWithChain(revocationList, []*x509.Certificate{ee})
 	nodeVal := tree.Children["isCACRL"].Value
 	if nodeVal != true {
 		t.Fatalf("policy node isCACRL = %v, want true (validity inference)", nodeVal)

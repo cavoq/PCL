@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/cavoq/PCL/internal/cert"
-	crlzcrypto "github.com/cavoq/PCL/internal/crl/zcrypto"
 	"github.com/cavoq/PCL/internal/x509asn1"
+	"github.com/cavoq/PCL/internal/x509ext"
 	"github.com/zmap/zcrypto/x509"
 )
 
@@ -22,7 +22,7 @@ func CertMatchesCRLIssuer(cert *x509.Certificate, revocationList *x509.Revocatio
 		return false
 	}
 
-	keyIdentifier := crlzcrypto.AuthorityKeyIdentifier(revocationList)
+	keyIdentifier := x509ext.AuthorityKeyIdentifier(revocationList)
 	if len(keyIdentifier) > 0 {
 		return len(cert.SubjectKeyId) > 0 && bytes.Equal(cert.SubjectKeyId, keyIdentifier)
 	}

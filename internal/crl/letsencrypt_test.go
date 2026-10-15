@@ -54,10 +54,6 @@ func TestLetsEncrypt_ISRGRootX1_isOtherCRLProfile(t *testing.T) {
 		t.Fatal("ISRG Root X1 CRL should be isCACRL true via validity inference")
 	}
 
-	tree := BuildTreeWithChain(revocationList, nil)
-	if tree.Children["isCACRL"].Value != true {
-		t.Fatalf("tree isCACRL = %v, want true", tree.Children["isCACRL"].Value)
-	}
 }
 
 // TestLetsEncrypt_ISRGRootX1_signingCertFromPool verifies the official root when

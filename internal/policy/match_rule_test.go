@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cavoq/PCL/internal/crl"
+	"github.com/cavoq/PCL/internal/crlnode"
 	"github.com/cavoq/PCL/internal/operator"
 	"github.com/cavoq/PCL/internal/rule"
 	"github.com/zmap/zcrypto/x509"
@@ -53,7 +53,7 @@ func TestEvaluate_skipsCertificateRulesOnCRLContext(t *testing.T) {
 		ThisUpdate:     now,
 		NextUpdate:     now.Add(24 * time.Hour),
 	}
-	tree := crl.BuildTree(revocationList)
+	tree := crlnode.BuildTree(revocationList)
 	if tree == nil {
 		t.Fatal("BuildTree returned nil")
 	}

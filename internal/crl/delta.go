@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"time"
 
-	crlzcrypto "github.com/cavoq/PCL/internal/crl/zcrypto"
 	"github.com/cavoq/PCL/internal/x509ext"
 	"github.com/zmap/zcrypto/x509"
 )
@@ -59,7 +58,7 @@ func deltaCompatibleWithBase(base, delta *decodedList) bool {
 }
 
 func idpEqual(
-	first, second *crlzcrypto.IssuingDistributionPointFacts,
+	first, second *x509ext.IssuingDistributionPointFacts,
 ) bool {
 	if first == nil || second == nil {
 		return first == nil && second == nil
@@ -68,7 +67,7 @@ func idpEqual(
 }
 
 func authorityKeyIdentifiersEqual(
-	first, second *crlzcrypto.AuthorityKeyIdentifierFacts,
+	first, second *x509ext.AuthorityKeyIdentifierFacts,
 ) bool {
 	if first == nil || second == nil {
 		return first == nil && second == nil
@@ -77,7 +76,7 @@ func authorityKeyIdentifiersEqual(
 }
 
 func integerExtensionCompare(
-	first, second *crlzcrypto.IntegerExtensionFacts,
+	first, second *x509ext.IntegerExtensionFacts,
 ) int {
 	if first == nil || second == nil {
 		switch {

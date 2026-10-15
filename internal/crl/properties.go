@@ -3,10 +3,10 @@ package crl
 import (
 	"time"
 
-	crlzcrypto "github.com/cavoq/PCL/internal/crl/zcrypto"
 	"github.com/zmap/zcrypto/x509"
 
 	"github.com/cavoq/PCL/internal/oid"
+	"github.com/cavoq/PCL/internal/x509ext"
 )
 
 func HasDeltaIndicator(crl *x509.RevocationList) bool {
@@ -43,7 +43,7 @@ func IsNotExpiredAt(crl *x509.RevocationList, now time.Time) bool {
 }
 
 func IsIndirect(crl *x509.RevocationList) bool {
-	facts, err := crlzcrypto.DecodeRevocationListStrict(crl)
+	facts, err := x509ext.DecodeRevocationListStrict(crl)
 	return err == nil && facts.IssuingDistributionPoint != nil &&
 		facts.IssuingDistributionPoint.IndirectCRL
 }

@@ -1,4 +1,4 @@
-package zcrypto
+package crlnode
 
 import (
 	"bytes"
@@ -8,8 +8,11 @@ import (
 	"path/filepath"
 	"testing"
 
+	zasn1 "github.com/zmap/zcrypto/encoding/asn1"
+
 	"github.com/cavoq/PCL/internal/node"
-	"github.com/zmap/zcrypto/encoding/asn1"
+	"github.com/cavoq/PCL/internal/oid"
+	"github.com/cavoq/PCL/internal/x509ext"
 	"github.com/zmap/zcrypto/x509"
 	"github.com/zmap/zcrypto/x509/pkix"
 )
@@ -17,7 +20,7 @@ import (
 func loadTestCRL(t *testing.T, name string) *x509.RevocationList {
 	t.Helper()
 
-	path := filepath.Join("..", "testdata", name)
+	path := filepath.Join("..", "crl", "testdata", name)
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("failed to read test CRL %s: %v", name, err)
@@ -191,7 +194,7 @@ func TestBuildTree_RevokedEntryExtensionsUseSharedProjection(t *testing.T) {
 		SerialNumber: big.NewInt(7),
 		ReasonCode:   &reason,
 		Extensions: []pkix.Extension{{
-			Id:       asn1.ObjectIdentifier{2, 5, 29, 21},
+			Id:       zasn1.ObjectIdentifier{2, 5, 29, 21},
 			Critical: true,
 			Value:    rawReason,
 		}},
@@ -250,7 +253,7 @@ func TestBuildTree_EmptyCRL(t *testing.T) {
 func TestBuildTree_AuthorityKeyIdentifierExtension(t *testing.T) {
 	crl := &x509.RevocationList{
 		Extensions: []pkix.Extension{{
-			Id:       asn1.ObjectIdentifier{2, 5, 29, 35},
+			Id:       zasn1.ObjectIdentifier{2, 5, 29, 35},
 			Critical: false,
 		}},
 	}
@@ -268,7 +271,7 @@ func TestBuildTree_AuthorityKeyIdentifierExtension(t *testing.T) {
 
 func TestAuthorityKeyIdentifierParsesExtensionValue(t *testing.T) {
 	crl := loadTestCRL(t, "test.crl")
-	keyIdentifier := AuthorityKeyIdentifier(crl)
+	keyIdentifier := x509ext.AuthorityKeyIdentifier(crl)
 	if len(keyIdentifier) == 0 {
 		t.Fatal("expected semantic authority key identifier")
 	}
@@ -285,4 +288,78 @@ func TestAuthorityKeyIdentifierParsesExtensionValue(t *testing.T) {
 	if string(got) != string(keyIdentifier) {
 		t.Fatalf("builder AKI = %x, want %x", got, keyIdentifier)
 	}
+}
+
+func TestBuildTreeProjectsStrictCRLExtensionsAndMalformedMarkers(t *testing.T) {
+	list := &x509.RevocationList{Extensions: []pkix.Extension{
+		{Id: oidObject(oid.CRLNumber), Value: []byte{0x02, 0x01, 0x05}},
+		{Id: oidObject(oid.IssuingDistributionPoint), Critical: true, Value: []byte{0x30, 0x03, 0x84, 0x01, 0xff}},
+	}}
+	tree := BuildTree(list)
+	if value, ok := tree.Resolve("extensions.cRLNumber.decimal"); !ok || value.Value != "5" {
+		t.Fatalf("cRLNumber projection = %#v", value)
+	}
+	if indirect, ok := tree.Resolve("issuingDistributionPoint.indirectCRL"); !ok || indirect.Value != true {
+		t.Fatalf("IDP projection = %#v", indirect)
+	}
+
+	malformed := BuildTree(&x509.RevocationList{Extensions: []pkix.Extension{{
+		Id:       oidObject(oid.IssuingDistributionPoint),
+		Critical: true,
+		Value:    []byte{0x30, 0x03, 0x84, 0x01, 0x00},
+	}}})
+	marker, ok := malformed.Resolve("extensions.issuingDistributionPoint.malformed")
+	if !ok || marker.Value != true {
+		t.Fatalf("malformed marker = %#v", marker)
+	}
+}
+
+func TestBuildTreeProjectsCanonicalReasonFlagsSchema(t *testing.T) {
+	list := &x509.RevocationList{Extensions: []pkix.Extension{{
+		Id:       oidObject(oid.IssuingDistributionPoint),
+		Critical: true,
+		Value:    []byte{0x30, 0x04, 0x83, 0x02, 0x06, 0x40},
+	}}}
+	reasons, ok := BuildTree(list).Resolve("issuingDistributionPoint.onlySomeReasons")
+	if !ok {
+		t.Fatal("onlySomeReasons projection is missing")
+	}
+	if reasons.Value != uint16(2) {
+		t.Fatalf("onlySomeReasons value = %#v, want 2", reasons.Value)
+	}
+	want := map[string]bool{
+		"unused":               false,
+		"keyCompromise":        true,
+		"cACompromise":         false,
+		"affiliationChanged":   false,
+		"superseded":           false,
+		"cessationOfOperation": false,
+		"certificateHold":      false,
+		"privilegeWithdrawn":   false,
+		"aACompromise":         false,
+	}
+	for name, wantValue := range want {
+		child := reasons.Children[name]
+		if child == nil || child.Value != wantValue {
+			t.Errorf("%s = %#v, want %t", name, child, wantValue)
+		}
+	}
+	if _, exists := reasons.Children["removeFromCRL"]; exists {
+		t.Fatal("ReasonFlags projection contains CRLReason removeFromCRL")
+	}
+}
+
+func oidObject(identifier string) zasn1.ObjectIdentifier {
+	values := map[string]zasn1.ObjectIdentifier{
+		oid.AuthorityKeyIdentifier:   {2, 5, 29, 35},
+		oid.CRLNumber:                {2, 5, 29, 20},
+		oid.CRLReason:                {2, 5, 29, 21},
+		oid.InvalidityDate:           {2, 5, 29, 24},
+		oid.DeltaCRLIndicator:        {2, 5, 29, 27},
+		oid.IssuingDistributionPoint: {2, 5, 29, 28},
+		oid.CertificateIssuer:        {2, 5, 29, 29},
+		oid.FreshestCRL:              {2, 5, 29, 46},
+		"1.2.3.4":                    {1, 2, 3, 4},
+	}
+	return values[identifier]
 }

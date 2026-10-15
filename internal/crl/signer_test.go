@@ -5,7 +5,6 @@ import (
 	"math/big"
 	"testing"
 
-	crlzcrypto "github.com/cavoq/PCL/internal/crl/zcrypto"
 	"github.com/cavoq/PCL/internal/x509ext"
 	"github.com/zmap/zcrypto/x509"
 )
@@ -61,7 +60,7 @@ func TestSignerRejectionPreservesKeyUsagePrecedence(t *testing.T) {
 func TestAuthorityKeyIdentifierMatchesIssuerAndSerial(t *testing.T) {
 	issuer := []byte{0x30, 0x03, 0x31, 0x01, 0x00}
 	serial := x509ext.NonNegativeInteger{Content: []byte{0x00, 0x00, 0x07}}
-	identifier := &crlzcrypto.AuthorityKeyIdentifierFacts{
+	identifier := &x509ext.AuthorityKeyIdentifierFacts{
 		SerialNumber: &serial,
 		AuthorityIssuer: []x509ext.GeneralName{{
 			Tag: 4, RawValue: issuer,

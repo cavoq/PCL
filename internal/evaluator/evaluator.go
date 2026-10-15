@@ -7,6 +7,7 @@ import (
 	"github.com/cavoq/PCL/internal/cert"
 	certzcrypto "github.com/cavoq/PCL/internal/cert/zcrypto"
 	"github.com/cavoq/PCL/internal/crl"
+	"github.com/cavoq/PCL/internal/crlnode"
 	"github.com/cavoq/PCL/internal/node"
 	"github.com/cavoq/PCL/internal/ocsp"
 	"github.com/cavoq/PCL/internal/ocspnode"
@@ -194,7 +195,7 @@ func CRLSubjects(ctx Context) []Subject {
 			continue
 		}
 
-		tree := crl.BuildTreeWithChain(crlInfo.CRL, issuerCerts)
+		tree := crlnode.BuildTreeWithChain(crlInfo.CRL, issuerCerts)
 		if tree == nil {
 			continue
 		}

@@ -8,7 +8,7 @@ import (
 	"sort"
 	"time"
 
-	crlzcrypto "github.com/cavoq/PCL/internal/crl/zcrypto"
+	"github.com/cavoq/PCL/internal/x509ext"
 	"github.com/zmap/zcrypto/x509"
 	"github.com/zmap/zcrypto/x509/pkix"
 )
@@ -17,7 +17,7 @@ type listFingerprint [sha256.Size]byte
 
 type decodedList struct {
 	list           *x509.RevocationList
-	facts          crlzcrypto.RevocationListFacts
+	facts          x509ext.RevocationListFacts
 	decodeError    bool
 	fingerprint    listFingerprint
 	entries        entryIndex
@@ -38,7 +38,7 @@ func uniqueDecodedLists(lists []*x509.RevocationList) []decodedList {
 			continue
 		}
 		seen[fingerprint] = struct{}{}
-		facts, err := crlzcrypto.DecodeRevocationListStrict(list)
+		facts, err := x509ext.DecodeRevocationListStrict(list)
 		record := decodedList{
 			list: list, facts: facts, decodeError: err != nil,
 			fingerprint: fingerprint,

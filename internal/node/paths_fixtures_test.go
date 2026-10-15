@@ -9,6 +9,7 @@ import (
 	"github.com/cavoq/PCL/internal/cert"
 	certzcrypto "github.com/cavoq/PCL/internal/cert/zcrypto"
 	"github.com/cavoq/PCL/internal/crl"
+	"github.com/cavoq/PCL/internal/crlnode"
 	"github.com/cavoq/PCL/internal/node"
 	"github.com/cavoq/PCL/internal/ocsp"
 	"github.com/cavoq/PCL/internal/ocspnode"
@@ -39,7 +40,7 @@ func TestPathsResolveToTheirNodes(t *testing.T) {
 			t.Fatalf("GetCRLs(%s): %v", dir, err)
 		}
 		for _, list := range lists {
-			trees = append(trees, crl.BuildTree(list.CRL))
+			trees = append(trees, crlnode.BuildTree(list.CRL))
 		}
 	}
 	responses, err := ocsp.GetOCSPs("../../tests/ocsps", nil)

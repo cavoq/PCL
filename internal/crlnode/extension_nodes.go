@@ -1,4 +1,4 @@
-package zcrypto
+package crlnode
 
 import (
 	"strconv"
@@ -13,31 +13,31 @@ import (
 func projectCRLExtension(extension pkix.Extension) (*node.Node, error) {
 	switch extension.Id.String() {
 	case oid.AuthorityKeyIdentifier:
-		facts, err := decodeAuthorityKeyIdentifierExtension(extension)
+		facts, err := x509ext.DecodeAuthorityKeyIdentifierExtension(extension)
 		if err != nil {
 			return nil, err
 		}
 		return projectAuthorityKeyIdentifier(facts), nil
 	case oid.CRLNumber:
-		facts, err := decodeIntegerExtension(extension)
+		facts, err := x509ext.DecodeIntegerExtension(extension)
 		if err != nil {
 			return nil, err
 		}
 		return projectIntegerExtension("cRLNumber", facts), nil
 	case oid.DeltaCRLIndicator:
-		facts, err := decodeIntegerExtension(extension)
+		facts, err := x509ext.DecodeIntegerExtension(extension)
 		if err != nil {
 			return nil, err
 		}
 		return projectIntegerExtension("deltaCRLIndicator", facts), nil
 	case oid.IssuingDistributionPoint:
-		facts, err := decodeIssuingDistributionPointExtension(extension)
+		facts, err := x509ext.DecodeIssuingDistributionPointExtension(extension)
 		if err != nil {
 			return nil, err
 		}
 		return projectIssuingDistributionPoint(facts), nil
 	case oid.FreshestCRL:
-		facts, err := decodeDistributionPointsExtension(extension)
+		facts, err := x509ext.DecodeDistributionPointsExtension(extension)
 		if err != nil {
 			return nil, err
 		}
@@ -50,7 +50,7 @@ func projectCRLExtension(extension pkix.Extension) (*node.Node, error) {
 func projectEntryExtension(extension pkix.Extension) (*node.Node, error) {
 	switch extension.Id.String() {
 	case oid.CRLReason:
-		facts, err := decodeReasonCodeExtension(extension)
+		facts, err := x509ext.DecodeReasonCodeExtension(extension)
 		if err != nil {
 			return nil, err
 		}
@@ -59,7 +59,7 @@ func projectEntryExtension(extension pkix.Extension) (*node.Node, error) {
 		n.Children["value"] = node.New("value", int(facts.Value))
 		return n, nil
 	case oid.InvalidityDate:
-		facts, err := decodeInvalidityDateExtension(extension)
+		facts, err := x509ext.DecodeInvalidityDateExtension(extension)
 		if err != nil {
 			return nil, err
 		}
@@ -73,7 +73,7 @@ func projectEntryExtension(extension pkix.Extension) (*node.Node, error) {
 		n.Children["hasZulu"] = node.New("hasZulu", facts.Encoding.HasZulu)
 		return n, nil
 	case oid.CertificateIssuer:
-		facts, err := decodeCertificateIssuerExtension(extension)
+		facts, err := x509ext.DecodeCertificateIssuerExtension(extension)
 		if err != nil {
 			return nil, err
 		}
@@ -89,7 +89,7 @@ func projectEntryExtension(extension pkix.Extension) (*node.Node, error) {
 	}
 }
 
-func projectAuthorityKeyIdentifier(facts *AuthorityKeyIdentifierFacts) *node.Node {
+func projectAuthorityKeyIdentifier(facts *x509ext.AuthorityKeyIdentifierFacts) *node.Node {
 	n := node.New("authorityKeyIdentifier", nil)
 	n.Children["raw"] = node.New("raw", append([]byte(nil), facts.RawDER...))
 	if facts.KeyIdentifier != nil {
@@ -113,7 +113,7 @@ func projectAuthorityKeyIdentifier(facts *AuthorityKeyIdentifierFacts) *node.Nod
 	return n
 }
 
-func projectIntegerExtension(name string, facts *IntegerExtensionFacts) *node.Node {
+func projectIntegerExtension(name string, facts *x509ext.IntegerExtensionFacts) *node.Node {
 	n := node.New(name, facts.Value.Scalar())
 	n.Children["raw"] = node.New("raw", append([]byte(nil), facts.RawDER...))
 	n.Children["value"] = node.New("value", facts.Value.Scalar())
@@ -123,7 +123,7 @@ func projectIntegerExtension(name string, facts *IntegerExtensionFacts) *node.No
 	return n
 }
 
-func projectIssuingDistributionPoint(facts *IssuingDistributionPointFacts) *node.Node {
+func projectIssuingDistributionPoint(facts *x509ext.IssuingDistributionPointFacts) *node.Node {
 	n := node.New("issuingDistributionPoint", nil)
 	n.Children["raw"] = node.New("raw", append([]byte(nil), facts.RawDER...))
 	if facts.DistributionPoint != nil {

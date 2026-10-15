@@ -1,4 +1,4 @@
-package zcrypto
+package x509ext
 
 import (
 	"math/big"
@@ -196,65 +196,6 @@ func TestDecodeRevocationListStrictReportsUnsupportedCriticalAtBothLocations(t *
 			facts.UnsupportedCriticalExtensionOIDs,
 			facts.Entries[0].UnsupportedCriticalExtensionOIDs,
 		)
-	}
-}
-
-func TestBuildTreeProjectsStrictCRLExtensionsAndMalformedMarkers(t *testing.T) {
-	list := &x509.RevocationList{Extensions: []pkix.Extension{
-		{Id: oidObject(oid.CRLNumber), Value: []byte{0x02, 0x01, 0x05}},
-		{Id: oidObject(oid.IssuingDistributionPoint), Critical: true, Value: []byte{0x30, 0x03, 0x84, 0x01, 0xff}},
-	}}
-	tree := BuildTree(list)
-	if value, ok := tree.Resolve("extensions.cRLNumber.decimal"); !ok || value.Value != "5" {
-		t.Fatalf("cRLNumber projection = %#v", value)
-	}
-	if indirect, ok := tree.Resolve("issuingDistributionPoint.indirectCRL"); !ok || indirect.Value != true {
-		t.Fatalf("IDP projection = %#v", indirect)
-	}
-
-	malformed := BuildTree(&x509.RevocationList{Extensions: []pkix.Extension{{
-		Id:       oidObject(oid.IssuingDistributionPoint),
-		Critical: true,
-		Value:    []byte{0x30, 0x03, 0x84, 0x01, 0x00},
-	}}})
-	marker, ok := malformed.Resolve("extensions.issuingDistributionPoint.malformed")
-	if !ok || marker.Value != true {
-		t.Fatalf("malformed marker = %#v", marker)
-	}
-}
-
-func TestBuildTreeProjectsCanonicalReasonFlagsSchema(t *testing.T) {
-	list := &x509.RevocationList{Extensions: []pkix.Extension{{
-		Id:       oidObject(oid.IssuingDistributionPoint),
-		Critical: true,
-		Value:    []byte{0x30, 0x04, 0x83, 0x02, 0x06, 0x40},
-	}}}
-	reasons, ok := BuildTree(list).Resolve("issuingDistributionPoint.onlySomeReasons")
-	if !ok {
-		t.Fatal("onlySomeReasons projection is missing")
-	}
-	if reasons.Value != uint16(2) {
-		t.Fatalf("onlySomeReasons value = %#v, want 2", reasons.Value)
-	}
-	want := map[string]bool{
-		"unused":               false,
-		"keyCompromise":        true,
-		"cACompromise":         false,
-		"affiliationChanged":   false,
-		"superseded":           false,
-		"cessationOfOperation": false,
-		"certificateHold":      false,
-		"privilegeWithdrawn":   false,
-		"aACompromise":         false,
-	}
-	for name, wantValue := range want {
-		child := reasons.Children[name]
-		if child == nil || child.Value != wantValue {
-			t.Errorf("%s = %#v, want %t", name, child, wantValue)
-		}
-	}
-	if _, exists := reasons.Children["removeFromCRL"]; exists {
-		t.Fatal("ReasonFlags projection contains CRLReason removeFromCRL")
 	}
 }
 

@@ -100,7 +100,7 @@ as RFC 5280 coverage.
   known-but-unprocessed rejection, alias deduplication, duplicate-OID
   rejection, and malformed critical-extension failure.
 - [`internal/x509ext/x509ext_test.go`](../internal/x509ext/x509ext_test.go) and
-  [`internal/crl/zcrypto/extensions_test.go`](../internal/crl/zcrypto/extensions_test.go)
+  [`internal/x509ext/crl_extensions_test.go`](../internal/x509ext/crl_extensions_test.go)
   cover the shared strict distribution-point, IDP, integer, Freshest CRL, and
   entry extension representations.
 - [`internal/crl/status_assessment_test.go`](../internal/crl/status_assessment_test.go) covers the

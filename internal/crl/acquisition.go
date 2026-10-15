@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/cavoq/PCL/internal/cert"
-	crlzcrypto "github.com/cavoq/PCL/internal/crl/zcrypto"
 	"github.com/cavoq/PCL/internal/httpfetch"
 	"github.com/cavoq/PCL/internal/oid"
 	"github.com/cavoq/PCL/internal/source"
@@ -224,7 +223,7 @@ func (session *FetchSession) FetchForChain(chain []*cert.Info, warnings io.Write
 		if info == nil || info.CRL == nil {
 			continue
 		}
-		facts, err := crlzcrypto.DecodeRevocationListStrict(info.CRL)
+		facts, err := x509ext.DecodeRevocationListStrict(info.CRL)
 		if err != nil {
 			writeAcquisitionErrors(warnings, []error{fmt.Errorf(
 				"cannot inspect fetched CRL %s for Freshest CRL: %w",

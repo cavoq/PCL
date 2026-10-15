@@ -8,7 +8,6 @@ import (
 	"sync"
 
 	certzcrypto "github.com/cavoq/PCL/internal/cert/zcrypto"
-	crlzcrypto "github.com/cavoq/PCL/internal/crl/zcrypto"
 	"github.com/cavoq/PCL/internal/oid"
 	"github.com/cavoq/PCL/internal/x509ext"
 	"github.com/zmap/zcrypto/x509"
@@ -228,7 +227,7 @@ func writeSignerOrderPart(writer hashWriter, field byte, value []byte) {
 
 func authorityKeyIdentifierMatches(
 	certificate *x509.Certificate,
-	identifier *crlzcrypto.AuthorityKeyIdentifierFacts,
+	identifier *x509ext.AuthorityKeyIdentifierFacts,
 ) bool {
 	if identifier == nil {
 		return true

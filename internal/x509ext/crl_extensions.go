@@ -1,4 +1,4 @@
-package zcrypto
+package x509ext
 
 import (
 	"fmt"
@@ -7,7 +7,6 @@ import (
 
 	"github.com/cavoq/PCL/internal/oid"
 	"github.com/cavoq/PCL/internal/x509asn1"
-	"github.com/cavoq/PCL/internal/x509ext"
 	"github.com/zmap/zcrypto/x509"
 	"github.com/zmap/zcrypto/x509/pkix"
 	"golang.org/x/crypto/cryptobyte"
@@ -23,24 +22,24 @@ type ExtensionFacts struct {
 type IntegerExtensionFacts struct {
 	Critical bool
 	RawDER   []byte
-	Value    x509ext.NonNegativeInteger
+	Value    NonNegativeInteger
 }
 
 type AuthorityKeyIdentifierFacts struct {
 	Critical        bool
 	RawDER          []byte
 	KeyIdentifier   []byte
-	AuthorityIssuer []x509ext.GeneralName
-	SerialNumber    *x509ext.NonNegativeInteger
+	AuthorityIssuer []GeneralName
+	SerialNumber    *NonNegativeInteger
 }
 
 type IssuingDistributionPointFacts struct {
 	Critical                   bool
 	RawDER                     []byte
-	DistributionPoint          *x509ext.DistributionPointName
+	DistributionPoint          *DistributionPointName
 	OnlyContainsUserCerts      bool
 	OnlyContainsCACerts        bool
-	OnlySomeReasons            *x509ext.ReasonFlags
+	OnlySomeReasons            *ReasonFlags
 	IndirectCRL                bool
 	OnlyContainsAttributeCerts bool
 }
@@ -48,11 +47,11 @@ type IssuingDistributionPointFacts struct {
 type DistributionPointsExtensionFacts struct {
 	Critical bool
 	RawDER   []byte
-	Points   []x509ext.DistributionPoint
+	Points   []DistributionPoint
 }
 
 // CRLReason is the CRL entry reasonCode ENUMERATED value. It is deliberately
-// distinct from x509ext.ReasonMask: value 8 here is removeFromCRL, while wire
+// distinct from ReasonMask: value 8 here is removeFromCRL, while wire
 // bit 8 in ReasonFlags is aACompromise.
 type CRLReason int
 
@@ -85,7 +84,7 @@ type InvalidityDateExtensionFacts struct {
 type CertificateIssuerExtensionFacts struct {
 	Critical bool
 	RawDER   []byte
-	Names    []x509ext.GeneralName
+	Names    []GeneralName
 }
 
 type EntryFacts struct {
@@ -138,15 +137,15 @@ func DecodeRevocationListStrict(list *x509.RevocationList) (RevocationListFacts,
 		var err error
 		switch identifier {
 		case oid.AuthorityKeyIdentifier:
-			facts.AuthorityKeyIdentifier, err = decodeAuthorityKeyIdentifierExtension(extension)
+			facts.AuthorityKeyIdentifier, err = DecodeAuthorityKeyIdentifierExtension(extension)
 		case oid.CRLNumber:
-			facts.CRLNumber, err = decodeIntegerExtension(extension)
+			facts.CRLNumber, err = DecodeIntegerExtension(extension)
 		case oid.DeltaCRLIndicator:
-			facts.DeltaCRLIndicator, err = decodeIntegerExtension(extension)
+			facts.DeltaCRLIndicator, err = DecodeIntegerExtension(extension)
 		case oid.IssuingDistributionPoint:
-			facts.IssuingDistributionPoint, err = decodeIssuingDistributionPointExtension(extension)
+			facts.IssuingDistributionPoint, err = DecodeIssuingDistributionPointExtension(extension)
 		case oid.FreshestCRL:
-			facts.FreshestCRL, err = decodeDistributionPointsExtension(extension)
+			facts.FreshestCRL, err = DecodeDistributionPointsExtension(extension)
 		}
 		if err != nil {
 			return RevocationListFacts{}, fmt.Errorf("decode CRL extension %s: %w", identifier, err)
@@ -198,11 +197,11 @@ func decodeEntryStrict(entry x509.RevokedCertificate) (EntryFacts, error) {
 		var err error
 		switch identifier {
 		case oid.CRLReason:
-			facts.ReasonCode, err = decodeReasonCodeExtension(extension)
+			facts.ReasonCode, err = DecodeReasonCodeExtension(extension)
 		case oid.InvalidityDate:
-			facts.InvalidityDate, err = decodeInvalidityDateExtension(extension)
+			facts.InvalidityDate, err = DecodeInvalidityDateExtension(extension)
 		case oid.CertificateIssuer:
-			facts.CertificateIssuer, err = decodeCertificateIssuerExtension(extension)
+			facts.CertificateIssuer, err = DecodeCertificateIssuerExtension(extension)
 		}
 		if err != nil {
 			return EntryFacts{}, fmt.Errorf("decode extension %s: %w", identifier, err)
@@ -211,8 +210,8 @@ func decodeEntryStrict(entry x509.RevokedCertificate) (EntryFacts, error) {
 	return facts, nil
 }
 
-func decodeIntegerExtension(extension pkix.Extension) (*IntegerExtensionFacts, error) {
-	value, err := x509ext.DecodeNonNegativeInteger(extension.Value)
+func DecodeIntegerExtension(extension pkix.Extension) (*IntegerExtensionFacts, error) {
+	value, err := DecodeNonNegativeInteger(extension.Value)
 	if err != nil {
 		return nil, err
 	}
@@ -223,7 +222,7 @@ func decodeIntegerExtension(extension pkix.Extension) (*IntegerExtensionFacts, e
 	}, nil
 }
 
-func decodeAuthorityKeyIdentifierExtension(
+func DecodeAuthorityKeyIdentifierExtension(
 	extension pkix.Extension,
 ) (*AuthorityKeyIdentifierFacts, error) {
 	input := cryptobyte.String(extension.Value)
@@ -282,7 +281,7 @@ func (decoded *AuthorityKeyIdentifierFacts) decodeField(
 		if tag != cryptobyte_asn1.Tag(1).ContextSpecific().Constructed() || content.Empty() {
 			return fmt.Errorf("invalid authorityCertIssuer")
 		}
-		names, err := x509ext.ReadGeneralNamesContents(&content)
+		names, err := ReadGeneralNamesContents(&content)
 		if err != nil || len(names) == 0 {
 			return fmt.Errorf("invalid authorityCertIssuer")
 		}
@@ -291,7 +290,7 @@ func (decoded *AuthorityKeyIdentifierFacts) decodeField(
 		if tag != cryptobyte_asn1.Tag(2).ContextSpecific() {
 			return fmt.Errorf("invalid authorityCertSerialNumber tag")
 		}
-		serial, err := x509ext.DecodeNonNegativeIntegerContent(content)
+		serial, err := DecodeNonNegativeIntegerContent(content)
 		if err != nil {
 			return fmt.Errorf("invalid authorityCertSerialNumber: %w", err)
 		}
@@ -301,7 +300,7 @@ func (decoded *AuthorityKeyIdentifierFacts) decodeField(
 	return nil
 }
 
-func decodeIssuingDistributionPointExtension(
+func DecodeIssuingDistributionPointExtension(
 	extension pkix.Extension,
 ) (*IssuingDistributionPointFacts, error) {
 	input := cryptobyte.String(extension.Value)
@@ -347,7 +346,7 @@ func (decoded *IssuingDistributionPointFacts) decodeField(
 		if tag != cryptobyte_asn1.Tag(0).ContextSpecific().Constructed() {
 			return fmt.Errorf("invalid distributionPoint tag")
 		}
-		name, err := x509ext.DecodeDistributionPointNameContents(content)
+		name, err := DecodeDistributionPointNameContents(content)
 		if err != nil {
 			return err
 		}
@@ -362,7 +361,7 @@ func (decoded *IssuingDistributionPointFacts) decodeField(
 		if tag != cryptobyte_asn1.Tag(3).ContextSpecific() {
 			return fmt.Errorf("invalid onlySomeReasons tag")
 		}
-		reasons, err := x509ext.DecodeReasonFlagsContents(content)
+		reasons, err := DecodeReasonFlagsContents(content)
 		if err != nil {
 			return err
 		}
@@ -408,10 +407,10 @@ func (decoded *IssuingDistributionPointFacts) validate() error {
 	return nil
 }
 
-func decodeDistributionPointsExtension(
+func DecodeDistributionPointsExtension(
 	extension pkix.Extension,
 ) (*DistributionPointsExtensionFacts, error) {
-	points, err := x509ext.DecodeDistributionPoints(extension.Value)
+	points, err := DecodeDistributionPoints(extension.Value)
 	if err != nil {
 		return nil, err
 	}
@@ -430,7 +429,7 @@ func decodeDistributionPointsExtension(
 	}, nil
 }
 
-func decodeReasonCodeExtension(extension pkix.Extension) (*ReasonCodeExtensionFacts, error) {
+func DecodeReasonCodeExtension(extension pkix.Extension) (*ReasonCodeExtensionFacts, error) {
 	input := cryptobyte.String(extension.Value)
 	var value int
 	if !input.ReadASN1Enum(&value) || !input.Empty() || !validCRLReason(value) {
@@ -447,7 +446,7 @@ func validCRLReason(value int) bool {
 	return value >= 0 && value <= 10 && value != 7
 }
 
-func decodeInvalidityDateExtension(
+func DecodeInvalidityDateExtension(
 	extension pkix.Extension,
 ) (*InvalidityDateExtensionFacts, error) {
 	encoding, err := x509asn1.ParseGeneralizedTime(extension.Value)
@@ -467,10 +466,10 @@ func decodeInvalidityDateExtension(
 	}, nil
 }
 
-func decodeCertificateIssuerExtension(
+func DecodeCertificateIssuerExtension(
 	extension pkix.Extension,
 ) (*CertificateIssuerExtensionFacts, error) {
-	names, err := x509ext.DecodeGeneralNames(extension.Value)
+	names, err := DecodeGeneralNames(extension.Value)
 	if err != nil {
 		return nil, err
 	}
@@ -479,4 +478,29 @@ func decodeCertificateIssuerExtension(
 		RawDER:   append([]byte(nil), extension.Value...),
 		Names:    names,
 	}, nil
+}
+
+// AuthorityKeyIdentifier returns the semantic keyIdentifier from the CRL AKI
+// extension. zcrypto currently exposes RevocationList.AuthorityKeyId as the
+// complete extension value, so callers must not compare that field directly
+// with a certificate SubjectKeyId.
+func AuthorityKeyIdentifier(crl *x509.RevocationList) []byte {
+	if crl == nil {
+		return nil
+	}
+
+	for _, extension := range crl.Extensions {
+		if extension.Id.String() != oid.AuthorityKeyIdentifier {
+			continue
+		}
+		facts, err := DecodeAuthorityKeyIdentifierExtension(extension)
+		if err != nil {
+			return nil
+		}
+		return append([]byte(nil), facts.KeyIdentifier...)
+	}
+
+	// Manually constructed RevocationList values used by callers may already
+	// contain the semantic key identifier and have no raw extension list.
+	return append([]byte(nil), crl.AuthorityKeyId...)
 }

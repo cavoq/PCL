@@ -9,6 +9,7 @@ import (
 
 	"github.com/cavoq/PCL/internal/cert"
 	"github.com/cavoq/PCL/internal/crl"
+	"github.com/cavoq/PCL/internal/crlnode"
 	"github.com/cavoq/PCL/internal/node"
 	"github.com/cavoq/PCL/internal/ocsp"
 	"github.com/cavoq/PCL/internal/operator"
@@ -470,7 +471,7 @@ func TestCRL_setsIsCACRLNode(t *testing.T) {
 		t.Fatalf("expected 0 policy results with nil policies, got %d", len(results))
 	}
 
-	tree := crl.BuildTreeWithChain(revocationList, crlSignerPool(ctx))
+	tree := crlnode.BuildTreeWithChain(revocationList, crlSignerPool(ctx))
 	if tree.Children["isCACRL"].Value != true {
 		t.Fatalf("isCACRL = %v, want true", tree.Children["isCACRL"].Value)
 	}

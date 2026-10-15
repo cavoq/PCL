@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	crlzcrypto "github.com/cavoq/PCL/internal/crl/zcrypto"
 	"github.com/cavoq/PCL/internal/x509ext"
 	"github.com/zmap/zcrypto/x509"
 )
@@ -13,7 +12,7 @@ import (
 func TestEntryIndexResolvesIndirectIssuerInheritance(t *testing.T) {
 	firstTime := time.Unix(1_700_000_001, 0).UTC()
 	secondTime := time.Unix(1_700_000_002, 0).UTC()
-	record := entryIndexRecord("list issuer", true, false, []crlzcrypto.EntryFacts{
+	record := entryIndexRecord("list issuer", true, false, []x509ext.EntryFacts{
 		{
 			SerialNumber:   big.NewInt(1),
 			RevocationTime: firstTime,
@@ -21,8 +20,8 @@ func TestEntryIndexResolvesIndirectIssuerInheritance(t *testing.T) {
 		{
 			SerialNumber:   big.NewInt(2),
 			RevocationTime: secondTime,
-			ReasonCode: &crlzcrypto.ReasonCodeExtensionFacts{
-				Value: crlzcrypto.CRLReasonKeyCompromise,
+			ReasonCode: &x509ext.ReasonCodeExtensionFacts{
+				Value: x509ext.CRLReasonKeyCompromise,
 			},
 			CertificateIssuer: entryIndexCertificateIssuer(
 				x509ext.GeneralName{Tag: 6, RawValue: []byte("https://issuer.test")},
@@ -79,7 +78,7 @@ func TestEntryIndexRejectsInvalidIssuerTransitions(t *testing.T) {
 	tests := []struct {
 		name     string
 		indirect bool
-		issuer   *crlzcrypto.CertificateIssuerExtensionFacts
+		issuer   *x509ext.CertificateIssuerExtensionFacts
 	}{
 		{
 			name:   "certificateIssuer on direct CRL",
@@ -95,7 +94,7 @@ func TestEntryIndexRejectsInvalidIssuerTransitions(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			record := entryIndexRecord("list issuer", test.indirect, false, []crlzcrypto.EntryFacts{{
+			record := entryIndexRecord("list issuer", test.indirect, false, []x509ext.EntryFacts{{
 				SerialNumber:      big.NewInt(1),
 				CertificateIssuer: test.issuer,
 			}})
@@ -111,7 +110,7 @@ func TestEntryIndexRejectsInvalidIssuerTransitions(t *testing.T) {
 }
 
 func TestEntryIndexDuplicatesAreTargetSpecific(t *testing.T) {
-	record := entryIndexRecord("list issuer", false, false, []crlzcrypto.EntryFacts{
+	record := entryIndexRecord("list issuer", false, false, []x509ext.EntryFacts{
 		{SerialNumber: big.NewInt(7)},
 		{SerialNumber: big.NewInt(7)},
 		{SerialNumber: big.NewInt(8)},
@@ -127,7 +126,7 @@ func TestEntryIndexDuplicatesAreTargetSpecific(t *testing.T) {
 		t.Fatalf("unrelated unique target match = %+v", match)
 	}
 
-	separateIssuers := entryIndexRecord("list issuer", true, false, []crlzcrypto.EntryFacts{
+	separateIssuers := entryIndexRecord("list issuer", true, false, []x509ext.EntryFacts{
 		{
 			SerialNumber: big.NewInt(9),
 			CertificateIssuer: entryIndexCertificateIssuer(
@@ -158,22 +157,22 @@ func TestEntryIndexDuplicatesAreTargetSpecific(t *testing.T) {
 }
 
 func TestEntryIndexRoleSpecificSemantics(t *testing.T) {
-	unspecified := &crlzcrypto.ReasonCodeExtensionFacts{
-		Value: crlzcrypto.CRLReasonUnspecified,
+	unspecified := &x509ext.ReasonCodeExtensionFacts{
+		Value: x509ext.CRLReasonUnspecified,
 	}
-	remove := &crlzcrypto.ReasonCodeExtensionFacts{
-		Value: crlzcrypto.CRLReasonRemoveFromCRL,
+	remove := &x509ext.ReasonCodeExtensionFacts{
+		Value: x509ext.CRLReasonRemoveFromCRL,
 	}
 	tests := []struct {
 		name                string
 		partitioned         bool
-		entry               crlzcrypto.EntryFacts
+		entry               x509ext.EntryFacts
 		wantCompleteInvalid bool
 		wantDeltaInvalid    bool
 	}{
 		{
 			name: "unsupported critical extension on unrelated entry",
-			entry: crlzcrypto.EntryFacts{
+			entry: x509ext.EntryFacts{
 				SerialNumber:                     big.NewInt(99),
 				UnsupportedCriticalExtensionOIDs: []string{"1.2.3.4"},
 			},
@@ -182,7 +181,7 @@ func TestEntryIndexRoleSpecificSemantics(t *testing.T) {
 		},
 		{
 			name: "explicit unspecified in reason partition",
-			entry: crlzcrypto.EntryFacts{
+			entry: x509ext.EntryFacts{
 				SerialNumber: big.NewInt(99), ReasonCode: unspecified,
 			},
 			partitioned:         true,
@@ -191,20 +190,20 @@ func TestEntryIndexRoleSpecificSemantics(t *testing.T) {
 		},
 		{
 			name: "absent reason in reason partition",
-			entry: crlzcrypto.EntryFacts{
+			entry: x509ext.EntryFacts{
 				SerialNumber: big.NewInt(99),
 			},
 			partitioned: true,
 		},
 		{
 			name: "unspecified outside reason partition",
-			entry: crlzcrypto.EntryFacts{
+			entry: x509ext.EntryFacts{
 				SerialNumber: big.NewInt(99), ReasonCode: unspecified,
 			},
 		},
 		{
 			name: "removeFromCRL",
-			entry: crlzcrypto.EntryFacts{
+			entry: x509ext.EntryFacts{
 				SerialNumber: big.NewInt(99), ReasonCode: remove,
 			},
 			wantCompleteInvalid: true,
@@ -213,7 +212,7 @@ func TestEntryIndexRoleSpecificSemantics(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			index := prepareEntryIndex(entryIndexRecord(
-				"list issuer", false, test.partitioned, []crlzcrypto.EntryFacts{test.entry},
+				"list issuer", false, test.partitioned, []x509ext.EntryFacts{test.entry},
 			))
 			if got := index.invalidFor(false); got != test.wantCompleteInvalid {
 				t.Fatalf("complete invalid = %v, want %v", got, test.wantCompleteInvalid)
@@ -226,7 +225,7 @@ func TestEntryIndexRoleSpecificSemantics(t *testing.T) {
 }
 
 func TestEntryIndexPreservesSignedAndOptionalSerials(t *testing.T) {
-	record := entryIndexRecord("list issuer", false, false, []crlzcrypto.EntryFacts{
+	record := entryIndexRecord("list issuer", false, false, []x509ext.EntryFacts{
 		{SerialNumber: nil},
 		{SerialNumber: big.NewInt(0)},
 		{SerialNumber: big.NewInt(7)},
@@ -264,11 +263,11 @@ func TestEntryIndexPreservesSignedAndOptionalSerials(t *testing.T) {
 func entryIndexRecord(
 	listIssuer string,
 	indirect, partitioned bool,
-	entries []crlzcrypto.EntryFacts,
+	entries []x509ext.EntryFacts,
 ) decodedList {
-	var issuingDistributionPoint *crlzcrypto.IssuingDistributionPointFacts
+	var issuingDistributionPoint *x509ext.IssuingDistributionPointFacts
 	if indirect || partitioned {
-		issuingDistributionPoint = &crlzcrypto.IssuingDistributionPointFacts{
+		issuingDistributionPoint = &x509ext.IssuingDistributionPointFacts{
 			IndirectCRL: indirect,
 		}
 		if partitioned {
@@ -277,7 +276,7 @@ func entryIndexRecord(
 	}
 	return decodedList{
 		list: &x509.RevocationList{RawIssuer: []byte(listIssuer)},
-		facts: crlzcrypto.RevocationListFacts{
+		facts: x509ext.RevocationListFacts{
 			IssuingDistributionPoint: issuingDistributionPoint,
 			Entries:                  entries,
 		},
@@ -286,8 +285,8 @@ func entryIndexRecord(
 
 func entryIndexCertificateIssuer(
 	names ...x509ext.GeneralName,
-) *crlzcrypto.CertificateIssuerExtensionFacts {
-	return &crlzcrypto.CertificateIssuerExtensionFacts{Names: names}
+) *x509ext.CertificateIssuerExtensionFacts {
+	return &x509ext.CertificateIssuerExtensionFacts{Names: names}
 }
 
 func entryIndexDirectoryName(raw string) x509ext.GeneralName {

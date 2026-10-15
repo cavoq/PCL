@@ -1,31 +1,8 @@
 package crl
 
 import (
-	"github.com/cavoq/PCL/internal/crl/zcrypto"
-	"github.com/cavoq/PCL/internal/node"
 	"github.com/zmap/zcrypto/x509"
 )
-
-// BuildTree builds a CRL node tree without isCACRL (for embedding under certificates).
-func BuildTree(revocationList *x509.RevocationList) *node.Node {
-	return zcrypto.BuildTree(revocationList)
-}
-
-// BuildTreeWithChain builds a CRL node tree and sets isCACRL from issuerCerts.
-// isCACRL is true when the CRL signing certificate is a CA, or when the CRL
-// validity window exceeds the BR 7.2 subscriber CRL maximum (other CRL profile).
-func BuildTreeWithChain(revocationList *x509.RevocationList, issuerCerts []*x509.Certificate) *node.Node {
-	if revocationList == nil {
-		return nil
-	}
-	n := zcrypto.BuildTree(revocationList)
-	if n == nil {
-		return nil
-	}
-
-	n.Children["isCACRL"] = node.New("isCACRL", IsCACRL(revocationList, issuerCerts))
-	return n
-}
 
 // IsCACRL reports whether the CRL follows the CA / other-CRL profile used by BR policies.
 func IsCACRL(revocationList *x509.RevocationList, issuerCerts []*x509.Certificate) bool {

@@ -1,5 +1,5 @@
-// Package zcrypto provides zcrypto-based CRL parsing.
-package zcrypto
+// Package crlnode projects CRLs into node trees.
+package crlnode
 
 import (
 	"fmt"
@@ -10,6 +10,7 @@ import (
 	"github.com/cavoq/PCL/internal/node"
 	"github.com/cavoq/PCL/internal/oid"
 	"github.com/cavoq/PCL/internal/x509asn1"
+	"github.com/cavoq/PCL/internal/x509ext"
 	"github.com/cavoq/PCL/internal/x509node"
 )
 
@@ -51,7 +52,7 @@ func buildCRL(crl *x509.RevocationList) *node.Node {
 		if crl.Number != nil {
 			root.Children["crlNumber"] = node.New("crlNumber", crl.Number.String())
 		}
-		if keyIdentifier := AuthorityKeyIdentifier(crl); len(keyIdentifier) > 0 {
+		if keyIdentifier := x509ext.AuthorityKeyIdentifier(crl); len(keyIdentifier) > 0 {
 			root.Children["authorityKeyIdentifier"] = node.New("authorityKeyIdentifier", keyIdentifier)
 		}
 	}
