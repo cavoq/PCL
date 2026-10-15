@@ -5,6 +5,8 @@ import (
 	"errors"
 	"io"
 	"time"
+
+	"github.com/cavoq/PCL/internal/output"
 )
 
 type Config struct {
@@ -57,12 +59,13 @@ func (cfg Config) Validate() error {
 }
 
 // validateInputs reports configurations without a certificate, CRL or OCSP
-// input. Issuer certificates alone are not evaluated.
+// input, and option values that would otherwise be ignored. Issuer
+// certificates alone are not evaluated.
 func (cfg Config) validateInputs() error {
 	if !cfg.hasCertificateInput() && cfg.CRLPath == "" && cfg.OCSPPath == "" {
 		return errors.New("no certificates, CRLs, or OCSP responses provided")
 	}
-	return nil
+	return output.CheckFormat(cfg.OutputFmt)
 }
 
 func (cfg Config) hasCertificateInput() bool {

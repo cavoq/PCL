@@ -63,6 +63,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   like CRLs are limited, instead of being read to any size. `pcl update-data`
   has a timeout, a size limit, and replaces the Public Suffix List only after
   a complete download.
+- An unknown `--output` format is an error instead of falling back to text.
 
 ## [5.1.0] - 2026-10-14
 

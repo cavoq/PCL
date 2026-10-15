@@ -119,3 +119,16 @@ func createTestOutput() LintOutput {
 		},
 	}
 }
+
+func TestCheckFormat(t *testing.T) {
+	for _, format := range []string{FormatText, FormatJSON, FormatYAML} {
+		if err := CheckFormat(format); err != nil {
+			t.Errorf("CheckFormat(%q) = %v", format, err)
+		}
+	}
+	for _, format := range []string{"", "xml", "JSON"} {
+		if err := CheckFormat(format); err == nil {
+			t.Errorf("CheckFormat(%q) accepted an unknown format", format)
+		}
+	}
+}

@@ -823,3 +823,23 @@ func TestRun_downloadsSignerIssuersOnlyWhenClimbing(t *testing.T) {
 		})
 	}
 }
+
+func TestUnknownOutputFormatIsRejected(t *testing.T) {
+	cfg := Config{
+		PolicyPaths: []string{filepath.Join("..", "..", "tests", "policies", "basic.yaml")},
+		CertPath:    filepath.Join("..", "..", "tests", "certs", "leaf.pem"),
+		OutputFmt:   "xml",
+	}
+	var out bytes.Buffer
+	for name, run := range map[string]func() error{
+		"lint":    func() error { return Run(cfg, &out) },
+		"inspect": func() error { return Inspect(cfg, InspectOptions{}, &out) },
+	} {
+		if err := run(); err == nil || !strings.Contains(err.Error(), `unknown output format "xml"`) {
+			t.Errorf("%s: error = %v, want the unknown format", name, err)
+		}
+	}
+	if out.Len() != 0 {
+		t.Fatalf("output written before the format was rejected:\n%s", out.String())
+	}
+}
