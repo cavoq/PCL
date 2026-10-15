@@ -34,48 +34,24 @@ func TestApplyDefaults(t *testing.T) {
 			name:  "empty config gets defaults",
 			input: Config{},
 			expected: Config{
-				CertTimeout: 10 * time.Second,
-				OCSPTimeout: 5 * time.Second,
-				OutputFmt:   "text",
-			},
-		},
-		{
-			name: "custom timeouts preserved",
-			input: Config{
-				CertTimeout: 30 * time.Second,
-				OCSPTimeout: 10 * time.Second,
-				OutputFmt:   "json",
-			},
-			expected: Config{
-				CertTimeout: 30 * time.Second,
-				OCSPTimeout: 10 * time.Second,
-				OutputFmt:   "json",
-			},
-		},
-		{
-			name: "auto-validate sets max chain depth",
-			input: Config{
-				AutoValidate: true,
-			},
-			expected: Config{
 				CertTimeout:   10 * time.Second,
 				OCSPTimeout:   5 * time.Second,
 				OutputFmt:     "text",
-				AutoValidate:  true,
 				MaxChainDepth: 10,
 			},
 		},
 		{
-			name: "auto-validate preserves custom max chain depth",
+			name: "custom values preserved",
 			input: Config{
-				AutoValidate:  true,
+				CertTimeout:   30 * time.Second,
+				OCSPTimeout:   10 * time.Second,
+				OutputFmt:     "json",
 				MaxChainDepth: 5,
 			},
 			expected: Config{
-				CertTimeout:   10 * time.Second,
-				OCSPTimeout:   5 * time.Second,
-				OutputFmt:     "text",
-				AutoValidate:  true,
+				CertTimeout:   30 * time.Second,
+				OCSPTimeout:   10 * time.Second,
+				OutputFmt:     "json",
 				MaxChainDepth: 5,
 			},
 		},
@@ -462,37 +438,6 @@ func TestRun_certificateLoadFailureIsFatal(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "failed to load certificates") {
 		t.Fatalf("Run error = %q, want certificate load context", err)
-	}
-}
-
-func TestCrlResolveTimeout_prefersCertTimeout(t *testing.T) {
-	cfg := Config{
-		CertTimeout: 30 * time.Second,
-		OCSPTimeout: 5 * time.Second,
-	}
-	if got := crlResolveTimeout(cfg); got != 30*time.Second {
-		t.Fatalf("crlResolveTimeout() = %v, want 30s", got)
-	}
-}
-
-func TestCrlResolveTimeout_fallsBackToOCSPTimeout(t *testing.T) {
-	cfg := Config{OCSPTimeout: 7 * time.Second}
-	if got := crlResolveTimeout(cfg); got != 7*time.Second {
-		t.Fatalf("crlResolveTimeout() = %v, want 7s", got)
-	}
-}
-
-func TestCrlResolveMaxDepth_usesConfig(t *testing.T) {
-	cfg := Config{MaxChainDepth: 3}
-	if got := crlResolveMaxDepth(cfg); got != 3 {
-		t.Fatalf("crlResolveMaxDepth() = %d, want 3", got)
-	}
-}
-
-func TestCrlResolveMaxDepth_default(t *testing.T) {
-	cfg := Config{}
-	if got := crlResolveMaxDepth(cfg); got != 10 {
-		t.Fatalf("crlResolveMaxDepth() = %d, want 10", got)
 	}
 }
 
@@ -892,5 +837,15 @@ rules:
 				t.Fatalf("results were not written before the run failed:\n%s", out.String())
 			}
 		})
+	}
+}
+
+func TestRunReportsInputPathsWithoutFiles(t *testing.T) {
+	err := Run(Config{
+		PolicyPaths: []string{filepath.Join("..", "..", "tests", "policies", "basic.yaml")},
+		CRLPath:     t.TempDir(),
+	}, io.Discard)
+	if err == nil || !strings.Contains(err.Error(), "no CRL or OCSP response files found") {
+		t.Fatalf("Run() = %v, want the empty input paths reported", err)
 	}
 }

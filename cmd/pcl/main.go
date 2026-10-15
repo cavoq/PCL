@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -96,13 +95,13 @@ func (opts dataOptions) load(w io.Writer) {
 func addInputFlags(flags *pflag.FlagSet, opts *linter.Config) {
 	flags.StringVar(&opts.CertPath, "cert", "", "Path to certificate file or directory (PEM/DER)")
 	flags.StringSliceVar(&opts.CertURLs, "cert-url", nil, "Certificate URL (repeatable)")
-	flags.DurationVar(&opts.CertTimeout, "cert-url-timeout", 10*time.Second, "Certificate URL timeout (e.g. 10s, 1m)")
+	flags.DurationVar(&opts.CertTimeout, "cert-url-timeout", linter.DefaultCertTimeout, "Certificate URL timeout (e.g. 10s, 1m)")
 	flags.StringVar(&opts.CertSaveDir, "cert-url-save-dir", "", "Directory to save downloaded certs (optional)")
 	flags.StringSliceVar(&opts.IssuerPaths, "issuer", nil, "Path to issuer certificate file or directory (repeatable, PEM/DER)")
 	flags.StringSliceVar(&opts.IssuerURLs, "issuer-url", nil, "Issuer certificate URL (repeatable)")
 	flags.StringVar(&opts.CRLPath, "crl", "", "Path to CRL file or directory (PEM/DER)")
 	flags.StringVar(&opts.OCSPPath, "ocsp", "", "Path to OCSP response file or directory (DER/PEM)")
-	flags.DurationVar(&opts.OCSPTimeout, "ocsp-url-timeout", 5*time.Second, "OCSP request timeout (e.g. 5s, 10s)")
+	flags.DurationVar(&opts.OCSPTimeout, "ocsp-url-timeout", linter.DefaultOCSPTimeout, "OCSP request timeout (e.g. 5s, 10s)")
 	flags.StringVar(&opts.ApplicationPurpose, "purpose", "", "Application purpose for RFC 5280 EKU evaluation (friendly name or OID)")
 
 	// Auto-validate mode flags
@@ -110,7 +109,7 @@ func addInputFlags(flags *pflag.FlagSet, opts *linter.Config) {
 	flags.BoolVar(&opts.NoAutoChain, "no-auto-chain", false, "Disable chain climbing via CA Issuers URLs (only with --auto-validate)")
 	flags.BoolVar(&opts.NoAutoCRL, "no-auto-crl", false, "Disable CRL fetching from CRL Distribution Points (only with --auto-validate)")
 	flags.BoolVar(&opts.NoAutoOCSP, "no-auto-ocsp", false, "Disable OCSP fetching for all certificates in chain (only with --auto-validate)")
-	flags.IntVar(&opts.MaxChainDepth, "max-chain-depth", 10, "Maximum chain depth for climbing (only with --auto-validate)")
+	flags.IntVar(&opts.MaxChainDepth, "max-chain-depth", linter.DefaultMaxChainDepth, "Maximum chain depth for climbing (only with --auto-validate)")
 
 	// OCSP nonce options (RFC 9654)
 	flags.IntVar(&opts.OCSPNonceLength, "ocsp-nonce-length", 32, "Nonce length in bytes for OCSP requests (default 32, per RFC 9654)")

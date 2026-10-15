@@ -116,7 +116,7 @@ func acquireInputs(cfg Config, diagnostics io.Writer, cleanups *cleanupStack) (l
 
 	if !cfg.hasCertificateInput() {
 		if len(inputs.crls) == 0 && len(inputs.ocsps) == 0 {
-			return lintInputs{}, fmt.Errorf("no certificates, CRLs, or OCSP responses provided")
+			return lintInputs{}, fmt.Errorf("no CRL or OCSP response files found in the given paths")
 		}
 		return inputs, nil
 	}
@@ -178,6 +178,7 @@ func buildSubjects(
 	reg *operator.Registry,
 	w io.Writer,
 ) []evaluator.Subject {
+	now := validationTime(cfg)
 	if inputs.chain == nil {
 		var subjects []evaluator.Subject
 		if len(inputs.crls) > 0 {
@@ -186,7 +187,7 @@ func buildSubjects(
 				Registry:       reg,
 				CRLs:           inputs.crls,
 				Chain:          inputs.issuers,
-				ValidationTime: cfg.ValidationTime,
+				ValidationTime: now,
 			})...)
 		}
 		if len(inputs.ocsps) > 0 {
@@ -194,7 +195,7 @@ func buildSubjects(
 				Policies:       policies,
 				Registry:       reg,
 				OCSPs:          inputs.ocsps,
-				ValidationTime: cfg.ValidationTime,
+				ValidationTime: now,
 			})...)
 		}
 		return subjects
@@ -209,7 +210,7 @@ func buildSubjects(
 		Chain:               inputs.chain,
 		Certificates:        inputs.certificates,
 		RevocationRequested: crlRevocationRequested(cfg),
-		ValidationTime:      validationTime(cfg),
+		ValidationTime:      now,
 		ApplicationPurpose:  cfg.ApplicationPurpose,
 		CRLResolveTimeout:   issuerTimeout,
 		CRLResolveMaxDepth:  issuerDepth,
@@ -312,7 +313,7 @@ func climbChains(cfg Config, leaves, known []*cert.Info, w io.Writer) []*cert.In
 
 func fetchAutoCRLs(cfg Config, chain []*cert.Info, w io.Writer) []*crl.Info {
 	fetchSession := crl.NewFetchSession(crl.FetchConfig{
-		Timeout: crlResolveTimeout(cfg),
+		Timeout: cfg.CertTimeout,
 	})
 	return fetchSession.FetchForChain(chain, w)
 }
@@ -372,43 +373,32 @@ func issuerDiscovery(cfg Config) (time.Duration, int) {
 	if !cfg.climbsCAIssuers() {
 		return 0, 0
 	}
-	return crlResolveTimeout(cfg), crlResolveMaxDepth(cfg)
-}
-
-func crlResolveTimeout(cfg Config) time.Duration {
-	if cfg.CertTimeout > 0 {
-		return cfg.CertTimeout
-	}
-	return cfg.OCSPTimeout
-}
-
-func crlResolveMaxDepth(cfg Config) int {
-	if cfg.MaxChainDepth > 0 {
-		return cfg.MaxChainDepth
-	}
-	return 10
+	return cfg.CertTimeout, cfg.MaxChainDepth
 }
 
 func crlRevocationRequested(cfg Config) bool {
 	return cfg.CRLPath != "" || (cfg.AutoValidate && !cfg.NoAutoCRL)
 }
 
+// Defaults for unset Config fields; the command line flags use them too.
+const (
+	DefaultCertTimeout   = 10 * time.Second
+	DefaultOCSPTimeout   = 5 * time.Second
+	DefaultMaxChainDepth = 10
+)
+
 func applyDefaults(cfg *Config) {
 	if cfg.CertTimeout <= 0 {
-		cfg.CertTimeout = 10 * time.Second
+		cfg.CertTimeout = DefaultCertTimeout
 	}
 	if cfg.OCSPTimeout <= 0 {
-		cfg.OCSPTimeout = 5 * time.Second
+		cfg.OCSPTimeout = DefaultOCSPTimeout
+	}
+	if cfg.MaxChainDepth <= 0 {
+		cfg.MaxChainDepth = DefaultMaxChainDepth
 	}
 	if cfg.OutputFmt == "" {
 		cfg.OutputFmt = output.FormatText
-	}
-
-	// Auto-validate defaults
-	if cfg.AutoValidate {
-		if cfg.MaxChainDepth <= 0 {
-			cfg.MaxChainDepth = 10
-		}
 	}
 }
 
