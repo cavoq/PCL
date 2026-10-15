@@ -6,6 +6,8 @@ import (
 	"crypto/dsa"
 	"crypto/ed25519"
 	"crypto/rand"
+	stdpkix "crypto/x509/pkix"
+	stdasn1 "encoding/asn1"
 	"encoding/pem"
 	"errors"
 	"math/big"
@@ -891,4 +893,62 @@ func loadTestCert(t *testing.T, name string) []byte {
 	}
 
 	return data
+}
+
+// When the strict parser rejects an extension that zcrypto still decoded,
+// the projection keeps zcrypto's values next to the malformed marker and the
+// raw value, so rules can report the encoding and still see the content.
+func TestBuilder_ProjectsRecoveredValuesOfMalformedExtensions(t *testing.T) {
+	serverAuth := []byte{0x06, 0x08, 0x2b, 0x06, 0x01, 0x05, 0x05, 0x07, 0x03, 0x01}
+	tests := []struct {
+		name  string
+		oid   stdasn1.ObjectIdentifier
+		value []byte
+		path  string
+		want  map[string]any
+	}{
+		{
+			name:  "basicConstraints with an explicit DEFAULT cA",
+			oid:   stdasn1.ObjectIdentifier{2, 5, 29, 19},
+			value: []byte{0x30, 0x03, 0x01, 0x01, 0x00},
+			path:  "certificate.basicConstraints",
+			want:  map[string]any{"cA": false},
+		},
+		{
+			name:  "basicConstraints with a negative pathLenConstraint",
+			oid:   stdasn1.ObjectIdentifier{2, 5, 29, 19},
+			value: []byte{0x30, 0x06, 0x01, 0x01, 0xff, 0x02, 0x01, 0xff},
+			path:  "certificate.basicConstraints",
+			want:  map[string]any{"cA": true},
+		},
+		{
+			name:  "extKeyUsage with trailing data",
+			oid:   stdasn1.ObjectIdentifier{2, 5, 29, 37},
+			value: append(append([]byte{0x30, 0x0a}, serverAuth...), 0x00),
+			path:  "certificate.extKeyUsage",
+			want:  map[string]any{"serverAuth": true},
+		},
+		{
+			name: "nameConstraints with an explicit DEFAULT minimum",
+			oid:  stdasn1.ObjectIdentifier{2, 5, 29, 30},
+			value: []byte{0x30, 0x0e, 0xa0, 0x0c, 0x30, 0x0a,
+				0x82, 0x05, 'a', '.', 'c', 'o', 'm', 0x80, 0x01, 0x00},
+			path: "certificate.nameConstraints",
+			want: map[string]any{"permittedSubtrees.dNSName.0.value": "a.com"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cert := testpki.ZCryptoWithExtension(t, stdpkix.Extension{Id: tt.oid, Value: tt.value})
+			root := BuildTree(cert)
+
+			assertPathValue(t, root, tt.path+".malformed", true)
+			if raw, ok := root.Resolve(tt.path + ".raw"); !ok || !bytes.Equal(raw.Value.([]byte), tt.value) {
+				t.Errorf("%s.raw does not hold the extension value", tt.path)
+			}
+			for path, want := range tt.want {
+				assertPathValue(t, root, tt.path+"."+path, want)
+			}
+		})
+	}
 }

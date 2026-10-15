@@ -214,3 +214,23 @@ func parse(t testing.TB, der []byte) *x509.Certificate {
 	}
 	return certificate
 }
+
+// ZCryptoWithExtension self-signs a certificate carrying extension verbatim
+// and parses it with zcrypto only, which accepts encodings that
+// crypto/x509 rejects, such as BER-encoded booleans.
+func ZCryptoWithExtension(t testing.TB, extension pkix.Extension) *zx509.Certificate {
+	t.Helper()
+	key := RSAKey(t)
+	template := &x509.Certificate{
+		SerialNumber:    big.NewInt(1),
+		Subject:         pkix.Name{CommonName: "Extension Probe"},
+		NotBefore:       NotBefore,
+		NotAfter:        NotAfter,
+		ExtraExtensions: []pkix.Extension{extension},
+	}
+	der, err := x509.CreateCertificate(rand.Reader, template, template, key.Public(), key)
+	if err != nil {
+		t.Fatalf("create certificate: %v", err)
+	}
+	return ParseZCrypto(t, der)
+}
