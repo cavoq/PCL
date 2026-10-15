@@ -176,6 +176,28 @@ func ClimbChainWithPool(chain, pool []*Info, timeout time.Duration, maxDepth int
 	return result
 }
 
+// ExtendFromPool appends to chain the issuers found in pool by signature,
+// without downloading anything, until it reaches a self-signed certificate
+// or finds no issuer.
+func ExtendFromPool(chain, pool []*Info) []*Info {
+	if len(chain) == 0 {
+		return chain
+	}
+	seen := NewCertificateSet(CertsFromInfos(chain)...)
+	result := append([]*Info(nil), chain...)
+	for {
+		top := result[len(result)-1]
+		if top.Cert == nil || IsSelfSigned(top.Cert) {
+			return result
+		}
+		parent := findSigningParentInPool(top.Cert, pool, seen)
+		if parent == nil || !seen.Add(parent.Cert) {
+			return result
+		}
+		result = append(result, parent)
+	}
+}
+
 func findSigningParentInPool(child *x509.Certificate, pool []*Info, seen *CertificateSet) *Info {
 	if child == nil || len(child.Raw) == 0 {
 		return nil

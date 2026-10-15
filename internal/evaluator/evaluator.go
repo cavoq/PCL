@@ -2,7 +2,6 @@
 package evaluator
 
 import (
-	"io"
 	"time"
 
 	"github.com/cavoq/PCL/internal/cert"
@@ -25,9 +24,11 @@ type Context struct {
 	CRLs     []*crl.Info
 	OCSPs    []*ocsp.Info
 	Chain    []*cert.Info
-	// Certificates are all supplied certificates. Those outside Chain, such
-	// as separate CRL-signing or indirect CRL issuer certificates, remain
-	// CRL signer candidates.
+	// Certificates are all other known certificates: supplied, climbed or
+	// downloaded to find signers. Those outside Chain, such as separate
+	// CRL-signing or indirect CRL issuer certificates, remain CRL signer
+	// candidates and issuer candidates for delegated OCSP responders.
+	// Evaluation never downloads certificates itself.
 	Certificates []*cert.Info
 	// RevocationRequested records that the caller requested CRL checking even
 	// when acquisition produced no usable lists. In that case the certificate
@@ -44,14 +45,6 @@ type Context struct {
 	// ApplicationPurpose is an optional friendly EKU name or dotted EKU OID
 	// projected into certificate trees and supplied to certificate operators.
 	ApplicationPurpose string
-
-	// CRL issuer discovery for isCACRL (optional). When set, PCL may fetch CA
-	// Issuers URLs from the chain to locate the CRL signing certificate.
-	CRLResolveTimeout  time.Duration
-	CRLResolveMaxDepth int
-	CRLResolveWarn     io.Writer
-
-	crlIssuerPools map[*crl.Info][]*x509.Certificate
 }
 
 // Subject is one evaluated input: the node tree policies see, the context
@@ -92,10 +85,9 @@ func CRL(ctx Context) []policy.Result {
 // application purpose, download metadata and revocation assessment projected
 // into its tree.
 func ChainSubjects(ctx Context) []Subject {
-	ctx = PrepareCRLIssuers(ctx)
 	now := evaluationTime(ctx.ValidationTime)
 	lists := revocationLists(ctx.CRLs)
-	allCRLIssuers := combinedCRLIssuerPool(ctx)
+	allCRLIssuers := crlSignerPool(ctx)
 	ocspIssuers := cert.CertsFromInfos(ctx.Chain)
 	authorizer := ctx.CRLSignerAuthorizer
 	var pathAuthorizer *pathSignerAuthorizer
@@ -194,16 +186,14 @@ func OCSPSubjects(ctx Context) []Subject {
 
 // CRLSubjects returns one subject per CRL.
 func CRLSubjects(ctx Context) []Subject {
-	ctx = PrepareCRLIssuers(ctx)
 	var subjects []Subject
 	now := evaluationTime(ctx.ValidationTime)
+	issuerCerts := crlSignerPool(ctx)
 
 	for _, crlInfo := range ctx.CRLs {
 		if crlInfo == nil || crlInfo.CRL == nil {
 			continue
 		}
-
-		issuerCerts := ctx.crlIssuerPools[crlInfo]
 
 		tree := crl.BuildTreeWithChain(crlInfo.CRL, issuerCerts)
 		if tree == nil {
@@ -244,14 +234,7 @@ func ocspSignerSubject(ctx Context, ocspInfo *ocsp.Info, now time.Time) (Subject
 		Source:   source.Info{Type: source.Extracted, Description: "extracted from OCSP response"},
 	}
 
-	signerChain := ocsp.BuildSignerEvalChain(
-		zcryptoSignerCert,
-		ocspSignerInfo,
-		ctx.Chain,
-		ctx.CRLResolveTimeout,
-		ctx.CRLResolveMaxDepth,
-		ctx.CRLResolveWarn,
-	)
+	signerChain := ocsp.SignerChain(ocspSignerInfo, ctx.Chain, ctx.Certificates)
 	ocspAssessment := ocsp.AssessCertificate(
 		zcryptoSignerCert,
 		ctx.OCSPs,
@@ -388,20 +371,6 @@ func evaluationTime(configured time.Time) time.Time {
 	return time.Now()
 }
 
-func issuerCertsForCRL(ctx Context, revocationList *x509.RevocationList) []*x509.Certificate {
-	candidates := crlSignerCandidates(ctx)
-	if ctx.CRLResolveTimeout > 0 && ctx.CRLResolveMaxDepth > 0 {
-		return crl.ResolveIssuerCerts(
-			candidates,
-			revocationList,
-			ctx.CRLResolveTimeout,
-			ctx.CRLResolveMaxDepth,
-			ctx.CRLResolveWarn,
-		)
-	}
-	return cert.CertsFromInfos(candidates)
-}
-
 // crlSignerCandidates returns the chain followed by the other supplied
 // certificates, each certificate once.
 func crlSignerCandidates(ctx Context) []*cert.Info {
@@ -415,39 +384,8 @@ func crlSignerCandidates(ctx Context) []*cert.Info {
 	return candidates
 }
 
-// PrepareCRLIssuers resolves each CRL issuer once and stores the pools on the
-// evaluation context. Passing the returned context to Chain and CRL makes
-// certificate revocation and CRL-profile checks consume identical evidence.
-func PrepareCRLIssuers(ctx Context) Context {
-	if ctx.crlIssuerPools != nil {
-		return ctx
-	}
-
-	ctx.crlIssuerPools = make(map[*crl.Info][]*x509.Certificate, len(ctx.CRLs))
-	for _, crlInfo := range ctx.CRLs {
-		if crlInfo == nil || crlInfo.CRL == nil {
-			continue
-		}
-		ctx.crlIssuerPools[crlInfo] = issuerCertsForCRL(ctx, crlInfo.CRL)
-	}
-	return ctx
-}
-
-func combinedCRLIssuerPool(ctx Context) []*x509.Certificate {
-	pool := make([]*x509.Certificate, 0, len(ctx.Chain))
-	seen := make(map[*x509.Certificate]struct{})
-	for _, crlInfo := range ctx.CRLs {
-		candidates := ctx.crlIssuerPools[crlInfo]
-		for _, candidate := range candidates {
-			if candidate == nil {
-				continue
-			}
-			if _, duplicate := seen[candidate]; duplicate {
-				continue
-			}
-			seen[candidate] = struct{}{}
-			pool = append(pool, candidate)
-		}
-	}
-	return pool
+// crlSignerPool returns the CRL signer candidates: the chain followed by the
+// other known certificates.
+func crlSignerPool(ctx Context) []*x509.Certificate {
+	return cert.CertsFromInfos(crlSignerCandidates(ctx))
 }

@@ -63,43 +63,49 @@ func ResolveSignerIssuerPool(
 	})
 }
 
-// BuildSignerEvalChain returns [OCSP responder, issuer, …] for signature-valid and
-// AKI checks. The responder is always index 0; the tail is taken from tlsChain when
-// the issuer is already on the TLS path, otherwise from pool lookup and AIA climb.
-func BuildSignerEvalChain(
+// SignerChain returns [responder, issuer, …] for signature-valid and AKI
+// checks, without downloading anything. The issuer is the certificate in
+// tlsChain or pool whose key verifies the responder. When it is on the TLS
+// chain, the rest of that chain follows it; otherwise its issuers are found
+// in tlsChain and pool by signature.
+func SignerChain(signerInfo *cert.Info, tlsChain, pool []*cert.Info) []*cert.Info {
+	if signerInfo == nil || signerInfo.Cert == nil {
+		return tlsChain
+	}
+	candidates := append(append([]*cert.Info(nil), tlsChain...), pool...)
+	issuer := SigningIssuerFromPool(signerInfo.Cert, cert.CertsFromInfos(candidates))
+	if issuer == nil {
+		return []*cert.Info{signerInfo}
+	}
+	if index, ok := indexInInfoChain(issuer, tlsChain); ok {
+		return append([]*cert.Info{signerInfo}, tlsChain[index:]...)
+	}
+	index, _ := indexInInfoChain(issuer, candidates)
+	return append([]*cert.Info{signerInfo}, cert.ExtendFromPool(candidates[index:index+1], candidates)...)
+}
+
+// DiscoverSignerIssuers downloads, through CA Issuers URLs, the issuer of a
+// delegated OCSP responder that tlsChain does not contain, and that issuer's
+// own issuers. It returns the downloaded certificates for SignerChain's pool.
+func DiscoverSignerIssuers(
 	signer *x509.Certificate,
-	signerInfo *cert.Info,
 	tlsChain []*cert.Info,
 	timeout time.Duration,
 	maxDepth int,
 	w io.Writer,
 ) []*cert.Info {
-	if signer == nil || signerInfo == nil {
-		return tlsChain
+	if signer == nil {
+		return nil
 	}
-
-	pool := ResolveSignerIssuerPool(tlsChain, signer, timeout, maxDepth, w)
-	issuerCert := SigningIssuerFromPool(signer, pool)
-	if issuerCert == nil {
-		return signerChain(signerInfo, nil)
+	issuer := SigningIssuerFromPool(signer, ResolveSignerIssuerPool(tlsChain, signer, timeout, maxDepth, w))
+	if issuer == nil {
+		return nil
 	}
-
-	if idx, ok := indexInInfoChain(issuerCert, tlsChain); ok {
-		return signerChain(signerInfo, tlsChain[idx:])
+	if _, ok := indexInInfoChain(issuer, tlsChain); ok {
+		return nil
 	}
-
-	issuerInfo := infoFromPoolCert(issuerCert, tlsChain)
-	tail := []*cert.Info{issuerInfo}
-	poolInfos := append([]*cert.Info(nil), tlsChain...)
-	poolInfos = append(poolInfos, tail...)
-	tail = cert.ClimbChainWithPool(tail, poolInfos, timeout, maxDepth, w)
-	return signerChain(signerInfo, tail)
-}
-
-// signerChain returns [signerInfo, tail…]. The tail may share Info values
-// with the certificate chain, which evaluation never modifies.
-func signerChain(signerInfo *cert.Info, tail []*cert.Info) []*cert.Info {
-	return append([]*cert.Info{signerInfo}, tail...)
+	issuerInfo := &cert.Info{Cert: issuer}
+	return cert.ClimbChainWithPool([]*cert.Info{issuerInfo}, tlsChain, timeout, maxDepth, w)
 }
 
 func indexInInfoChain(target *x509.Certificate, chain []*cert.Info) (int, bool) {
@@ -112,14 +118,4 @@ func indexInInfoChain(target *x509.Certificate, chain []*cert.Info) (int, bool) 
 		}
 	}
 	return 0, false
-}
-
-func infoFromPoolCert(c *x509.Certificate, tlsChain []*cert.Info) *cert.Info {
-	if c == nil {
-		return nil
-	}
-	if idx, ok := indexInInfoChain(c, tlsChain); ok {
-		return tlsChain[idx]
-	}
-	return &cert.Info{Cert: c}
 }

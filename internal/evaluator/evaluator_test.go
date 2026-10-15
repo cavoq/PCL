@@ -1,6 +1,7 @@
 package evaluator
 
 import (
+	cryptox509 "crypto/x509"
 	"math/big"
 	"path/filepath"
 	"testing"
@@ -13,7 +14,6 @@ import (
 	"github.com/cavoq/PCL/internal/operator"
 	"github.com/cavoq/PCL/internal/policy"
 	"github.com/cavoq/PCL/internal/rule"
-	"github.com/cavoq/PCL/internal/source"
 	"github.com/cavoq/PCL/internal/testpki"
 	"github.com/zmap/zcrypto/x509"
 	"github.com/zmap/zcrypto/x509/pkix"
@@ -440,41 +440,6 @@ func TestProjectRevocationAssessmentProjectsGoodAndRevokedFacts(t *testing.T) {
 	}
 }
 
-func TestIssuerCertsForCRL_withResolveEnabled(t *testing.T) {
-	signer := &x509.Certificate{
-		Subject:      pkix.Name{CommonName: "CA"},
-		SubjectKeyId: []byte{0x01},
-		IsCA:         true,
-		SerialNumber: big.NewInt(1),
-	}
-	revocationList := &x509.RevocationList{
-		Issuer:         pkix.Name{CommonName: "CA"},
-		AuthorityKeyId: []byte{0x01},
-	}
-	chain := []*cert.Info{{Cert: signer}}
-
-	ctx := Context{
-		Chain:              chain,
-		CRLResolveTimeout:  time.Second,
-		CRLResolveMaxDepth: 1,
-	}
-	pool := issuerCertsForCRL(ctx, revocationList)
-	if len(pool) != 1 || pool[0] != signer {
-		t.Fatalf("issuerCertsForCRL() = %v, want chain signer", pool)
-	}
-}
-
-func TestIssuerCertsForCRL_withoutResolve(t *testing.T) {
-	signer := &x509.Certificate{SerialNumber: big.NewInt(1)}
-	chain := []*cert.Info{{Cert: signer}}
-	ctx := Context{Chain: chain}
-
-	pool := issuerCertsForCRL(ctx, &x509.RevocationList{})
-	if len(pool) != 1 || pool[0] != signer {
-		t.Fatalf("issuerCertsForCRL() = %v", pool)
-	}
-}
-
 func TestCRL_setsIsCACRLNode(t *testing.T) {
 	now := time.Now().UTC().Truncate(time.Second)
 	signer := &x509.Certificate{
@@ -505,37 +470,9 @@ func TestCRL_setsIsCACRLNode(t *testing.T) {
 		t.Fatalf("expected 0 policy results with nil policies, got %d", len(results))
 	}
 
-	pool := issuerCertsForCRL(ctx, revocationList)
-	tree := crl.BuildTreeWithChain(revocationList, pool)
+	tree := crl.BuildTreeWithChain(revocationList, crlSignerPool(ctx))
 	if tree.Children["isCACRL"].Value != true {
 		t.Fatalf("isCACRL = %v, want true", tree.Children["isCACRL"].Value)
-	}
-}
-
-func TestIssuerCertsForCRL_withoutResolveFlags(t *testing.T) {
-	chain := []*cert.Info{{Cert: &x509.Certificate{SerialNumber: big.NewInt(1)}}}
-	ctx := Context{Chain: chain, CRLResolveTimeout: 0}
-	pool := issuerCertsForCRL(ctx, &x509.RevocationList{})
-	if len(pool) != 1 {
-		t.Fatalf("issuerCertsForCRL() = %v, want chain only", pool)
-	}
-}
-
-func TestPrepareCRLIssuersSharesPoolWithCertificatePass(t *testing.T) {
-	signer := &x509.Certificate{SerialNumber: big.NewInt(1)}
-	crlInfo := &crl.Info{CRL: &x509.RevocationList{}}
-	ctx := PrepareCRLIssuers(Context{
-		Chain: []*cert.Info{{Cert: signer}},
-		CRLs:  []*crl.Info{crlInfo},
-	})
-
-	perCRL := ctx.crlIssuerPools[crlInfo]
-	combined := combinedCRLIssuerPool(ctx)
-	if len(perCRL) != 1 || perCRL[0] != signer {
-		t.Fatalf("per-CRL issuer pool = %v, want signer", perCRL)
-	}
-	if len(combined) != 1 || combined[0] != signer {
-		t.Fatalf("certificate-pass issuer pool = %v, want same signer", combined)
 	}
 }
 
@@ -560,12 +497,10 @@ func TestCRL_skipsNilEntries(t *testing.T) {
 	}
 
 	ctx := Context{
-		Policies:           []policy.Policy{pol},
-		Registry:           operator.DefaultRegistry(),
-		CRLs:               []*crl.Info{nil, {CRL: nil}, {CRL: valid, FilePath: "test.crl"}},
-		Chain:              []*cert.Info{{Cert: signer}},
-		CRLResolveTimeout:  time.Second,
-		CRLResolveMaxDepth: 1,
+		Policies: []policy.Policy{pol},
+		Registry: operator.DefaultRegistry(),
+		CRLs:     []*crl.Info{nil, {CRL: nil}, {CRL: valid, FilePath: "test.crl"}},
+		Chain:    []*cert.Info{{Cert: signer}},
 	}
 	results := CRL(ctx)
 	if len(results) == 0 {
@@ -610,30 +545,53 @@ func TestCRL_bindsEachCurrentCRL(t *testing.T) {
 	}
 }
 
-func TestCRL_resolvesIssuerViaAIA(t *testing.T) {
-	parent := testpki.Issue(t, "CRL CA", nil, testpki.CA(), testpki.SubjectKeyID([]byte{0x01, 0x02}))
-	leaf := &x509.Certificate{
-		Subject:               pkix.Name{CommonName: "subscriber"},
-		Issuer:                parent.Cert.Subject,
-		SerialNumber:          big.NewInt(2),
-		IssuingCertificateURL: []string{testpki.Serve(t, parent.DER)},
+func TestCRLSignerPoolListsChainThenOtherCertificates(t *testing.T) {
+	leaf := &x509.Certificate{SerialNumber: big.NewInt(1)}
+	issuer := &x509.Certificate{SerialNumber: big.NewInt(2)}
+	crlSigner := &x509.Certificate{SerialNumber: big.NewInt(3)}
+	chain := []*cert.Info{{Cert: leaf}, {Cert: issuer}}
+
+	pool := crlSignerPool(Context{
+		Chain:        chain,
+		Certificates: []*cert.Info{{Cert: issuer}, {Cert: crlSigner}, nil},
+	})
+	if len(pool) != 3 || pool[0] != leaf || pool[1] != issuer || pool[2] != crlSigner {
+		t.Fatalf("crlSignerPool() = %v, want leaf, issuer, CRL signer", pool)
 	}
-	revocationList := &x509.RevocationList{
-		Issuer:         pkix.Name{CommonName: "Different DN"},
-		AuthorityKeyId: []byte{0x01, 0x02},
-		ThisUpdate:     time.Now().UTC().Add(-time.Hour),
-		NextUpdate:     time.Now().UTC().Add(time.Hour),
+}
+
+// Building subjects only reads the inputs: certificates the evaluation needs
+// are downloaded while acquiring inputs, never here.
+func TestSubjectsDoNotDownload(t *testing.T) {
+	root := testpki.Issue(t, "Root", nil, testpki.CA())
+	unsupplied := testpki.Issue(t, "Unsupplied CA", nil, testpki.CA(), testpki.Serial(2))
+	url, hits := testpki.ServeCounted(t, unsupplied.DER)
+	leaf := testpki.Issue(t, "Leaf", root, testpki.Serial(3), testpki.IssuingCertificateURLs(url))
+	responder := testpki.Issue(t, "Responder", unsupplied, testpki.Serial(4),
+		testpki.OCSPSigning(), testpki.IssuingCertificateURLs(url))
+	response := testpki.OCSPResponse(t, root, responder, stdocsp.Response{
+		Status:       stdocsp.Good,
+		SerialNumber: big.NewInt(3),
+		ThisUpdate:   testpki.NotBefore,
+		NextUpdate:   testpki.NotAfter,
+		Certificate:  responder.Std,
+	})
+	list, err := x509.ParseRevocationList(unsupplied.RevocationList(t, &cryptox509.RevocationList{}))
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	ctx := Context{
-		Registry:           operator.DefaultRegistry(),
-		CRLs:               []*crl.Info{{CRL: revocationList, FilePath: "fetched.crl", Source: source.Info{Type: source.Local}}},
-		Chain:              []*cert.Info{{Cert: leaf}},
-		CRLResolveTimeout:  time.Second,
-		CRLResolveMaxDepth: 2,
+		Registry:       operator.DefaultRegistry(),
+		Chain:          []*cert.Info{{Cert: leaf.Cert}, {Cert: root.Cert}},
+		CRLs:           []*crl.Info{{CRL: list}},
+		OCSPs:          []*ocsp.Info{{Response: response}},
+		ValidationTime: testpki.NotBefore.AddDate(0, 1, 0),
 	}
-	pool := issuerCertsForCRL(ctx, revocationList)
-	if len(pool) < 2 {
-		t.Fatalf("issuerCertsForCRL() len = %d, want fetched signer", len(pool))
+	_ = ChainSubjects(ctx)
+	_ = CRLSubjects(ctx)
+	_ = OCSPSubjects(ctx)
+	if hits.Load() != 0 {
+		t.Fatalf("building subjects made %d CA Issuers requests", hits.Load())
 	}
 }

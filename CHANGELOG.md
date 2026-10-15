@@ -54,6 +54,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   first.
 - A certificate supplied in two files, for example in a bundle and on its
   own, is no longer reported as left out of the evaluated chain.
+- The issuer of a delegated OCSP responder can be any supplied certificate,
+  as for CRL signers, not only one in the certificate chain.
 - Files in a `--cert`, `--issuer`, `--crl` or `--ocsp` directory that cannot
   be read or parsed are reported as warnings instead of being skipped
   silently.

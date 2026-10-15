@@ -7,6 +7,8 @@ import (
 	"slices"
 	"time"
 
+	"github.com/zmap/zcrypto/x509"
+
 	"github.com/cavoq/PCL/internal/cert"
 	"github.com/cavoq/PCL/internal/crl"
 	"github.com/cavoq/PCL/internal/evaluator"
@@ -15,6 +17,8 @@ import (
 	"github.com/cavoq/PCL/internal/output"
 	"github.com/cavoq/PCL/internal/policy"
 	"github.com/cavoq/PCL/internal/rule"
+	"github.com/cavoq/PCL/internal/source"
+	"github.com/cavoq/PCL/internal/x509node"
 )
 
 func Run(cfg Config, w io.Writer) error {
@@ -40,7 +44,7 @@ func Run(cfg Config, w io.Writer) error {
 	if err != nil {
 		return err
 	}
-	results := evaluator.Evaluate(buildSubjects(cfg, inputs, policies, reg, diagnostics), reg)
+	results := evaluator.Evaluate(buildSubjects(cfg, inputs, policies, reg), reg)
 	if len(results) == 0 {
 		return fmt.Errorf("no loaded policy applies to the supplied input")
 	}
@@ -136,7 +140,52 @@ func acquireInputs(cfg Config, diagnostics io.Writer, cleanups *cleanupStack) (l
 	if cfg.AutoValidate && !cfg.NoAutoOCSP {
 		inputs.ocsps = append(inputs.ocsps, fetchAutoOCSPs(cfg, inputs.chain, diagnostics)...)
 	}
+	if cfg.climbsCAIssuers() {
+		inputs.certificates = append(inputs.certificates, discoverSignerIssuers(cfg, inputs, diagnostics)...)
+	}
 	return inputs, nil
+}
+
+// discoverSignerIssuers downloads through CA Issuers URLs the certificates
+// needed to verify CRL signers and delegated OCSP responders that the known
+// certificates cannot. Evaluation itself never downloads; it finds these
+// certificates among the known ones.
+func discoverSignerIssuers(cfg Config, inputs lintInputs, w io.Writer) []*cert.Info {
+	known := cert.NewCertificateSet(cert.CertsFromInfos(inputs.chain)...)
+	for _, info := range inputs.certificates {
+		known.Add(info.Cert)
+	}
+	candidates := append(append([]*cert.Info(nil), inputs.chain...), inputs.certificates...)
+	var found []*cert.Info
+	add := func(certificate *x509.Certificate) {
+		if certificate != nil && known.Add(certificate) {
+			info := &cert.Info{Cert: certificate, Source: source.Info{Type: source.Downloaded}}
+			found = append(found, info)
+			candidates = append(candidates, info)
+		}
+	}
+
+	for _, crlInfo := range inputs.crls {
+		if crlInfo == nil || crlInfo.CRL == nil {
+			continue
+		}
+		for _, certificate := range crl.ResolveIssuerCerts(candidates, crlInfo.CRL, cfg.CertTimeout, cfg.MaxChainDepth, w) {
+			add(certificate)
+		}
+	}
+	for _, ocspInfo := range inputs.ocsps {
+		if ocspInfo == nil || ocspInfo.Response == nil || ocspInfo.Response.Certificate == nil {
+			continue
+		}
+		signer, err := x509node.FromStdCert(ocspInfo.Response.Certificate)
+		if err != nil {
+			continue
+		}
+		for _, info := range ocsp.DiscoverSignerIssuers(signer, inputs.chain, cfg.CertTimeout, cfg.MaxChainDepth, w) {
+			add(info.Cert)
+		}
+	}
+	return found
 }
 
 // buildCertificateChain returns the evaluated chain and every certificate
@@ -176,7 +225,6 @@ func buildSubjects(
 	inputs lintInputs,
 	policies []policy.Policy,
 	reg *operator.Registry,
-	w io.Writer,
 ) []evaluator.Subject {
 	now := validationTime(cfg)
 	if inputs.chain == nil {
@@ -201,8 +249,7 @@ func buildSubjects(
 		return subjects
 	}
 
-	issuerTimeout, issuerDepth := issuerDiscovery(cfg)
-	evalCtx := evaluator.PrepareCRLIssuers(evaluator.Context{
+	evalCtx := evaluator.Context{
 		Policies:            policies,
 		Registry:            reg,
 		CRLs:                inputs.crls,
@@ -212,10 +259,7 @@ func buildSubjects(
 		RevocationRequested: crlRevocationRequested(cfg),
 		ValidationTime:      now,
 		ApplicationPurpose:  cfg.ApplicationPurpose,
-		CRLResolveTimeout:   issuerTimeout,
-		CRLResolveMaxDepth:  issuerDepth,
-		CRLResolveWarn:      w,
-	})
+	}
 	subjects := evaluator.ChainSubjects(evalCtx)
 	if len(inputs.ocsps) > 0 {
 		subjects = append(subjects, evaluator.OCSPSubjects(evalCtx)...)
@@ -364,16 +408,6 @@ func validationTime(cfg Config) time.Time {
 		return cfg.ValidationTime
 	}
 	return time.Now()
-}
-
-// issuerDiscovery returns the timeout and depth for finding CRL and OCSP
-// signer issuers through CA Issuers URLs. Zero values disable the download,
-// which happens only when chain climbing is enabled.
-func issuerDiscovery(cfg Config) (time.Duration, int) {
-	if !cfg.climbsCAIssuers() {
-		return 0, 0
-	}
-	return cfg.CertTimeout, cfg.MaxChainDepth
 }
 
 func crlRevocationRequested(cfg Config) bool {

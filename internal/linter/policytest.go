@@ -268,7 +268,7 @@ func lintPolicyTestCase(
 	if err != nil {
 		return nil, err
 	}
-	return evaluator.Evaluate(buildSubjects(cfg, inputs, policies, registry, io.Discard), registry), nil
+	return evaluator.Evaluate(buildSubjects(cfg, inputs, policies, registry), registry), nil
 }
 
 // parsePolicyTestTime returns the case time, else the suite time, as

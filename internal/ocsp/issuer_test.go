@@ -24,7 +24,7 @@ func TestSigningIssuerFromPool_prefersSignature(t *testing.T) {
 	}
 }
 
-func TestBuildSignerEvalChain_usesTLSChainSuffix(t *testing.T) {
+func TestSignerChain_usesTLSChainSuffix(t *testing.T) {
 	rootCA := testpki.Issue(t, "Root", nil, testpki.CA(), testpki.SubjectKeyID([]byte{0x10}))
 	intermediateCA := testpki.Issue(t, "Intermediate", rootCA, testpki.CA(), testpki.Serial(2),
 		testpki.SubjectKeyID([]byte{0x11}))
@@ -39,9 +39,9 @@ func TestBuildSignerEvalChain_usesTLSChainSuffix(t *testing.T) {
 	}
 	signerInfo := &cert.Info{Cert: ocspSigner, FilePath: "ocsp.pem (signing cert)"}
 
-	got := BuildSignerEvalChain(ocspSigner, signerInfo, tlsChain, 0, 0, nil)
+	got := SignerChain(signerInfo, tlsChain, nil)
 	if len(got) != 3 {
-		t.Fatalf("BuildSignerEvalChain() len = %d, want 3", len(got))
+		t.Fatalf("SignerChain() len = %d, want 3", len(got))
 	}
 	if got[0].Cert != ocspSigner {
 		t.Fatal("position 0 should be OCSP responder")
@@ -58,14 +58,15 @@ func TestBuildSignerEvalChain_usesTLSChainSuffix(t *testing.T) {
 	}
 }
 
-func TestBuildSignerEvalChain_resolvesViaAIA(t *testing.T) {
+func TestDiscoverSignerIssuers_downloadsViaAIA(t *testing.T) {
 	parent := testpki.Issue(t, "OCSP CA", nil, testpki.CA(), testpki.SubjectKeyID([]byte{0x0a}))
 	signer := testpki.Issue(t, "OCSP", parent, testpki.Serial(2), testpki.OCSPSigning(),
 		testpki.IssuingCertificateURLs(testpki.Serve(t, parent.DER))).Cert
 
-	got := BuildSignerEvalChain(signer, &cert.Info{Cert: signer, FilePath: "ocsp.pem"}, []*cert.Info{}, time.Second, 2, nil)
+	downloaded := DiscoverSignerIssuers(signer, nil, time.Second, 2, nil)
+	got := SignerChain(&cert.Info{Cert: signer, FilePath: "ocsp.pem"}, nil, downloaded)
 	if len(got) < 2 {
-		t.Fatalf("BuildSignerEvalChain() len = %d, want responder + issuer", len(got))
+		t.Fatalf("SignerChain() len = %d, want responder + downloaded issuer", len(got))
 	}
 	if got[0].Cert != signer {
 		t.Fatal("position 0 should be OCSP responder")
@@ -81,9 +82,9 @@ func TestSigningIssuerFromPool_nilSigner(t *testing.T) {
 	}
 }
 
-func TestBuildSignerEvalChain_nilSignerReturnsTLSChain(t *testing.T) {
+func TestSignerChain_nilSignerReturnsTLSChain(t *testing.T) {
 	tls := []*cert.Info{{Cert: &zx509.Certificate{SerialNumber: big.NewInt(1)}}}
-	got := BuildSignerEvalChain(nil, &cert.Info{}, tls, 0, 0, nil)
+	got := SignerChain(&cert.Info{}, tls, nil)
 	if len(got) != len(tls) {
 		t.Fatalf("len = %d, want %d", len(got), len(tls))
 	}
@@ -139,10 +140,10 @@ func TestResolveSignerIssuerPool_signerAlreadyInChain(t *testing.T) {
 	}
 }
 
-func TestBuildSignerEvalChain_noIssuerReturnsResponderOnly(t *testing.T) {
+func TestSignerChain_noIssuerReturnsResponderOnly(t *testing.T) {
 	signer := testpki.Issue(t, "Orphan OCSP", nil, testpki.Serial(99), testpki.OCSPSigning()).Cert
 	signerInfo := &cert.Info{Cert: signer, FilePath: "ocsp.pem"}
-	got := BuildSignerEvalChain(signer, signerInfo, nil, 0, 0, nil)
+	got := SignerChain(signerInfo, nil, nil)
 	if len(got) != 1 || got[0].Cert != signer {
 		t.Fatalf("got %d entries, want responder only", len(got))
 	}
@@ -178,7 +179,7 @@ func TestIndexInInfoChain_sameSerialDifferentIssuer(t *testing.T) {
 
 // The signer chain continues with the part of the certificate chain above
 // the responder's issuer.
-func TestBuildSignerEvalChain_sharesUpperChain(t *testing.T) {
+func TestSignerChain_sharesUpperChain(t *testing.T) {
 	root := testpki.Issue(t, "Root", nil, testpki.CA())
 	upper := testpki.Issue(t, "Upper Intermediate", root, testpki.CA(), testpki.Serial(2))
 	lower := testpki.Issue(t, "Lower Intermediate", upper, testpki.CA(), testpki.Serial(3))
@@ -188,20 +189,23 @@ func TestBuildSignerEvalChain_sharesUpperChain(t *testing.T) {
 	tlsChain := []*cert.Info{{Cert: leaf.Cert}, {Cert: lower.Cert}, {Cert: upper.Cert}, {Cert: root.Cert}}
 	signerInfo := &cert.Info{Cert: responder.Cert}
 
-	got := BuildSignerEvalChain(responder.Cert, signerInfo, tlsChain, 0, 0, nil)
+	got := SignerChain(signerInfo, tlsChain, nil)
 	if len(got) != 3 || got[0] != signerInfo || got[1].Cert != upper.Cert || got[2].Cert != root.Cert {
 		t.Fatalf("signer chain = %d certificates, want responder, upper intermediate, root", len(got))
 	}
 }
 
-func TestInfoFromPoolCert_reusesTLSInfo(t *testing.T) {
-	ca := &zx509.Certificate{SerialNumber: big.NewInt(7), Subject: zx509pkix.Name{CommonName: "CA"}}
-	info := &cert.Info{Cert: ca, FilePath: "trusted.pem"}
-	got := infoFromPoolCert(ca, []*cert.Info{info})
-	if got != info {
-		t.Fatalf("infoFromPoolCert() should reuse chain Info, got %p want %p", got, info)
-	}
-	if infoFromPoolCert(nil, nil) != nil {
-		t.Fatal("nil cert should return nil")
+// Without downloads, the responder's issuer and its own issuers come from
+// the pool of other known certificates.
+func TestSignerChain_climbsThroughPool(t *testing.T) {
+	root := testpki.Issue(t, "Responder Root", nil, testpki.CA())
+	issuer := testpki.Issue(t, "Responder Issuer", root, testpki.CA(), testpki.Serial(2))
+	responder := testpki.Issue(t, "OCSP", issuer, testpki.Serial(3), testpki.OCSPSigning())
+	tlsRoot := testpki.Issue(t, "TLS Root", nil, testpki.CA(), testpki.Serial(4))
+
+	signerInfo := &cert.Info{Cert: responder.Cert}
+	got := SignerChain(signerInfo, []*cert.Info{{Cert: tlsRoot.Cert}}, []*cert.Info{{Cert: root.Cert}, {Cert: issuer.Cert}})
+	if len(got) != 3 || got[1].Cert != issuer.Cert || got[2].Cert != root.Cert {
+		t.Fatalf("signer chain = %d certificates, want responder, issuer, root", len(got))
 	}
 }

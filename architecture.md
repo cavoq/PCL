@@ -84,8 +84,10 @@ validation cannot drift from execution.
 ### One pipeline for lint, inspect and test
 
 The linter acquires inputs once (loading, chain building, automatic CRL/OCSP
-retrieval) and turns them into evaluator subjects: one per certificate, CRL and
-OCSP response, each with the node tree policies see, its operator context and
-the selected policies. `pcl` evaluates the subjects, `pcl inspect` prints
+retrieval, and downloading the issuers of CRL signers and delegated OCSP
+responders) and turns them into evaluator subjects. Only acquisition touches
+the network; evaluation reads the acquired inputs and changes none of them.
+There is one subject per certificate, CRL and OCSP response, each with the
+node tree policies see, its operator context and the selected policies. `pcl` evaluates the subjects, `pcl inspect` prints
 their trees, and `pcl test` evaluates them against expected verdicts, so all
 three commands see exactly the same inputs and projections.

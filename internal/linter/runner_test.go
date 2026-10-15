@@ -8,6 +8,7 @@ import (
 	"math/big"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -15,6 +16,7 @@ import (
 	stdocsp "golang.org/x/crypto/ocsp"
 
 	"github.com/cavoq/PCL/internal/cert"
+	"github.com/cavoq/PCL/internal/crl"
 	"github.com/cavoq/PCL/internal/evaluator"
 	"github.com/cavoq/PCL/internal/ocsp"
 	"github.com/cavoq/PCL/internal/operator"
@@ -593,7 +595,7 @@ func lintForTest(t *testing.T, cfg Config, pol policy.Policy) []policy.Result {
 		t.Fatalf("acquireInputs: %v", err)
 	}
 	reg := operator.DefaultRegistry()
-	return evaluator.Evaluate(buildSubjects(cfg, inputs, []policy.Policy{pol}, reg, &buf), reg)
+	return evaluator.Evaluate(buildSubjects(cfg, inputs, []policy.Policy{pol}, reg), reg)
 }
 
 func TestAcquireInputs_autoValidateExtendsChainFromIssuerPool(t *testing.T) {
@@ -847,5 +849,41 @@ func TestRunReportsInputPathsWithoutFiles(t *testing.T) {
 	}, io.Discard)
 	if err == nil || !strings.Contains(err.Error(), "no CRL or OCSP response files found") {
 		t.Fatalf("Run() = %v, want the empty input paths reported", err)
+	}
+}
+
+func TestDiscoverSignerIssuersDownloadsCRLAndOCSPSignerIssuers(t *testing.T) {
+	root := testpki.Issue(t, "Root", nil, testpki.CA())
+	crlSigner := testpki.Issue(t, "CRL Signer", nil, testpki.CA(), testpki.Serial(2))
+	responderIssuer := testpki.Issue(t, "Responder Issuer", nil, testpki.CA(), testpki.Serial(3))
+	leaf := testpki.Issue(t, "Leaf", root, testpki.Serial(4),
+		testpki.IssuingCertificateURLs(testpki.Serve(t, crlSigner.DER)))
+	responder := testpki.Issue(t, "Responder", responderIssuer, testpki.Serial(5), testpki.OCSPSigning(),
+		testpki.IssuingCertificateURLs(testpki.Serve(t, responderIssuer.DER)))
+
+	list, err := crl.ParseCRL(crlSigner.RevocationList(t, &x509.RevocationList{}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	response := testpki.OCSPResponse(t, root, responder, stdocsp.Response{
+		Status:       stdocsp.Good,
+		SerialNumber: big.NewInt(4),
+		ThisUpdate:   testpki.NotBefore,
+		NextUpdate:   testpki.NotAfter,
+		Certificate:  responder.Std,
+	})
+
+	found := discoverSignerIssuers(Config{CertTimeout: time.Second, MaxChainDepth: 2}, lintInputs{
+		chain: []*cert.Info{{Cert: leaf.Cert}, {Cert: root.Cert}},
+		crls:  []*crl.Info{{CRL: list}},
+		ocsps: []*ocsp.Info{{Response: response}},
+	}, io.Discard)
+
+	var names []string
+	for _, info := range found {
+		names = append(names, info.Cert.Subject.CommonName)
+	}
+	if !slices.Contains(names, "CRL Signer") || !slices.Contains(names, "Responder Issuer") {
+		t.Fatalf("downloaded %v, want the CRL signer and the responder's issuer", names)
 	}
 }

@@ -36,7 +36,7 @@ func Inspect(cfg Config, opts InspectOptions, w io.Writer) error {
 	if err != nil {
 		return err
 	}
-	subjects := buildSubjects(cfg, inputs, nil, operator.DefaultRegistry(), diagnostics)
+	subjects := buildSubjects(cfg, inputs, nil, operator.DefaultRegistry())
 	if len(subjects) == 0 {
 		return fmt.Errorf("no inputs to inspect")
 	}
