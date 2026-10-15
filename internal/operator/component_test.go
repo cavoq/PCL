@@ -109,3 +109,15 @@ func TestComponentOperatorsUseCollectionElements(t *testing.T) {
 		t.Fatalf("componentMinLength = %v, %v; want false for the one-character wildcard label", valid, err)
 	}
 }
+
+func TestNoComponentMatches(t *testing.T) {
+	names := collection("dNSName", "www.example.com", "*.example.com")
+	checkEvaluations(t, nil, []evaluationCase{
+		{name: "a component matches", op: NoComponentMatches{}, node: names, operands: []any{`^\*\.`}},
+		{name: "no component matches", op: NoComponentMatches{}, node: names, operands: []any{`^\*$`}, want: true},
+		{name: "single value matches", op: NoComponentMatches{}, node: node.New("name", "*.example.com"), operands: []any{`^\*\.`}},
+		{name: "single value does not match", op: NoComponentMatches{}, node: node.New("name", "example.com"), operands: []any{`^\*\.`}, want: true},
+		{name: "invalid pattern", op: NoComponentMatches{}, node: names, operands: []any{`(`}, wantErr: true},
+		{name: "nil node", op: NoComponentMatches{}, operands: []any{`x`}},
+	})
+}

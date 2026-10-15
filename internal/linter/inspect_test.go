@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
 
 func inspectTestConfig() Config {
@@ -87,4 +89,41 @@ func TestInspectRequiresInput(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "no certificates, CRLs, or OCSP responses provided") {
 		t.Fatalf("expected missing input error, got %v", err)
 	}
+}
+
+func TestInspectTreeDocuments(t *testing.T) {
+	for _, format := range []string{"json", "yaml"} {
+		t.Run(format, func(t *testing.T) {
+			cfg := inspectTestConfig()
+			cfg.OutputFmt = format
+
+			var out bytes.Buffer
+			if err := Inspect(cfg, InspectOptions{}, &out); err != nil {
+				t.Fatalf("Inspect: %v", err)
+			}
+			var document []inspectedInput
+			unmarshal := json.Unmarshal
+			if format == "yaml" {
+				unmarshal = yaml.Unmarshal
+			}
+			if err := unmarshal(out.Bytes(), &document); err != nil {
+				t.Fatalf("output is not %s: %v", format, err)
+			}
+			if len(document) != 3 || document[0].Type != "leaf" || document[0].Tree == nil {
+				t.Fatalf("document = %d inputs, first %+v", len(document), document[0])
+			}
+			if san := childNamed(document[0].Tree, "subjectAltName"); san == nil || childNamed(san, "dNSName") == nil {
+				t.Fatal("leaf tree has no subjectAltName.dNSName")
+			}
+		})
+	}
+}
+
+func childNamed(n *inspectedNode, name string) *inspectedNode {
+	for _, child := range n.Children {
+		if child.Name == name {
+			return child
+		}
+	}
+	return nil
 }

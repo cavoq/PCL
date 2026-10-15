@@ -202,3 +202,26 @@ func TestComponentIsPublicSuffix(t *testing.T) {
 		})
 	}
 }
+
+func TestPublicSuffixOperatorsAndNegations(t *testing.T) {
+	loadTestPSL(t)
+
+	value := func(v string) *node.Node { return node.New("dNSName", v) }
+	checkEvaluations(t, nil, []evaluationCase{
+		{name: "registered TLD", op: TLDNotRegistered{}, node: value("example.com")},
+		{name: "internal name", op: TLDNotRegistered{}, node: value("host.internal"), want: true},
+		{name: "ICANN suffix", op: IsPublicSuffix{}, node: value("com"), want: true},
+		{name: "private suffix", op: IsPublicSuffix{}, node: value("github.io"), want: true},
+		{name: "registrable domain", op: IsPublicSuffix{}, node: value("example.com")},
+		{name: "non-string value", op: IsPublicSuffix{}, node: node.New("dNSName", 1)},
+		{name: "suffix is not a non-suffix", op: IsNotPublicSuffix{}, node: value("com")},
+		{name: "domain is not a suffix", op: IsNotPublicSuffix{}, node: value("example.com"), want: true},
+		{
+			name: "no component is a suffix",
+			op:   ComponentNotPublicSuffix{},
+			node: collection("dNSName", "example.com", "*.example.org"),
+			want: true,
+		},
+		{name: "wildcard over a suffix", op: ComponentNotPublicSuffix{}, node: collection("dNSName", "example.com", "*.com")},
+	})
+}

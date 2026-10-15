@@ -101,3 +101,25 @@ func TestPositive(t *testing.T) {
 		{name: "nil node", op: Positive{}},
 	})
 }
+
+func TestOdd(t *testing.T) {
+	odd := func(name string, value any, want bool) evaluationCase {
+		return evaluationCase{name: name, op: Odd{}, node: node.New("test", value), want: want}
+	}
+	checkEvaluations(t, nil, []evaluationCase{
+		odd("odd int", 3, true),
+		odd("even int", 4, false),
+		odd("negative odd int", -3, true),
+		odd("odd int64", int64(7), true),
+		odd("even uint64", uint64(8), false),
+		odd("odd float64", 5.0, true),
+		odd("odd big.Int", big.NewInt(9), true),
+		odd("even big.Int", big.NewInt(10), false),
+		odd("odd string", "12345", true),
+		odd("even string", "1234", false),
+		odd("invalid string", "abc", false),
+		odd("nil value", nil, false),
+		odd("unsupported type", struct{}{}, false),
+		{name: "nil node", op: Odd{}},
+	})
+}
