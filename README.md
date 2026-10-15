@@ -1,4 +1,4 @@
-# 🔐 PCL — Policy-driven PKI Conformance Tooling
+# 🔐 PCL — Policy-driven PKI Conformance Engine
 
 [![CI](https://github.com/cavoq/PCL/actions/workflows/ci.yml/badge.svg)](https://github.com/cavoq/PCL/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/cavoq/PCL/branch/master/graph/badge.svg)](https://codecov.io/gh/cavoq/PCL)

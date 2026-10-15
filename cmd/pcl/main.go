@@ -23,7 +23,7 @@ func newRootCmd(opts *linter.Config) *cobra.Command {
 	var dataOpts dataOptions
 	root := &cobra.Command{
 		Use:     "pcl",
-		Short:   "Policy-driven PKI conformance tooling",
+		Short:   "Policy-driven PKI conformance engine",
 		Version: version,
 		// main reports errors once; usage is only shown for flag and argument
 		// errors, which happen before PersistentPreRun.

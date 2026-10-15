@@ -1,7 +1,7 @@
 # Policy Rule Writing Guide
 
 This document provides a comprehensive guide for writing policy rules in PCL,
-the policy-driven PKI conformance tool.
+the policy-driven PKI conformance engine.
 
 ## Table of Contents
 
