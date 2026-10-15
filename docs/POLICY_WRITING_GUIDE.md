@@ -1,6 +1,7 @@
 # Policy Rule Writing Guide
 
-This document provides a comprehensive guide for writing policy rules in PCL (Policy-based Certificate Linter).
+This document provides a comprehensive guide for writing policy rules in PCL,
+the policy-driven PKI conformance tool.
 
 ## Table of Contents
 

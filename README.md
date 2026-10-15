@@ -1,11 +1,13 @@
-# 🔐 PCL - Policy-based Certificate Linter
+# 🔐 PCL — Policy-driven PKI Conformance Tooling
 
 [![CI](https://github.com/cavoq/PCL/actions/workflows/ci.yml/badge.svg)](https://github.com/cavoq/PCL/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/cavoq/PCL/branch/master/graph/badge.svg)](https://codecov.io/gh/cavoq/PCL)
 [![Go Report Card](https://goreportcard.com/badge/github.com/cavoq/PCL)](https://goreportcard.com/report/github.com/cavoq/PCL)
 [![License: GPL-3.0](https://img.shields.io/badge/License-GPL%203.0-blue.svg)](LICENSE)
 
-A flexible X.509 certificate linter that validates certificates against configurable YAML-based policies. Ensure compliance with RFC 5280, organizational standards, or industry best practices.
+A standards-aware engine for linting, validating, and testing X.509
+certificates, chains, CRLs, and OCSP evidence against versioned YAML policy
+packs.
 
 ## 🚀 Quick Start
 

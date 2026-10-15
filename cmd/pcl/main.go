@@ -23,7 +23,7 @@ func newRootCmd(opts *linter.Config) *cobra.Command {
 	var dataOpts dataOptions
 	root := &cobra.Command{
 		Use:     "pcl",
-		Short:   "Policy-based X.509 certificate linter",
+		Short:   "Policy-driven PKI conformance tooling",
 		Version: version,
 		// main reports errors once; usage is only shown for flag and argument
 		// errors, which happen before PersistentPreRun.
