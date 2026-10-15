@@ -4,16 +4,19 @@ import (
 	"context"
 	"crypto/x509"
 	"errors"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	zx509 "github.com/zmap/zcrypto/x509"
 	xocsp "golang.org/x/crypto/ocsp"
 
+	"github.com/cavoq/PCL/internal/cert"
 	"github.com/cavoq/PCL/internal/source"
 	"github.com/cavoq/PCL/internal/testpki"
 )
@@ -177,4 +180,93 @@ func TestFetchOCSP_Server(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestFetchForChain(t *testing.T) {
+	var (
+		mu       sync.Mutex
+		requests = make(map[string]int)
+		answers  = make(map[string][]byte)
+	)
+	responder := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		request, err := xocsp.ParseRequest(body)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		serial := request.SerialNumber.String()
+		mu.Lock()
+		requests[serial]++
+		answer := answers[serial]
+		mu.Unlock()
+		_, _ = w.Write(answer)
+	}))
+	defer responder.Close()
+	unavailable := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "unavailable", http.StatusServiceUnavailable)
+	}))
+	defer unavailable.Close()
+
+	withOCSP := func(url string) testpki.Option {
+		return testpki.Mutate(func(template *x509.Certificate) { template.OCSPServer = []string{url} })
+	}
+	// The root names a responder too; as the chain top it has no issuer in
+	// the chain and must not be queried.
+	root := testpki.Issue(t, "Root", nil, testpki.CA(), testpki.Serial(1), withOCSP(responder.URL))
+	intermediate := testpki.Issue(t, "Intermediate", root, testpki.CA(), testpki.Serial(2), withOCSP(responder.URL))
+	quiet := testpki.Issue(t, "Quiet", intermediate, testpki.CA(), testpki.Serial(3))
+	failing := testpki.Issue(t, "Failing", quiet, testpki.CA(), testpki.Serial(4), withOCSP(unavailable.URL))
+	leaf := testpki.Issue(t, "Leaf", failing, testpki.Serial(5), withOCSP(responder.URL))
+	for _, pair := range []struct{ subject, issuer *testpki.Certificate }{
+		{leaf, failing}, {intermediate, root},
+	} {
+		answers[pair.subject.Std.SerialNumber.String()] = testpki.OCSPResponse(t, pair.issuer, pair.issuer, xocsp.Response{
+			Status:       xocsp.Good,
+			SerialNumber: pair.subject.Std.SerialNumber,
+			ThisUpdate:   testpki.NotBefore,
+			NextUpdate:   testpki.NotAfter,
+		}).Raw
+	}
+	info := func(certificate *testpki.Certificate) *cert.Info { return &cert.Info{Cert: certificate.Cert} }
+	chain := []*cert.Info{info(leaf), info(failing), info(quiet), info(intermediate), info(root)}
+
+	results, errs := FetchForChain(chain, time.Second, &NonceOptions{Disabled: true})
+	if len(results) != 2 || results[0].Response.SerialNumber.Int64() != 5 ||
+		results[1].Response.SerialNumber.Int64() != 2 {
+		t.Fatalf("results = %v, want responses for the leaf and the intermediate in chain order", results)
+	}
+	for _, result := range results {
+		if result.Response.Status != xocsp.Good || result.Source.Type != source.Downloaded ||
+			result.Source.URL != responder.URL {
+			t.Fatalf("result = status %d, source %+v", result.Response.Status, result.Source)
+		}
+	}
+	if len(errs) != 1 || !strings.HasPrefix(errs[0].Error(), "cert 1: ") ||
+		!strings.Contains(errs[0].Error(), unavailable.URL) {
+		t.Fatalf("errors = %v, want one for the failing responder of certificate 1", errs)
+	}
+	if requests["1"] != 0 || requests["3"] != 0 || requests["2"] != 1 || requests["5"] != 1 {
+		t.Fatalf("requests per serial = %v, want one each for the leaf and the intermediate", requests)
+	}
+
+	t.Run("short and incomplete chains", func(t *testing.T) {
+		for name, chain := range map[string][]*cert.Info{
+			"empty":              nil,
+			"single certificate": {info(leaf)},
+			"certificate without a parsed certificate": {{}, info(failing)},
+		} {
+			if results, errs := FetchForChain(chain, time.Second, nil); len(results) != 0 || len(errs) != 0 {
+				t.Fatalf("%s: results %v, errors %v; want none", name, results, errs)
+			}
+		}
+		results, errs := FetchForChain([]*cert.Info{info(leaf), {}}, time.Second, nil)
+		if len(results) != 0 || len(errs) != 1 || !strings.Contains(errs[0].Error(), "issuer certificate is required") {
+			t.Fatalf("missing issuer: results %v, errors %v", results, errs)
+		}
+	})
 }
