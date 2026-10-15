@@ -3,8 +3,11 @@ package main
 import (
 	"bytes"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/spf13/cobra"
 
 	"github.com/cavoq/PCL/internal/linter"
 )
@@ -93,5 +96,57 @@ func TestRuntimeErrorsDoNotPrintUsage(t *testing.T) {
 	}
 	if !strings.Contains(output, "Usage:") {
 		t.Fatalf("flag error should print usage:\n%s", output)
+	}
+}
+
+// Policy tests and inspection see the same external data as a lint run.
+func TestEvaluatingCommandsLoadPublicSuffixList(t *testing.T) {
+	dir := t.TempDir()
+	certs, err := filepath.Abs("../../tests/certs")
+	if err != nil {
+		t.Fatal(err)
+	}
+	files := map[string]string{
+		"psl.dat": "// ===BEGIN ICANN DOMAINS===\ntest\n// ===END ICANN DOMAINS===\n",
+		"policy.yaml": `id: psl
+version: "1"
+rules:
+  - id: san-tld-registered
+    target: certificate.subjectAltName.dNSName.0
+    operator: tldRegistered
+    severity: error
+`,
+		"psl.test.yaml": `policy: policy.yaml
+time: 2026-10-01
+tests:
+  - name: leaf.example.test has a registered TLD
+    cert: ` + filepath.Join(certs, "leaf.pem") + `
+    expect:
+      - input: leaf
+        rules:
+          san-tld-registered: pass
+`,
+	}
+	for name, content := range files {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	var out bytes.Buffer
+	command := newTestCmd()
+	command.SetOut(&out)
+	command.SetErr(&out)
+	command.SetArgs([]string{"--psl-file", filepath.Join(dir, "psl.dat"), dir})
+	if err := command.Execute(); err != nil {
+		t.Fatalf("test command: %v\n%s", err, out.String())
+	}
+
+	for _, command := range []*cobra.Command{newInspectCmd(), newTestCmd()} {
+		for _, name := range []string{"psl-file", "use-psl", "data-dir"} {
+			if command.Flags().Lookup(name) == nil {
+				t.Errorf("%s is missing --%s", command.Name(), name)
+			}
+		}
 	}
 }

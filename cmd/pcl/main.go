@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 var version = "5.1.0"
 
 func newRootCmd(opts *linter.Config) *cobra.Command {
+	var dataOpts dataOptions
 	root := &cobra.Command{
 		Use:     "pcl",
 		Short:   "Policy-based X.509 certificate linter",
@@ -28,19 +30,9 @@ func newRootCmd(opts *linter.Config) *cobra.Command {
 		PersistentPreRun: func(cmd *cobra.Command, _ []string) {
 			cmd.SilenceUsage = true
 		},
-		PreRunE: func(*cobra.Command, []string) error {
-			data.DefaultLoader.SetDataDir(opts.DataDir)
-			// Load PSL if specified or if file exists in default location
-			if opts.PSLFile != "" || opts.UsePSL {
-				if err := data.DefaultLoader.LoadPSL(opts.PSLFile); err != nil {
-					// If PSL loading fails, continue with regex fallback
-					fmt.Fprintf(os.Stderr, "Warning: PSL not loaded (%v), using regex fallback\n", err)
-				}
-			}
-			return nil
-		},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			opts.Diagnostics = cmd.ErrOrStderr()
+			dataOpts.load(opts.Diagnostics)
 			return linter.Run(*opts, cmd.OutOrStdout())
 		},
 	}
@@ -51,12 +43,35 @@ func newRootCmd(opts *linter.Config) *cobra.Command {
 	root.Flags().CountVarP(&opts.Verbosity, "verbose", "v", "Increase output detail: -v shows passed, -vv includes skipped")
 	root.Flags().BoolVar(&opts.ShowMeta, "show-meta", true, "Show lint meta information")
 
-	// PSL/TLD data options
-	root.Flags().StringVar(&opts.PSLFile, "psl-file", "", "Path to Public Suffix List file (default: ./data/public_suffix_list.dat or ~/.pcl/data/public_suffix_list.dat)")
-	root.Flags().BoolVar(&opts.UsePSL, "use-psl", true, "Enable PSL loading for TLD validation (BR 4.2.2, 3.2.2.6)")
-	root.Flags().StringVar(&opts.DataDir, "data-dir", "", "Directory for external data files (default: ./data or ~/.pcl/data)")
+	addDataFlags(root.Flags(), &dataOpts)
 
 	return root
+}
+
+// dataOptions select the external data, such as the Public Suffix List, that
+// operators consult. Every command that evaluates policies loads it.
+type dataOptions struct {
+	PSLFile string
+	UsePSL  bool
+	DataDir string
+}
+
+func addDataFlags(flags *pflag.FlagSet, opts *dataOptions) {
+	flags.StringVar(&opts.PSLFile, "psl-file", "", "Path to Public Suffix List file (default: ./data/public_suffix_list.dat or ~/.pcl/data/public_suffix_list.dat)")
+	flags.BoolVar(&opts.UsePSL, "use-psl", true, "Enable PSL loading for TLD validation (BR 4.2.2, 3.2.2.6)")
+	flags.StringVar(&opts.DataDir, "data-dir", "", "Directory for external data files (default: ./data or ~/.pcl/data)")
+}
+
+// load loads the selected data into the default loader and warns on w when
+// the Public Suffix List is unavailable.
+func (opts dataOptions) load(w io.Writer) {
+	data.DefaultLoader.SetDataDir(opts.DataDir)
+	if opts.PSLFile == "" && !opts.UsePSL {
+		return
+	}
+	if err := data.DefaultLoader.LoadPSL(opts.PSLFile); err != nil {
+		_, _ = fmt.Fprintf(w, "Warning: Public Suffix List not loaded (%v); public suffix and TLD operators have no data\n", err)
+	}
 }
 
 // addInputFlags registers the flags that select and acquire certificates,
@@ -93,6 +108,7 @@ func addInputFlags(flags *pflag.FlagSet, opts *linter.Config) {
 func newInspectCmd() *cobra.Command {
 	var opts linter.Config
 	var inspect linter.InspectOptions
+	var dataOpts dataOptions
 
 	cmd := &cobra.Command{
 		Use:   "inspect",
@@ -106,11 +122,13 @@ as a lint run. Every path shown can be used as a rule target.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			opts.Diagnostics = cmd.ErrOrStderr()
+			dataOpts.load(opts.Diagnostics)
 			return linter.Inspect(opts, inspect, cmd.OutOrStdout())
 		},
 	}
 
 	addInputFlags(cmd.Flags(), &opts)
+	addDataFlags(cmd.Flags(), &dataOpts)
 	cmd.Flags().StringVar(&opts.OutputFmt, "output", output.FormatText, "Output format: text, json, or yaml")
 	cmd.Flags().BoolVar(&inspect.Paths, "paths", false, "List every rule target path with its value type and value instead of the tree")
 	return cmd
@@ -137,7 +155,8 @@ validation. Reference the published copy from a policy with:
 }
 
 func newTestCmd() *cobra.Command {
-	return &cobra.Command{
+	var dataOpts dataOptions
+	cmd := &cobra.Command{
 		Use:   "test <file-or-directory>...",
 		Short: "Run policy test suites",
 		Long: `Run policy test suites: YAML files that lint example inputs with a policy
@@ -147,6 +166,7 @@ for *` + linter.PolicyTestSuffix + ` files. Paths inside a suite are relative to
   pcl test my-profile.test.yaml`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			dataOpts.load(cmd.ErrOrStderr())
 			summary, err := linter.RunPolicyTests(args, cmd.OutOrStdout())
 			if err != nil {
 				return err
@@ -157,6 +177,8 @@ for *` + linter.PolicyTestSuffix + ` files. Paths inside a suite are relative to
 			return nil
 		},
 	}
+	addDataFlags(cmd.Flags(), &dataOpts)
+	return cmd
 }
 
 func newUpdateDataCmd() *cobra.Command {

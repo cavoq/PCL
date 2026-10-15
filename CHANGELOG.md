@@ -55,6 +55,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   download certificates from CA Issuers URLs to find the signer of a CRL or
   the issuer of a delegated OCSP responder. `--no-auto-chain` disables those
   downloads as well.
+- `pcl test` and `pcl inspect` load the Public Suffix List and accept
+  `--psl-file`, `--use-psl` and `--data-dir`, so public suffix and TLD
+  operators give the same verdicts as in a lint run. The warning for a
+  missing list no longer mentions a regex fallback that does not exist.
 
 ## [5.1.0] - 2026-10-14
 

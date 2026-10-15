@@ -45,11 +45,6 @@ type Config struct {
 
 	// OCSP request hash algorithm
 	OCSPHashAlgorithm string // Hash algorithm for CertID: "sha1" (RFC 5019) or "sha256" (default, modern)
-
-	// PSL/TLD data options
-	PSLFile string // Path to Public Suffix List file (optional)
-	UsePSL  bool   // Enable PSL loading (default: true if file exists)
-	DataDir string // Directory for external data files (optional)
 }
 
 // Validate reports configurations that cannot produce lint results. Issuer
