@@ -13,6 +13,7 @@ import (
 
 	"github.com/cavoq/PCL/internal/linter"
 	"github.com/cavoq/PCL/internal/operator"
+	pathpkg "github.com/cavoq/PCL/internal/path"
 	"github.com/cavoq/PCL/internal/rule"
 )
 
@@ -135,6 +136,10 @@ func runPKITS(t *testing.T, test pkitsTest, run pkitsRun) (string, []string) {
 		},
 		CertPath:       filepath.Join(pkitsDir, test.EE),
 		ValidationTime: pkitsValidationTime,
+		TrustAnchorPaths: []string{
+			filepath.Join(pkitsDir, test.Issuers[0]),
+		},
+		PathRevocation: pathpkg.RevocationRequired,
 		CertificatePolicyInputs: operator.CertificatePolicyInputs{
 			Configured:                  true,
 			InitialPolicySet:            run.InitialPolicySet,
@@ -143,7 +148,7 @@ func runPKITS(t *testing.T, test pkitsTest, run pkitsRun) (string, []string) {
 			InitialAnyPolicyInhibit:     run.AnyPolicyInhibit,
 		},
 	}
-	for _, issuer := range test.Issuers {
+	for _, issuer := range test.Issuers[1:] {
 		cfg.IssuerPaths = append(cfg.IssuerPaths, filepath.Join(pkitsDir, issuer))
 	}
 	// --crl takes one path, so the run's CRLs share a directory.

@@ -5,7 +5,7 @@ issuers: [certs/intermediate.pem, certs/root.pem]
 crl: crls/revoked-leaf.crl
 time: 2026-06-01T00:00:00Z
 expected:
-  crl: {pass: 17, fail: 1, skip: 121, verdict: fail}
-  intermediate: {pass: 54, fail: 1, skip: 84, verdict: fail}
-  leaf: {pass: 52, fail: 1, skip: 86, verdict: fail}
-  root: {pass: 45, fail: 1, skip: 93, verdict: fail}
+  crl: {pass: 17, fail: 1, skip: 122, verdict: fail}
+  intermediate: {pass: 54, fail: 1, skip: 85, verdict: fail}
+  leaf: {pass: 52, fail: 1, skip: 87, verdict: fail}
+  root: {pass: 45, fail: 1, skip: 94, verdict: fail}

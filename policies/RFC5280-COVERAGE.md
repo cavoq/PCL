@@ -1,20 +1,19 @@
 # RFC 5280 Policy Coverage
 
 This document tracks the RFC 5280 requirements implemented by PCL's profile
-policy. The policy is a certificate and CRL **linter**; it is not an
-RFC-equivalent Section 6 certification-path validator. Its P3 CRL assessment
-is deterministic and fail-closed, but remains partial until P4 supplies
-same-trust-anchor signer paths and Section 7 name equivalence.
+policy and explicit-trust certification-path engine. Without `--trust-anchor`,
+the policy remains a certificate and CRL **profile linter**. With one or more
+explicit anchors, PCL constructs a path from the supplied or acquired
+certificate pool and runs the dedicated, deterministic Section 6 path domain
+with Section 7 distinguished-name comparison and the supported name forms.
+Path construction is bounded input selection, not an unbounded PKI discovery
+service.
 
-Implementation order, architectural ownership, and completion criteria are
-tracked in the [RFC 5280 conformance roadmap](../docs/RFC5280_ROADMAP.md).
-
-`Covered` means the active rule's stated profile check has executable positive
-and negative behavior. `Partial` means the rule checks only part of the
-normative requirement, usually because complete P4 path/name processing is
-outside the profile-linter boundary. `Not active` means there is
-no enabled `RFC5280.yaml` rule for the requirement. Parser behavior is credited
-only where a dedicated malformed-DER test exists.
+`Covered` means the active rule's stated check has executable positive and
+negative behavior. `Partial` means the rule checks only part of the normative
+requirement or is deliberately a profile-only view of path behavior. `Not
+active` means there is no enabled `RFC5280.yaml` rule for the requirement.
+Parser behavior is credited only where a dedicated malformed-DER test exists.
 
 ## Active rule classification
 
@@ -30,6 +29,7 @@ as RFC 5280 coverage.
 | Serial number | Covered | `serial-number-present`, `serial-number-positive`, `serial-number-length` |
 | Signature AlgorithmIdentifier equality | Covered | `signature-algorithm-matches-tbs` |
 | Certificate signature against supplied issuer evidence | Partial | `signature-valid` |
+| Explicit-trust certification-path decision (conditional on `--trust-anchor`) | Covered | `certification-path-valid` |
 | Encoded certificate Names | Covered | `issuer-name-well-formed`, `subject-name-well-formed` |
 | Required certificate Names | Covered | `issuer-not-empty`, `subject-not-empty-for-ca` |
 | Root self-issuance heuristic | Partial | `issuer-matches-subject-for-root` |
@@ -110,43 +110,13 @@ as RFC 5280 coverage.
 - [`tests/cases_test.go`](../tests/cases_test.go) runs the scenarios in
   [`tests/cases`](../tests/cases) through the lint command, with generated DER
   vectors from [`tests/fixtures_test.go`](../tests/fixtures_test.go), and
-  [`tests/pkits_test.go`](../tests/pkits_test.go) runs NIST PKITS. Existing operator owner tests cover comparison, date, encoding,
+  [`tests/pkits_test.go`](../tests/pkits_test.go) runs all 247 expressible NIST
+  PKITS decisions through the explicit-anchor path engine with required
+  revocation. Existing operator owner tests cover comparison, date, encoding,
   collection, chain, CRL, and signature behavior used by the remaining rows.
-
-## P3 boundary
-
-P3 adds deterministic RFC 5280 Section 6.3 CRL processing without claiming the
-complete Sections 6 or 7 path/name engines. `--purpose` supplies one concrete friendly EKU name or
-dotted OID; `any`, `anyExtendedKeyUsage`, and `2.5.29.37.0` are rejected, and a
-private OID fails closed when end-entity Key Usage is present. The active
-purpose rule is conditional and is skipped when the input is absent. Name
-Constraints matching is limited to the implemented DNS, email, URI, and IP
-forms. It implements the
-documented matching boundaries (including case-sensitive mailbox local parts
-and the subject-DN emailAddress fallback when SAN is absent), but complete
-Section 7 validation and normalization of constraint-base value forms remains
-P4.
-`pathLenConstraint` counts non-self-issued intermediates in an already ordered
-leaf-to-root chain. Policy extension counters and mappings are preserved and
-profile-checked but do not drive a policy state machine.
-
-The processed-extension registry is deliberately separate from the identity
-catalog and registers support at one exact signed-object location. A critical
-extension passes only when its OID is registered there and its concrete node
-has neither a `malformed` nor `unprocessed` marker. P3 registers the CRL and
-entry extensions that its strict decoder and assessment actually consume;
-known-but-unprocessed, wrong-location, malformed, duplicated, and unknown
-critical extensions still fail closed.
-
-CRL assessment checks exact distribution-point/issuer encodings, reason-mask
-coverage, indirect entry issuer inheritance, compatible complete/delta pairs,
-signatures, AKI, and `cRLSign` when Key Usage is present. It returns Good only
-for full accepted reason coverage, Revoked only from an accepted matching
-entry, and Unknown otherwise. Certification-path validation for a CRL signer
-to the target path's trust anchor, CRL-signer revocation, attribute
-certificates, and Section 7-equivalent name comparison remain P4 boundaries.
-
----
+- [`internal/path/validate_test.go`](../internal/path/validate_test.go) covers
+  explicit trust, construction/validation separation, structured failures,
+  maximum path length, malformed inputs, and revocation modes.
 
 ## Certificate Fields (Section 4.1)
 
@@ -214,8 +184,9 @@ PCL preserves the ordered RDN sequence, multi-valued RDN grouping, duplicate
 attributes, raw DER, and the actual ASN.1 value tag for certificate subject and
 issuer names and CRL issuer names. Subject attribute aliases are collections;
 the rules below use `every` so each occurrence is checked rather than only the
-first value. These representation and syntax checks do not claim RFC 5280
-Section 7 internationalized-name comparison.
+first value. These representation and syntax rules do not themselves
+establish issuer identity; the explicit path engine applies Section 7
+distinguished-name comparison when binding each certificate to its issuer.
 
 | Requirement | Status | Rule |
 |-------------|--------|------|
@@ -302,7 +273,7 @@ Section 7 internationalized-name comparison.
 | MUST be in CA certificates | MUST | `basic-constraints-present` |
 | MUST be critical in CA certs | MUST | `basic-constraints-critical-for-ca` |
 | cA MUST be TRUE for CA certs | MUST | `ca-basic-constraints` |
-| pathLenConstraint enforced | MUST | Partial: `ca-path-len-valid` counts non-self-issued intermediates in the supplied ordered chain; complete Section 6 processing remains P4 |
+| pathLenConstraint enforced | MUST | `ca-path-len-valid` is the profile view; `certification-path-valid` enforces it inside explicit-anchor path validation |
 
 ### 4.2.1.10 Name Constraints
 | Requirement | Level | Rule |
@@ -311,7 +282,7 @@ Section 7 internationalized-name comparison.
 | Extension appears only in CA certificates | MUST | `name-constraints-dependencies-valid` |
 | minimum is zero/default and maximum is absent | MUST | `name-constraints-distances-valid` |
 | MUST be critical | MUST | `name-constraints-critical` |
-| MUST be enforced in path validation | MUST | `name-constraints-valid` (partial: supported DNS/email/URI/IP matching only; unsupported name forms mark the critical value unprocessed; constraint-base value-form validation and complete §§6/7 processing remain P4) |
+| MUST be enforced in path validation | MUST | `name-constraints-valid` is the profile view; `certification-path-valid` applies DNS/email/URI/IP/directoryName constraints across the explicit path and rejects malformed or unsupported critical values |
 
 ### 4.2.1.11 Policy Constraints
 | Requirement | Level | Rule |
@@ -362,23 +333,25 @@ Section 7 internationalized-name comparison.
 
 ## Path Validation (Section 6)
 
-PCL implements the bounded CRL assessment described under Section 6.3 below.
-The remaining checks are independent profile checks, not the complete RFC
-5280 Section 6 certification-path state machine. PCL has an explicit
-application-purpose input and first-class initial-policy-set,
-explicit-policy, policy-mapping-inhibit and any-policy-inhibit inputs. It does
-not yet expose an explicit trust-anchor input or implement the complete
-Section 6 state machine.
+`--trust-anchor` activates the dedicated path domain. Construction selects a
+deterministic path from caller-supplied and already acquired candidates;
+validation then treats trust, time, policy inputs, maximum path length,
+application purpose, and revocation mode as explicit inputs. The aggregate
+result and its structured findings are projected only on the path target.
+Without an explicit anchor, the independent profile rules retain their prior
+lint behavior and the aggregate rule skips.
 
 | Requirement | Status | Rule |
 |-------------|--------|------|
-| Signature verification | Partial | `signature-valid` |
-| Issuer/Subject DN chaining | Partial | `issuer-matches-subject-for-root` and internal chain heuristics |
-| Validity period checking | Covered as profile lint | `not-expired`, `not-yet-valid` |
-| Path length constraints | Partial | `ca-path-len-valid` |
-| Name constraints processing | Partial | `name-constraints-valid` |
-| Policy processing | Not active | `certificatePolicyValid` operator exists, but the policy rule is disabled |
-| Unknown/unprocessed critical extensions rejection | Partial | `no-unknown-critical-extensions`; exact processed set and malformed or explicitly unprocessed values are fail-closed, but full Section 6 extension effects remain P4 |
+| Explicit trust-anchor termination | Covered | `certification-path-valid` with `--trust-anchor` |
+| Signature verification | Covered in path engine | `certification-path-valid`; `signature-valid` remains the profile view |
+| Issuer/Subject DN chaining and Section 7 distinguished-name comparison | Covered in path engine | `certification-path-valid` |
+| Validity period checking | Covered | `certification-path-valid`; `not-expired`, `not-yet-valid` remain profile views |
+| Basic Constraints, Key Usage, and path length | Covered in path engine | `certification-path-valid`; `ca-path-len-valid` remains the profile view |
+| Name constraints processing | Covered for supported RFC 5280 forms | `certification-path-valid`; `name-constraints-valid` remains the profile view |
+| Policy processing | Covered in path engine | `certification-path-valid`; `certificatePolicyValid` remains available for custom profile policies |
+| Unknown/unprocessed critical extensions rejection | Covered in path engine | `certification-path-valid`; `no-unknown-critical-extensions` remains the profile view |
+| Revocation processing | Covered according to selected mode | `--path-revocation none|if-present|required`; CRL and OCSP evidence is adapted from the existing domains |
 
 ---
 
@@ -391,7 +364,7 @@ Section 6 state machine.
 | Inner and outer signature algorithms match | MUST | `crl-signature-algorithm-matches-tbs` |
 | thisUpdate not in future | MUST | `crl-valid` |
 | nextUpdate present and current | MUST | `crl-next-update-present`, `crl-valid` |
-| Certificate revocation status | Partial | `cert-revocation-status-known`, `cert-not-revoked`; complete, scoped, reason-partitioned, indirect, and delta evidence is processed, while insufficient evidence is explicitly Unknown. CRL-signer trust-path validation and Section 7 name equivalence remain P4. |
+| Certificate revocation status | Partial | `cert-revocation-status-known`, `cert-not-revoked`; complete, scoped, reason-partitioned, indirect, and delta evidence is processed, while insufficient evidence is explicitly Unknown. With explicit anchors, accepted CRL signers require a valid path to the same trust set. |
 
 ### CRL Extensions
 | Requirement | Level | Rule |
@@ -403,7 +376,7 @@ Section 6 state machine.
 | Delta CRL Indicator is well-formed and MUST be critical | MUST | `crl-delta-indicator-well-formed`, `crl-delta-indicator-critical` |
 | IDP is well-formed, MUST be critical, and excludes attribute-certificate scope | MUST | `crl-idp-well-formed`, `crl-idp-critical`, `crl-idp-excludes-attribute-certificates` |
 | CRL Freshest is well-formed, MUST NOT be critical, and MUST be absent from delta CRLs | MUST | `crl-freshest-well-formed`, `crl-freshest-not-critical`, `crl-delta-omits-freshest` |
-| Reject unknown, malformed, duplicated, or unprocessed critical CRL extensions | MUST | `crl-no-unknown-critical-extensions`; the location-specific P3 processed set includes only extensions decoded and consumed by CRL assessment |
+| Reject unknown, malformed, duplicated, or unprocessed critical CRL extensions | MUST | `crl-no-unknown-critical-extensions`; the location-specific processed set includes only extensions decoded and consumed by CRL assessment |
 
 ### CRL Entry Extensions
 | Requirement | Status | Rule |
@@ -469,7 +442,8 @@ checks and must not be counted as RFC 5280 requirements.
 
 The current policy does not claim complete coverage for:
 
-- RFC 5280 Section 6 path-validation and CRL-validation state machines
-- RFC 5280 Section 7 internationalized name comparison
+- unbounded certification-path discovery, platform trust-store selection, or trust-anchor constraints supplied out of band rather than in a certificate
+- attribute certificates and unsupported Name Constraints GeneralName forms
+- Section 7 internationalized-name preparation beyond the supported encoded distinguished names, DNS, email, URI, and IP forms
 - CA-wide issuance properties such as serial-number uniqueness
 - ASN.1, time, URI, or name validation without explicit parser and policy evidence

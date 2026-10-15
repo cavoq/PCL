@@ -9,6 +9,18 @@ version: "1.0"
 appliesTo: [cert]
 
 rules:
+  # Aggregate decision from the dedicated Section 6/7 path engine. The PKITS
+  # harness supplies the suite trust anchor and requires revocation evidence.
+  - id: certification-path-valid
+    reference: RFC5280 6, 7
+    when:
+      target: certificate.pathValidation
+      operator: present
+    target: certificate.pathValidation.failureSummary
+    operator: absent
+    certType: [leaf, intermediate, ocspSigning]
+    severity: error
+
   - id: signature-valid
     reference: RFC5280 6.1.3 (a)(1)
     target: certificate

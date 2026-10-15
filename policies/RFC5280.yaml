@@ -82,6 +82,18 @@ rules:
     operator: signatureValid
     severity: error
 
+  # The dedicated Section 6/7 path engine is activated only when the caller
+  # supplies one or more explicit --trust-anchor inputs. Profile-only runs
+  # retain their existing behavior and skip this aggregate path decision.
+  - id: certification-path-valid
+    reference: RFC5280 6, 7
+    when:
+      target: certificate.pathValidation
+      operator: present
+    target: certificate.pathValidation.failureSummary
+    operator: absent
+    severity: error
+
 
   # -------------------------------------------------
   # Issuer / Subject (Section 4.1.2.4, 4.1.2.6)

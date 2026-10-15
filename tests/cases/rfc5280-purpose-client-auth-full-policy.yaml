@@ -5,6 +5,6 @@ issuers: [certs/intermediate.pem, certs/root.pem]
 purpose: clientAuth
 time: 2026-10-01T00:00:00Z
 expected:
-  intermediate: {pass: 54, fail: 0, skip: 85, verdict: pass}
-  leaf: {pass: 51, fail: 1, skip: 87, verdict: fail}
-  root: {pass: 45, fail: 0, skip: 94, verdict: pass}
+  intermediate: {pass: 54, fail: 0, skip: 86, verdict: pass}
+  leaf: {pass: 51, fail: 1, skip: 88, verdict: fail}
+  root: {pass: 45, fail: 0, skip: 95, verdict: pass}
