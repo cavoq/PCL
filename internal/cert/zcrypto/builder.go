@@ -429,14 +429,10 @@ func buildEd25519Key(key ed25519.PublicKey) *node.Node {
 	return n
 }
 
-func buildSCT(sct interface{}, index int) *node.Node {
-	n := node.New(fmt.Sprintf("%d", index), nil)
+func buildSCT(ctSCT *ct.SignedCertificateTimestamp, index int) *node.Node {
+	n := node.New(strconv.Itoa(index), nil)
 	n.Children["present"] = node.New("present", true)
-
-	// Try to cast to ct.SignedCertificateTimestamp
-	ctSCT, ok := sct.(*ct.SignedCertificateTimestamp)
-	if !ok {
-		// Fallback for unknown SCT type
+	if ctSCT == nil {
 		return n
 	}
 
