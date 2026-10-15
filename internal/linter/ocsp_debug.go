@@ -5,7 +5,6 @@ import (
 	"io"
 
 	"github.com/cavoq/PCL/internal/ocsp"
-	ocspzcrypto "github.com/cavoq/PCL/internal/ocsp/zcrypto"
 )
 
 // printOCSPResponseDebug prints OCSP response details for debugging.
@@ -74,7 +73,7 @@ func printOCSPResponseDebug(w io.Writer, ocspInfo *ocsp.Info, nonceOpts *ocsp.No
 	_, _ = fmt.Fprintf(w, "    SignatureAlgorithm: %s\n", resp.SignatureAlgorithm.String())
 
 	// Parse nonce from raw response
-	nonceState := ocspzcrypto.ParseNonceFromRaw(resp.Raw)
+	nonceState := ocsp.ParseNonceFromRaw(resp.Raw)
 	_, _ = fmt.Fprintf(w, "    Response Nonce:\n")
 	if nonceState.Present {
 		_, _ = fmt.Fprintf(w, "      Present: true\n")

@@ -11,7 +11,7 @@ import (
 	"github.com/cavoq/PCL/internal/crl"
 	"github.com/cavoq/PCL/internal/node"
 	"github.com/cavoq/PCL/internal/ocsp"
-	ocspzcrypto "github.com/cavoq/PCL/internal/ocsp/zcrypto"
+	"github.com/cavoq/PCL/internal/ocspnode"
 )
 
 // Every path listed for a projected tree must resolve back to the same node,
@@ -47,7 +47,7 @@ func TestPathsResolveToTheirNodes(t *testing.T) {
 		t.Fatalf("GetOCSPs: %v", err)
 	}
 	for _, response := range responses {
-		trees = append(trees, ocspzcrypto.BuildTree(response.Response))
+		trees = append(trees, ocspnode.BuildTree(response.Response))
 	}
 	if len(trees) < 30 {
 		t.Fatalf("only %d fixture trees loaded", len(trees))

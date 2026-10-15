@@ -1,10 +1,11 @@
-package zcrypto
+package ocspnode
 
 import (
 	"testing"
 
 	"golang.org/x/crypto/ocsp"
 
+	pclocsp "github.com/cavoq/PCL/internal/ocsp"
 	"github.com/cavoq/PCL/internal/testpki"
 )
 
@@ -15,9 +16,9 @@ func FuzzParseResponse(f *testing.F) {
 		f.Add(seed)
 	}
 	f.Fuzz(func(t *testing.T, raw []byte) {
-		_ = ParseNonceFromRaw(raw)
-		_, _ = ParseCertID(raw)
-		_ = ParseOCSPSignatureAlgorithmParams(raw)
+		_ = pclocsp.ParseNonceFromRaw(raw)
+		_, _ = pclocsp.ParseCertID(raw)
+		_ = pclocsp.ParseOCSPSignatureAlgorithmParams(raw)
 
 		response, err := ocsp.ParseResponse(raw, nil)
 		if err != nil {

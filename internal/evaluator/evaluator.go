@@ -9,7 +9,7 @@ import (
 	"github.com/cavoq/PCL/internal/crl"
 	"github.com/cavoq/PCL/internal/node"
 	"github.com/cavoq/PCL/internal/ocsp"
-	ocspzcrypto "github.com/cavoq/PCL/internal/ocsp/zcrypto"
+	"github.com/cavoq/PCL/internal/ocspnode"
 	"github.com/cavoq/PCL/internal/operator"
 	"github.com/cavoq/PCL/internal/policy"
 	"github.com/cavoq/PCL/internal/source"
@@ -153,7 +153,7 @@ func OCSPSubjects(ctx Context) []Subject {
 			continue
 		}
 
-		tree := ocspzcrypto.BuildTree(ocspInfo.Response)
+		tree := ocspnode.BuildTree(ocspInfo.Response)
 		if tree == nil {
 			continue
 		}

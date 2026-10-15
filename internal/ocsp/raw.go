@@ -1,4 +1,4 @@
-package zcrypto
+package ocsp
 
 import (
 	stdasn1 "encoding/asn1"

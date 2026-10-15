@@ -1,4 +1,4 @@
-package zcrypto
+package ocspnode
 
 import (
 	"crypto"

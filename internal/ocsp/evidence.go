@@ -9,8 +9,6 @@ import (
 
 	"github.com/zmap/zcrypto/x509"
 	xocsp "golang.org/x/crypto/ocsp"
-
-	ocspzcrypto "github.com/cavoq/PCL/internal/ocsp/zcrypto"
 )
 
 // Status is the accepted revocation state for a certificate. NotApplicable
@@ -148,7 +146,7 @@ func matchingIssuer(response *xocsp.Response, candidates []*x509.Certificate) *s
 		return nil
 	}
 
-	certID, ok := ocspzcrypto.ParseCertID(response.Raw)
+	certID, ok := ParseCertID(response.Raw)
 	if !ok {
 		return nil
 	}
@@ -165,7 +163,7 @@ func matchingIssuer(response *xocsp.Response, candidates []*x509.Certificate) *s
 	return nil
 }
 
-func certIDMatchesIssuer(certID ocspzcrypto.CertID, hash crypto.Hash, issuer *stdx509.Certificate) bool {
+func certIDMatchesIssuer(certID CertID, hash crypto.Hash, issuer *stdx509.Certificate) bool {
 	if issuer == nil {
 		return false
 	}

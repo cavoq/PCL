@@ -1,5 +1,5 @@
-// Package zcrypto provides zcrypto-based OCSP response parsing.
-package zcrypto
+// Package ocspnode projects OCSP responses into node trees.
+package ocspnode
 
 import (
 	"crypto"
@@ -8,6 +8,7 @@ import (
 	"golang.org/x/crypto/ocsp"
 
 	"github.com/cavoq/PCL/internal/node"
+	pclocsp "github.com/cavoq/PCL/internal/ocsp"
 	"github.com/cavoq/PCL/internal/x509node"
 )
 
@@ -51,7 +52,7 @@ func buildOCSP(resp *ocsp.Response) *node.Node {
 
 	// Signature algorithm (from BasicOCSPResponse)
 	// OCSP has only one signatureAlgorithm field, not separate TBS and outer like certificates/CRLs
-	params := ParseOCSPSignatureAlgorithmParams(resp.Raw)
+	params := pclocsp.ParseOCSPSignatureAlgorithmParams(resp.Raw)
 	root.Children["signatureAlgorithm"] = x509node.BuildAlgorithmIdentifier("signatureAlgorithm", resp.SignatureAlgorithm.String(), params)
 	// For consistency with cert/CRL tree structure, we also create tbsSignatureAlgorithm
 	// pointing to the same signature algorithm
@@ -72,7 +73,7 @@ func buildOCSP(resp *ocsp.Response) *node.Node {
 	// Parse nonce from responseExtensions (inside TBSResponseData), NOT from singleExtensions.
 	// The nonce is in responseExtensions, which are NOT exposed by golang.org/x/crypto/ocsp.
 	// We parse it directly from the raw OCSP response.
-	nonce := ParseNonceFromRaw(resp.Raw)
+	nonce := pclocsp.ParseNonceFromRaw(resp.Raw)
 	nonceNode := node.New("nonce", nil)
 	nonceNode.Children["present"] = node.New("present", nonce.Present)
 	if nonce.Present {
