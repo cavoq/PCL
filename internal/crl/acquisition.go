@@ -168,7 +168,6 @@ func (session *FetchSession) fetchCanonical(canonicalURL string) (*Info, error) 
 			URL:    canonicalURL,
 			Format: format,
 		},
-		Format:  format,
 		Origins: []string{canonicalURL},
 	}
 	session.objectsByHash[hashString] = info

@@ -2,14 +2,11 @@
 package cert
 
 import (
-	"encoding/pem"
 	"errors"
-	"fmt"
 
 	"github.com/cavoq/PCL/internal/source"
 	"github.com/zmap/zcrypto/x509"
 
-	"github.com/cavoq/PCL/internal/fsutil"
 	"github.com/cavoq/PCL/internal/x509asn1"
 )
 
@@ -22,40 +19,12 @@ type Info struct {
 	Position int
 	Type     string
 	Source   source.Info
-	Format   source.Format
 }
 
 // ParseCertificates parses a DER certificate or every CERTIFICATE block of
 // PEM data. Other PEM blocks, such as keys, are ignored.
 func ParseCertificates(data []byte) ([]*x509.Certificate, source.Format, error) {
-	block, rest := pem.Decode(data)
-	if block == nil {
-		cert, err := x509.ParseCertificate(data)
-		if err != nil {
-			return nil, "", fmt.Errorf("failed to parse PEM or DER certificate: %w", err)
-		}
-		return []*x509.Certificate{cert}, source.FormatDER, nil
-	}
-
-	var certs []*x509.Certificate
-	for ; block != nil; block, rest = pem.Decode(rest) {
-		if block.Type != "CERTIFICATE" {
-			continue
-		}
-		cert, err := x509.ParseCertificate(block.Bytes)
-		if err != nil {
-			return nil, "", fmt.Errorf("PEM certificate %d: %w", len(certs)+1, err)
-		}
-		certs = append(certs, cert)
-	}
-	if len(certs) == 0 {
-		return nil, "", errors.New("no CERTIFICATE block in PEM data")
-	}
-	return certs, source.FormatPEM, nil
-}
-
-func GetCertFiles(path string) ([]string, error) {
-	return fsutil.GetFilesWithExtensions(path, extensions...)
+	return source.DecodePEMOrDER(data, "CERTIFICATE", x509.ParseCertificate)
 }
 
 // IsSelfSigned reports whether the certificate is self-issued and verifies

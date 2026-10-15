@@ -47,8 +47,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   no longer shifts the chain positions of the certificates it shares with
   the certificate chain, which made `signatureValid`, `issuedBy` and
   `akiMatchesSki` check those certificates against the wrong issuer.
-- PEM files with several certificates, such as an issuer bundle passed with
-  `--issuer`, supply every certificate instead of only the first.
+- PEM files with several certificates, CRLs or OCSP responses, such as an
+  issuer bundle passed with `--issuer`, supply every item instead of only the
+  first.
 - A certificate supplied in two files, for example in a bundle and on its
   own, is no longer reported as left out of the evaluated chain.
 - Files in a `--cert`, `--issuer`, `--crl` or `--ocsp` directory that cannot

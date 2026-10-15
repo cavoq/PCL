@@ -54,28 +54,8 @@ func TestParseCRL_Invalid(t *testing.T) {
 	}
 }
 
-func TestGetCRLFiles_SingleFile(t *testing.T) {
-	files, err := GetCRLFiles(filepath.Join("testdata", "test.crl"))
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(files) != 1 {
-		t.Errorf("expected 1 file, got %d", len(files))
-	}
-}
-
-func TestGetCRLFiles_Directory(t *testing.T) {
-	files, err := GetCRLFiles("testdata")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(files) < 2 {
-		t.Errorf("expected at least 2 CRL files, got %d", len(files))
-	}
-}
-
-func TestGetCRLFiles_NotFound(t *testing.T) {
-	_, err := GetCRLFiles("nonexistent")
+func TestGetCRLs_NotFound(t *testing.T) {
+	_, err := GetCRLs("nonexistent", nil)
 	if err == nil {
 		t.Fatal("expected error for nonexistent path")
 	}
@@ -101,8 +81,8 @@ func TestGetCRLs_SingleFile(t *testing.T) {
 	if crls[0].Source.Type != source.Local {
 		t.Fatalf("expected local source, got %q", crls[0].Source.Type)
 	}
-	if crls[0].Format != source.FormatPEM {
-		t.Fatalf("expected PEM format, got %q", crls[0].Format)
+	if crls[0].Source.Format != source.FormatPEM {
+		t.Fatalf("expected PEM format, got %q", crls[0].Source.Format)
 	}
 }
 
@@ -168,8 +148,8 @@ func TestFetchCRL(t *testing.T) {
 			if result.CRL == nil {
 				t.Fatal("expected CRL, got nil")
 			}
-			if result.Format != tt.format {
-				t.Fatalf("format = %q, want %q", result.Format, tt.format)
+			if result.Source.Format != tt.format {
+				t.Fatalf("format = %q, want %q", result.Source.Format, tt.format)
 			}
 			if result.Source.Type != source.Downloaded {
 				t.Fatalf("expected downloaded source, got %q", result.Source.Type)

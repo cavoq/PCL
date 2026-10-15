@@ -4,13 +4,10 @@ package crl
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/pem"
 	"fmt"
 	"io"
-	"os"
 	"time"
 
-	"github.com/cavoq/PCL/internal/fsutil"
 	"github.com/cavoq/PCL/internal/source"
 	"github.com/zmap/zcrypto/x509"
 )
@@ -22,80 +19,52 @@ type Info struct {
 	FilePath string
 	Hash     string
 	Source   source.Info
-	Format   source.Format
 	// Origins contains every acquisition URL known to have returned this CRL.
 	// It is empty for local inputs. FetchSession snapshots preserve all origins
 	// known when that result is returned.
 	Origins []string
 }
 
+// ParseCRL parses a single DER or PEM CRL.
 func ParseCRL(data []byte) (*x509.RevocationList, error) {
 	crl, _, err := parseCRL(data)
 	return crl, err
 }
 
 func parseCRL(data []byte) (*x509.RevocationList, source.Format, error) {
-	crl, err := x509.ParseRevocationList(data)
-	if err == nil {
-		return crl, source.FormatDER, nil
-	}
-	derErr := err
-
-	block, _ := pem.Decode(data)
-	if block != nil && block.Type == "X509 CRL" {
-		crl, err = x509.ParseRevocationList(block.Bytes)
-		if err != nil {
-			return nil, "", fmt.Errorf("failed to parse PEM CRL: %w", err)
-		}
-		return crl, source.FormatPEM, nil
-	}
-
-	return nil, "", fmt.Errorf("failed to parse PEM or DER CRL: %w", derErr)
-}
-
-func GetCRLFiles(path string) ([]string, error) {
-	return fsutil.GetFilesWithExtensions(path, extensions...)
-}
-
-// GetCRLs loads the CRL of a file, or of every CRL file in a directory.
-// Directory files that cannot be read or parsed are reported to w and
-// skipped; the load fails when no file yields a CRL.
-func GetCRLs(path string, w io.Writer) ([]*Info, error) {
-	files, err := GetCRLFiles(path)
-	if err != nil {
-		return nil, err
-	}
-
-	infos := make([]*Info, 0, len(files))
-	var skipped []error
-	for _, file := range files {
-		crl, format, err := loadCRLFile(file)
-		if err != nil {
-			skipped = append(skipped, fmt.Errorf("%s: %w", file, err))
-			continue
-		}
-		infos = append(infos, &Info{
-			CRL:      crl,
-			FilePath: file,
-			Hash:     crlHash(crl),
-			Source:   source.Info{Type: source.Local, Format: format},
-			Format:   format,
-		})
-	}
-
-	if len(infos) == 0 && len(skipped) > 0 {
-		return nil, fmt.Errorf("no valid items found in %s: %w", path, skipped[0])
-	}
-	fsutil.ReportSkipped(w, skipped)
-	return infos, nil
-}
-
-func loadCRLFile(file string) (*x509.RevocationList, source.Format, error) {
-	data, err := os.ReadFile(file)
+	lists, format, err := parseCRLs(data)
 	if err != nil {
 		return nil, "", err
 	}
-	return parseCRL(data)
+	if len(lists) != 1 {
+		return nil, "", fmt.Errorf("expected one CRL, found %d", len(lists))
+	}
+	return lists[0], format, nil
+}
+
+// parseCRLs parses a DER CRL or every X509 CRL block of PEM data.
+func parseCRLs(data []byte) ([]*x509.RevocationList, source.Format, error) {
+	return source.DecodePEMOrDER(data, "X509 CRL", x509.ParseRevocationList)
+}
+
+// GetCRLs loads the CRLs of a file, or of every CRL file in a directory.
+// Directory files that cannot be read or parsed are reported to w and
+// skipped; the load fails when no file yields a CRL.
+func GetCRLs(path string, w io.Writer) ([]*Info, error) {
+	loaded, err := source.LoadFiles(path, extensions, parseCRLs, w)
+	if err != nil {
+		return nil, err
+	}
+	infos := make([]*Info, 0, len(loaded))
+	for _, list := range loaded {
+		infos = append(infos, &Info{
+			CRL:      list.Item,
+			FilePath: list.Path,
+			Hash:     crlHash(list.Item),
+			Source:   source.Info{Type: source.Local, Format: list.Format},
+		})
+	}
+	return infos, nil
 }
 
 func crlHash(revocationList *x509.RevocationList) string {

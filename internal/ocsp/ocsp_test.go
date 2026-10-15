@@ -30,67 +30,6 @@ bm90IHZhbGlkIGRhdGE=
 	}
 }
 
-func TestGetOCSPFiles_SingleFile(t *testing.T) {
-	tmpDir := t.TempDir()
-	testFile := filepath.Join(tmpDir, "test.ocsp")
-	if err := os.WriteFile(testFile, []byte("test"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	files, err := GetOCSPFiles(testFile)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(files) != 1 {
-		t.Errorf("expected 1 file, got %d", len(files))
-	}
-}
-
-func TestGetOCSPFiles_Directory(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	// Create test files with different extensions
-	testFiles := []struct {
-		name    string
-		matched bool
-	}{
-		{"test1.ocsp", true},
-		{"test2.der", true},
-		{"test3.pem", true},
-		{"test4.txt", false},
-		{"test5.crl", false},
-	}
-
-	for _, tf := range testFiles {
-		if err := os.WriteFile(filepath.Join(tmpDir, tf.name), []byte("test"), 0o644); err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	files, err := GetOCSPFiles(tmpDir)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	expectedCount := 0
-	for _, tf := range testFiles {
-		if tf.matched {
-			expectedCount++
-		}
-	}
-
-	if len(files) != expectedCount {
-		t.Errorf("expected %d files, got %d: %v", expectedCount, len(files), files)
-	}
-}
-
-func TestGetOCSPFiles_NotFound(t *testing.T) {
-	_, err := GetOCSPFiles("/nonexistent/path")
-	if err == nil {
-		t.Fatal("expected error for nonexistent path")
-	}
-}
-
 func TestGetOCSPs_NoValidOCSPs(t *testing.T) {
 	tmpDir := t.TempDir()
 	invalidFile := filepath.Join(tmpDir, "invalid.ocsp")
@@ -169,8 +108,8 @@ func TestInfoFromDownloadedResponse(t *testing.T) {
 	if info.Source.Type != source.Downloaded || info.Source.URL != "http://ocsp.example.test" {
 		t.Fatalf("unexpected source: %+v", info.Source)
 	}
-	if info.Format != source.FormatDER || info.Source.Format != source.FormatDER {
-		t.Fatalf("unexpected format: info=%q source=%q", info.Format, info.Source.Format)
+	if info.Source.Format != source.FormatDER {
+		t.Fatalf("unexpected format: %q", info.Source.Format)
 	}
 	if info.Hash == "" {
 		t.Fatal("expected hash")

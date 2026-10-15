@@ -54,8 +54,8 @@ func TestFetchSessionCachesURLSuccessAndDeduplicatesObjects(t *testing.T) {
 	if len(results[0].Origins) != 2 || results[0].Origins[0] != firstURL || results[0].Origins[1] != secondURL {
 		t.Fatalf("deduplicated origins = %v, want both URLs", results[0].Origins)
 	}
-	if results[0].Format != source.FormatDER || results[0].Source.Format != source.FormatDER {
-		t.Fatalf("download format = (%q,%q), want DER", results[0].Format, results[0].Source.Format)
+	if results[0].Source.Format != source.FormatDER {
+		t.Fatalf("download format = %q, want DER", results[0].Source.Format)
 	}
 }
 

@@ -6,11 +6,9 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"os"
 	"slices"
 	"time"
 
-	"github.com/cavoq/PCL/internal/fsutil"
 	"github.com/cavoq/PCL/internal/source"
 	"github.com/cavoq/PCL/internal/x509asn1"
 	"github.com/zmap/zcrypto/x509"
@@ -25,50 +23,27 @@ func LoadCertificates(path string, w io.Writer) ([]*Info, error) {
 }
 
 func LoadCertificatesWithSource(path string, sourceInfo source.Info, w io.Writer) ([]*Info, error) {
-	files, err := GetCertFiles(path)
+	loaded, err := source.LoadFiles(path, extensions, ParseCertificates, w)
 	if err != nil {
 		return nil, err
 	}
 
-	infoSource := sourceInfo
-	if infoSource.Type == "" {
-		infoSource.Type = source.Local
+	if sourceInfo.Type == "" {
+		sourceInfo.Type = source.Local
 	}
-
-	infos := make([]*Info, 0, len(files))
-	var skipped []error
-	for _, file := range files {
-		certs, format, err := loadCertificateFile(file)
-		if err != nil {
-			skipped = append(skipped, fmt.Errorf("%s: %w", file, err))
-			continue
-		}
-		infoSource.Format = format
-		for _, cert := range certs {
-			hash := sha256.Sum256(cert.Raw)
-			infos = append(infos, &Info{
-				Cert:     cert,
-				FilePath: file,
-				Hash:     hex.EncodeToString(hash[:]),
-				Source:   infoSource,
-				Format:   format,
-			})
-		}
+	infos := make([]*Info, 0, len(loaded))
+	for _, certificate := range loaded {
+		infoSource := sourceInfo
+		infoSource.Format = certificate.Format
+		hash := sha256.Sum256(certificate.Item.Raw)
+		infos = append(infos, &Info{
+			Cert:     certificate.Item,
+			FilePath: certificate.Path,
+			Hash:     hex.EncodeToString(hash[:]),
+			Source:   infoSource,
+		})
 	}
-
-	if len(infos) == 0 && len(skipped) > 0 {
-		return nil, fmt.Errorf("no valid items found in %s: %w", path, skipped[0])
-	}
-	fsutil.ReportSkipped(w, skipped)
 	return infos, nil
-}
-
-func loadCertificateFile(file string) ([]*x509.Certificate, source.Format, error) {
-	data, err := os.ReadFile(file)
-	if err != nil {
-		return nil, "", err
-	}
-	return ParseCertificates(data)
 }
 
 // BuildChain builds the longest certification path that starts at any of
@@ -200,7 +175,6 @@ func ClimbChainWithPool(chain, pool []*Info, timeout time.Duration, maxDepth int
 			Type:     GetCertType(issuerCert),
 			Position: len(result),
 			Source:   sourceInfo,
-			Format:   sourceInfo.Format,
 		})
 	}
 
@@ -226,7 +200,6 @@ func findSigningParentInPool(child *x509.Certificate, pool []*Info, seen *Certif
 			Cert:     info.Cert,
 			FilePath: info.FilePath,
 			Source:   info.Source,
-			Format:   info.Format,
 		}
 	}
 	return nil

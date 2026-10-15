@@ -43,8 +43,8 @@ func TestClimbChain_lePKCS7Bundle_selectsSigningParent(t *testing.T) {
 	if parent.SerialNumber.Cmp(realRoot.SerialNumber) != 0 {
 		t.Fatalf("selected serial %s, want pinned root %s", parent.SerialNumber, realRoot.SerialNumber)
 	}
-	if got[1].Format != source.FormatPKCS7 {
-		t.Fatalf("parent format = %q, want PKCS#7", got[1].Format)
+	if got[1].Source.Format != source.FormatPKCS7 {
+		t.Fatalf("parent format = %q, want PKCS#7", got[1].Source.Format)
 	}
 	if got[1].Source.Type != source.Extracted {
 		t.Fatalf("parent source type = %q, want extracted", got[1].Source.Type)

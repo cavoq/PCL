@@ -106,7 +106,7 @@ func TestParseCertificates_inputs(t *testing.T) {
 		{
 			name:    "malformed certificate in a bundle",
 			data:    join(leafPEM, testpki.PEM("CERTIFICATE", []byte{0x30, 0x00})),
-			wantErr: "PEM certificate 2",
+			wantErr: "PEM CERTIFICATE block 2",
 		},
 		{name: "PEM without certificates", data: testpki.PEM("X509 CRL", []byte{1}), wantErr: "no CERTIFICATE block"},
 		{name: "neither PEM nor DER", data: []byte("garbage"), wantErr: "PEM or DER"},
@@ -150,29 +150,6 @@ func TestLoadCertificates_PEMBundleBuildsChain(t *testing.T) {
 	}
 	if want := []string{TypeLeaf, TypeIntermediate, TypeRoot}; !slices.Equal(roles, want) {
 		t.Fatalf("chain from chain.pem = %v, want %v", roles, want)
-	}
-}
-
-func TestGetCertFiles_Directory(t *testing.T) {
-	files, err := GetCertFiles("../../tests/certs")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	// Minimum 4 original files, plus generated test certificates
-	if len(files) < 4 {
-		t.Errorf("expected at least 4 files, got %d", len(files))
-	}
-}
-
-func TestGetCertFiles_SingleFile(t *testing.T) {
-	files, err := GetCertFiles("../../tests/certs/leaf.pem")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if len(files) != 1 {
-		t.Errorf("expected 1 file, got %d", len(files))
 	}
 }
 

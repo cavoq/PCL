@@ -1,4 +1,4 @@
-// Package source provides certificate source metadata.
+// Package source describes where inputs come from and loads input files.
 package source
 
 type Type string
