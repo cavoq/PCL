@@ -5,12 +5,13 @@ import (
 	"encoding/pem"
 	"fmt"
 
+	"github.com/cavoq/PCL/internal/certparse"
 	"github.com/cavoq/PCL/internal/source"
 	"github.com/zmap/zcrypto/x509"
 )
 
 func ParseIssuerResponse(data []byte) ([]*x509.Certificate, source.Format, error) {
-	cert, err := x509.ParseCertificate(data)
+	cert, err := certparse.ParseCertificate(data)
 	if err == nil {
 		return []*x509.Certificate{cert}, source.FormatDER, nil
 	}
@@ -22,7 +23,7 @@ func ParseIssuerResponse(data []byte) ([]*x509.Certificate, source.Format, error
 
 	block, _ := pem.Decode(data)
 	if block != nil && block.Type == "CERTIFICATE" {
-		cert, err = x509.ParseCertificate(block.Bytes)
+		cert, err = certparse.ParseCertificate(block.Bytes)
 		if err != nil {
 			return nil, "", fmt.Errorf("failed to parse PEM certificate from CA Issuers: %w", err)
 		}

@@ -1,4 +1,8 @@
-package cert
+// Package certparse is the single entry point for parsing certificates.
+// zcrypto is the primary parser; a narrow compatibility path accepts
+// certificates with inherited DSA parameters or CRL distribution points that
+// only PCL's strict decoder understands.
+package certparse
 
 import (
 	"crypto/sha256"
@@ -25,11 +29,13 @@ var (
 	crlDistributionPointsZCryptoOID = zasn1.ObjectIdentifier{2, 5, 29, 31}
 )
 
-// parseCertificate keeps zcrypto as the primary parser. The compatibility
-// path is deliberately narrow: it only supplies omitted DSA parameters long
-// enough for zcrypto to project the certificate, or hides a CRL distribution
-// point after PCL's strict decoder has accepted its original DER.
-func parseCertificate(der []byte) (*x509.Certificate, error) {
+// ParseCertificate parses one DER certificate. The compatibility path is
+// deliberately narrow: it only supplies omitted DSA parameters long enough for
+// zcrypto to project the certificate, or hides a CRL distribution point after
+// PCL's strict decoder has accepted its original DER. A certificate with
+// inherited DSA parameters is returned with zero P, Q, and G; see
+// HasInheritedDSAParameters.
+func ParseCertificate(der []byte) (*x509.Certificate, error) {
 	certificate, strictErr := x509.ParseCertificate(der)
 	if strictErr == nil {
 		return certificate, nil
@@ -245,7 +251,7 @@ func restoreCertificateRepresentation(certificate *x509.Certificate, original ce
 			return fmt.Errorf("rewritten DSA key has type %T", certificate.PublicKey)
 		}
 		// Explicit zero values cannot pass zcrypto's strict DSA parser, making
-		// this an unambiguous marker until ResolveInheritedDSAParameters
+		// this an unambiguous marker until cert.ResolveInheritedDSAParameters
 		// supplies the issuer's parameters. They also make dsa.Verify fail
 		// safely instead of panic.
 		publicKey.Parameters = dsa.Parameters{P: new(big.Int), Q: new(big.Int), G: new(big.Int)}
@@ -417,4 +423,15 @@ func cloneElements(elements [][]byte) [][]byte {
 		cloned[index] = append([]byte(nil), elements[index]...)
 	}
 	return cloned
+}
+
+// HasInheritedDSAParameters reports whether certificate is a DSA certificate
+// parsed without its own parameters, which it inherits from its issuer.
+func HasInheritedDSAParameters(certificate *x509.Certificate) bool {
+	if certificate == nil {
+		return false
+	}
+	publicKey, ok := certificate.PublicKey.(*dsa.PublicKey)
+	return ok && publicKey.P != nil && publicKey.Q != nil && publicKey.G != nil &&
+		publicKey.P.Sign() == 0 && publicKey.Q.Sign() == 0 && publicKey.G.Sign() == 0
 }

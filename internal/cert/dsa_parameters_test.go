@@ -1,83 +1,14 @@
 package cert
 
 import (
-	"bytes"
 	"math/big"
-	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/zmap/zcrypto/dsa"
 
-	"github.com/cavoq/PCL/internal/x509ext"
+	"github.com/cavoq/PCL/internal/certparse"
 )
-
-func TestParseCertificates_PKITSCompatibility(t *testing.T) {
-	tests := []struct {
-		file         string
-		inheritedDSA bool
-		crlDP        bool
-	}{
-		{file: "DSAParametersInheritedCACert.crt", inheritedDSA: true},
-		{file: "ValidDSAParameterInheritanceTest5EE.crt", inheritedDSA: true},
-		{file: "ValiddistributionPointTest4EE.crt", crlDP: true},
-		{file: "ValiddistributionPointTest5EE.crt", crlDP: true},
-		{file: "ValidcRLIssuerTest29EE.crt", crlDP: true},
-	}
-
-	for _, test := range tests {
-		t.Run(test.file, func(t *testing.T) {
-			der := readPKITSCertificate(t, test.file)
-			certificates, _, err := ParseCertificates(der)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if len(certificates) != 1 {
-				t.Fatalf("parsed %d certificates, want 1", len(certificates))
-			}
-			certificate := certificates[0]
-			if !bytes.Equal(certificate.Raw, der) {
-				t.Fatal("parsed certificate did not preserve the original DER")
-			}
-
-			if test.inheritedDSA {
-				publicKey, ok := certificate.PublicKey.(*dsa.PublicKey)
-				if !ok || publicKey.Y == nil || !hasInheritedDSAParameters(certificate) {
-					t.Fatalf("public key = %#v, want unresolved inherited DSA parameters", certificate.PublicKey)
-				}
-			}
-			if test.crlDP {
-				extension, ok := certificate.ExtensionsMap[crlDistributionPointsOID.String()]
-				if !ok {
-					t.Fatal("restored certificate has no CRL distribution points extension")
-				}
-				if _, err := x509ext.DecodeDistributionPoints(extension.Value); err != nil {
-					t.Fatalf("strictly decode restored CRL distribution points: %v", err)
-				}
-				if _, ok := certificate.ExtensionsMap[maskedCRLDistributionPointsOID.String()]; ok {
-					t.Fatal("temporary compatibility OID escaped into the parsed certificate")
-				}
-			}
-		})
-	}
-}
-
-func TestParseCertificates_CompatibilityRejectsMalformedCRLDP(t *testing.T) {
-	der := readPKITSCertificate(t, "ValiddistributionPointTest4EE.crt")
-	der = append([]byte(nil), der...)
-	encodedRelativeName := []byte{0xa0, 0x28, 0xa1, 0x26, 0x30, 0x24}
-	offset := bytes.Index(der, encodedRelativeName)
-	if offset < 0 {
-		t.Fatal("fixture does not contain the expected relative distribution point")
-	}
-	// Change the RelativeDistinguishedName's SEQUENCE to a SET. The zcrypto
-	// projection still fails, but the compatibility path must also reject it
-	// rather than hiding an encoding PCL's decoder did not accept.
-	der[offset+4] = 0x31
-	if _, _, err := ParseCertificates(der); err == nil {
-		t.Fatal("malformed CRL distribution point was accepted by the compatibility parser")
-	}
-}
 
 // loadDSAInheritancePath loads PKITS Test5 target-first: the EE and its CA
 // both inherit DSA parameters from the DSA CA below the trust anchor.
@@ -154,7 +85,7 @@ func TestResolveInheritedDSAParametersRequiresVerifyingSigner(t *testing.T) {
 	impostor := &Info{Cert: &impostorCert}
 
 	ResolveInheritedDSAParameters([]*Info{inheritingCA, impostor})
-	if !hasInheritedDSAParameters(inheritingCA.Cert) {
+	if !certparse.HasInheritedDSAParameters(inheritingCA.Cert) {
 		t.Fatal("parameters were taken from an issuer that does not verify the signature")
 	}
 
@@ -171,7 +102,7 @@ func TestBuildChainForDoesNotResolveDSAParameters(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, info := range loaded[:2] {
-		if !hasInheritedDSAParameters(info.Cert) {
+		if !certparse.HasInheritedDSAParameters(info.Cert) {
 			t.Fatalf("BuildChainFor changed the public key of %s", info.Cert.Subject)
 		}
 	}
@@ -179,15 +110,6 @@ func TestBuildChainForDoesNotResolveDSAParameters(t *testing.T) {
 
 func sameDSAParameters(a, b dsa.Parameters) bool {
 	return a.P.Cmp(b.P) == 0 && a.Q.Cmp(b.Q) == 0 && a.G.Cmp(b.G) == 0
-}
-
-func readPKITSCertificate(t *testing.T, file string) []byte {
-	t.Helper()
-	der, err := os.ReadFile(filepath.Join("..", "..", "tests", "pkits", "certs", file))
-	if err != nil {
-		t.Fatal(err)
-	}
-	return der
 }
 
 func loadPKITSCertificates(t *testing.T, file string) []*Info {

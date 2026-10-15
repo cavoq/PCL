@@ -5,6 +5,8 @@ import (
 	"fmt"
 
 	"github.com/zmap/zcrypto/x509"
+
+	"github.com/cavoq/PCL/internal/certparse"
 )
 
 // BuildCertsOnlyPKCS7 wraps DER-encoded certificates in a PKCS#7 SignedData
@@ -131,7 +133,7 @@ func parseCertificateSet(data []byte) ([]*x509.Certificate, error) {
 			return nil, fmt.Errorf("failed to parse certificate element: %w", err)
 		}
 
-		cert, err := x509.ParseCertificate(certRaw.FullBytes)
+		cert, err := certparse.ParseCertificate(certRaw.FullBytes)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse certificate: %w", err)
 		}

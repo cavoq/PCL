@@ -31,7 +31,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Certificate parsing now supports inherited DSA parameters and uncommon
   CRL distribution-point encodings while preserving strict DER validation,
-  closing the final four expressible NIST PKITS gaps (244/244). Inherited
+  closing the final four expressible NIST PKITS gaps (244/244). The same
+  parser now also reads certificates from CA Issuers responses (DER, PEM and
+  PKCS#7) and embedded OCSP responder certificates. Inherited
   DSA parameters are resolved once while inputs are loaded, and only from an
   issuer whose key verifies the certificate's signature; a same-name issuer
   no longer supplies them.

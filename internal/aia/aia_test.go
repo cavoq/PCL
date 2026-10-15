@@ -1,8 +1,13 @@
 package aia
 
 import (
+	"bytes"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -211,4 +216,41 @@ func TestSelectIssuer(t *testing.T) {
 func testCertificateDER(t *testing.T, commonName string) []byte {
 	t.Helper()
 	return testpki.Issue(t, commonName, nil, testpki.CA()).DER
+}
+
+// TestParseIssuerResponseAcceptsCompatibilityCertificates checks that CA
+// Issuers responses parse certificates like local files do, including
+// inherited DSA parameters and CRL distribution points zcrypto rejects.
+func TestParseIssuerResponseAcceptsCompatibilityCertificates(t *testing.T) {
+	var ders [][]byte
+	for _, file := range []string{"DSAParametersInheritedCACert.crt", "ValiddistributionPointTest4EE.crt"} {
+		der, err := os.ReadFile(filepath.Join("..", "..", "tests", "pkits", "certs", file))
+		if err != nil {
+			t.Fatal(err)
+		}
+		ders = append(ders, der)
+	}
+	bundle, err := BuildCertsOnlyPKCS7(ders...)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	bodies := map[string][]byte{"PKCS7": bundle, "PEM PKCS7": testpki.PEM("PKCS7", bundle)}
+	for index, der := range ders {
+		bodies["DER "+strconv.Itoa(index)] = der
+		bodies["PEM "+strconv.Itoa(index)] = testpki.PEM("CERTIFICATE", der)
+	}
+	for name, body := range bodies {
+		t.Run(name, func(t *testing.T) {
+			certs, _, err := ParseIssuerResponse(body)
+			if err != nil {
+				t.Fatalf("ParseIssuerResponse: %v", err)
+			}
+			for _, certificate := range certs {
+				if !slices.ContainsFunc(ders, func(der []byte) bool { return bytes.Equal(der, certificate.Raw) }) {
+					t.Fatal("parsed certificate does not preserve the served DER")
+				}
+			}
+		})
+	}
 }

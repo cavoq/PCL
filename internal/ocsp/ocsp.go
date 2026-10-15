@@ -11,6 +11,7 @@ import (
 	zx509 "github.com/zmap/zcrypto/x509"
 	"golang.org/x/crypto/ocsp"
 
+	"github.com/cavoq/PCL/internal/certparse"
 	"github.com/cavoq/PCL/internal/source"
 )
 
@@ -27,12 +28,12 @@ type Info struct {
 }
 
 // ResponderCertificate returns the responder certificate embedded in the
-// response, parsed by zcrypto, or nil when there is none.
+// response, parsed like every other certificate, or nil when there is none.
 func (info *Info) ResponderCertificate() (*zx509.Certificate, error) {
 	if info == nil || info.Response == nil || info.Response.Certificate == nil {
 		return nil, nil
 	}
-	return zx509.ParseCertificate(info.Response.Certificate.Raw)
+	return certparse.ParseCertificate(info.Response.Certificate.Raw)
 }
 
 // standardCertificate parses a zcrypto certificate with crypto/x509, which

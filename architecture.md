@@ -37,6 +37,7 @@ flowchart LR
 | Package | Owns | Does not own |
 |---|---|---|
 | `internal/linter` | Configuration, acquisition, command orchestration, policy suites | Rule or cryptographic semantics |
+| `internal/certparse` | The one certificate parser for files, CA Issuers responses and OCSP responders | Chain building or parameter inheritance |
 | `internal/x509asn1`, `internal/x509ext` | Shared strict DER facts, optional-field presence, raw encodings | Trust decisions or rule verdicts |
 | `internal/x509node`, `internal/certnode`, `internal/crlnode`, `internal/ocspnode` | Shared and object-specific node projections | Network acquisition |
 | `internal/cert` | Certificate loading, profile semantics, names, purpose and constraints | Generic policy execution |

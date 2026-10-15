@@ -10,6 +10,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/cavoq/PCL/internal/certparse"
 	"github.com/cavoq/PCL/internal/source"
 	"github.com/cavoq/PCL/internal/x509asn1"
 	"github.com/zmap/zcrypto/dsa"
@@ -120,7 +121,7 @@ type dsaParameterResolver struct {
 }
 
 func (resolver *dsaParameterResolver) resolve(certificate *x509.Certificate) {
-	if certificate == nil || !hasInheritedDSAParameters(certificate) ||
+	if certificate == nil || !certparse.HasInheritedDSAParameters(certificate) ||
 		resolver.resolving[certificate] || resolver.resolved[certificate] {
 		return
 	}
@@ -152,12 +153,6 @@ func (resolver *dsaParameterResolver) signerParameters(certificate *x509.Certifi
 		}
 	}
 	return dsa.Parameters{}, false
-}
-
-func hasInheritedDSAParameters(certificate *x509.Certificate) bool {
-	publicKey, ok := certificate.PublicKey.(*dsa.PublicKey)
-	return ok && publicKey.P != nil && publicKey.Q != nil && publicKey.G != nil &&
-		publicKey.P.Sign() == 0 && publicKey.Q.Sign() == 0 && publicKey.G.Sign() == 0
 }
 
 func completeDSAParameters(certificate *x509.Certificate) (dsa.Parameters, bool) {

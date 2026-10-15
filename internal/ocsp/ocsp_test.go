@@ -2,6 +2,7 @@ package ocsp
 
 import (
 	"bytes"
+	"crypto/x509"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -170,5 +171,17 @@ func TestResponderCertificate(t *testing.T) {
 		if got, err := info.ResponderCertificate(); got != nil || err != nil {
 			t.Fatalf("ResponderCertificate() without an embedded certificate = %v, %v", got, err)
 		}
+	}
+}
+
+func TestResponderCertificateAcceptsCompatibilityCertificates(t *testing.T) {
+	der, err := os.ReadFile(filepath.Join("..", "..", "tests", "pkits", "certs", "ValiddistributionPointTest4EE.crt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	info := &Info{Response: &xocsp.Response{Certificate: &x509.Certificate{Raw: der}}}
+	got, err := info.ResponderCertificate()
+	if err != nil || got == nil || !bytes.Equal(got.Raw, der) {
+		t.Fatalf("ResponderCertificate() = %v, %v; want the embedded certificate", got, err)
 	}
 }

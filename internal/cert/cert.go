@@ -4,6 +4,7 @@ package cert
 import (
 	"errors"
 
+	"github.com/cavoq/PCL/internal/certparse"
 	"github.com/cavoq/PCL/internal/source"
 	"github.com/zmap/zcrypto/x509"
 
@@ -22,7 +23,7 @@ type Info struct {
 // ParseCertificates parses a DER certificate or every CERTIFICATE block of
 // PEM data. Other PEM blocks, such as keys, are ignored.
 func ParseCertificates(data []byte) ([]*x509.Certificate, source.Format, error) {
-	return source.DecodePEMOrDER(data, "CERTIFICATE", parseCertificate)
+	return source.DecodePEMOrDER(data, "CERTIFICATE", certparse.ParseCertificate)
 }
 
 // IsSelfSigned reports whether the certificate is self-issued and verifies
