@@ -83,10 +83,10 @@ as RFC 5280 coverage.
   malformed critical-extension vectors.
 - [`tests/deterministic_pki_test.go`](../tests/deterministic_pki_test.go)
   supplies deterministic application-purpose and path-length boundary vectors.
-- [`internal/cert/zcrypto/extension_parser_test.go`](../internal/cert/zcrypto/extension_parser_test.go),
-  [`key_extensions_test.go`](../internal/cert/zcrypto/key_extensions_test.go),
-  [`extension_schema_test.go`](../internal/cert/zcrypto/extension_schema_test.go),
-  and [`builder_test.go`](../internal/cert/zcrypto/builder_test.go) cover strict
+- [`internal/certnode/extension_parser_test.go`](../internal/certnode/extension_parser_test.go),
+  [`key_extensions_test.go`](../internal/certnode/key_extensions_test.go),
+  [`extension_schema_test.go`](../internal/certnode/extension_schema_test.go),
+  and [`builder_test.go`](../internal/certnode/builder_test.go) cover strict
   DER rejection, presence-preserving node schemas, and concrete-node
   `malformed` projection.
 - [`internal/cert/extension_dependencies_test.go`](../internal/cert/extension_dependencies_test.go),

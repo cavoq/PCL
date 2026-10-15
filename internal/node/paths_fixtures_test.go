@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/cavoq/PCL/internal/cert"
-	certzcrypto "github.com/cavoq/PCL/internal/cert/zcrypto"
+	"github.com/cavoq/PCL/internal/certnode"
 	"github.com/cavoq/PCL/internal/crl"
 	"github.com/cavoq/PCL/internal/crlnode"
 	"github.com/cavoq/PCL/internal/node"
@@ -29,7 +29,7 @@ func TestPathsResolveToTheirNodes(t *testing.T) {
 				return nil
 			}
 			for _, certificate := range certificates {
-				trees = append(trees, certzcrypto.BuildTree(certificate.Cert))
+				trees = append(trees, certnode.BuildTree(certificate.Cert))
 			}
 			return nil
 		})

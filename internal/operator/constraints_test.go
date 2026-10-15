@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/cavoq/PCL/internal/cert"
-	certzcrypto "github.com/cavoq/PCL/internal/cert/zcrypto"
+	"github.com/cavoq/PCL/internal/certnode"
 	"github.com/cavoq/PCL/internal/node"
 	"github.com/cavoq/PCL/internal/x509node"
 	zasn1 "github.com/zmap/zcrypto/encoding/asn1"
@@ -220,7 +220,7 @@ func TestNoUnknownCriticalExtensionsRejectsUnprocessedExtensionContent(t *testin
 				Critical: true,
 				Value:    test.value,
 			}}}
-			target := certzcrypto.BuildTree(certificate)
+			target := certnode.BuildTree(certificate)
 			extension := target.Children["extensions"].Children[test.identifier.String()]
 			if unprocessed := extension.Children["unprocessed"]; unprocessed == nil || unprocessed.Value != true {
 				t.Fatal("extension content was not marked unprocessed")
@@ -234,7 +234,7 @@ func TestNoUnknownCriticalExtensionsRejectsUnprocessedExtensionContent(t *testin
 			}
 
 			certificate.Extensions[0].Critical = false
-			target = certzcrypto.BuildTree(certificate)
+			target = certnode.BuildTree(certificate)
 			got, err = op.Evaluate(target, nil, nil)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)

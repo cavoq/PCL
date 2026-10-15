@@ -1,5 +1,7 @@
-// Package x509ext provides format-neutral, strict DER decoders for X.509
-// extension structures shared by certificates and CRLs.
+// Package x509ext provides strict DER decoders for the X.509 extensions of
+// certificates and CRLs. Certificate and revocation logic decide on the
+// typed values they return, and the node packages project the same values
+// into trees.
 package x509ext
 
 import (
@@ -71,4 +73,27 @@ func (v NonNegativeInteger) Scalar() any {
 		return v.Int
 	}
 	return v.Decimal
+}
+
+// readImplicitNonNegativeInteger reads an implicitly tagged INTEGER
+// constrained to (0..MAX) and returns its value and full encoding.
+func readImplicitNonNegativeInteger(
+	input *cryptobyte.String,
+	tag cryptobyte_asn1.Tag,
+) (value NonNegativeInteger, raw []byte, err error) {
+	var element cryptobyte.String
+	if !input.ReadASN1Element(&element, tag) {
+		return NonNegativeInteger{}, nil, fmt.Errorf("invalid implicitly tagged INTEGER")
+	}
+
+	encoded := element
+	var content cryptobyte.String
+	if !encoded.ReadASN1(&content, tag) || !encoded.Empty() {
+		return NonNegativeInteger{}, nil, fmt.Errorf("invalid implicitly tagged INTEGER")
+	}
+	value, err = DecodeNonNegativeIntegerContent(content)
+	if err != nil {
+		return NonNegativeInteger{}, nil, err
+	}
+	return value, append([]byte(nil), element...), nil
 }

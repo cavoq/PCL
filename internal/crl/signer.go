@@ -7,7 +7,6 @@ import (
 	"sort"
 	"sync"
 
-	certzcrypto "github.com/cavoq/PCL/internal/cert/zcrypto"
 	"github.com/cavoq/PCL/internal/oid"
 	"github.com/cavoq/PCL/internal/x509ext"
 	"github.com/zmap/zcrypto/x509"
@@ -270,7 +269,7 @@ func crlSignUsagePermits(certificate *x509.Certificate) bool {
 	if !unique {
 		return false
 	}
-	if _, err := certzcrypto.ParseKeyUsageStrict(extension.Value); err != nil {
+	if _, err := x509ext.DecodeKeyUsage(extension.Value); err != nil {
 		return false
 	}
 	return certificate.KeyUsage&x509.KeyUsageCRLSign != 0

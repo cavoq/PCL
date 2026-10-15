@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	certzcrypto "github.com/cavoq/PCL/internal/cert/zcrypto"
+	"github.com/cavoq/PCL/internal/certnode"
 	"github.com/cavoq/PCL/internal/node"
 	"github.com/cavoq/PCL/internal/oid"
 	"github.com/cavoq/PCL/internal/operator"
@@ -143,7 +143,7 @@ func TestMalformedProfileExtensionDERVectors(t *testing.T) {
 
 	for _, vector := range vectors {
 		t.Run(vector.name, func(t *testing.T) {
-			tree := certzcrypto.BuildTree(&x509.Certificate{Extensions: []pkix.Extension{{
+			tree := certnode.BuildTree(&x509.Certificate{Extensions: []pkix.Extension{{
 				Id:       vector.objectID,
 				Critical: true,
 				Value:    append([]byte(nil), vector.value...),

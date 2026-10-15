@@ -1,8 +1,8 @@
 package cert
 
 import (
-	certzcrypto "github.com/cavoq/PCL/internal/cert/zcrypto"
 	"github.com/cavoq/PCL/internal/oid"
+	"github.com/cavoq/PCL/internal/x509ext"
 	"github.com/zmap/zcrypto/x509"
 )
 
@@ -59,7 +59,7 @@ func AnyExtendedKeyUsageNotCritical(certificate *x509.Certificate) bool {
 	if !unique {
 		return false
 	}
-	identifiers, err := certzcrypto.DecodeExtendedKeyUsageOIDsStrict(extension.Value)
+	identifiers, err := x509ext.DecodeExtendedKeyUsageOIDsStrict(extension.Value)
 	if err != nil {
 		return false
 	}
@@ -123,7 +123,7 @@ func extendedKeyUsagePermits(certificate *x509.Certificate, requested applicatio
 	if !unique {
 		return false
 	}
-	identifiers, err := certzcrypto.DecodeExtendedKeyUsageOIDsStrict(extension.Value)
+	identifiers, err := x509ext.DecodeExtendedKeyUsageOIDsStrict(extension.Value)
 	if err != nil {
 		return false
 	}

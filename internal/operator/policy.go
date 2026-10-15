@@ -7,7 +7,6 @@ import (
 	"github.com/zmap/zcrypto/x509"
 
 	certpkg "github.com/cavoq/PCL/internal/cert"
-	certzcrypto "github.com/cavoq/PCL/internal/cert/zcrypto"
 	"github.com/cavoq/PCL/internal/node"
 	"github.com/cavoq/PCL/internal/oid"
 	"github.com/cavoq/PCL/internal/x509ext"
@@ -89,7 +88,7 @@ func certificatePolicyPath(ctx *EvaluationContext) ([]*x509.Certificate, bool) {
 type certificatePolicyFacts struct {
 	hasPolicies bool
 	policies    []string
-	mappings    []certzcrypto.PolicyMapping
+	mappings    []x509ext.PolicyMapping
 	// Counters are -1 when absent or too large to constrain a path.
 	requireExplicitPolicy int
 	inhibitPolicyMapping  int
@@ -111,7 +110,7 @@ func decodeCertificatePolicyFacts(certificate *x509.Certificate) (certificatePol
 		return facts, err
 	}
 	if present {
-		policies, err := certzcrypto.DecodeCertificatePolicyIdentifiersStrict(value)
+		policies, err := x509ext.DecodeCertificatePolicyIdentifiersStrict(value)
 		if err != nil {
 			return facts, err
 		}
@@ -129,7 +128,7 @@ func decodeCertificatePolicyFacts(certificate *x509.Certificate) (certificatePol
 		return facts, err
 	}
 	if present {
-		mappings, err := certzcrypto.DecodePolicyMappingsStrict(value)
+		mappings, err := x509ext.DecodePolicyMappingsStrict(value)
 		if err != nil {
 			return facts, err
 		}
@@ -141,7 +140,7 @@ func decodeCertificatePolicyFacts(certificate *x509.Certificate) (certificatePol
 		return facts, err
 	}
 	if present {
-		constraints, err := certzcrypto.DecodePolicyConstraintsStrict(value)
+		constraints, err := x509ext.DecodePolicyConstraintsStrict(value)
 		if err != nil {
 			return facts, err
 		}
@@ -158,7 +157,7 @@ func decodeCertificatePolicyFacts(certificate *x509.Certificate) (certificatePol
 		return facts, err
 	}
 	if present {
-		skipCerts, err := certzcrypto.DecodeInhibitAnyPolicyStrict(value)
+		skipCerts, err := x509ext.DecodeInhibitAnyPolicyStrict(value)
 		if err != nil {
 			return facts, err
 		}
@@ -329,7 +328,7 @@ func (tree *policyTree) addCertificatePolicies(i int, policies []string, allowAn
 
 // applyPolicyMappings implements 6.1.4 (a) and (b) for certificate i. It
 // reports false when a mapping involves anyPolicy.
-func (tree *policyTree) applyPolicyMappings(i int, mappings []certzcrypto.PolicyMapping, allowed bool) bool {
+func (tree *policyTree) applyPolicyMappings(i int, mappings []x509ext.PolicyMapping, allowed bool) bool {
 	var issuerPolicies []string
 	subjectPolicies := make(map[string][]string)
 	for _, mapping := range mappings {

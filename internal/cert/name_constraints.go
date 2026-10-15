@@ -7,7 +7,6 @@ import (
 
 	"github.com/zmap/zcrypto/x509"
 
-	certzcrypto "github.com/cavoq/PCL/internal/cert/zcrypto"
 	"github.com/cavoq/PCL/internal/oid"
 	"github.com/cavoq/PCL/internal/x509asn1"
 	"github.com/cavoq/PCL/internal/x509ext"
@@ -111,7 +110,7 @@ func (constraints nameConstraints) merge(other nameConstraints) nameConstraints 
 }
 
 // directoryNameSubtrees returns the directoryName bases in subtrees.
-func directoryNameSubtrees(subtrees []certzcrypto.NameConstraintSubtreeFacts) [][]byte {
+func directoryNameSubtrees(subtrees []x509ext.NameConstraintSubtreeFacts) [][]byte {
 	var bases [][]byte
 	for _, subtree := range subtrees {
 		if subtree.BaseTag == 4 {
@@ -179,7 +178,7 @@ func extractNameConstraints(certificate *x509.Certificate) (nameConstraints, nam
 		// A malformed unique extension yields no directoryName constraints here;
 		// profile rules report its malformation separately, preserving the prior
 		// behavior for typed facts recovered by zcrypto.
-		if facts, err := certzcrypto.DecodeNameConstraintsStrict(extension.Value); err == nil {
+		if facts, err := x509ext.DecodeNameConstraintsStrict(extension.Value); err == nil {
 			permittedDirectoryNames = directoryNameSubtrees(facts.PermittedSubtrees)
 			excludedDirectoryNames = directoryNameSubtrees(facts.ExcludedSubtrees)
 		}

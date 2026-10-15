@@ -3,7 +3,6 @@ package cert
 import (
 	"strconv"
 
-	certzcrypto "github.com/cavoq/PCL/internal/cert/zcrypto"
 	"github.com/cavoq/PCL/internal/oid"
 	"github.com/cavoq/PCL/internal/x509ext"
 	"github.com/zmap/zcrypto/x509"
@@ -81,12 +80,12 @@ func NameConstraintsDistancesValid(certificate *x509.Certificate) bool {
 		return false
 	}
 
-	facts, err := certzcrypto.DecodeNameConstraintsStrict(extension.Value)
+	facts, err := x509ext.DecodeNameConstraintsStrict(extension.Value)
 	if err != nil {
 		return false
 	}
 	subtrees := append(
-		append([]certzcrypto.NameConstraintSubtreeFacts(nil), facts.PermittedSubtrees...),
+		append([]x509ext.NameConstraintSubtreeFacts(nil), facts.PermittedSubtrees...),
 		facts.ExcludedSubtrees...,
 	)
 	for _, subtree := range subtrees {
@@ -114,7 +113,7 @@ func CRLDistributionPointsDependenciesValid(certificate *x509.Certificate) bool 
 		return false
 	}
 
-	facts, err := certzcrypto.DecodeCRLDistributionPointsStrict(extension.Value)
+	facts, err := x509ext.DecodeCRLDistributionPointsStrict(extension.Value)
 	if err != nil {
 		return false
 	}
@@ -158,7 +157,7 @@ func PolicyMappingsDependenciesValid(certificate *x509.Certificate) bool {
 		return false
 	}
 
-	mappings, err := certzcrypto.DecodePolicyMappingsStrict(extension.Value)
+	mappings, err := x509ext.DecodePolicyMappingsStrict(extension.Value)
 	if err != nil {
 		return false
 	}
@@ -186,7 +185,7 @@ func PolicyMappingsIssuerPoliciesPresent(certificate *x509.Certificate) bool {
 		return false
 	}
 
-	mappings, err := certzcrypto.DecodePolicyMappingsStrict(mappingsExtension.Value)
+	mappings, err := x509ext.DecodePolicyMappingsStrict(mappingsExtension.Value)
 	if err != nil {
 		return false
 	}
@@ -198,7 +197,7 @@ func PolicyMappingsIssuerPoliciesPresent(certificate *x509.Certificate) bool {
 	if !unique {
 		return false
 	}
-	policyIdentifiers, err := certzcrypto.DecodeCertificatePolicyIdentifiersStrict(policiesExtension.Value)
+	policyIdentifiers, err := x509ext.DecodeCertificatePolicyIdentifiersStrict(policiesExtension.Value)
 	if err != nil {
 		return false
 	}
@@ -243,24 +242,24 @@ func caOnlyExtensionValid(certificate *x509.Certificate, identifier string) bool
 
 func basicConstraintsProfileFacts(
 	certificate *x509.Certificate,
-) (certzcrypto.BasicConstraintsFacts, bool) {
+) (x509ext.BasicConstraintsFacts, bool) {
 	if certificate == nil {
-		return certzcrypto.BasicConstraintsFacts{}, false
+		return x509ext.BasicConstraintsFacts{}, false
 	}
 	match := certificateExtension(certificate, oid.BasicConstraints)
 	if match.Present() {
 		extension, unique := match.Extension()
 		if !unique {
-			return certzcrypto.BasicConstraintsFacts{}, false
+			return x509ext.BasicConstraintsFacts{}, false
 		}
-		facts, err := certzcrypto.DecodeBasicConstraintsStrict(extension.Value)
+		facts, err := x509ext.DecodeBasicConstraintsStrict(extension.Value)
 		return facts, err == nil
 	}
 
 	// Preserve direct domain-test and adapter compatibility for callers that
 	// supply typed x509 facts without the raw extension.
 	present := certificate.MaxPathLen > 0 || certificate.MaxPathLenZero
-	return certzcrypto.BasicConstraintsFacts{
+	return x509ext.BasicConstraintsFacts{
 		CA:                       certificate.BasicConstraintsValid && certificate.IsCA,
 		PathLenConstraint:        certificate.MaxPathLen,
 		PathLenConstraintDecimal: strconv.Itoa(certificate.MaxPathLen),

@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/cavoq/PCL/internal/cert"
-	certzcrypto "github.com/cavoq/PCL/internal/cert/zcrypto"
+	"github.com/cavoq/PCL/internal/certnode"
 	"github.com/cavoq/PCL/internal/crl"
 	"github.com/cavoq/PCL/internal/crlnode"
 	"github.com/cavoq/PCL/internal/node"
@@ -110,7 +110,7 @@ func ChainSubjects(ctx Context) []Subject {
 		if c == nil || c.Cert == nil {
 			continue
 		}
-		tree := certzcrypto.BuildTree(c.Cert)
+		tree := certnode.BuildTree(c.Cert)
 		projectApplicationPurpose(tree, ctx.ApplicationPurpose)
 
 		if c.Source.Format != "" && c.Source.Type != source.Local {
@@ -227,7 +227,7 @@ func ocspSignerSubject(ctx Context, ocspInfo *ocsp.Info, now time.Time) (Subject
 		return Subject{}, false
 	}
 
-	ocspSignerTree := certzcrypto.BuildTree(zcryptoSignerCert)
+	ocspSignerTree := certnode.BuildTree(zcryptoSignerCert)
 	ocspSignerInfo := &cert.Info{
 		Cert:     zcryptoSignerCert,
 		FilePath: ocspInfo.FilePath + " (signing cert)",
