@@ -55,11 +55,11 @@ const (
 	EvidenceCertificateDistributionPoint EvidenceRejection = "certificate-distribution-point"
 )
 
-// SignerAuthorizer is the P4 integration boundary. P3 authenticates the CRL
-// issuer name, AKI, signature, and cRLSign usage; an implementation with a
-// path engine can additionally require a signer path to the target path's
-// trust anchor. A nil authorizer retains the established contract that the
-// caller-supplied issuer pool is trusted input. Implementations must return a
+// SignerAuthorizer makes the final decision about a CRL signer. The crl
+// package itself checks the CRL issuer name, AKI, signature and cRLSign
+// usage; an authorizer can additionally require, for example, a valid,
+// unrevoked signer or a signer path to the target's trust anchor. A nil
+// authorizer treats the caller-supplied issuer pool as trusted input. Implementations must return a
 // stable decision for the same target, signer, and list during one assessment;
 // they must also be concurrency-safe when their Catalog is assessed
 // concurrently.

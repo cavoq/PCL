@@ -110,7 +110,7 @@ type RevocationListFacts struct {
 	UnsupportedCriticalExtensionOIDs []string
 }
 
-// DecodeRevocationListStrict decodes every P3-supported CRL and CRL-entry
+// DecodeRevocationListStrict decodes every supported CRL and CRL-entry
 // extension. Duplicate OIDs and malformed implemented values are errors;
 // unsupported critical extensions are returned explicitly for fail-closed
 // domain processing.

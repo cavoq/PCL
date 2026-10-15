@@ -56,9 +56,9 @@ func PathLenConstraintValid(current *Info, chain []*Info) bool {
 	return nonSelfIssuedIntermediates <= constraint.PathLenConstraint
 }
 
-// IsSelfIssued reports whether a certificate's subject and issuer names are
-// the same. Exact DER equality is intentionally used when available; complete
-// RFC 5280 Section 7 name comparison remains P4 work.
+// IsSelfIssued reports whether a certificate's subject and issuer names
+// match by the RFC 5280 Section 7.1 rules, or by their string forms for
+// certificates without encoded names.
 func IsSelfIssued(certificate *x509.Certificate) bool {
 	if certificate == nil {
 		return false

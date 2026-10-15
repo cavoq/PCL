@@ -30,14 +30,14 @@ var processedExtensionRegistry = []processedExtensionDefinition{
 	{AuthorityInfoAccess, ExtensionInCertificate},
 	{FreshestCRL, ExtensionInCertificate},
 
-	// P3 CRL extensions with strict typed decoding and domain consumers.
+	// CRL extensions with strict typed decoding and domain consumers.
 	{AuthorityKeyIdentifier, ExtensionInCRL},
 	{CRLNumber, ExtensionInCRL},
 	{DeltaCRLIndicator, ExtensionInCRL},
 	{IssuingDistributionPoint, ExtensionInCRL},
 	{FreshestCRL, ExtensionInCRL},
 
-	// P3 CRL-entry extensions with strict typed decoding.
+	// CRL-entry extensions with strict typed decoding.
 	{CRLReason, ExtensionInCRLEntry},
 	{InvalidityDate, ExtensionInCRLEntry},
 	{CertificateIssuer, ExtensionInCRLEntry},

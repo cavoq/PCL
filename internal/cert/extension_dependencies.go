@@ -98,9 +98,9 @@ func NameConstraintsDistancesValid(certificate *x509.Certificate) bool {
 }
 
 // CRLDistributionPointsDependenciesValid checks certificate-profile
-// dependencies that do not require fetching or applying a CRL. Actual
-// distribution-point scope, issuer resolution, and reason-mask processing are
-// P3 responsibilities.
+// dependencies that do not require fetching or applying a CRL. Distribution
+// point scope, CRL issuer resolution and reason masks are applied by the
+// revocation processing in package crl.
 func CRLDistributionPointsDependenciesValid(certificate *x509.Certificate) bool {
 	if certificate == nil {
 		return false

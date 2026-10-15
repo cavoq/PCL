@@ -35,10 +35,10 @@ type Context struct {
 	// revocation policy.
 	RevocationRequested bool
 	ValidationTime      time.Time
-	// CRLSignerAuthorizer lets a path engine require the CRL signer to chain
-	// to the target certificate's trust anchor. P3 leaves it nil; P4 can
-	// supply the path-owned decision without changing or duplicating CRL
-	// processing in the evaluator.
+	// CRLSignerAuthorizer decides whether a CRL signer that passed the CRL
+	// checks may sign for the target certificate. Nil selects the default:
+	// signers in the chain are authorized, other signers must be valid and
+	// not revoked under the same CRLs.
 	CRLSignerAuthorizer crl.SignerAuthorizer
 
 	// ApplicationPurpose is an optional friendly EKU name or dotted EKU OID

@@ -59,7 +59,7 @@ func certVerifiesCRLSignature(
 	// policy. RFC 5280 Section 6.3 treats those as separate steps: a dedicated
 	// CRL signer need not be a CA, and cRLSign is required only when Key Usage
 	// is present. Keep this helper cryptographic; the revocation assessment
-	// owns cRLSign and its P4 signer-path authorization hook.
+	// owns cRLSign and the SignerAuthorizer decision.
 	return cert.CheckSignature(
 		revocationList.SignatureAlgorithm,
 		revocationList.RawTBSRevocationList,
