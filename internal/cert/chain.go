@@ -35,25 +35,27 @@ func LoadCertificatesWithSource(path string, sourceInfo source.Info) ([]*Info, e
 			continue
 		}
 
-		cert, format, err := parseCertificate(data)
+		certs, format, err := ParseCertificates(data)
 		if err != nil {
 			firstErr = cmp.Or(firstErr, fmt.Errorf("%s: %w", file, err))
 			continue
 		}
 
-		hash := sha256.Sum256(cert.Raw)
 		infoSource := sourceInfo
 		if infoSource.Type == "" {
 			infoSource.Type = source.Local
 		}
 		infoSource.Format = format
-		infos = append(infos, &Info{
-			Cert:     cert,
-			FilePath: file,
-			Hash:     hex.EncodeToString(hash[:]),
-			Source:   infoSource,
-			Format:   format,
-		})
+		for _, cert := range certs {
+			hash := sha256.Sum256(cert.Raw)
+			infos = append(infos, &Info{
+				Cert:     cert,
+				FilePath: file,
+				Hash:     hex.EncodeToString(hash[:]),
+				Source:   infoSource,
+				Format:   format,
+			})
+		}
 	}
 
 	if len(infos) == 0 && len(files) > 0 {

@@ -25,26 +25,33 @@ type Info struct {
 	Format   source.Format
 }
 
-func ParseCertificate(data []byte) (*x509.Certificate, error) {
-	cert, _, err := parseCertificate(data)
-	return cert, err
-}
+// ParseCertificates parses a DER certificate or every CERTIFICATE block of
+// PEM data. Other PEM blocks, such as keys, are ignored.
+func ParseCertificates(data []byte) ([]*x509.Certificate, source.Format, error) {
+	block, rest := pem.Decode(data)
+	if block == nil {
+		cert, err := x509.ParseCertificate(data)
+		if err != nil {
+			return nil, "", fmt.Errorf("failed to parse PEM or DER certificate: %w", err)
+		}
+		return []*x509.Certificate{cert}, source.FormatDER, nil
+	}
 
-func parseCertificate(data []byte) (*x509.Certificate, source.Format, error) {
-	block, _ := pem.Decode(data)
-	if block != nil && block.Type == "CERTIFICATE" {
+	var certs []*x509.Certificate
+	for ; block != nil; block, rest = pem.Decode(rest) {
+		if block.Type != "CERTIFICATE" {
+			continue
+		}
 		cert, err := x509.ParseCertificate(block.Bytes)
 		if err != nil {
-			return nil, "", err
+			return nil, "", fmt.Errorf("PEM certificate %d: %w", len(certs)+1, err)
 		}
-		return cert, source.FormatPEM, nil
+		certs = append(certs, cert)
 	}
-
-	cert, err := x509.ParseCertificate(data)
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to parse PEM or DER certificate: %w", err)
+	if len(certs) == 0 {
+		return nil, "", errors.New("no CERTIFICATE block in PEM data")
 	}
-	return cert, source.FormatDER, nil
+	return certs, source.FormatPEM, nil
 }
 
 func GetCertFiles(path string) ([]string, error) {

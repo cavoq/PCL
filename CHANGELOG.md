@@ -44,6 +44,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   no longer shifts the chain positions of the certificates it shares with
   the certificate chain, which made `signatureValid`, `issuedBy` and
   `akiMatchesSki` check those certificates against the wrong issuer.
+- PEM files with several certificates, such as an issuer bundle passed with
+  `--issuer`, supply every certificate instead of only the first.
 
 ## [5.1.0] - 2026-10-14
 
