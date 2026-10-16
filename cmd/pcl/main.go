@@ -20,7 +20,7 @@ import (
 	"github.com/cavoq/PCL/internal/policy"
 )
 
-var version = "5.2.0"
+var version = "6.0.0"
 
 // evaluationTime fixes the evaluation time of lint and inspect runs when set;
 // the golden tests use it, the CLI always evaluates at the current time.

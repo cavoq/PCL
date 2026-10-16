@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.0.0] - 2026-10-16
+
+### Breaking changes
+- Rule results explain their verdict only through `findings`; the `details`
+  string is gone from JSON and YAML (see Changed and Migration notes).
+- A `when` condition on an absent target skips the rule instead of failing,
+  and `neq` and `notIn` pass on an absent target.
+- A dNSName name constraint with an OpenSSL-style leading period
+  (`.example.com`) is malformed and rejects the certificates below the CA.
+- The RFC 5280 policy fails SAN dNSNames that are not in the preferred name
+  syntax, such as names with an underscore.
+- With `--trust-anchor`, rules about a certificate's relation to its issuer
+  skip trust anchors, including self-signed ones, where they used to pass.
+- When the constructed path fails validation, a valid alternative path may be
+  evaluated, so the linted chain can differ from earlier versions.
+
 ### Added
 - The shipped policy packs are embedded in the binary. `--policy rfc5280`
   (or `builtin:rfc5280`) selects one by id without the repository, policy
@@ -16,25 +32,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A Public Suffix List snapshot is embedded and used when neither
   `--psl-file` nor the data directory provides a list, so PSL and TLD rules
   work offline; `pcl update-data` still fetches a newer list.
-- CLI golden tests over the vendored PKITS data pin the text, JSON and YAML
-  output, `inspect`, `policies` and `test`, with the built-in policies and
-  the embedded Public Suffix List; `make golden` accepts an intended change.
-- A Makefile as the development entry point (`make check`, `cover`, `limbo`,
-  `fuzz`, `lint`, `schema`, ...); CI runs the same targets. It replaces the
-  limbo, fuzz and Let's Encrypt fixture scripts, pins golangci-lint and
-  govulncheck, and coverage now includes the integration tests.
 - Policy test expectations accept `failed`, the exact list of rules that
   fail for an input (`[]` for none).
-- `make fixtures` regenerates every certificate, CRL and OCSP test fixture
-  with the Go program `tests/fixturegen`, replacing the OpenSSL scripts
-  `mkcerts.sh` and `gen-nc-certs.sh`. The CRL and OCSP fixtures had no
-  generator. `revoked-leaf.crl` now verifies against its issuer; the
-  invalid-signature case uses the new `revoked-leaf-wrong-signature.crl`.
-  The DER vectors that tests built in code are generated into
-  `tests/vectors`.
-- The integration scenarios in `tests/cases`, with their own format and
-  per-role rule counts, are policy suites in `tests/policy-suites`, run by
-  `pcl test`; expectations name the failing rules instead of counting them.
 - Optional descriptive policy `metadata` with title, standard, edition, source,
   description, and relevant input names. The parser and editor schema validate
   it; it does not change evaluation or inherit through includes.
@@ -63,12 +62,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `path.peer-name` finding per name; the common name is not consulted and a
   wildcard matches only as the whole leftmost label. Requires
   `--trust-anchor`. Policy metadata accepts `peerNames` as an input name.
-- x509-limbo conformance suite in the integration tests, including the
-  BetterTLS name-constraint and path-building cases, run against the path
-  engine and the shipped RFC 5280 profile with each testcase's expected peer
-  names. `make limbo-fetch` downloads the pinned testcases;
-  9737 of 9802 reach the limbo result, and the differences are listed by
-  cause in `tests/limbo/known-gaps.yaml`.
 
 ### Fixed
 - When the best-ranked certification path fails validation, evaluation tries
@@ -164,6 +157,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Purpose-aware policies use `--purpose` and `applicationPurposeValid`.
   Wildcard purposes are rejected; private EKUs fail closed when end-entity
   Key Usage is present. Fixed-purpose `ekuContains` rules remain available.
+
+### Development
+- CLI golden tests over the vendored PKITS data pin the text, JSON and YAML
+  output, `inspect`, `policies` and `test`, with the built-in policies and
+  the embedded Public Suffix List; `make golden` accepts an intended change.
+- A Makefile as the development entry point (`make check`, `cover`, `limbo`,
+  `fuzz`, `lint`, `schema`, ...); CI runs the same targets. It replaces the
+  limbo, fuzz and Let's Encrypt fixture scripts, pins golangci-lint and
+  govulncheck, and coverage now includes the integration tests.
+- `make fixtures` regenerates every certificate, CRL and OCSP test fixture
+  with the Go program `tests/fixturegen`, replacing the OpenSSL scripts
+  `mkcerts.sh` and `gen-nc-certs.sh`. The CRL and OCSP fixtures had no
+  generator. `revoked-leaf.crl` now verifies against its issuer; the
+  invalid-signature case uses the new `revoked-leaf-wrong-signature.crl`.
+  The DER vectors that tests built in code are generated into
+  `tests/vectors`.
+- The integration scenarios in `tests/cases`, with their own format and
+  per-role rule counts, are policy suites in `tests/policy-suites`, run by
+  `pcl test`; expectations name the failing rules instead of counting them.
+- x509-limbo conformance suite in the integration tests, including the
+  BetterTLS name-constraint and path-building cases, run against the path
+  engine and the shipped RFC 5280 profile with each testcase's expected peer
+  names. `make limbo-fetch` downloads the pinned testcases;
+  9753 of 9802 reach the limbo result, and the differences are listed by
+  cause in `tests/limbo/known-gaps.yaml`.
 
 ## [5.2.0] - 2026-10-15
 
@@ -492,7 +510,8 @@ Review any policies using `isNull` or absent-field checks against the updated no
 
 - See git history for earlier changes
 
-[Unreleased]: https://github.com/cavoq/PCL/compare/v5.2.0...HEAD
+[Unreleased]: https://github.com/cavoq/PCL/compare/v6.0.0...HEAD
+[6.0.0]: https://github.com/cavoq/PCL/compare/v5.2.0...v6.0.0
 [5.2.0]: https://github.com/cavoq/PCL/compare/v5.1.0...v5.2.0
 [5.1.0]: https://github.com/cavoq/PCL/compare/v5.0.0...v5.1.0
 [5.0.0]: https://github.com/cavoq/PCL/compare/v4.0.0...v5.0.0
