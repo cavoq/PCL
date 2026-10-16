@@ -77,7 +77,8 @@ metadata:
 | `inputs` | Relevant evidence/runtime input names, not mandatory requirements |
 
 All fields are optional. Input names are `certificate`, `issuers`,
-`trustAnchors`, `crl`, `ocsp`, `purpose`, `validationTime`, and `psl`; duplicates
+`trustAnchors`, `crl`, `ocsp`, `purpose`, `peerNames`, `validationTime`, and
+`psl`; duplicates
 and unknown names are rejected. Unknown metadata keys are also rejected.
 
 Metadata is available on the parsed policy for documentation and tooling. It

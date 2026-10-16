@@ -1,6 +1,7 @@
 package path
 
 import (
+	stdx509 "crypto/x509"
 	"path/filepath"
 	"reflect"
 	"testing"
@@ -133,6 +134,51 @@ func TestValidateRejectsMalformedProgrammaticInputs(t *testing.T) {
 
 func pathInfo(certificate *testpki.Certificate) *cert.Info {
 	return &cert.Info{Cert: certificate.Cert}
+}
+
+func TestValidatePeerNames(t *testing.T) {
+	root := testpki.Issue(t, "Root", nil, testpki.CA(), testpki.Serial(1))
+	leaf := testpki.Issue(t, "Leaf", root, testpki.Serial(2), testpki.Mutate(func(template *stdx509.Certificate) {
+		template.DNSNames = []string{"www.example.com"}
+	}))
+
+	validate := func(names ...string) Result {
+		t.Helper()
+		var peerNames []cert.PeerName
+		for _, value := range names {
+			name, err := cert.ParsePeerName(value)
+			if err != nil {
+				t.Fatal(err)
+			}
+			peerNames = append(peerNames, name)
+		}
+		return Validate(Inputs{
+			Chain:          []*cert.Info{pathInfo(leaf), pathInfo(root)},
+			TrustAnchors:   []*cert.Info{pathInfo(root)},
+			ValidationTime: time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
+			PeerNames:      peerNames,
+			RevocationMode: RevocationNone,
+		})
+	}
+
+	if result := validate(); hasFinding(result, "path.peer-name") {
+		t.Fatalf("validation without peer names reported %#v", result.Findings)
+	}
+	if result := validate("www.example.com"); !result.Valid || !hasFinding(result, "path.peer-name") {
+		t.Fatalf("matching peer name: valid %v, failures %q", result.Valid, result.FailureSummary())
+	}
+	if result := validate("www.example.com", "other.example.com"); result.Valid || !hasFailedFinding(result, "path.peer-name") {
+		t.Fatalf("one unmatched peer name: valid %v, findings %#v", result.Valid, result.Findings)
+	}
+}
+
+func hasFinding(result Result, code string) bool {
+	for _, finding := range result.Findings {
+		if finding.Code == code {
+			return true
+		}
+	}
+	return false
 }
 
 func hasFailedFinding(result Result, code string) bool {

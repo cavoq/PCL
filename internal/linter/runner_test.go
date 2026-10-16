@@ -388,6 +388,17 @@ func TestConfigValidateRejectsInvalidPathInputs(t *testing.T) {
 	if err := maximumWithoutAnchor.Validate(); err == nil || !strings.Contains(err.Error(), "trust-anchor") {
 		t.Fatalf("maximum path length without trust anchor error = %v", err)
 	}
+	peerNameWithoutAnchor := base
+	peerNameWithoutAnchor.PeerNames = []string{"example.com"}
+	if err := peerNameWithoutAnchor.Validate(); err == nil || !strings.Contains(err.Error(), "--peer-name requires --trust-anchor") {
+		t.Fatalf("peer name without trust anchor error = %v", err)
+	}
+	invalidPeerName := base
+	invalidPeerName.TrustAnchorPaths = []string{"root.pem"}
+	invalidPeerName.PeerNames = []string{"*.example.com"}
+	if err := invalidPeerName.Validate(); err == nil || !strings.Contains(err.Error(), "not a valid DNS name") {
+		t.Fatalf("invalid peer name error = %v", err)
+	}
 	withoutCertificate := Config{
 		PolicyPaths:      []string{"policy.yaml"},
 		TrustAnchorPaths: []string{"root.pem"},

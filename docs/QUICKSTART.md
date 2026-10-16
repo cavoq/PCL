@@ -68,7 +68,7 @@ Use local chain and CRL evidence instead:
 pcl --policy policies/RFC5280.yaml \
   --cert leaf.pem --issuer intermediates/ --trust-anchor roots/ \
   --crl crls/ --path-revocation required --purpose serverAuth \
-  --fail-on error --details
+  --peer-name www.example.com --fail-on error --details
 ```
 
 Result: the target's `certification-path-valid` rule reports an aggregate
@@ -82,6 +82,7 @@ alternative path. Trust anchors are never downloaded or inferred.
 | Option | Meaning |
 |---|---|
 | `--max-path-length N` | Maximum non-self-issued intermediates; zero is meaningful; requires an anchor |
+| `--peer-name NAME` | DNS name, IP address or email address the target must present in its subjectAltName (repeatable); requires an anchor |
 | `--path-revocation none` | Disable revocation in the aggregate path decision |
 | `--path-revocation if-present` | Assess available evidence; default |
 | `--path-revocation required` | Require acceptable evidence for each non-anchor certificate |
@@ -164,8 +165,9 @@ pcl inspect --crl list.crl --output json
 Result: a tree or path list, with bytes shown as hex and times in RFC 3339 UTC.
 
 Failure behavior: acquisition or parsing errors stop inspection. The lint-only
-path flags (`--trust-anchor`, `--max-path-length`, `--path-revocation`) are not
-accepted. See the [node model](NODE_MODEL.md) for representation contracts.
+path flags (`--trust-anchor`, `--max-path-length`, `--path-revocation`,
+`--peer-name`) are not accepted. See the [node model](NODE_MODEL.md) for
+representation contracts.
 
 ## Output and exit status
 
@@ -199,6 +201,14 @@ set `time` in a [policy test suite](TESTING.md) or supply the API evaluation tim
 `anyExtendedKeyUsage`, `2.5.29.37.0`) are rejected. Private purposes fail closed
 when end-entity Key Usage is present because no standard mapping is defined.
 Omitting the purpose skips the conditional purpose rule.
+
+`--peer-name` takes the reference identity an application expects of its peer
+(RFC 9525). PCL reads an IP address as an iPAddress, a value with `@` as an
+rfc822Name, and anything else as a dNSName; give internationalized names in
+A-label (punycode) form. The path decision fails with `path.peer-name` unless
+the target's subjectAltName presents every requested name. The subject common
+name is not consulted, and a wildcard matches only as the whole leftmost label,
+for exactly one label.
 
 Certificate-policy processing accepts independent initial inputs:
 

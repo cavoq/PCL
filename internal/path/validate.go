@@ -92,8 +92,11 @@ type Inputs struct {
 	Policy             PolicyInputs
 	MaximumPathLength  *int
 	ApplicationPurpose string
-	RevocationMode     RevocationMode
-	CheckRevocation    RevocationChecker
+	// PeerNames are reference identities the target certificate must
+	// present in its subjectAltName (RFC 9525).
+	PeerNames       []cert.PeerName
+	RevocationMode  RevocationMode
+	CheckRevocation RevocationChecker
 }
 
 // Finding is the path-domain name for one structured validation decision.
@@ -168,6 +171,16 @@ func Validate(inputs Inputs) Result {
 		CertificateIndex: -1, Message: "the path terminates at an explicit trust anchor",
 		Details: map[string]any{"subject": anchor.Cert.Subject.String()},
 	})
+
+	for _, name := range inputs.PeerNames {
+		result.add(certificateFinding(
+			"path.peer-name", "RFC9525 6.3", 0, chain[0].Cert,
+			cert.PeerNameMatches(chain[0].Cert, name),
+			"certificate presents the requested peer name "+name.String(),
+			"certificate does not present the requested peer name "+name.String(),
+			map[string]any{"kind": string(name.Kind), "name": name.Value},
+		))
+	}
 
 	processed := chain
 	if included {

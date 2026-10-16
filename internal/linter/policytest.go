@@ -54,6 +54,7 @@ type policyTestCase struct {
 	CRL                     string                      `yaml:"crl,omitempty"`
 	OCSP                    string                      `yaml:"ocsp,omitempty"`
 	Purpose                 string                      `yaml:"purpose,omitempty"`
+	PeerNames               []string                    `yaml:"peerNames,omitempty"`
 	CertificatePolicyInputs *policyTestCertificateInput `yaml:"certificatePolicyInputs,omitempty"`
 	MaximumPathLength       *int                        `yaml:"maximumPathLength,omitempty"`
 	PathRevocation          string                      `yaml:"pathRevocation,omitempty"`
@@ -281,6 +282,7 @@ func lintPolicyTestCase(
 		CRLPath:                 resolvePath(dir, testCase.CRL),
 		OCSPPath:                resolvePath(dir, testCase.OCSP),
 		ApplicationPurpose:      testCase.Purpose,
+		PeerNames:               testCase.PeerNames,
 		CertificatePolicyInputs: testCase.CertificatePolicyInputs.operatorInputs(),
 		ValidationTime:          evaluationTime,
 		PathRevocation:          pathpkg.RevocationMode(testCase.PathRevocation),

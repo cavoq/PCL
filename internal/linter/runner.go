@@ -97,6 +97,7 @@ type lintInputs struct {
 	certificates []*cert.Info
 	issuers      []*cert.Info
 	trustAnchors []*cert.Info
+	peerNames    []cert.PeerName
 	crls         []*crl.Info
 	ocsps        []*ocsp.Info
 }
@@ -119,6 +120,9 @@ func acquireInputs(cfg Config, diagnostics io.Writer, cleanups *cleanupStack) (l
 	}
 	inputs.issuers = issuers
 	if inputs.trustAnchors, err = loadTrustAnchors(cfg.TrustAnchorPaths, diagnostics); err != nil {
+		return lintInputs{}, err
+	}
+	if inputs.peerNames, err = cfg.peerNames(); err != nil {
 		return lintInputs{}, err
 	}
 
@@ -297,6 +301,7 @@ func buildSubjects(
 		ApplicationPurpose:      cfg.ApplicationPurpose,
 		CertificatePolicyInputs: cfg.CertificatePolicyInputs,
 		TrustAnchors:            inputs.trustAnchors,
+		PeerNames:               inputs.peerNames,
 		MaximumPathLength:       configuredMaximumPathLength(cfg),
 		PathRevocation:          cfg.PathRevocation,
 	}

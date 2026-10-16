@@ -3,13 +3,11 @@ package tests
 import (
 	"bytes"
 	"encoding/json"
-	"encoding/pem"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
-	"slices"
 	"sort"
 	"strconv"
 	"sync"
@@ -18,7 +16,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/cavoq/PCL/internal/certparse"
+	"github.com/cavoq/PCL/internal/cert"
 	"github.com/cavoq/PCL/internal/linter"
 	"github.com/cavoq/PCL/internal/output"
 	pathpkg "github.com/cavoq/PCL/internal/path"
@@ -114,9 +112,8 @@ func loadLimbo(t *testing.T) (limboSuite, map[string]string) {
 }
 
 type limboOutcome struct {
-	got         string
-	failures    []string
-	unsupported bool
+	got      string
+	failures []string
 }
 
 func TestLimbo(t *testing.T) {
@@ -150,18 +147,12 @@ func TestLimbo(t *testing.T) {
 	}
 
 	seen := map[string]bool{}
-	var conforming, gapped, unsupported int
+	var conforming, gapped int
 	for index, tc := range suite.Testcases {
 		seen[tc.ID] = true
 		outcome := outcomes[index]
 		_, known := gaps[tc.ID]
 		switch {
-		case outcome.unsupported && tc.ExpectedResult == limboSuccess:
-			t.Errorf("%s: peer name does not match, yet limbo expects SUCCESS", tc.ID)
-		case outcome.unsupported && known:
-			t.Errorf("%s: depends on peer-name matching; remove it from known-gaps.yaml", tc.ID)
-		case outcome.unsupported:
-			unsupported++
 		case outcome.got == tc.ExpectedResult && known:
 			t.Errorf("%s: now %s as limbo expects; remove it from known-gaps.yaml", tc.ID, outcome.got)
 		case outcome.got == tc.ExpectedResult:
@@ -177,17 +168,16 @@ func TestLimbo(t *testing.T) {
 			t.Errorf("known gap %s does not name a limbo testcase", id)
 		}
 	}
-	t.Logf("x509-limbo: %d testcases conform, %d known gaps, %d unsupported (peer name)", conforming, gapped, unsupported)
+	t.Logf("x509-limbo: %d testcases conform, %d known gaps", conforming, gapped)
 }
 
 // runLimbo lints one limbo testcase in dir and reports SUCCESS when no error
 // rule fails for any certificate of the chain, together with the failed rules.
 func runLimbo(dir string, tc limboCase) (limboOutcome, error) {
-	matched, err := limboPeerNamesMatch(tc)
-	if err != nil || !matched {
-		return limboOutcome{unsupported: true}, err
+	peerNames, err := limboPeerNames(tc)
+	if err != nil {
+		return limboOutcome{}, err
 	}
-
 	cfg := linter.Config{
 		PolicyPaths: []string{
 			filepath.Join(limboDir, "path-policy.yaml"),
@@ -196,6 +186,7 @@ func runLimbo(dir string, tc limboCase) (limboOutcome, error) {
 		CertPath:         filepath.Join(dir, "peer.pem"),
 		TrustAnchorPaths: []string{filepath.Join(dir, "anchors")},
 		ValidationTime:   limboValidationTime,
+		PeerNames:        peerNames,
 		PathRevocation:   pathpkg.RevocationIfPresent,
 		OutputFmt:        output.FormatJSON,
 	}
@@ -256,43 +247,24 @@ func runLimbo(dir string, tc limboCase) (limboOutcome, error) {
 	return limboOutcome{got: limboSuccess}, nil
 }
 
-// limboPeerNamesMatch reports whether the subjectAltName of the peer
-// certificate presents every expected peer name; like limbo, it does not fall
-// back to the subject common name. PCL does not match peer names, so a
-// testcase whose names do not match is outside what it can decide.
-func limboPeerNamesMatch(tc limboCase) (bool, error) {
+// limboPeerNames returns the testcase's expected peer names. PCL infers a
+// name's kind from its syntax, so each must be inferred as the kind limbo
+// states.
+func limboPeerNames(tc limboCase) ([]string, error) {
 	names := tc.ExpectedPeerNames
 	if tc.ExpectedPeerName != nil {
 		names = append(names, *tc.ExpectedPeerName)
 	}
-	if len(names) == 0 {
-		return true, nil
-	}
-	block, _ := pem.Decode([]byte(tc.PeerCertificate))
-	if block == nil {
-		return false, fmt.Errorf("%s: peer certificate is not PEM", tc.ID)
-	}
-	certificate, err := certparse.ParseCertificate(block.Bytes)
-	if err != nil {
-		// PCL rejects the certificate on its own.
-		return true, nil
-	}
+	values := make([]string, 0, len(names))
 	for _, name := range names {
-		var matched bool
-		switch name.Kind {
-		case "DNS":
-			// VerifyHostname falls back to the common name without dNSNames.
-			matched = len(certificate.DNSNames) > 0 && certificate.VerifyHostname(name.Value) == nil
-		case "IP":
-			matched = certificate.VerifyHostname(name.Value) == nil
-		case "RFC822":
-			matched = slices.Contains(certificate.EmailAddresses, name.Value)
-		default:
-			return false, fmt.Errorf("%s: unknown peer name kind %q", tc.ID, name.Kind)
+		parsed, err := cert.ParsePeerName(name.Value)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", tc.ID, err)
 		}
-		if !matched {
-			return false, nil
+		if string(parsed.Kind) != name.Kind {
+			return nil, fmt.Errorf("%s: peer name %q is a %s name, limbo states %s", tc.ID, name.Value, parsed.Kind, name.Kind)
 		}
+		values = append(values, name.Value)
 	}
-	return true, nil
+	return values, nil
 }

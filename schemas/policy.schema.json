@@ -2038,6 +2038,7 @@
               "crl",
               "issuers",
               "ocsp",
+              "peerNames",
               "psl",
               "purpose",
               "trustAnchors",

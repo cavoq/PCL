@@ -309,7 +309,8 @@ Path validation is attached to the target certificate during lint evaluation.
 A rule decided by the `pathValid` operator carries the structured findings in
 its result; rules over these nodes see only the projected values.
 `pcl inspect` shows profile projections; it does not accept the lint-only
-`--trust-anchor`, `--max-path-length`, or `--path-revocation` flags.
+`--trust-anchor`, `--max-path-length`, `--path-revocation`, or `--peer-name`
+flags.
 
 CRL `isCACRL` is a profile classification: a CA signer, or a window longer than
 10 days when no CA signer is available. It does not prove signature validity.

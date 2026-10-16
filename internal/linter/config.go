@@ -7,6 +7,7 @@ import (
 	"io"
 	"time"
 
+	"github.com/cavoq/PCL/internal/cert"
 	"github.com/cavoq/PCL/internal/oid"
 	"github.com/cavoq/PCL/internal/output"
 	pathpkg "github.com/cavoq/PCL/internal/path"
@@ -47,6 +48,11 @@ type Config struct {
 	// used while evaluating certificate profile semantics. It may be a stable
 	// friendly name (for example, "serverAuth") or a dotted object identifier.
 	ApplicationPurpose string
+
+	// PeerNames are the DNS names, IP addresses or email addresses the
+	// target certificate must present in its subjectAltName. Path validation
+	// checks them, so they require trust anchors.
+	PeerNames []string
 
 	// CertificatePolicyInputs are optional RFC 5280 Section 6.1.1 inputs.
 	// Unconfigured inputs preserve certificatePolicyValid's operand-based
@@ -111,6 +117,12 @@ func (cfg Config) validateInputs() error {
 	if cfg.MaximumPathLengthConfigured && len(cfg.TrustAnchorPaths) == 0 {
 		return errors.New("--max-path-length requires --trust-anchor")
 	}
+	if len(cfg.PeerNames) > 0 && len(cfg.TrustAnchorPaths) == 0 {
+		return errors.New("--peer-name requires --trust-anchor")
+	}
+	if _, err := cfg.peerNames(); err != nil {
+		return err
+	}
 	switch cfg.PathRevocation {
 	case "", pathpkg.RevocationNone, pathpkg.RevocationIfPresent, pathpkg.RevocationRequired:
 	default:
@@ -137,4 +149,17 @@ func (cfg Config) hasIssuerInput() bool {
 // Issuers URLs, to extend the chain or to find CRL and OCSP signers.
 func (cfg Config) climbsCAIssuers() bool {
 	return cfg.AutoValidate && !cfg.NoAutoChain
+}
+
+// peerNames parses the configured reference identities.
+func (cfg Config) peerNames() ([]cert.PeerName, error) {
+	var names []cert.PeerName
+	for _, value := range cfg.PeerNames {
+		name, err := cert.ParsePeerName(value)
+		if err != nil {
+			return nil, fmt.Errorf("--peer-name: %w", err)
+		}
+		names = append(names, name)
+	}
+	return names, nil
 }

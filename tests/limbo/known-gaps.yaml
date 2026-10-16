@@ -28,13 +28,6 @@
     - pathological::nc-dos-2
 
 - reason: >-
-    The peer-name exclusion matches a wildcard in any label, so
-    `foo.*.example.com` is treated as presenting `foo.bar.example.com`
-    (RFC 6125 6.4.3 allows only a leftmost wildcard).
-  cases:
-    - webpki::san::wildcard-not-in-leftmost-san
-
-- reason: >-
     Path construction ranks candidate paths structurally and validates only
     the best one. When that path fails validation (name constraints, key
     usage), a valid alternative path is not tried (RFC 4158 backtracking).
@@ -147,7 +140,6 @@
     - webpki::san::public-suffix-multi-label-wildcard-san
     - webpki::san::public-suffix-private-namespace-wildcard-san
     - webpki::san::san-critical-with-nonempty-subject
-    - webpki::san::san-wildcard-only-tld
     - webpki::forbidden-dsa-root
     - webpki::forbidden-dsa-leaf
     - webpki::forbidden-weak-rsa-key-in-root

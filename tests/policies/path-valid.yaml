@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=../../schemas/policy.schema.json
+id: integration-path
+version: "1.0"
+appliesTo: [cert]
+
+rules:
+  - id: certification-path-valid
+    reference: RFC5280 6, 7
+    when:
+      target: certificate.pathValidation
+      operator: present
+    target: certificate
+    operator: pathValid
+    certType: [leaf]
+    severity: error

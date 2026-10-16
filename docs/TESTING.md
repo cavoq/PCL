@@ -46,6 +46,7 @@ tests:
 | `issuers`, `trustAnchors` | Lists of certificate paths |
 | `purpose`, `time` | Case-specific runtime inputs |
 | `maximumPathLength`, `pathRevocation` | Explicit path-validation controls |
+| `peerNames` | Reference identities the target must present (`--peer-name`) |
 | `certificatePolicyInputs` | Initial RFC 5280 policy-processing parameters |
 | `expect` | Expected policy and/or rule verdicts |
 | `error` | Expected run-error substring, instead of verdict expectations |

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -53,13 +54,16 @@ func TestRootCommandAcceptsPathValidationInputs(t *testing.T) {
 		"--trust-anchor", "root.pem",
 		"--max-path-length", "0",
 		"--path-revocation", "required",
+		"--peer-name", "example.com",
+		"--peer-name", "192.0.2.1",
 	}); err != nil {
 		t.Fatalf("parse path validation inputs: %v", err)
 	}
 	markPathInputsConfigured(command.Flags(), &config)
 	if len(config.TrustAnchorPaths) != 1 || config.TrustAnchorPaths[0] != "root.pem" ||
 		!config.MaximumPathLengthConfigured || config.MaximumPathLength != 0 ||
-		config.PathRevocation != "required" {
+		config.PathRevocation != "required" ||
+		!slices.Equal(config.PeerNames, []string{"example.com", "192.0.2.1"}) {
 		t.Fatalf("path validation config = %#v", config)
 	}
 }

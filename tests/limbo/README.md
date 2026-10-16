@@ -38,17 +38,16 @@ x509-limbo is licensed under the Apache License 2.0.
 | `validation_time` | evaluation time; 2026-07-01 when absent, inside the validity of the pinned BetterTLS data |
 | `extended_key_usage` | application purpose |
 | `max_chain_depth` | `--max-path-length` |
+| `expected_peer_name(s)` | `--peer-name` |
 
 Each testcase is linted with `path-policy.yaml` and the shipped
 `policies/RFC5280.yaml`. It succeeds when no error rule fails for any
 certificate of the chain, so limbo checks the path engine and the RFC 5280
 profile together.
 
-PCL does not match peer names. A testcase whose `expected_peer_name(s)` the
-peer certificate does not present in its subjectAltName is counted as
-unsupported instead of compared; limbo expects all of them to fail. Matching
-follows limbo and ignores the subject common name.
+PCL infers a peer name's kind from its syntax; the harness fails if it
+differs from the kind limbo states.
 
-Every other testcase must reach the limbo result or be listed in
+Every testcase must reach the limbo result or be listed in
 `known-gaps.yaml` with its cause. The list only shrinks: a listed testcase
 that starts to conform fails the test until it is removed.

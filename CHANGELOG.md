@@ -30,11 +30,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   through the CLI, API and policy-test cases. All 247 NIST PKITS runs now
   execute through the explicit-anchor path engine and reach their expected
   result with no gaps or unsupported inputs.
+- `--peer-name` path input (repeatable; `peerNames` in policy-test cases):
+  the DNS name, IP address or email address the target certificate must
+  present in its subjectAltName (RFC 9525). The path decision reports a
+  `path.peer-name` finding per name; the common name is not consulted and a
+  wildcard matches only as the whole leftmost label. Requires
+  `--trust-anchor`. Policy metadata accepts `peerNames` as an input name.
 - x509-limbo conformance suite in the integration tests, including the
   BetterTLS name-constraint and path-building cases, run against the path
-  engine and the shipped RFC 5280 profile. `tests/scripts/fetch-limbo.sh`
-  downloads the pinned testcases; differences from the limbo result are
-  listed by cause in `tests/limbo/known-gaps.yaml`.
+  engine and the shipped RFC 5280 profile with each testcase's expected peer
+  names. `tests/scripts/fetch-limbo.sh` downloads the pinned testcases;
+  9737 of 9802 reach the limbo result, and the differences are listed by
+  cause in `tests/limbo/known-gaps.yaml`.
 
 ### Fixed
 - The RFC 5280 policy no longer fails `leaf-not-ca` and

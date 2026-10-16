@@ -112,6 +112,7 @@ func markPathInputsConfigured(flags *pflag.FlagSet, opts *linter.Config) {
 func addPathValidationFlags(flags *pflag.FlagSet, opts *linter.Config) {
 	flags.StringSliceVar(&opts.TrustAnchorPaths, "trust-anchor", nil, "Explicit trust-anchor certificate file or directory (repeatable, PEM/DER)")
 	flags.IntVar(&opts.MaximumPathLength, "max-path-length", -1, "Maximum non-self-issued intermediate certificates for path validation")
+	flags.StringSliceVar(&opts.PeerNames, "peer-name", nil, "DNS name, IP address or email address the certificate must present in its subjectAltName (repeatable)")
 	flags.StringVar((*string)(&opts.PathRevocation), "path-revocation", string(pathpkg.DefaultRevocationMode), "Path revocation mode: none, if-present, or required")
 }
 

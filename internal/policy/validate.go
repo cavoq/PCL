@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	validMetadataInputs = stringSet("certificate", "issuers", "trustAnchors", "crl", "ocsp", "purpose", "validationTime", "psl")
+	validMetadataInputs = stringSet("certificate", "issuers", "trustAnchors", "crl", "ocsp", "purpose", "peerNames", "validationTime", "psl")
 	validInputTypes     = stringSet(
 		InputCert,
 		InputCRL,

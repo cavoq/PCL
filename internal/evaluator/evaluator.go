@@ -50,6 +50,10 @@ type Context struct {
 	// projected into certificate trees and supplied to certificate operators.
 	ApplicationPurpose string
 
+	// PeerNames are reference identities the target certificate must present;
+	// path validation checks them.
+	PeerNames []cert.PeerName
+
 	// CertificatePolicyInputs are the caller's RFC 5280 Section 6.1.1
 	// certificate-policy processing inputs.
 	CertificatePolicyInputs operator.CertificatePolicyInputs
@@ -438,6 +442,7 @@ func validateCertificationPath(
 		Policy:             ctx.CertificatePolicyInputs,
 		MaximumPathLength:  ctx.MaximumPathLength,
 		ApplicationPurpose: ctx.ApplicationPurpose,
+		PeerNames:          ctx.PeerNames,
 		RevocationMode:     ctx.PathRevocation,
 		CheckRevocation:    checker,
 	})

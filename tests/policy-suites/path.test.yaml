@@ -1,0 +1,34 @@
+# Path validation with explicit trust anchors and peer names: run with
+# `pcl test tests/policy-suites`.
+policy: ../policies/path-valid.yaml
+time: 2026-10-01
+
+tests:
+  - name: leaf presents the requested peer name
+    cert: ../certs/leaf.pem
+    issuers: [../certs/intermediate.pem]
+    trustAnchors: [../certs/root.pem]
+    pathRevocation: none
+    peerNames: [leaf.example.test]
+    expect:
+      - input: leaf
+        verdict: pass
+        rules:
+          certification-path-valid: pass
+
+  - name: leaf does not present another peer name
+    cert: ../certs/leaf.pem
+    issuers: [../certs/intermediate.pem]
+    trustAnchors: [../certs/root.pem]
+    pathRevocation: none
+    peerNames: [other.example.test]
+    expect:
+      - input: leaf
+        verdict: fail
+        rules:
+          certification-path-valid: fail
+
+  - name: peer names require trust anchors
+    cert: ../certs/leaf.pem
+    peerNames: [leaf.example.test]
+    error: --peer-name requires --trust-anchor
