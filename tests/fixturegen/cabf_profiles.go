@@ -15,7 +15,7 @@ import (
 // subordinate profile PCL infers, and for none. They have their own issuer
 // so the group can be regenerated alone.
 func cabfProfileVectors(w vectorWriter) error {
-	key, err := p256Key()
+	key, err := p256Key("cabf-profiles/issuer")
 	if err != nil {
 		return err
 	}
@@ -33,7 +33,7 @@ func cabfProfileVectors(w vectorWriter) error {
 	if err := w.certificate("cabf-profiles", "issuer.pem", issuer.cert.Raw); err != nil {
 		return err
 	}
-	certKey, err := p256Key()
+	certKey, err := p256Key("cabf-profiles/subject")
 	if err != nil {
 		return err
 	}

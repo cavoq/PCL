@@ -17,7 +17,7 @@ import (
 // 7.1.2.11.1 and 7.1.2.1.3 for certificates and CRLs. Like
 // cabfPolicyVectors they have their own issuer and can be regenerated alone.
 func cabfAKIVectors(w vectorWriter) error {
-	key, err := p256Key()
+	key, err := p256Key("cabf-aki/issuer")
 	if err != nil {
 		return err
 	}
@@ -36,7 +36,7 @@ func cabfAKIVectors(w vectorWriter) error {
 	if err := w.certificate("cabf-aki", "issuer.pem", issuer.cert.Raw); err != nil {
 		return err
 	}
-	certKey, err := p256Key()
+	certKey, err := p256Key("cabf-aki/subject")
 	if err != nil {
 		return err
 	}

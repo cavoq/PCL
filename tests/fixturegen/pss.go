@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"crypto"
-	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/asn1"
@@ -55,11 +54,11 @@ func mgf1(hash []byte) []byte { return algorithmIdentifier(oidMGF1, hash) }
 // with saltLength. A non-nil spki replaces the subject public key
 // AlgorithmIdentifier. When algorithm names an MGF1 hash other than hash
 // the signature does not verify; the vectors test parameter encoding only.
-func pssCertificate(configure func(*x509.Certificate), algorithm, spki []byte, hash crypto.Hash, saltLength int) ([]byte, error) {
+func pssCertificate(name string, configure func(*x509.Certificate), algorithm, spki []byte, hash crypto.Hash, saltLength int) ([]byte, error) {
 	if configure == nil {
 		configure = func(*x509.Certificate) {}
 	}
-	certificate, err := vectorEndEntity(configure)
+	certificate, err := vectorEndEntity(name+"/certificate", configure)
 	if err != nil {
 		return nil, err
 	}
@@ -86,11 +85,10 @@ func pssCertificate(configure func(*x509.Certificate), algorithm, spki []byte, h
 	}
 	digest := hash.New()
 	digest.Write(envelope.TBS.FullBytes)
-	key, ok := certificate.key.(*rsa.PrivateKey)
-	if !ok {
+	if _, ok := certificate.key.Public().(*rsa.PublicKey); !ok {
 		return nil, fmt.Errorf("PSS vector needs an RSA key")
 	}
-	signature, err := rsa.SignPSS(rand.Reader, key, hash, digest.Sum(nil), &rsa.PSSOptions{SaltLength: saltLength})
+	signature, err := certificate.key.Sign(nil, digest.Sum(nil), &rsa.PSSOptions{SaltLength: saltLength, Hash: hash})
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +136,7 @@ func rfc4055Vectors(w vectorWriter) error {
 			sha256PSS, algorithmIdentifier(oidRSAESOAEP, nil), crypto.SHA256, 32},
 	}
 	for _, vector := range vectors {
-		der, err := pssCertificate(vector.configure, vector.algorithm, vector.spki, vector.hash, vector.saltLength)
+		der, err := pssCertificate(vector.name, vector.configure, vector.algorithm, vector.spki, vector.hash, vector.saltLength)
 		if err != nil {
 			return fmt.Errorf("%s: %w", vector.name, err)
 		}

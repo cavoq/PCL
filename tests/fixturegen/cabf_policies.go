@@ -23,7 +23,7 @@ type cabfPolicyInformation struct {
 // cabfPolicyVectors is independent of the other CABF chain so this group
 // can be regenerated without replacing unrelated certificates and keys.
 func cabfPolicyVectors(w vectorWriter) error {
-	key, err := p256Key()
+	key, err := p256Key("cabf-policies/issuer")
 	if err != nil {
 		return err
 	}
@@ -41,7 +41,7 @@ func cabfPolicyVectors(w vectorWriter) error {
 	if err := w.certificate("cabf-policies", "issuer.pem", issuer.cert.Raw); err != nil {
 		return err
 	}
-	certKey, err := p256Key()
+	certKey, err := p256Key("cabf-policies/subject")
 	if err != nil {
 		return err
 	}

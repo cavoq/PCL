@@ -2,10 +2,7 @@ package main
 
 import (
 	"crypto"
-	"crypto/ecdsa"
-	"crypto/elliptic"
 	"crypto/rand"
-	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
@@ -27,7 +24,7 @@ import (
 // maximum Validity Period is 200 days.
 func cabfVectors(w vectorWriter) error {
 	issuedAt := date(2026, 6, 1, 0, 0, 0)
-	rootKey, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
+	rootKey, err := fixtureKey("cabf/root", p384)
 	if err != nil {
 		return err
 	}
@@ -48,7 +45,7 @@ func cabfVectors(w vectorWriter) error {
 	if err != nil {
 		return err
 	}
-	intermediateKey, err := p256Key()
+	intermediateKey, err := p256Key("cabf/intermediate")
 	if err != nil {
 		return err
 	}
@@ -96,7 +93,7 @@ func cabfVectors(w vectorWriter) error {
 	write := func(name string, key crypto.Signer, configure func(*x509.Certificate)) error {
 		if key == nil {
 			var err error
-			if key, err = p256Key(); err != nil {
+			if key, err = p256Key(name + "/leaf"); err != nil {
 				return err
 			}
 		}
@@ -110,7 +107,7 @@ func cabfVectors(w vectorWriter) error {
 		w.certificate("cabf-conformant", "intermediate.pem", intermediate.cert.Raw)); err != nil {
 		return err
 	}
-	rsa2049, err := rsa.GenerateKey(rand.Reader, 2049)
+	rsa2049, err := fixtureKey("cabf-rsa-2049/leaf", rsaKey(2049))
 	if err != nil {
 		return err
 	}
@@ -164,7 +161,7 @@ func cabfVectors(w vectorWriter) error {
 // of violations.
 func cabfCAVectors(w vectorWriter, root, intermediate issued, rootTemplate, subordinate func(func(*x509.Certificate)) func(*x509.Certificate), issuedAt time.Time) error {
 	// A root valid for 30 years, with an EKU and an organizational unit.
-	badRootKey, err := p256Key()
+	badRootKey, err := p256Key("cabf-root-bad/root")
 	if err != nil {
 		return err
 	}
@@ -178,7 +175,7 @@ func cabfCAVectors(w vectorWriter, root, intermediate issued, rootTemplate, subo
 	}
 	// A TLS subordinate with codeSigning, keyEncipherment, an OU, and
 	// neither policies nor CRL distribution points.
-	badSubordinateKey, err := p256Key()
+	badSubordinateKey, err := p256Key("cabf-subordinate-bad/intermediate")
 	if err != nil {
 		return err
 	}
@@ -208,7 +205,7 @@ func cabfCAVectors(w vectorWriter, root, intermediate issued, rootTemplate, subo
 			}
 		}
 	}
-	responderKey, err := p256Key()
+	responderKey, err := p256Key("cabf/ocsp-responder")
 	if err != nil {
 		return err
 	}
@@ -242,6 +239,7 @@ func cabfCAVectors(w vectorWriter, root, intermediate issued, rootTemplate, subo
 		template := ocsp.Response{
 			Status:             ocsp.Good,
 			SerialNumber:       leaf.SerialNumber,
+			ProducedAt:         issuedAt,
 			ThisUpdate:         issuedAt,
 			NextUpdate:         issuedAt.Add(4 * 24 * time.Hour),
 			SignatureAlgorithm: algorithm,
@@ -252,7 +250,7 @@ func cabfCAVectors(w vectorWriter, root, intermediate issued, rootTemplate, subo
 		if change != nil {
 			change(&template)
 		}
-		return ocsp.CreateResponse(intermediate.cert, responder.cert, template, responder.key)
+		return createOCSPResponse(intermediate.cert, responder.cert, template, responder.key)
 	}
 	goodResponse, err := response(responder, true, 0, nil)
 	if err != nil {
@@ -269,7 +267,7 @@ func cabfCAVectors(w vectorWriter, root, intermediate issued, rootTemplate, subo
 	}
 
 	// General key requirements must also apply to the extracted signing cert.
-	weakKey, err := rsa.GenerateKey(rand.Reader, 1024) //nolint:gosec // Deliberately weak negative test vector.
+	weakKey, err := fixtureKey("cabf-ocsp-weak-key/responder", rsaKey(1024)) // Deliberately weak negative test vector.
 	if err != nil {
 		return err
 	}

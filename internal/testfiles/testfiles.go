@@ -85,6 +85,9 @@ func PolicyPacks(elem ...string) string { return under([]string{"policies"}, ele
 // Schema returns the committed policy JSON Schema.
 func Schema() string { return Path("schemas", "policy.schema.json") }
 
+// FixtureKeys returns the committed keys of the generated fixtures.
+func FixtureKeys() string { return Path("tests", "fixturegen", "testdata", "keys.pem") }
+
 // CertTestdata joins elem to the cert package's testdata.
 func CertTestdata(elem ...string) string {
 	return under([]string{"internal", "cert", "testdata"}, elem)

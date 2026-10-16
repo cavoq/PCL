@@ -14,7 +14,7 @@ import (
 // Wildcard Domain Name, for BR 3.2.2.6. They have their own issuer so the
 // group can be regenerated alone.
 func cabfWildcardVectors(w vectorWriter) error {
-	key, err := p256Key()
+	key, err := p256Key("cabf-wildcard/issuer")
 	if err != nil {
 		return err
 	}
@@ -32,7 +32,7 @@ func cabfWildcardVectors(w vectorWriter) error {
 	if err := w.certificate("cabf-wildcard", "issuer.pem", issuer.cert.Raw); err != nil {
 		return err
 	}
-	certKey, err := p256Key()
+	certKey, err := p256Key("cabf-wildcard/subject")
 	if err != nil {
 		return err
 	}

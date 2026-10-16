@@ -1,5 +1,5 @@
 # Fingerprints are SHA-256 prefixes of the cabf-conformant fixtures; update
-# them when those fixtures are regenerated.
+# them when tests/fixturegen changes those certificates.
 policy: ../policies/profiles.yaml
 time: "2026-06-02T00:00:00Z"
 tests:
@@ -20,13 +20,13 @@ tests:
   - name: assumed-by-fingerprint
     cert: ../vectors/cabf-conformant/leaf.pem
     issuers: [../vectors/cabf-conformant/intermediate.pem, ../vectors/cabf-conformant/root.pem]
-    assumeProfiles: ["cross-certified=13:e4:c1:38:b8:43:32:33"]
+    assumeProfiles: ["cross-certified=15:4d:b7:c3:ad:b5:0a:04"]
     expect:
       - {input: intermediate, profile: cross-certified (assumed)}
   - name: fingerprint-of-another-role-selects-nothing
     cert: ../vectors/cabf-conformant/leaf.pem
     issuers: [../vectors/cabf-conformant/intermediate.pem, ../vectors/cabf-conformant/root.pem]
-    assumeProfiles: [cross-certified=edc8fffb]
+    assumeProfiles: [cross-certified=eb5c8cae]
     expect:
       - {input: intermediate, profile: tls-ca}
   - name: unknown-profile

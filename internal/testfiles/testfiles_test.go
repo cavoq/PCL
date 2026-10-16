@@ -9,7 +9,7 @@ import (
 func TestDirectoriesExist(t *testing.T) {
 	for _, path := range []string{
 		Path("go.mod"), Tests(), Certs(), CRLs(), OCSPs(), Policies(), PolicySuites(),
-		PKITS(), PKITSCerts(), Limbo(), PolicyPacks(), Schema(), CertTestdata(), CRLTestdata(),
+		PKITS(), PKITSCerts(), Limbo(), PolicyPacks(), Schema(), FixtureKeys(), CertTestdata(), CRLTestdata(),
 	} {
 		if _, err := os.Stat(path); err != nil {
 			t.Error(err)

@@ -1,18 +1,16 @@
 // Command fixturegen writes the certificate, CRL and OCSP fixtures under
 // tests/certs, tests/crls and tests/ocsps, and the DER vectors under
 // tests/vectors, or under the directory given as its argument. Run it with
-// `make fixtures`. Keys are new on every run, so every fixture is
-// rewritten; their names, extensions, validity windows and serial numbers
-// are fixed here. Private keys are never written.
+// `make fixtures`. The fixtures' keys are committed in
+// tests/fixturegen/testdata/keys.pem (see keys.go) and every signature is
+// deterministic, so a run reproduces unchanged fixtures byte for byte.
 package main
 
 import (
 	"bytes"
 	"crypto"
 	"crypto/rand"
-	"crypto/rsa"
 	"crypto/sha1" //nolint:gosec // RFC 5280 4.2.1.2 method (1) key identifier
-	"crypto/sha256"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
@@ -49,13 +47,18 @@ type fixtures struct {
 }
 
 func generate(dir string) error {
+	store, err := loadKeyStore(testfiles.FixtureKeys())
+	if err != nil {
+		return err
+	}
+	fixtureKeys = store
 	f := fixtures{dir: dir}
 	for _, step := range []func() error{f.bsiChain, f.crlSignatureChain, f.ocspChain, f.nameConstraintsChain, f.vectors} {
 		if err := step(); err != nil {
 			return err
 		}
 	}
-	return nil
+	return store.save()
 }
 
 func date(year int, month time.Month, day, hour, minute, second int) time.Time {
@@ -79,7 +82,7 @@ func (f fixtures) bsiChain() error {
 		})
 	}
 	// The CAs carry RSA-4096 keys, the leaf RSA-2048.
-	root, err := issueRSA(4096, nil, func(template *x509.Certificate) {
+	root, err := issueRSA("bsi/root", 4096, nil, func(template *x509.Certificate) {
 		template.SerialNumber = big.NewInt(0x6a1e)
 		template.RawSubject = name("Root", "BSI Root CA")
 		template.NotBefore, template.NotAfter = date(2025, 12, 20, 12, 45, 54), date(2031, 12, 19, 12, 45, 54)
@@ -89,7 +92,7 @@ func (f fixtures) bsiChain() error {
 	if err != nil {
 		return err
 	}
-	intermediate, err := issueRSA(4096, &root, func(template *x509.Certificate) {
+	intermediate, err := issueRSA("bsi/intermediate", 4096, &root, func(template *x509.Certificate) {
 		template.SerialNumber = big.NewInt(0x46ec)
 		template.RawSubject = name("Intermediate", "BSI Intermediate CA")
 		template.NotBefore, template.NotAfter = date(2025, 12, 20, 12, 45, 55), date(2030, 12, 19, 12, 45, 55)
@@ -99,7 +102,7 @@ func (f fixtures) bsiChain() error {
 	if err != nil {
 		return err
 	}
-	leaf, err := issue(&intermediate, func(template *x509.Certificate) {
+	leaf, err := issue("bsi/leaf", &intermediate, func(template *x509.Certificate) {
 		template.SerialNumber = big.NewInt(0x609e)
 		template.RawSubject = name("Leaf", "leaf.example.test")
 		template.NotBefore, template.NotAfter = date(2025, 12, 20, 12, 45, 55), date(2028, 3, 24, 12, 45, 55)
@@ -140,7 +143,7 @@ func (f fixtures) bsiChain() error {
 	}
 	// The same CRL under the intermediate's name and key identifier, signed
 	// by another key.
-	impostor, err := issue(nil, func(template *x509.Certificate) {
+	impostor, err := issue("bsi/impostor", nil, func(template *x509.Certificate) {
 		template.SerialNumber = big.NewInt(0x46ed)
 		template.RawSubject = intermediate.cert.RawSubject
 		template.SubjectKeyId = intermediate.cert.SubjectKeyId
@@ -159,7 +162,7 @@ func (f fixtures) crlSignatureChain() error {
 	name := func(common string) pkix.Name {
 		return pkix.Name{Country: []string{"DE"}, Organization: []string{"PCL Integration"}, CommonName: common}
 	}
-	root, err := issue(nil, func(template *x509.Certificate) {
+	root, err := issue("crl-signature/root", nil, func(template *x509.Certificate) {
 		template.SerialNumber = big.NewInt(1001)
 		template.Subject = name("PCL Test Root CA")
 		template.SubjectKeyId = []byte{0x10, 0x01}
@@ -169,7 +172,7 @@ func (f fixtures) crlSignatureChain() error {
 	if err != nil {
 		return err
 	}
-	intermediate, err := issue(&root, func(template *x509.Certificate) {
+	intermediate, err := issue("crl-signature/intermediate", &root, func(template *x509.Certificate) {
 		template.SerialNumber = big.NewInt(1002)
 		template.Subject = name("PCL Test Intermediate CA")
 		template.SubjectKeyId = []byte{0x20, 0x02}
@@ -179,7 +182,7 @@ func (f fixtures) crlSignatureChain() error {
 	if err != nil {
 		return err
 	}
-	leaf, err := issue(&intermediate, func(template *x509.Certificate) {
+	leaf, err := issue("crl-signature/leaf", &intermediate, func(template *x509.Certificate) {
 		template.SerialNumber = big.NewInt(1003)
 		template.Subject = name("crl-signature.leaf.example.test")
 		template.NotBefore, template.NotAfter = date(2025, 12, 10, 0, 0, 0), date(2027, 1, 10, 0, 0, 0)
@@ -213,7 +216,7 @@ func (f fixtures) ocspChain() error {
 	name := func(common string) pkix.Name {
 		return pkix.Name{Country: []string{"DE"}, Organization: []string{"PCL Integration"}, CommonName: common}
 	}
-	root, err := issue(nil, func(template *x509.Certificate) {
+	root, err := issue("ocsp/root", nil, func(template *x509.Certificate) {
 		template.SerialNumber = big.NewInt(2001)
 		template.Subject = name("PCL OCSP Root CA")
 		template.NotBefore, template.NotAfter = date(2025, 1, 10, 0, 0, 0), date(2036, 1, 10, 0, 0, 0)
@@ -222,7 +225,7 @@ func (f fixtures) ocspChain() error {
 	if err != nil {
 		return err
 	}
-	intermediate, err := issue(&root, func(template *x509.Certificate) {
+	intermediate, err := issue("ocsp/intermediate", &root, func(template *x509.Certificate) {
 		template.SerialNumber = big.NewInt(2002)
 		template.Subject = name("PCL OCSP Intermediate CA")
 		template.NotBefore, template.NotAfter = date(2025, 1, 10, 0, 0, 0), date(2034, 1, 10, 0, 0, 0)
@@ -232,7 +235,7 @@ func (f fixtures) ocspChain() error {
 	if err != nil {
 		return err
 	}
-	leaf, err := issue(&intermediate, func(template *x509.Certificate) {
+	leaf, err := issue("ocsp/leaf", &intermediate, func(template *x509.Certificate) {
 		template.SerialNumber = big.NewInt(2003)
 		template.Subject = name("ocsp.leaf.example.test")
 		template.NotBefore, template.NotAfter = date(2025, 1, 10, 0, 0, 0), date(2028, 1, 10, 0, 0, 0)
@@ -244,7 +247,7 @@ func (f fixtures) ocspChain() error {
 	if err != nil {
 		return err
 	}
-	unauthorized, err := issue(nil, func(template *x509.Certificate) {
+	unauthorized, err := issue("ocsp/unauthorized", nil, func(template *x509.Certificate) {
 		template.SerialNumber = big.NewInt(2099)
 		template.Subject = name("Unauthorized OCSP Responder")
 		template.NotBefore, template.NotAfter = date(2025, 1, 10, 0, 0, 0), date(2036, 1, 10, 0, 0, 0)
@@ -256,8 +259,8 @@ func (f fixtures) ocspChain() error {
 	// Delegated responders issued by the intermediate: one whose
 	// id-pkix-ocsp-nocheck is non-critical NULL (RFC 6960 4.2.2.2.1), and one
 	// whose nocheck is critical and an empty OCTET STRING instead of NULL.
-	delegatedResponder := func(serial int64, common string, noCheck pkix.Extension) (issued, error) {
-		return issue(&intermediate, func(template *x509.Certificate) {
+	delegatedResponder := func(key string, serial int64, common string, noCheck pkix.Extension) (issued, error) {
+		return issue(key, &intermediate, func(template *x509.Certificate) {
 			template.SerialNumber = big.NewInt(serial)
 			template.Subject = name(common)
 			template.NotBefore, template.NotAfter = date(2025, 1, 10, 0, 0, 0), date(2030, 1, 10, 0, 0, 0)
@@ -267,12 +270,12 @@ func (f fixtures) ocspChain() error {
 		})
 	}
 	oidOCSPNoCheck := asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 48, 1, 5}
-	delegated, err := delegatedResponder(2005, "PCL Delegated OCSP Responder",
+	delegated, err := delegatedResponder("ocsp/delegated", 2005, "PCL Delegated OCSP Responder",
 		pkix.Extension{Id: oidOCSPNoCheck, Value: []byte{0x05, 0x00}})
 	if err != nil {
 		return err
 	}
-	badNoCheck, err := delegatedResponder(2006, "PCL Delegated OCSP Responder Bad nocheck",
+	badNoCheck, err := delegatedResponder("ocsp/delegated-bad-nocheck", 2006, "PCL Delegated OCSP Responder Bad nocheck",
 		pkix.Extension{Id: oidOCSPNoCheck, Critical: true, Value: []byte{0x04, 0x00}})
 	if err != nil {
 		return err
@@ -331,7 +334,7 @@ func (f fixtures) ocspChain() error {
 		{"delegated-bad-nocheck-leaf.ocsp", intermediate, badNoCheck, embedding(current(ocsp.Good), badNoCheck)},
 	}
 	for _, response := range responses {
-		der, err := ocsp.CreateResponse(response.issuer.cert, response.responder.cert, response.template, response.responder.key)
+		der, err := createOCSPResponse(response.issuer.cert, response.responder.cert, response.template, response.responder.key)
 		if err != nil {
 			return fmt.Errorf("OCSP response %s: %w", response.file, err)
 		}
@@ -341,7 +344,7 @@ func (f fixtures) ocspChain() error {
 	}
 
 	// A 33-octet response nonce, longer than RFC 8954 2.1 permits.
-	der, err := ocsp.CreateResponse(intermediate.cert, intermediate.cert, current(ocsp.Good), intermediate.key)
+	der, err := createOCSPResponse(intermediate.cert, intermediate.cert, current(ocsp.Good), intermediate.key)
 	if err != nil {
 		return err
 	}
@@ -351,11 +354,66 @@ func (f fixtures) ocspChain() error {
 	return f.write(filepath.Join("ocsps", "nonce-too-long-leaf.ocsp"), der)
 }
 
+// createOCSPResponse is ocsp.CreateResponse with template.ProducedAt, which
+// golang.org/x/crypto/ocsp replaces by the current time.
+func createOCSPResponse(issuer, responder *x509.Certificate, template ocsp.Response, key crypto.Signer) ([]byte, error) {
+	if template.ProducedAt.IsZero() {
+		return nil, fmt.Errorf("OCSP response template for serial %x needs ProducedAt", template.SerialNumber)
+	}
+	der, err := ocsp.CreateResponse(issuer, responder, template, key)
+	if err != nil {
+		return nil, err
+	}
+	producedAt, err := asn1.MarshalWithParams(template.ProducedAt.UTC(), "generalized")
+	if err != nil {
+		return nil, err
+	}
+	return rewriteOCSPResponse(der, key, func(fields [][]byte) ([][]byte, error) {
+		for index, field := range fields {
+			if field[0] == asn1.TagGeneralizedTime {
+				fields[index] = producedAt
+				return fields, nil
+			}
+		}
+		return nil, fmt.Errorf("ResponseData has no producedAt")
+	})
+}
+
 // withResponseNonce adds a Nonce responseExtension to the DER OCSP response
-// der, which must have none, and signs it again with key using
-// sha256WithRSAEncryption. golang.org/x/crypto/ocsp cannot create response
+// der, which must have none. golang.org/x/crypto/ocsp cannot create response
 // extensions.
 func withResponseNonce(der, nonce []byte, key crypto.Signer) ([]byte, error) {
+	value, err := asn1.Marshal(nonce)
+	if err != nil {
+		return nil, err
+	}
+	extensions, err := asn1.Marshal([]pkix.Extension{{Id: asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 48, 1, 2}, Value: value}})
+	if err != nil {
+		return nil, err
+	}
+	explicit, err := asn1.Marshal(asn1.RawValue{Class: asn1.ClassContextSpecific, Tag: 1, IsCompound: true, Bytes: extensions})
+	if err != nil {
+		return nil, err
+	}
+	return rewriteOCSPResponse(der, key, func(fields [][]byte) ([][]byte, error) {
+		return append(fields, explicit), nil
+	})
+}
+
+// ocspSignatureHashes are the hashes of the signature algorithms the OCSP
+// fixtures use.
+var ocspSignatureHashes = map[string]crypto.Hash{
+	"1.2.840.113549.1.1.5":  crypto.SHA1,   // sha1WithRSAEncryption
+	"1.2.840.113549.1.1.11": crypto.SHA256, // sha256WithRSAEncryption
+	"1.2.840.113549.1.1.12": crypto.SHA384, // sha384WithRSAEncryption
+	"1.2.840.10045.4.1":     crypto.SHA1,   // ecdsa-with-SHA1
+	"1.2.840.10045.4.3.2":   crypto.SHA256, // ecdsa-with-SHA256
+	"1.2.840.10045.4.3.3":   crypto.SHA384, // ecdsa-with-SHA384
+}
+
+// rewriteOCSPResponse rewrites the ResponseData fields of the DER OCSP
+// response der and signs it again with key, using its signature algorithm.
+func rewriteOCSPResponse(der []byte, key crypto.Signer, rewrite func([][]byte) ([][]byte, error)) ([]byte, error) {
 	var response struct {
 		Status        asn1.Enumerated
 		ResponseBytes struct {
@@ -375,21 +433,32 @@ func withResponseNonce(der, nonce []byte, key crypto.Signer) ([]byte, error) {
 	if _, err := asn1.Unmarshal(response.ResponseBytes.Response, &basic); err != nil {
 		return nil, fmt.Errorf("decode BasicOCSPResponse: %w", err)
 	}
-	value, err := asn1.Marshal(nonce)
+	var algorithm pkix.AlgorithmIdentifier
+	if _, err := asn1.Unmarshal(basic.Algorithm.FullBytes, &algorithm); err != nil {
+		return nil, fmt.Errorf("decode OCSP signature algorithm: %w", err)
+	}
+	hash, ok := ocspSignatureHashes[algorithm.Algorithm.String()]
+	if !ok {
+		return nil, fmt.Errorf("OCSP signature algorithm %s is not supported", algorithm.Algorithm)
+	}
+	var fields [][]byte
+	for content := basic.TBS.Bytes; len(content) > 0; {
+		var field asn1.RawValue
+		rest, err := asn1.Unmarshal(content, &field)
+		if err != nil {
+			return nil, fmt.Errorf("decode ResponseData field: %w", err)
+		}
+		fields = append(fields, bytes.Clone(content[:len(content)-len(rest)]))
+		content = rest
+	}
+	fields, err := rewrite(fields)
 	if err != nil {
 		return nil, err
 	}
-	extensions, err := asn1.Marshal([]pkix.Extension{{Id: asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 48, 1, 2}, Value: value}})
-	if err != nil {
-		return nil, err
-	}
-	explicit, err := asn1.Marshal(asn1.RawValue{Class: asn1.ClassContextSpecific, Tag: 1, IsCompound: true, Bytes: extensions})
-	if err != nil {
-		return nil, err
-	}
-	tbs := sequence(append(bytes.Clone(basic.TBS.Bytes), explicit...))
-	digest := sha256.Sum256(tbs)
-	signature, err := key.Sign(rand.Reader, digest[:], crypto.SHA256)
+	tbs := sequence(bytes.Join(fields, nil))
+	digest := hash.New()
+	digest.Write(tbs)
+	signature, err := key.Sign(nil, digest.Sum(nil), hash)
 	if err != nil {
 		return nil, err
 	}
@@ -409,7 +478,7 @@ func withResponseNonce(der, nonce []byte, key crypto.Signer) ([]byte, error) {
 // nc-intermediate.pem, and a leaf inside (nc-good) and outside (nc-bad) the
 // permitted subtree.
 func (f fixtures) nameConstraintsChain() error {
-	root, err := issue(nil, func(template *x509.Certificate) {
+	root, err := issue("name-constraints/root", nil, func(template *x509.Certificate) {
 		template.SerialNumber = big.NewInt(0x5dd7)
 		template.RawSubject = utf8Name([][2]string{{"CN", "NC Test Root CA"}})
 		template.NotBefore, template.NotAfter = date(2026, 5, 8, 21, 12, 21), date(2036, 5, 5, 21, 12, 21)
@@ -420,7 +489,7 @@ func (f fixtures) nameConstraintsChain() error {
 	if err != nil {
 		return err
 	}
-	intermediate, err := issue(&root, func(template *x509.Certificate) {
+	intermediate, err := issue("name-constraints/intermediate", &root, func(template *x509.Certificate) {
 		template.SerialNumber = big.NewInt(0x4a64)
 		template.RawSubject = utf8Name([][2]string{{"CN", "NC Test Intermediate CA"}})
 		template.NotBefore, template.NotAfter = date(2026, 5, 8, 21, 12, 21), date(2031, 5, 7, 21, 12, 21)
@@ -430,8 +499,8 @@ func (f fixtures) nameConstraintsChain() error {
 	if err != nil {
 		return err
 	}
-	leaf := func(serial int64, dnsName string) (issued, error) {
-		return issue(&intermediate, func(template *x509.Certificate) {
+	leaf := func(key string, serial int64, dnsName string) (issued, error) {
+		return issue(key, &intermediate, func(template *x509.Certificate) {
 			template.SerialNumber = big.NewInt(serial)
 			template.RawSubject = utf8Name([][2]string{{"CN", dnsName}})
 			template.NotBefore, template.NotAfter = date(2026, 5, 8, 21, 12, 21), date(2028, 8, 10, 21, 12, 21)
@@ -440,11 +509,11 @@ func (f fixtures) nameConstraintsChain() error {
 			endEntityWithNoncriticalBasicConstraints(template)
 		}, withSubjectKeyID)
 	}
-	good, err := leaf(0x08f0, "nc-good.example.test")
+	good, err := leaf("name-constraints/good-leaf", 0x08f0, "nc-good.example.test")
 	if err != nil {
 		return err
 	}
-	bad, err := leaf(0x08f1, "nc-bad.example.com")
+	bad, err := leaf("name-constraints/bad-leaf", 0x08f1, "nc-bad.example.com")
 	if err != nil {
 		return err
 	}
@@ -504,14 +573,14 @@ func withSubjectKeyID(template *x509.Certificate, public crypto.PublicKey) error
 	return nil
 }
 
-// issue creates an RSA-2048 certificate signed with SHA-256 by issuer, or
-// self-signed when issuer is nil.
-func issue(issuer *issued, configure func(template *x509.Certificate), options ...option) (issued, error) {
-	return issueRSA(2048, issuer, configure, options...)
+// issue creates a certificate for the RSA-2048 key called name, signed with
+// SHA-256 by issuer, or self-signed when issuer is nil.
+func issue(name string, issuer *issued, configure func(template *x509.Certificate), options ...option) (issued, error) {
+	return issueRSA(name, 2048, issuer, configure, options...)
 }
 
-func issueRSA(bits int, issuer *issued, configure func(template *x509.Certificate), options ...option) (issued, error) {
-	key, err := rsa.GenerateKey(rand.Reader, bits)
+func issueRSA(name string, bits int, issuer *issued, configure func(template *x509.Certificate), options ...option) (issued, error) {
+	key, err := fixtureKey(name, rsaKey(bits))
 	if err != nil {
 		return issued{}, err
 	}
@@ -522,7 +591,7 @@ func issueRSA(bits int, issuer *issued, configure func(template *x509.Certificat
 			return issued{}, err
 		}
 	}
-	parent, signer := template, crypto.Signer(key)
+	parent, signer := template, key
 	if issuer != nil {
 		parent, signer = issuer.cert, issuer.key
 	}

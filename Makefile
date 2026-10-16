@@ -90,7 +90,8 @@ golden:
 	$(GO) test $(CMD) -run '^TestGolden$$' -update
 
 # Regenerates the certificate, CRL and OCSP fixtures in tests/certs,
-# tests/crls and tests/ocsps with new keys.
+# tests/crls, tests/ocsps and tests/vectors from the committed keys in
+# tests/fixturegen/testdata/keys.pem; unchanged fixtures stay byte-identical.
 fixtures:
 	$(GO) run $(FIXTUREGEN)
 

@@ -2,10 +2,7 @@ package main
 
 import (
 	"crypto"
-	"crypto/ecdsa"
-	"crypto/elliptic"
 	"crypto/rand"
-	"crypto/rsa"
 	"crypto/x509"
 	"fmt"
 	"math/big"
@@ -32,8 +29,6 @@ func issueKey(key crypto.Signer, issuer *issued, configure func(template *x509.C
 	return issued{cert: certificate, key: key}, nil
 }
 
-func p256Key() (crypto.Signer, error) { return ecdsa.GenerateKey(elliptic.P256(), rand.Reader) }
-
 // tr03116Vectors writes, under tests/vectors, a TR-03116-4 conforming
 // ECDSA P-256 chain with CRLs (tr03116-conformant) and variants that each
 // break or exercise one requirement: a root valid for seven years, a leaf
@@ -44,7 +39,7 @@ func tr03116Vectors(w vectorWriter) error {
 		template.CRLDistributionPoints = []string{"http://crl.example.test/tr03116.crl"}
 		template.OCSPServer = []string{"http://ocsp.example.test"}
 	}
-	rootKey, err := p256Key()
+	rootKey, err := p256Key("tr03116/root")
 	if err != nil {
 		return err
 	}
@@ -58,7 +53,7 @@ func tr03116Vectors(w vectorWriter) error {
 	if err != nil {
 		return err
 	}
-	intermediateKey, err := p256Key()
+	intermediateKey, err := p256Key("tr03116/intermediate")
 	if err != nil {
 		return err
 	}
@@ -85,7 +80,7 @@ func tr03116Vectors(w vectorWriter) error {
 			revocation(template)
 		}
 	}
-	leafKey, err := p256Key()
+	leafKey, err := p256Key("tr03116/leaf")
 	if err != nil {
 		return err
 	}
@@ -129,7 +124,7 @@ func tr03116Vectors(w vectorWriter) error {
 		return err
 	}
 	for _, bits := range []int{3000, 2048} {
-		key, err := rsa.GenerateKey(rand.Reader, bits)
+		key, err := fixtureKey(fmt.Sprintf("tr03116/leaf-rsa-%d", bits), rsaKey(bits))
 		if err != nil {
 			return err
 		}

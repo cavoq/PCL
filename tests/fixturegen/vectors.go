@@ -77,7 +77,7 @@ func (w vectorWriter) crl(vector string, der []byte) error {
 
 // withSubject writes a self-signed end entity with the encoded subject.
 func (w vectorWriter) withSubject(vector string, subject []byte) error {
-	certificate, err := vectorEndEntity(func(template *x509.Certificate) { template.RawSubject = subject })
+	certificate, err := vectorEndEntity(vector+"/certificate", func(template *x509.Certificate) { template.RawSubject = subject })
 	if err != nil {
 		return err
 	}
@@ -85,7 +85,7 @@ func (w vectorWriter) withSubject(vector string, subject []byte) error {
 }
 
 func vectorCRLInvalidProfile(w vectorWriter) error {
-	issuer, err := vectorCA(nil)
+	issuer, err := vectorCA("crl-invalid-profile/issuer", nil)
 	if err != nil {
 		return err
 	}
@@ -111,14 +111,14 @@ func vectorCRLInvalidProfile(w vectorWriter) error {
 
 func vectorValidRevokedCertificate(w vectorWriter) error {
 	now := date(2026, 8, 14, 12, 0, 0)
-	issuer, err := vectorCA(func(template *x509.Certificate) {
+	issuer, err := vectorCA("valid-revoked-certificate/issuer", func(template *x509.Certificate) {
 		template.NotBefore = now.Add(-24 * time.Hour)
 		template.NotAfter = now.Add(365 * 24 * time.Hour)
 	})
 	if err != nil {
 		return err
 	}
-	leaf, err := issue(&issuer, func(template *x509.Certificate) {
+	leaf, err := issue("valid-revoked-certificate/leaf", &issuer, func(template *x509.Certificate) {
 		template.SerialNumber = big.NewInt(2)
 		template.Subject = pkix.Name{CommonName: "revoked integration leaf"}
 		template.NotBefore, template.NotAfter = now.Add(-time.Hour), now.Add(24*time.Hour)
@@ -145,7 +145,7 @@ func vectorValidRevokedCertificate(w vectorWriter) error {
 }
 
 func vectorCertificateAlgorithmMismatch(w vectorWriter) error {
-	issuer, err := vectorCA(nil)
+	issuer, err := vectorCA("certificate-algorithm-mismatch/issuer", nil)
 	if err != nil {
 		return err
 	}
@@ -157,7 +157,7 @@ func vectorCertificateAlgorithmMismatch(w vectorWriter) error {
 }
 
 func vectorCRLAlgorithmMismatch(w vectorWriter) error {
-	issuer, err := vectorCA(nil)
+	issuer, err := vectorCA("crl-algorithm-mismatch/issuer", nil)
 	if err != nil {
 		return err
 	}
@@ -174,7 +174,7 @@ func vectorCRLAlgorithmMismatch(w vectorWriter) error {
 }
 
 func vectorCRLEntryCriticalExtension(w vectorWriter) error {
-	issuer, err := vectorCA(nil)
+	issuer, err := vectorCA("crl-entry-critical-extension/issuer", nil)
 	if err != nil {
 		return err
 	}
@@ -196,7 +196,7 @@ func vectorCRLEntryCriticalExtension(w vectorWriter) error {
 }
 
 func vectorCertificateEmptyKeyUsage(w vectorWriter) error {
-	certificate, err := vectorCA(func(template *x509.Certificate) {
+	certificate, err := vectorCA("certificate-empty-key-usage/certificate", func(template *x509.Certificate) {
 		template.KeyUsage = 0
 		template.ExtraExtensions = []pkix.Extension{{
 			Id: asn1.ObjectIdentifier{2, 5, 29, 15}, Critical: true, Value: []byte{0x03, 0x01, 0x00},
@@ -209,7 +209,7 @@ func vectorCertificateEmptyKeyUsage(w vectorWriter) error {
 }
 
 func vectorCertificateEmptyGeneralNames(w vectorWriter) error {
-	certificate, err := vectorEndEntity(func(template *x509.Certificate) {
+	certificate, err := vectorEndEntity("certificate-empty-general-names/certificate", func(template *x509.Certificate) {
 		template.ExtraExtensions = []pkix.Extension{{Id: asn1.ObjectIdentifier{2, 5, 29, 17}, Value: []byte{0x30, 0x00}}}
 	})
 	if err != nil {
@@ -220,7 +220,7 @@ func vectorCertificateEmptyGeneralNames(w vectorWriter) error {
 
 func vectorCertificateValidityBoundary(w vectorWriter) error {
 	boundary := date(2026, 7, 18, 12, 0, 0)
-	certificate, err := vectorCA(func(template *x509.Certificate) {
+	certificate, err := vectorCA("certificate-validity-boundary/certificate", func(template *x509.Certificate) {
 		template.NotBefore, template.NotAfter = boundary, boundary
 	})
 	if err != nil {
@@ -230,7 +230,7 @@ func vectorCertificateValidityBoundary(w vectorWriter) error {
 }
 
 func vectorCertificateValidityEncodingCutover(w vectorWriter) error {
-	certificate, err := vectorCA(func(template *x509.Certificate) {
+	certificate, err := vectorCA("certificate-validity-encoding-cutover/certificate", func(template *x509.Certificate) {
 		template.NotBefore = date(2049, 12, 31, 23, 59, 59)
 		template.NotAfter = date(2050, 1, 1, 0, 0, 0)
 	})
@@ -241,7 +241,7 @@ func vectorCertificateValidityEncodingCutover(w vectorWriter) error {
 }
 
 func vectorCertificateSerialLeadingSignOctet(w vectorWriter) error {
-	certificate, err := vectorCA(nil)
+	certificate, err := vectorCA("certificate-serial-leading-sign-octet/certificate", nil)
 	if err != nil {
 		return err
 	}
@@ -265,7 +265,7 @@ func vectorCertificateSerialLeadingSignOctet(w vectorWriter) error {
 }
 
 func vectorCertificateZeroBitIssuerUniqueID(w vectorWriter) error {
-	certificate, err := vectorCA(nil)
+	certificate, err := vectorCA("certificate-zero-bit-issuer-unique-id/certificate", nil)
 	if err != nil {
 		return err
 	}
@@ -293,7 +293,7 @@ func vectorCertificateZeroBitIssuerUniqueID(w vectorWriter) error {
 func vectorCertificateIANSecondInvalidDNSLabel(w vectorWriter) error {
 	valid := element(0x82, []byte("valid.example"))
 	invalid := element(0x82, []byte{'i', 'n', 'v', 'a', 'l', 'i', 'd', 0xe9, '.', 'e', 'x', 'a', 'm', 'p', 'l', 'e'})
-	certificate, err := vectorEndEntity(func(template *x509.Certificate) {
+	certificate, err := vectorEndEntity("certificate-ian-second-invalid-dns-label/certificate", func(template *x509.Certificate) {
 		template.ExtraExtensions = []pkix.Extension{{
 			Id: asn1.ObjectIdentifier{2, 5, 29, 18}, Value: element(0x30, append(valid, invalid...)),
 		}}
@@ -305,7 +305,7 @@ func vectorCertificateIANSecondInvalidDNSLabel(w vectorWriter) error {
 }
 
 func vectorCertificateSANSecondNonIA5Name(w vectorWriter) error {
-	certificate, err := vectorEndEntity(func(template *x509.Certificate) {
+	certificate, err := vectorEndEntity("certificate-san-second-non-ia5-name/certificate", func(template *x509.Certificate) {
 		template.DNSNames = []string{"valid.example", "nonascii.example"}
 	})
 	if err != nil {
@@ -323,7 +323,7 @@ func vectorCertificateSANSecondNonIA5Name(w vectorWriter) error {
 }
 
 func vectorCRLMissingRequiredFields(w vectorWriter) error {
-	issuer, err := vectorCA(nil)
+	issuer, err := vectorCA("crl-missing-required-fields/issuer", nil)
 	if err != nil {
 		return err
 	}
@@ -340,7 +340,7 @@ func vectorCRLMissingRequiredFields(w vectorWriter) error {
 }
 
 func vectorCRLDNNoncanonicalOrder(w vectorWriter) error {
-	issuer, err := vectorCA(func(template *x509.Certificate) { template.RawSubject = nonCanonicalName() })
+	issuer, err := vectorCA("crl-dn-noncanonical-order/issuer", func(template *x509.Certificate) { template.RawSubject = nonCanonicalName() })
 	if err != nil {
 		return err
 	}
@@ -389,7 +389,7 @@ func vectorCertificateOrganizationTeletexString(w vectorWriter) error {
 // refuses to encode a zero reason code, so the entry is issued with
 // keyCompromise (1), patched to 0 and signed again.
 func vectorCRLEntryReasonUnspecified(w vectorWriter) error {
-	issuer, err := vectorCA(nil)
+	issuer, err := vectorCA("crl-entry-reason-unspecified/issuer", nil)
 	if err != nil {
 		return err
 	}
@@ -424,7 +424,7 @@ func vectorCRLEntryReasonUnspecified(w vectorWriter) error {
 // conforming and has a GeneralizedTime nextUpdate. Fields are rewritten
 // after Go encoded the CRL, then signed again.
 func vectorCRLTBSEncoding(w vectorWriter) error {
-	issuer, err := vectorCA(nil)
+	issuer, err := vectorCA("crl-tbs-encoding/issuer", nil)
 	if err != nil {
 		return err
 	}
@@ -492,9 +492,9 @@ func vectorCertificateDNNoncanonicalOrder(w vectorWriter) error {
 }
 
 // vectorCA issues the self-signed CA certificate the vectors are built on,
-// changed by configure when set.
-func vectorCA(configure func(template *x509.Certificate)) (issued, error) {
-	return issue(nil, func(template *x509.Certificate) {
+// for the RSA-2048 key called key and changed by configure when set.
+func vectorCA(key string, configure func(template *x509.Certificate)) (issued, error) {
+	return issue(key, nil, func(template *x509.Certificate) {
 		template.SerialNumber = big.NewInt(1)
 		template.Subject = pkix.Name{CommonName: "integration-generated"}
 		template.SubjectKeyId = []byte{0x01, 0x02, 0x03}
@@ -509,8 +509,8 @@ func vectorCA(configure func(template *x509.Certificate)) (issued, error) {
 
 // vectorEndEntity is vectorCA as a self-signed end entity without a subject
 // key identifier.
-func vectorEndEntity(configure func(template *x509.Certificate)) (issued, error) {
-	return vectorCA(func(template *x509.Certificate) {
+func vectorEndEntity(key string, configure func(template *x509.Certificate)) (issued, error) {
+	return vectorCA(key, func(template *x509.Certificate) {
 		template.IsCA = false
 		template.KeyUsage = x509.KeyUsageDigitalSignature
 		template.SubjectKeyId = nil
