@@ -61,7 +61,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Policy `groups` collect the rules of one source section and state their
   shared `reference`, `requirement`, `certType`, `effective` window and
-  `when` once; groups are expanded into ordinary rules when loaded.
+  `when` once; groups are expanded into ordinary rules when loaded. The
+  CABF pack is organized into 20 groups, one per BR section, with the same
+  rules.
 - `when` takes compound conditions: `allOf`, `anyOf` and `not`, nested. The
   `allOf` operator is the conjunction counterpart of `anyOf` and `oneOf`.
 - `wildcardNotPublicSuffix` checks that a wildcard does not cover a public
