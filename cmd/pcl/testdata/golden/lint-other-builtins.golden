@@ -1,4 +1,9 @@
-[Summary] Checked: <time> | Certs: 4 | Rules: 76 | PASS: 23, FAIL: 13, SKIP: 40, WARN: 0
+[Summary] Checked: <time> | Validation time: 2020-01-01T00:00:00Z | Certs: 4 | Rules: 76 | PASS: 23, FAIL: 13, SKIP: 40, WARN: 0
+[Policy] local-profile 1.0
+[Policy] tr03116-tls-server 2025 | BSI TR-03116-TS; BSI TR-03116-4 | TS v1.1 (2023); Part 4 (2025)
+[Chain] 2 certificate(s), no trust anchor supplied
+  leaf          CN=Valid EE Certificate Test1, O=Test Certificates 2011, C=US
+  intermediate  CN=Good CA, O=Test Certificates 2011, C=US
 
 ========================================================================
 [File] Policy: local-profile | Cert: leaf | File: ../../tests/pkits/certs/ValidCertificatePathTest1EE.crt | Verdict: PASS | PASS: 0, FAIL: 0, SKIP: 6, WARN: 0

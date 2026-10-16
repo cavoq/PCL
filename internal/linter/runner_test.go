@@ -859,7 +859,7 @@ rules:
 	if err := os.WriteFile(policyPath, []byte(policyYAML), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	var output bytes.Buffer
+	var buf bytes.Buffer
 	err := Run(Config{
 		PolicyPaths: []string{policyPath},
 		CertPath:    writePEMCert(t, dir, "leaf.pem", leaf.DER),
@@ -873,14 +873,16 @@ rules:
 		PathRevocation:   "none",
 		OutputFmt:        "json",
 		Verbosity:        1,
-	}, &output)
+		ShowMeta:         true,
+	}, &buf)
 	if err != nil {
-		t.Fatalf("Run: %v\n%s", err, output.String())
+		t.Fatalf("Run: %v\n%s", err, buf.String())
 	}
-	var results []policy.Result
-	if err := json.Unmarshal(output.Bytes(), &results); err != nil {
+	var out output.LintOutput
+	if err := json.Unmarshal(buf.Bytes(), &out); err != nil {
 		t.Fatal(err)
 	}
+	results := out.Results
 	var linted []string
 	for _, result := range results {
 		linted = append(linted, filepath.Base(result.CertPath))
@@ -890,6 +892,28 @@ rules:
 	}
 	if got := results[0].Results[0]; got.Verdict != rule.VerdictPass {
 		t.Fatalf("path decision = %#v, want pass", got)
+	}
+
+	// The run metadata names the alternative path as the evaluated chain.
+	chain := out.Meta.Chain
+	if chain == nil || !chain.Alternative || !chain.PathValidated || !chain.Anchored {
+		t.Fatalf("meta chain = %#v, want a validated, anchored alternative path", chain)
+	}
+	var chainPaths []string
+	for _, c := range chain.Certificates {
+		chainPaths = append(chainPaths, filepath.Base(c.CertPath))
+		if c.TrustAnchor != (filepath.Base(c.CertPath) == "root.pem") {
+			t.Errorf("%s trust_anchor = %v", c.CertPath, c.TrustAnchor)
+		}
+	}
+	if !slices.Equal(chainPaths, linted) {
+		t.Errorf("meta chain %v, want the linted chain %v", chainPaths, linted)
+	}
+	if want := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC); !out.Meta.ValidationTime.Equal(want) {
+		t.Errorf("meta validation_time = %v, want %v", out.Meta.ValidationTime, want)
+	}
+	if len(out.Meta.Policies) != 1 || out.Meta.Policies[0] != (output.PolicyInfo{ID: "path-validation", Version: "1"}) {
+		t.Errorf("meta policies = %#v", out.Meta.Policies)
 	}
 }
 

@@ -330,6 +330,18 @@ Text output shows verdict, severity, rule ID, and reference. `--details` adds
 wrapped explanations. JSON and YAML carry each displayed rule's findings;
 verbosity still filters the rule list.
 
+Unless `--show-meta=false`, the output starts with run metadata (`meta` in
+JSON and YAML, summary lines in text) that makes a result reproducible:
+
+| Field | Meaning |
+|---|---|
+| `checked_at` | When the run happened |
+| `validation_time` | The evaluation time, `--validation-time` or the current time, in whole seconds |
+| `policies` | Each loaded pack's `id`, `version`, and its metadata `title`, `standard`, `edition`, and `source` |
+| `chain` | The evaluated certificate chain, target first, with `path_validated` (trust anchors were supplied), `anchored`, and `alternative` (a valid alternative path replaced the constructed one that failed validation) |
+| `chain.certificates` | Each certificate's `cert_type`, `subject`, `issuer`, hex `serial`, `sha256` fingerprint, `cert_path`, and `trust_anchor` |
+| `total_certs`, `total_rules`, `passed_rules`, `failed_rules`, `skipped_rules` | Result counts |
+
 | Field | Meaning |
 |---|---|
 | `policy_id`, `cert_type`, `cert_path`, `source` | Policy and evaluated input |

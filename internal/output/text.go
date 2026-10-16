@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/cavoq/PCL/internal/finding"
@@ -27,8 +28,9 @@ func (f *TextFormatter) Format(w io.Writer, out LintOutput) error {
 		}
 		if _, err := fmt.Fprintf(
 			w,
-			"[Summary] Checked: %s | Certs: %d | Rules: %d | %s: %d, %s: %d, %s: %d, %s: %d\n",
+			"[Summary] Checked: %s%s | Certs: %d | Rules: %d | %s: %d, %s: %d, %s: %d, %s: %d\n",
 			out.Meta.CheckedAt.Format("2006-01-02 15:04:05"),
+			validationTimeField(out.Meta.ValidationTime),
 			out.Meta.TotalCerts,
 			out.Meta.TotalRules,
 			colors.verdict(rule.VerdictPass),
@@ -40,6 +42,9 @@ func (f *TextFormatter) Format(w io.Writer, out LintOutput) error {
 			colors.severity(rule.SeverityWarning),
 			warnTotal,
 		); err != nil {
+			return err
+		}
+		if err := writeRunMeta(w, out.Meta); err != nil {
 			return err
 		}
 		if _, err := fmt.Fprintln(w); err != nil {
@@ -92,6 +97,63 @@ func (f *TextFormatter) Format(w io.Writer, out LintOutput) error {
 			len(pr.Results),
 			f.Options.ShowDetails,
 		); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validationTimeField(validationTime time.Time) string {
+	if validationTime.IsZero() {
+		return ""
+	}
+	return " | Validation time: " + validationTime.UTC().Format(time.RFC3339)
+}
+
+// writeRunMeta lists the evaluated policy packs and the evaluated chain.
+func writeRunMeta(w io.Writer, meta LintMeta) error {
+	for _, p := range meta.Policies {
+		line := "[Policy] " + p.ID
+		if p.Version != "" {
+			line += " " + p.Version
+		}
+		for _, field := range []string{p.Standard, p.Edition} {
+			if field != "" {
+				line += " | " + field
+			}
+		}
+		if _, err := fmt.Fprintln(w, line); err != nil {
+			return err
+		}
+	}
+	if meta.Chain == nil {
+		return nil
+	}
+	header := fmt.Sprintf("[Chain] %d certificate(s)", len(meta.Chain.Certificates))
+	switch {
+	case meta.Chain.Anchored:
+		header += ", anchored"
+	case meta.Chain.PathValidated:
+		header += ", not anchored"
+	default:
+		header += ", no trust anchor supplied"
+	}
+	if meta.Chain.Alternative {
+		header += ", alternative path (the constructed path failed validation)"
+	}
+	if _, err := fmt.Fprintln(w, header); err != nil {
+		return err
+	}
+	width := 0
+	for _, c := range meta.Chain.Certificates {
+		width = max(width, len(c.CertType))
+	}
+	for _, c := range meta.Chain.Certificates {
+		line := fmt.Sprintf("  %-*s  %s", width, c.CertType, c.Subject)
+		if c.TrustAnchor {
+			line += " (trust anchor)"
+		}
+		if _, err := fmt.Fprintln(w, line); err != nil {
 			return err
 		}
 	}

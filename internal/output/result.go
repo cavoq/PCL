@@ -9,12 +9,67 @@ import (
 )
 
 type LintMeta struct {
-	CheckedAt    time.Time `json:"checked_at" yaml:"checked_at"`
-	TotalCerts   int       `json:"total_certs" yaml:"total_certs"`
-	TotalRules   int       `json:"total_rules" yaml:"total_rules"`
-	PassedRules  int       `json:"passed_rules" yaml:"passed_rules"`
-	FailedRules  int       `json:"failed_rules" yaml:"failed_rules"`
-	SkippedRules int       `json:"skipped_rules" yaml:"skipped_rules"`
+	CheckedAt time.Time `json:"checked_at" yaml:"checked_at"`
+	// ValidationTime is the time the run evaluated certificate, CRL and OCSP
+	// currency and path validity at; zero when the caller did not record it.
+	ValidationTime time.Time `json:"validation_time,omitzero" yaml:"validation_time,omitempty"`
+	// Policies identifies each evaluated policy pack and the source it
+	// implements.
+	Policies []PolicyInfo `json:"policies,omitempty" yaml:"policies,omitempty"`
+	// Chain is the certificate chain the certificate results belong to.
+	Chain        *Chain `json:"chain,omitempty" yaml:"chain,omitempty"`
+	TotalCerts   int    `json:"total_certs" yaml:"total_certs"`
+	TotalRules   int    `json:"total_rules" yaml:"total_rules"`
+	PassedRules  int    `json:"passed_rules" yaml:"passed_rules"`
+	FailedRules  int    `json:"failed_rules" yaml:"failed_rules"`
+	SkippedRules int    `json:"skipped_rules" yaml:"skipped_rules"`
+}
+
+// PolicyInfo identifies an evaluated policy pack by its id and version and
+// the standard and edition its metadata names.
+type PolicyInfo struct {
+	ID       string `json:"id" yaml:"id"`
+	Version  string `json:"version,omitempty" yaml:"version,omitempty"`
+	Title    string `json:"title,omitempty" yaml:"title,omitempty"`
+	Standard string `json:"standard,omitempty" yaml:"standard,omitempty"`
+	Edition  string `json:"edition,omitempty" yaml:"edition,omitempty"`
+	Source   string `json:"source,omitempty" yaml:"source,omitempty"`
+}
+
+// NewPolicyInfo identifies p.
+func NewPolicyInfo(p policy.Policy) PolicyInfo {
+	info := PolicyInfo{ID: p.ID, Version: p.Version}
+	if p.Metadata != nil {
+		info.Title = p.Metadata.Title
+		info.Standard = p.Metadata.Standard
+		info.Edition = p.Metadata.Edition
+		info.Source = p.Metadata.Source
+	}
+	return info
+}
+
+// Chain is the evaluated certificate chain, target first.
+type Chain struct {
+	// PathValidated reports that the chain was validated as an RFC 5280
+	// certification path, which requires explicit trust anchors.
+	PathValidated bool `json:"path_validated" yaml:"path_validated"`
+	// Anchored reports that the validated path reached a trust anchor.
+	Anchored bool `json:"anchored" yaml:"anchored"`
+	// Alternative reports that the constructed path failed validation and a
+	// valid alternative path was evaluated instead.
+	Alternative  bool               `json:"alternative" yaml:"alternative"`
+	Certificates []ChainCertificate `json:"certificates" yaml:"certificates"`
+}
+
+// ChainCertificate identifies one certificate of the evaluated chain.
+type ChainCertificate struct {
+	CertType    string `json:"cert_type" yaml:"cert_type"`
+	Subject     string `json:"subject" yaml:"subject"`
+	Issuer      string `json:"issuer" yaml:"issuer"`
+	Serial      string `json:"serial" yaml:"serial"`
+	SHA256      string `json:"sha256" yaml:"sha256"`
+	CertPath    string `json:"cert_path,omitempty" yaml:"cert_path,omitempty"`
+	TrustAnchor bool   `json:"trust_anchor" yaml:"trust_anchor"`
 }
 
 type LintOutput struct {

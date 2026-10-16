@@ -1,6 +1,8 @@
 package linter
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
@@ -45,12 +47,20 @@ func Run(cfg Config, w io.Writer) error {
 	if err != nil {
 		return err
 	}
-	results := evaluator.Evaluate(buildSubjects(cfg, inputs, policies, reg), reg)
+	cfg.ValidationTime = validationTime(cfg)
+	subjects := buildSubjects(cfg, inputs, policies, reg)
+	results := evaluator.Evaluate(subjects, reg)
 	if len(results) == 0 {
 		return fmt.Errorf("no loaded policy applies to the supplied input")
 	}
 
-	if err := outputResults(cfg, results, w); err != nil {
+	out := output.FromPolicyResults(results)
+	out.Meta.ValidationTime = cfg.ValidationTime
+	for _, p := range policies {
+		out.Meta.Policies = append(out.Meta.Policies, output.NewPolicyInfo(p))
+	}
+	out.Meta.Chain = evaluatedChain(inputs, subjects)
+	if err := outputResults(cfg, out, w); err != nil {
 		return err
 	}
 	if failed := failedRulesAtOrAbove(results, cfg.FailOn); failed > 0 {
@@ -450,7 +460,45 @@ func diagnosticsWriter(cfg Config, w io.Writer) io.Writer {
 	}
 }
 
-func outputResults(cfg Config, results []policy.Result, w io.Writer) error {
+// evaluatedChain describes the chain the certificate subjects were evaluated
+// with, which differs from the supplied chain when a valid alternative path
+// replaced it. Chain subjects come first, and the target's context carries
+// the path validation result.
+func evaluatedChain(inputs lintInputs, subjects []evaluator.Subject) *output.Chain {
+	if inputs.chain == nil || len(subjects) == 0 {
+		return nil
+	}
+	ctx := subjects[0].Context
+	chain := &output.Chain{
+		Alternative: !slices.EqualFunc(ctx.Chain, inputs.chain, func(left, right *cert.Info) bool {
+			return left != nil && right != nil && cert.SameCertificate(left.Cert, right.Cert)
+		}),
+	}
+	if ctx.PathValidation != nil {
+		chain.PathValidated = true
+		chain.Anchored = ctx.PathValidation.Anchored
+	}
+	for _, c := range ctx.Chain {
+		if c == nil || c.Cert == nil {
+			continue
+		}
+		fingerprint := sha256.Sum256(c.Cert.Raw)
+		chain.Certificates = append(chain.Certificates, output.ChainCertificate{
+			CertType: cert.GetCertType(c.Cert),
+			Subject:  c.Cert.Subject.String(),
+			Issuer:   c.Cert.Issuer.String(),
+			Serial:   c.Cert.SerialNumber.Text(16),
+			SHA256:   hex.EncodeToString(fingerprint[:]),
+			CertPath: c.FilePath,
+			TrustAnchor: slices.ContainsFunc(inputs.trustAnchors, func(anchor *cert.Info) bool {
+				return anchor != nil && cert.SameCertificate(anchor.Cert, c.Cert)
+			}),
+		})
+	}
+	return chain
+}
+
+func outputResults(cfg Config, out output.LintOutput, w io.Writer) error {
 	outputOpts := output.Options{
 		ShowPassed:  cfg.Verbosity >= 1,
 		ShowFailed:  true,
@@ -461,14 +509,16 @@ func outputResults(cfg Config, results []policy.Result, w io.Writer) error {
 	}
 
 	formatter := output.GetFormatter(cfg.OutputFmt, outputOpts)
-	return formatter.Format(w, output.FromPolicyResults(results))
+	return formatter.Format(w, out)
 }
 
+// validationTime returns the configured evaluation time, else the current
+// time, at the whole-second granularity evaluation uses.
 func validationTime(cfg Config) time.Time {
 	if !cfg.ValidationTime.IsZero() {
-		return cfg.ValidationTime
+		return cfg.ValidationTime.Truncate(time.Second)
 	}
-	return time.Now()
+	return time.Now().Truncate(time.Second)
 }
 
 func crlRevocationRequested(cfg Config) bool {

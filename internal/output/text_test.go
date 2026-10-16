@@ -277,6 +277,44 @@ func TestTextFormatter_Format(t *testing.T) {
 	}
 }
 
+func TestWriteRunMetaDescribesTheChain(t *testing.T) {
+	leaf := ChainCertificate{CertType: "leaf", Subject: "CN=Leaf"}
+	tests := []struct {
+		name  string
+		chain Chain
+		want  string
+	}{
+		{"profile only", Chain{Certificates: []ChainCertificate{leaf}},
+			"[Chain] 1 certificate(s), no trust anchor supplied\n  leaf  CN=Leaf\n"},
+		{"unanchored", Chain{PathValidated: true, Certificates: []ChainCertificate{leaf}},
+			"[Chain] 1 certificate(s), not anchored\n  leaf  CN=Leaf\n"},
+		{"alternative", Chain{PathValidated: true, Anchored: true, Alternative: true, Certificates: []ChainCertificate{
+			leaf, {CertType: "root", Subject: "CN=Root", TrustAnchor: true},
+		}}, "[Chain] 2 certificate(s), anchored, alternative path (the constructed path failed validation)\n" +
+			"  leaf  CN=Leaf\n  root  CN=Root (trust anchor)\n"},
+	}
+	for _, test := range tests {
+		var buf bytes.Buffer
+		if err := writeRunMeta(&buf, LintMeta{Chain: &test.chain}); err != nil {
+			t.Fatal(err)
+		}
+		if buf.String() != test.want {
+			t.Errorf("%s:\n%q\nwant\n%q", test.name, buf.String(), test.want)
+		}
+	}
+
+	var buf bytes.Buffer
+	if err := writeRunMeta(&buf, LintMeta{Policies: []PolicyInfo{
+		{ID: "pack", Version: "2", Standard: "Standard", Edition: "2024"},
+		{ID: "local"},
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	if want := "[Policy] pack 2 | Standard | 2024\n[Policy] local\n"; buf.String() != want {
+		t.Errorf("policies:\n%q\nwant\n%q", buf.String(), want)
+	}
+}
+
 func TestTextFormatter_EmptyCertPath(t *testing.T) {
 	formatter := NewTextFormatter(Options{ShowMeta: false})
 

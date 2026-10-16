@@ -1,4 +1,9 @@
-[Summary] Checked: <time> | Certs: 5 | Rules: 705 | PASS: 165, FAIL: 2, SKIP: 538, WARN: 0
+[Summary] Checked: <time> | Validation time: 2020-01-01T00:00:00Z | Certs: 5 | Rules: 705 | PASS: 165, FAIL: 2, SKIP: 538, WARN: 0
+[Policy] rfc5280 1.0 | RFC 5280 | 2008
+[Chain] 3 certificate(s), anchored
+  leaf          CN=Invalid EE Signature Test3, O=Test Certificates 2011, C=US
+  intermediate  CN=Good CA, O=Test Certificates 2011, C=US
+  root          CN=Trust Anchor, O=Test Certificates 2011, C=US (trust anchor)
 
 ========================================================================
 [File] Policy: rfc5280 | Cert: leaf | File: ../../tests/pkits/certs/InvalidEESignatureTest3EE.crt | Verdict: FAIL | PASS: 40, FAIL: 2, SKIP: 99, WARN: 0

@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `--validation-time` evaluates a lint or `pcl inspect` run at a fixed time
   (RFC 3339 or YYYY-MM-DD) instead of now, for repeatable and historical
   results.
+- Run metadata records the validation time, each loaded policy pack's
+  version, standard and edition, and the evaluated chain: every certificate's
+  subject, issuer, serial and SHA-256 fingerprint, the trust anchor, and
+  whether a valid alternative path replaced the constructed one. Text output
+  prints them below the summary line; JSON and YAML add `validation_time`,
+  `policies` and `chain` to `meta`.
 
 ## [6.0.0] - 2026-10-16
 

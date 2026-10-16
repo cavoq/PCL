@@ -1,6 +1,51 @@
 {
   "meta": {
     "checked_at": "<time>",
+    "validation_time": "2020-01-01T00:00:00Z",
+    "policies": [
+      {
+        "id": "rfc5280",
+        "version": "1.0",
+        "title": "X.509 certificate, CRL, and certification-path checks",
+        "standard": "RFC 5280",
+        "edition": "2008",
+        "source": "https://www.rfc-editor.org/rfc/rfc5280"
+      }
+    ],
+    "chain": {
+      "path_validated": true,
+      "anchored": true,
+      "alternative": false,
+      "certificates": [
+        {
+          "cert_type": "leaf",
+          "subject": "CN=Valid EE Certificate Test1, O=Test Certificates 2011, C=US",
+          "issuer": "CN=Good CA, O=Test Certificates 2011, C=US",
+          "serial": "1",
+          "sha256": "967ed7ed2be0506b82000a377751c5525619d3b9e7fed8a0e7aa554947af5e9e",
+          "cert_path": "../../tests/pkits/certs/ValidCertificatePathTest1EE.crt",
+          "trust_anchor": false
+        },
+        {
+          "cert_type": "intermediate",
+          "subject": "CN=Good CA, O=Test Certificates 2011, C=US",
+          "issuer": "CN=Trust Anchor, O=Test Certificates 2011, C=US",
+          "serial": "2",
+          "sha256": "86d218374763fce77d5b2b45398db48f10e553da1875be7d6103085baca0343f",
+          "cert_path": "../../tests/pkits/certs/GoodCACert.crt",
+          "trust_anchor": false
+        },
+        {
+          "cert_type": "root",
+          "subject": "CN=Trust Anchor, O=Test Certificates 2011, C=US",
+          "issuer": "CN=Trust Anchor, O=Test Certificates 2011, C=US",
+          "serial": "1",
+          "sha256": "87d1dfcc73f979bb348bb4f159d9115c40ab0a9afc4b21d77e6ddf20c7782b89",
+          "cert_path": "../../tests/pkits/certs/TrustAnchorRootCertificate.crt",
+          "trust_anchor": true
+        }
+      ]
+    },
     "total_certs": 5,
     "total_rules": 705,
     "passed_rules": 167,
