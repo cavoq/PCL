@@ -20,7 +20,7 @@ automatic selector for future editions or dates.
 | TLS_CERT_02: signatures | Implemented | ECDSA SHA-256+, DSA SHA-256, or PSS SHA-256+; signature verification | Chain and issuers | Pack rules; combine with [RFC 4055](RFC4055-COVERAGE.md) |
 | TLS_CERT_03: wildcards | Partial | Rejects `*` in every CN and SAN dNSName | Certificate Names | Pack rules |
 | TLS_CERT_04: revocation information | Partial | Requires CRLDP or OCSP AIA; acquisition can attempt retrieval | Certificate; live service evidence for availability | Pack rules and acquisition tests |
-| TLS_CERT_05: revocation status | Implemented with evidence | Requires accepted current CRL or authenticated OCSP Good; Revoked wins | Chain, CRL/OCSP, time | [CRL assessment](../internal/crl/status_assessment_test.go), [OCSP assessment](../internal/ocsp/evidence_test.go) |
+| TLS_CERT_05: revocation status | Implemented with evidence | Requires accepted current CRL or authenticated OCSP Good; Revoked wins; inconclusive without applicable evidence | Chain, CRL/OCSP, time | [CRL assessment](../internal/crl/status_assessment_test.go), [OCSP assessment](../internal/ocsp/evidence_test.go) |
 | TLS_CERT_06: leaf Key Usage | Implemented | Critical; digitalSignature true, keyCertSign/cRLSign false | Leaf | Pack rules |
 | TLS_CERT_07: CA Key Usage | Implemented | Critical; keyCertSign and cRLSign true | CA certificates | Pack rules |
 | TLS_CERT_08: EKU | Implemented | Requires serverAuth on leaf | Leaf | Pack rules |

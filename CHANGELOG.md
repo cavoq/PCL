@@ -12,6 +12,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `not_applicable` (`N/A` in text) instead of `pass`: it decided nothing, so
   it must not read as compliance. Policy test suites accept
   `verdict: not_applicable`; expectations of `pass` for such inputs fail.
+- The revocation operators `notRevoked`, `notRevokedOCSP`, `ocspValid`,
+  `ocspGood` and `notRevokedByAvailableEvidence` are `inconclusive` instead of
+  failing when no supplied CRL or OCSP response applies to the certificate.
+  An inconclusive error rule makes the policy `inconclusive`; text output
+  counts INCONCLUSIVE rules and JSON/YAML add `inconclusive_rules`. Stale,
+  unauthenticated or Revoked evidence still fails. `--fail-on` counts
+  inconclusive rules like failures, so exit statuses do not change.
 
 ### Added
 - `--validation-time` evaluates a lint or `pcl inspect` run at a fixed time

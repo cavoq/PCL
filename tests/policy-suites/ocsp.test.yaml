@@ -1,7 +1,7 @@
 policy:
   - ../policies/ocsp-conditional-skip.yaml
   - ../policies/ocsp-good.yaml
-  - ../policies/ocsp-missing-fails.yaml
+  - ../policies/ocsp-missing-inconclusive.yaml
 tests:
   - name: ocsp-conditional-skip
     cert: ../certs
@@ -55,22 +55,25 @@ tests:
         policy: integration-ocsp-good
         verdict: not_applicable
         failed: []
-  - name: ocsp-missing-fails
+  - name: ocsp-missing-inconclusive
     cert: ../certs
     time: "2026-10-01T00:00:00Z"
     expect:
       - input: leaf
-        policy: integration-ocsp-missing-fails
-        verdict: fail
-        failed: [ocsp-valid]
+        policy: integration-ocsp-missing-inconclusive
+        verdict: inconclusive
+        failed: []
+        rules: {ocsp-valid: inconclusive}
       - input: intermediate
-        policy: integration-ocsp-missing-fails
-        verdict: fail
-        failed: [ocsp-valid]
+        policy: integration-ocsp-missing-inconclusive
+        verdict: inconclusive
+        failed: []
+        rules: {ocsp-valid: inconclusive}
       - input: root
-        policy: integration-ocsp-missing-fails
-        verdict: fail
-        failed: [ocsp-valid]
+        policy: integration-ocsp-missing-inconclusive
+        verdict: inconclusive
+        failed: []
+        rules: {ocsp-valid: inconclusive}
   - name: ocsp-mixed-good-revoked-leaf
     cert: ../certs/ocsp-leaf.pem
     issuers: [../certs/ocsp-intermediate.pem, ../certs/ocsp-root.pem]
@@ -187,8 +190,9 @@ tests:
     expect:
       - input: leaf
         policy: integration-ocsp-good
-        verdict: fail
-        failed: [ocsp-not-revoked, ocsp-response-valid, ocsp-status-good]
+        verdict: inconclusive
+        failed: []
+        rules: {ocsp-not-revoked: inconclusive, ocsp-response-valid: inconclusive, ocsp-status-good: inconclusive}
       - input: intermediate
         policy: integration-ocsp-good
         verdict: not_applicable

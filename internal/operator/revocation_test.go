@@ -1,6 +1,7 @@
 package operator
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/cavoq/PCL/internal/cert"
@@ -21,13 +22,19 @@ func TestNotRevokedByAvailableEvidence(t *testing.T) {
 		Status: ocsp.StatusRevoked,
 	}}}
 
+	staleCRL := crl.Assessment{Evidence: []crl.Evidence{{Applicable: true, Rejection: crl.EvidenceNotCurrent}}}
+	unrelatedCRL := crl.Assessment{Evidence: []crl.Evidence{{Rejection: crl.EvidenceUnrelated}}}
+
 	tests := []struct {
-		name string
-		crl  *crl.Assessment
-		ocsp *ocsp.Assessment
-		want bool
+		name           string
+		crl            *crl.Assessment
+		ocsp           *ocsp.Assessment
+		want           bool
+		wantNoEvidence bool
 	}{
-		{name: "no evidence", want: false},
+		{name: "no evidence", wantNoEvidence: true},
+		{name: "only an unrelated CRL", crl: &unrelatedCRL, wantNoEvidence: true},
+		{name: "applicable CRL that is not current", crl: &staleCRL, want: false},
 		{name: "good CRL", crl: &goodCRL, want: true},
 		{name: "good OCSP", ocsp: &goodOCSP, want: true},
 		{name: "revoked CRL overrides good OCSP", crl: &revokedCRL, ocsp: &goodOCSP, want: false},
@@ -41,7 +48,11 @@ func TestNotRevokedByAvailableEvidence(t *testing.T) {
 			ctx.OCSPAssessment = test.ocsp
 
 			got, err := (NotRevokedByAvailableEvidence{}).Evaluate(nil, ctx, nil)
-			if err != nil {
+			var noEvidence NoEvidenceError
+			if errors.As(err, &noEvidence) != test.wantNoEvidence {
+				t.Fatalf("Evaluate error = %v, want NoEvidenceError: %v", err, test.wantNoEvidence)
+			}
+			if err != nil && !test.wantNoEvidence {
 				t.Fatalf("Evaluate: %v", err)
 			}
 			if got != test.want {

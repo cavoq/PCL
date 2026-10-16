@@ -1,6 +1,7 @@
 package operator
 
 import (
+	"errors"
 	"path/filepath"
 	"testing"
 	"time"
@@ -35,14 +36,18 @@ func TestOCSPOperatorsUseAcceptedEvidence(t *testing.T) {
 		wantValid       bool
 		wantNotRevoked  bool
 		wantGood        bool
+		// wantNoEvidence: no response applies to the certificate, so every
+		// operator is undecided rather than false.
+		wantNoEvidence bool
 	}{
-		{name: "absent"},
+		{name: "absent", wantNoEvidence: true},
 		{name: "good", responseFile: "good-leaf.ocsp", wantValid: true, wantNotRevoked: true, wantGood: true},
 		{name: "good without nextUpdate", responseFile: "no-next-update-leaf.ocsp", wantValid: true, wantNotRevoked: true, wantGood: true},
 		{name: "revoked", responseFile: "revoked-leaf.ocsp", wantValid: true},
 		{name: "unknown", responseFile: "unknown-leaf.ocsp", wantValid: true},
-		{name: "different serial", responseFile: "wrong-leaf.ocsp"},
-		{name: "issuer mismatch", responseFile: "issuer-mismatch-leaf.ocsp"},
+		{name: "different serial", responseFile: "wrong-leaf.ocsp", wantNoEvidence: true},
+		// The context's chain lacks the root the response names as issuer.
+		{name: "issuer mismatch", responseFile: "issuer-mismatch-leaf.ocsp", wantNoEvidence: true},
 		{name: "bad signature", responseFile: "wrong-signer-leaf.ocsp"},
 		{name: "stale", responseFile: "stale-leaf.ocsp", afterNextUpdate: true},
 	}
@@ -50,24 +55,22 @@ func TestOCSPOperatorsUseAcceptedEvidence(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := loadOCSPOperatorContext(t, test.responseFile, test.afterNextUpdate)
+			if test.wantNoEvidence {
+				assertOCSPOperatorsLackEvidence(t, ctx)
+				return
+			}
 			assertOCSPOperatorResults(t, ctx, test.wantValid, test.wantNotRevoked, test.wantGood)
 		})
 	}
 }
 
-func TestOCSPOperatorsFailClosedWithoutIssuer(t *testing.T) {
+// Without the issuer a response cannot be bound to the certificate, so it is
+// no evidence for it: the operators stay undecided and never accept it.
+func TestOCSPOperatorsDoNotAcceptEvidenceWithoutIssuer(t *testing.T) {
 	ctx := loadOCSPOperatorContext(t, "good-leaf.ocsp", false)
 	ctx.Chain = ctx.Chain[:1]
 
-	for _, operator := range []Operator{OCSPValid{}, NotRevokedOCSP{}, OCSPGood{}} {
-		got, err := operator.Evaluate(nil, ctx, nil)
-		if err != nil {
-			t.Fatalf("%s: %v", operator.Name(), err)
-		}
-		if got {
-			t.Fatalf("%s accepted evidence without its issuer", operator.Name())
-		}
-	}
+	assertOCSPOperatorsLackEvidence(t, ctx)
 }
 
 func TestOCSPOperatorsUseCachedAssessment(t *testing.T) {
@@ -93,7 +96,7 @@ func TestOCSPOperatorsTreatEmptyCachedAssessmentAsAuthoritative(t *testing.T) {
 	ctx := loadOCSPOperatorContext(t, "good-leaf.ocsp", false)
 	ctx.OCSPAssessment = &ocsp.Assessment{}
 
-	assertOCSPOperatorResults(t, ctx, false, false, false)
+	assertOCSPOperatorsLackEvidence(t, ctx)
 }
 
 func TestOCSPOperatorsFailClosedWithoutTargetDespiteCachedAssessment(t *testing.T) {
@@ -140,6 +143,19 @@ func assertOCSPOperatorResults(t *testing.T, ctx *EvaluationContext, wantValid, 
 		}
 		if got != test.want {
 			t.Errorf("%s = %v, want %v", test.operator.Name(), got, test.want)
+		}
+	}
+}
+
+// assertOCSPOperatorsLackEvidence checks that every OCSP operator reports a
+// NoEvidenceError and accepts nothing.
+func assertOCSPOperatorsLackEvidence(t *testing.T, ctx *EvaluationContext) {
+	t.Helper()
+	for _, operator := range []Operator{OCSPValid{}, NotRevokedOCSP{}, OCSPGood{}} {
+		got, err := operator.Evaluate(nil, ctx, nil)
+		var noEvidence NoEvidenceError
+		if got || !errors.As(err, &noEvidence) {
+			t.Errorf("%s = %v, %v; want false with NoEvidenceError", operator.Name(), got, err)
 		}
 	}
 }

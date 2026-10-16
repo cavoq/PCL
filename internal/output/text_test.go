@@ -229,6 +229,36 @@ func TestWriteRulesTableShowsRequirementLevels(t *testing.T) {
 	}
 }
 
+func TestTextFormatterShowsInconclusiveRules(t *testing.T) {
+	results := []policy.Result{{
+		PolicyID: "p",
+		CertType: "leaf",
+		Verdict:  rule.VerdictInconclusive,
+		Results: []rule.Result{
+			{RuleID: "status-good", Verdict: rule.VerdictInconclusive, Severity: rule.SeverityError},
+			{RuleID: "version", Verdict: rule.VerdictPass, Severity: rule.SeverityError},
+		},
+	}}
+	var buf bytes.Buffer
+	if err := NewTextFormatter(Options{ShowFailed: true, ShowMeta: true}).Format(&buf, FromPolicyResults(results)); err != nil {
+		t.Fatal(err)
+	}
+	text := buf.String()
+	for _, want := range []string{
+		"PASS: 1, FAIL: 0, SKIP: 0, WARN: 0, INCONCLUSIVE: 1\n",
+		"Verdict: INCONCLUSIVE | PASS: 1, FAIL: 0, SKIP: 0, WARN: 0, INCONCLUSIVE: 1\n",
+		"  VERDICT       SEVERITY  RULE       \n",
+		"  INCONCLUSIVE  ERROR     status-good\n",
+	} {
+		if !strings.Contains(text, want) {
+			t.Errorf("output lacks %q:\n%s", want, text)
+		}
+	}
+	if strings.Contains(text, "version") {
+		t.Errorf("passed rules must stay hidden by default:\n%s", text)
+	}
+}
+
 func TestWriteRulesTable_WithWarnings(t *testing.T) {
 	results := []rule.Result{
 		{RuleID: "rule-1", Verdict: rule.VerdictFail, Severity: "warning"},

@@ -10,7 +10,8 @@ import (
 // decisions already prepared by the evaluator. Revoked evidence wins over
 // Good evidence; otherwise at least one mechanism must establish Good. This
 // lets profiles that permit either CRL or OCSP evidence fail closed without
-// choosing a mechanism from certificate syntax alone.
+// choosing a mechanism from certificate syntax alone. Without any applicable
+// CRL or OCSP evidence the decision is inconclusive.
 type NotRevokedByAvailableEvidence struct{}
 
 func (NotRevokedByAvailableEvidence) Name() string { return "notRevokedByAvailableEvidence" }
@@ -24,14 +25,21 @@ func (NotRevokedByAvailableEvidence) Evaluate(
 		return false, nil
 	}
 
-	crlStatus := crlpkg.RevocationUnknown
+	crls := crlpkg.Assessment{}
 	if ctx.CRLAssessment != nil {
-		crlStatus = ctx.CRLAssessment.Status()
+		crls = *ctx.CRLAssessment
 	}
+	crlStatus := crls.Status()
 	ocspStatus := assessOCSP(ctx).Status()
 
 	if crlStatus == crlpkg.RevocationRevoked || ocspStatus == ocsppkg.StatusRevoked {
 		return false, nil
 	}
-	return crlStatus == crlpkg.RevocationGood || ocspStatus == ocsppkg.StatusGood, nil
+	if crlStatus == crlpkg.RevocationGood || ocspStatus == ocsppkg.StatusGood {
+		return true, nil
+	}
+	if !crls.HasApplicableEvidence() && ocspStatus == ocsppkg.StatusNotApplicable {
+		return false, NoEvidenceError{Evidence: "CRL or OCSP response"}
+	}
+	return false, nil
 }

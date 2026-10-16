@@ -82,8 +82,18 @@ func (NotRevoked) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (bool,
 	if ctx == nil || ctx.Cert == nil || ctx.Cert.Cert == nil {
 		return false, nil
 	}
+	assessment := assessCRLs(ctx)
+	if assessment.Status() == crlpkg.RevocationUnknown && !assessment.HasApplicableEvidence() {
+		return false, NoEvidenceError{Evidence: "CRL"}
+	}
+	return assessment.Status() == crlpkg.RevocationGood, nil
+}
+
+// assessCRLs returns the certificate's prepared CRL assessment, or assesses
+// the supplied CRLs when the evaluator prepared none.
+func assessCRLs(ctx *EvaluationContext) crlpkg.Assessment {
 	if ctx.CRLAssessment != nil {
-		return ctx.CRLAssessment.Status() == crlpkg.RevocationGood, nil
+		return *ctx.CRLAssessment
 	}
 
 	lists := make([]*x509.RevocationList, 0, len(ctx.CRLs))
@@ -99,5 +109,5 @@ func (NotRevoked) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (bool,
 		Issuers:   ctx.CRLIssuerPool(),
 		UseDeltas: true,
 	}
-	return crlpkg.AssessCertificate(ctx.Cert.Cert, lists, statusCtx).Status() == crlpkg.RevocationGood, nil
+	return crlpkg.AssessCertificate(ctx.Cert.Cert, lists, statusCtx)
 }

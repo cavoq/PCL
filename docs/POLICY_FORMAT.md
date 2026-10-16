@@ -129,6 +129,13 @@ absence explicitly (an absent value equals no operand and is in no set).
 | `fail` with `error` severity | Policy verdict becomes `fail` |
 | `fail` with `warning` or `info` | Reported; policy verdict remains unchanged |
 | `skip` | Not evaluated for this input/condition |
+| `inconclusive` with `error` severity | Policy verdict becomes `inconclusive` unless an error rule failed |
+
+A rule is `inconclusive` when it applies but its operator found no
+applicable evidence to decide it, such as no CRL or OCSP response for the
+certificate ([revocation operators](OPERATORS.md#ocsp-operators)). It is not a
+failure: the input is not shown non-compliant, but compliance is not
+established either.
 
 A policy whose rules were all skipped decided nothing for the input, such as
 a leaf-only pack on a CA certificate; its verdict is `not_applicable` (`N/A`

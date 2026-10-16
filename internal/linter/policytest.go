@@ -230,15 +230,15 @@ func validateExpectation(expectation policyExpectation) error {
 		return fmt.Errorf("expect %s: verdict, rules or failed is required", expectation.Input)
 	}
 	switch expectation.Verdict {
-	case "", rule.VerdictPass, rule.VerdictFail, policy.VerdictNotApplicable:
+	case "", rule.VerdictPass, rule.VerdictFail, rule.VerdictInconclusive, policy.VerdictNotApplicable:
 	default:
-		return fmt.Errorf("expect %s: verdict must be pass, fail or not_applicable", expectation.Input)
+		return fmt.Errorf("expect %s: verdict must be pass, fail, inconclusive or not_applicable", expectation.Input)
 	}
 	for ruleID, verdict := range expectation.Rules {
 		switch verdict {
-		case rule.VerdictPass, rule.VerdictFail, rule.VerdictSkip:
+		case rule.VerdictPass, rule.VerdictFail, rule.VerdictSkip, rule.VerdictInconclusive:
 		default:
-			return fmt.Errorf("expect %s: rule %s verdict must be pass, fail or skip", expectation.Input, ruleID)
+			return fmt.Errorf("expect %s: rule %s verdict must be pass, fail, skip or inconclusive", expectation.Input, ruleID)
 		}
 	}
 	return nil

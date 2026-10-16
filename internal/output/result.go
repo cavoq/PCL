@@ -23,6 +23,9 @@ type LintMeta struct {
 	PassedRules  int    `json:"passed_rules" yaml:"passed_rules"`
 	FailedRules  int    `json:"failed_rules" yaml:"failed_rules"`
 	SkippedRules int    `json:"skipped_rules" yaml:"skipped_rules"`
+	// InconclusiveRules counts rules that applied but lacked the evidence to
+	// decide.
+	InconclusiveRules int `json:"inconclusive_rules" yaml:"inconclusive_rules"`
 }
 
 // PolicyInfo identifies an evaluated policy pack by its id and version and
@@ -100,6 +103,8 @@ func FromPolicyResults(policyResults []policy.Result) LintOutput {
 			PassedRules:  total.passed,
 			FailedRules:  total.failed,
 			SkippedRules: total.skipped,
+
+			InconclusiveRules: total.inconclusive,
 		},
 		Results: policyResults,
 	}
@@ -108,7 +113,7 @@ func FromPolicyResults(policyResults []policy.Result) LintOutput {
 // ruleCounts counts rule verdicts; warned counts the failed rules of
 // warning severity.
 type ruleCounts struct {
-	passed, failed, skipped, warned int
+	passed, failed, skipped, warned, inconclusive int
 }
 
 func countRules(results []rule.Result) ruleCounts {
@@ -124,6 +129,8 @@ func countRules(results []rule.Result) ruleCounts {
 			}
 		case rule.VerdictSkip:
 			counts.skipped++
+		case rule.VerdictInconclusive:
+			counts.inconclusive++
 		}
 	}
 	return counts
@@ -135,6 +142,8 @@ func (counts ruleCounts) add(other ruleCounts) ruleCounts {
 		failed:  counts.failed + other.failed,
 		skipped: counts.skipped + other.skipped,
 		warned:  counts.warned + other.warned,
+
+		inconclusive: counts.inconclusive + other.inconclusive,
 	}
 }
 
@@ -155,6 +164,7 @@ func visibleRules(results []rule.Result, opts Options) []rule.Result {
 		switch {
 		case rr.Verdict == rule.VerdictPass && opts.ShowPassed,
 			rr.Verdict == rule.VerdictFail && opts.ShowFailed,
+			rr.Verdict == rule.VerdictInconclusive && opts.ShowFailed,
 			rr.Verdict == rule.VerdictSkip && opts.ShowSkipped:
 			visible = append(visible, rr)
 		}

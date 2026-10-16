@@ -64,7 +64,7 @@ func Run(cfg Config, w io.Writer) error {
 		return err
 	}
 	if failed := failedRulesAtOrAbove(results, cfg.FailOn); failed > 0 {
-		return fmt.Errorf("%d failed rule(s) with severity %s or higher", failed, cfg.FailOn)
+		return fmt.Errorf("%d failed or inconclusive rule(s) with severity %s or higher", failed, cfg.FailOn)
 	}
 	return nil
 }
@@ -82,8 +82,9 @@ var failOnRanks = map[string]int{
 	rule.SeverityError:   3,
 }
 
-// failedRulesAtOrAbove counts the failed rules whose severity ranks at or
-// above threshold.
+// failedRulesAtOrAbove counts the failed and inconclusive rules whose
+// severity ranks at or above threshold: a gate fails closed when evidence it
+// needs is missing.
 func failedRulesAtOrAbove(results []policy.Result, threshold string) int {
 	minimum := failOnRanks[threshold]
 	if minimum == 0 {
@@ -92,7 +93,8 @@ func failedRulesAtOrAbove(results []policy.Result, threshold string) int {
 	failed := 0
 	for _, result := range results {
 		for _, ruleResult := range result.Results {
-			if ruleResult.Verdict == rule.VerdictFail && failOnRanks[ruleResult.Severity] >= minimum {
+			blocking := ruleResult.Verdict == rule.VerdictFail || ruleResult.Verdict == rule.VerdictInconclusive
+			if blocking && failOnRanks[ruleResult.Severity] >= minimum {
 				failed++
 			}
 		}

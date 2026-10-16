@@ -29,7 +29,7 @@ func (f *TextFormatter) Format(w io.Writer, out LintOutput) error {
 		}
 		if _, err := fmt.Fprintf(
 			w,
-			"[Summary] Checked: %s%s | Certs: %d | Rules: %d | %s: %d, %s: %d, %s: %d, %s: %d\n",
+			"[Summary] Checked: %s%s | Certs: %d | Rules: %d | %s: %d, %s: %d, %s: %d, %s: %d%s\n",
 			out.Meta.CheckedAt.Format("2006-01-02 15:04:05"),
 			validationTimeField(out.Meta.ValidationTime),
 			out.Meta.TotalCerts,
@@ -42,6 +42,7 @@ func (f *TextFormatter) Format(w io.Writer, out LintOutput) error {
 			out.Meta.SkippedRules,
 			colors.severity(rule.SeverityWarning),
 			warnTotal,
+			colors.inconclusiveCount(out.Meta.InconclusiveRules),
 		); err != nil {
 			return err
 		}
@@ -74,7 +75,7 @@ func (f *TextFormatter) Format(w io.Writer, out LintOutput) error {
 		counts := countRules(pr.Results)
 		if _, err := fmt.Fprintf(
 			w,
-			"[File] Policy: %s | Cert: %s | File: %s%s | Verdict: %s | %s: %d, %s: %d, %s: %d, %s: %d\n",
+			"[File] Policy: %s | Cert: %s | File: %s%s | Verdict: %s | %s: %d, %s: %d, %s: %d, %s: %d%s\n",
 			pr.PolicyID,
 			pr.CertType,
 			certPath,
@@ -88,6 +89,7 @@ func (f *TextFormatter) Format(w io.Writer, out LintOutput) error {
 			counts.skipped,
 			colors.severity(rule.SeverityWarning),
 			counts.warned,
+			colors.inconclusiveCount(counts.inconclusive),
 		); err != nil {
 			return err
 		}
@@ -188,9 +190,20 @@ func (p palette) verdict(verdict string) string {
 		return p.paint(label, ansiRed)
 	case rule.VerdictSkip, policy.VerdictNotApplicable:
 		return p.paint(label, ansiCyan)
+	case rule.VerdictInconclusive:
+		return p.paint(label, ansiYellow)
 	default:
 		return label
 	}
+}
+
+// inconclusiveCount is the summary-line count of inconclusive rules, shown
+// only when there are any.
+func (p palette) inconclusiveCount(count int) string {
+	if count == 0 {
+		return ""
+	}
+	return fmt.Sprintf(", %s: %d", p.verdict(rule.VerdictInconclusive), count)
 }
 
 // verdictCell is the padded VERDICT cell of a rule, colored by its severity
@@ -211,6 +224,8 @@ func (p palette) verdictCell(verdict string, severity string, width int) string 
 		return p.paint(padded, ansiRed)
 	case rule.VerdictSkip:
 		return p.paint(padded, ansiCyan)
+	case rule.VerdictInconclusive:
+		return p.paint(padded, ansiYellow)
 	default:
 		return padded
 	}
@@ -237,8 +252,15 @@ const (
 	ansiWhite  = "\033[37m"
 )
 
-// verdictWidth is the padded width of the always-present VERDICT column.
-const verdictWidth = 7
+// verdictWidth is the padded width of the always-present VERDICT column; it
+// widens to fit INCONCLUSIVE when a listed rule is inconclusive.
+func verdictWidth(results []rule.Result) int {
+	width := len("VERDICT")
+	for _, rr := range results {
+		width = max(width, len(verdictLabel(rr.Verdict)))
+	}
+	return width
+}
 
 // tableColumn is an optional rules-table column after VERDICT.
 type tableColumn struct {
@@ -263,6 +285,7 @@ func writeRulesTable(w io.Writer, colors palette, results []rule.Result, total i
 	}
 
 	columns := rulesTableColumns(results)
+	verdictWidth := verdictWidth(results)
 	header := []string{fmt.Sprintf("%-*s", verdictWidth, "VERDICT")}
 	separator := []string{strings.Repeat("-", verdictWidth)}
 	for _, column := range columns {
@@ -285,7 +308,7 @@ func writeRulesTable(w io.Writer, colors palette, results []rule.Result, total i
 			return err
 		}
 		if showDetails {
-			if err := writeRuleDetails(w, columns, rr); err != nil {
+			if err := writeRuleDetails(w, ruleColumnIndent(verdictWidth, columns), rr); err != nil {
 				return err
 			}
 		}
@@ -333,13 +356,12 @@ func rulesTableColumns(results []rule.Result) []tableColumn {
 
 const maxDetailLineWidth = 120
 
-func writeRuleDetails(w io.Writer, columns []tableColumn, result rule.Result) error {
+func writeRuleDetails(w io.Writer, indent string, result rule.Result) error {
 	parts := resultDetailParts(result)
 	if len(parts) == 0 {
 		return nil
 	}
 
-	indent := ruleColumnIndent(columns)
 	wrapWidth := max(40, maxDetailLineWidth-len(indent)-3)
 	for partIndex, part := range parts {
 		branch := "├─ "
@@ -390,7 +412,7 @@ func resultDetailParts(result rule.Result) []string {
 	return parts
 }
 
-func ruleColumnIndent(columns []tableColumn) string {
+func ruleColumnIndent(verdictWidth int, columns []tableColumn) string {
 	width := 2 + verdictWidth + 2
 	for _, column := range columns {
 		if column.header == "RULE" {

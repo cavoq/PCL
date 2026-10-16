@@ -127,7 +127,9 @@ Result: rules consume the acquired evidence. The TR profile's external
 requirements are listed in its [coverage matrix](../policies/TR03116-TLS-SERVER-COVERAGE.md).
 
 Failure behavior: retrieval does not prove trust or service availability over
-time. Missing, stale, malformed, or unrelated evidence cannot establish Good status.
+time. Missing, stale, malformed, or unrelated evidence cannot establish Good
+status: stale, malformed or unauthenticated evidence fails the revocation
+rules, and without any applicable evidence they are `inconclusive`.
 
 | Option | Effect |
 |---|---|
@@ -191,11 +193,13 @@ or `-vv` for the complete rule list. `--details` affects text formatting only.
 |---|---|
 | Acquisition, policy-load, or other run error | 1 |
 | Rule failures with default `--fail-on none` | 0 after a completed run |
-| Failed rules at/above `--fail-on error`, `warning`, or `info` | 1 after results are written |
+| Failed or inconclusive rules at/above `--fail-on error`, `warning`, or `info` | 1 after results are written |
 
 The policy verdict is separate: failed `error` rules make it `fail`; warning
 and info failures remain visible but do not change that verdict. A policy
-that skipped every rule is `not_applicable` (`N/A`), never `pass`.
+that skipped every rule is `not_applicable` (`N/A`), never `pass`; one whose
+error rule lacked evidence is `inconclusive`. A `--fail-on` gate counts
+inconclusive rules like failures, so missing evidence never passes it.
 
 ## Validation parameters
 

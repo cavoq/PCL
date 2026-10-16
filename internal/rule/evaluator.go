@@ -15,6 +15,9 @@ const (
 	VerdictPass = "pass"
 	VerdictFail = "fail"
 	VerdictSkip = "skip"
+	// VerdictInconclusive: the rule applies, but its operator found no
+	// applicable evidence to decide it, such as no CRL or OCSP response.
+	VerdictInconclusive = "inconclusive"
 )
 
 // Finding codes for rules that were skipped before their operator decided.
@@ -78,6 +81,12 @@ func Evaluate(
 	ok, err := resolveAndEvaluate(root, r.Target, r.Operator, r.Operands, reg, ctx)
 	explanation := explain(root, r.Target, r.Operator, r.Operands, ok, reg, ctx)
 	if err != nil {
+		var noEvidence operator.NoEvidenceError
+		if errors.As(err, &noEvidence) {
+			result := newResult(r, VerdictInconclusive, "")
+			result.Findings = []finding.Finding{ruleFinding(r.Operator, VerdictInconclusive, noEvidence.Error())}
+			return result
+		}
 		if isTargetNotFound(err) && !node.HasInputNamespace(root, r.Target) {
 			return Skipped(r, CodeInputUnavailable, "input unavailable; "+explanation)
 		}

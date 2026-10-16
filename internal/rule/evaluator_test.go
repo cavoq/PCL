@@ -329,3 +329,29 @@ func wantFinding(t *testing.T, result Result, code, message string) {
 		t.Fatalf("finding = %#v, want code %q, status %q, message %q", got, code, result.Verdict, message)
 	}
 }
+
+type noEvidenceOp struct{}
+
+func (noEvidenceOp) Name() string { return "noEvidence" }
+
+func (noEvidenceOp) Evaluate(_ *node.Node, _ *operator.EvaluationContext, _ []any) (bool, error) {
+	return false, operator.NoEvidenceError{Evidence: "OCSP response"}
+}
+
+func TestRuleEvaluationReportsMissingEvidenceAsInconclusive(t *testing.T) {
+	reg := operator.NewRegistry()
+	reg.Register(noEvidenceOp{})
+	reg.Register(errOp{})
+	root := node.New("certificate", nil)
+
+	result := Evaluate(root, Rule{ID: "status", Target: "certificate", Operator: "noEvidence", Severity: SeverityError, Message: "must be Good"}, reg, nil)
+	if result.Verdict != VerdictInconclusive || result.Message != "" {
+		t.Fatalf("result = %#v, want inconclusive without the failure message", result)
+	}
+	wantFinding(t, result, "noEvidence", "no applicable OCSP response was supplied for the certificate")
+
+	// Any other operator error still fails the rule.
+	if result := Evaluate(root, Rule{ID: "broken", Target: "certificate", Operator: "err", Severity: SeverityError}, reg, nil); result.Verdict != VerdictFail {
+		t.Fatalf("operator error verdict = %s, want fail", result.Verdict)
+	}
+}

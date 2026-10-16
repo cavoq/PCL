@@ -114,16 +114,23 @@ These operators take no operands.
 | `crlValid` | None | Returns true if CRL has a present, ordered `nextUpdate` and the evaluation time is within its inclusive window |
 | `crlNotExpired` | None | Compatibility deadline check; rejects missing or elapsed `nextUpdate` but does not check `thisUpdate` |
 | `crlSignedBy` | None | Returns true only when the CRL signature verifies against a resolved issuer certificate |
-| `notRevoked` | None | Returns true only when an applicable CRL exists and does not list the certificate; missing/unrelated CRLs are unknown and return false |
-| `notRevokedByAvailableEvidence` | None | Combines prepared CRL and OCSP decisions; Revoked wins, otherwise at least one mechanism must establish Good |
+| `notRevoked` | None | Returns true only when an applicable CRL exists and does not list the certificate; inconclusive without an applicable CRL |
+| `notRevokedByAvailableEvidence` | None | Combines prepared CRL and OCSP decisions; Revoked wins, otherwise at least one mechanism must establish Good; inconclusive without any applicable CRL or OCSP response |
 
 ## OCSP Operators
 
 | Operator | Operands | Description |
 |----------|----------|-------------|
 | `ocspValid` | None | True when at least one response is certificate/issuer-bound, current, and authenticated |
-| `notRevokedOCSP` | None | True only when accepted aggregate status is Good; Unknown and absent evidence fail closed |
+| `notRevokedOCSP` | None | True only when accepted aggregate status is Good; an Unknown status fails |
 | `ocspGood` | None | True when at least one accepted response explicitly reports Good |
+
+The revocation operators decide `inconclusive` when no supplied CRL or OCSP
+response applies to the certificate: an OCSP response must name the
+certificate's serial and a known issuer, a CRL must cover the certificate's
+issuer and distribution point. Missing evidence leaves compliance
+unestablished rather than proving a violation. Applicable evidence that is
+stale, unauthenticated, from an unauthorized signer, or Unknown still fails.
 
 ## Every Operator (Array Iteration)
 

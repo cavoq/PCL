@@ -1,4 +1,4 @@
-id: integration-ocsp-missing-fails
+id: integration-ocsp-missing-inconclusive
 version: 1.0
 
 rules:

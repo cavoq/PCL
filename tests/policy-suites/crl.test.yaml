@@ -94,9 +94,11 @@ tests:
         failed: [certificate-not-revoked]
       - input: intermediate
         policy: integration-not-revoked
-        verdict: fail
-        failed: [certificate-not-revoked]
+        verdict: inconclusive
+        failed: []
+        rules: {certificate-not-revoked: inconclusive}
       - input: root
         policy: integration-not-revoked
-        verdict: fail
-        failed: [certificate-not-revoked]
+        verdict: inconclusive
+        failed: []
+        rules: {certificate-not-revoked: inconclusive}

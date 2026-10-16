@@ -124,6 +124,17 @@ type Assessment struct {
 	Revocation     *Revocation
 }
 
+// HasApplicableEvidence reports whether a supplied complete CRL covers the
+// certificate's scope, whether or not it was accepted.
+func (a Assessment) HasApplicableEvidence() bool {
+	for _, evidence := range a.Evidence {
+		if evidence.Applicable {
+			return true
+		}
+	}
+	return false
+}
+
 // Status returns Revoked when accepted evidence contains a revocation, Good
 // only when accepted evidence covers every RFC 5280 reason, and Unknown in
 // every other case.

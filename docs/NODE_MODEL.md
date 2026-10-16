@@ -340,12 +340,12 @@ JSON and YAML, summary lines in text) that makes a result reproducible:
 | `policies` | Each loaded pack's `id`, `version`, and its metadata `title`, `standard`, `edition`, and `source` |
 | `chain` | The evaluated certificate chain, target first, with `path_validated` (trust anchors were supplied), `anchored`, and `alternative` (a valid alternative path replaced the constructed one that failed validation) |
 | `chain.certificates` | Each certificate's `cert_type`, `subject`, `issuer`, hex `serial`, `sha256` fingerprint, `cert_path`, and `trust_anchor` |
-| `total_certs`, `total_rules`, `passed_rules`, `failed_rules`, `skipped_rules` | Result counts |
+| `total_certs`, `total_rules`, `passed_rules`, `failed_rules`, `skipped_rules`, `inconclusive_rules` | Result counts |
 
 | Field | Meaning |
 |---|---|
 | `policy_id`, `cert_type`, `cert_path`, `source` | Policy and evaluated input |
-| `verdict` | Policy `pass`, `fail`, or `not_applicable` when every rule was skipped; only failed error-severity rules fail the policy |
+| `verdict` | Policy `pass`, `fail`, `inconclusive` when an error-severity rule lacked evidence, or `not_applicable` when every rule was skipped; only failed error-severity rules fail the policy |
 | `checked_at` | Result creation time |
 | `rules` | Emitted rule results, filtered by verbosity |
 

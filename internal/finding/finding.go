@@ -10,6 +10,8 @@ const (
 	StatusPass Status = "pass"
 	StatusFail Status = "fail"
 	StatusSkip Status = "skip"
+	// StatusInconclusive marks a decision the evidence supplied could not make.
+	StatusInconclusive Status = "inconclusive"
 )
 
 // Finding is one structured validation decision. CertificateIndex uses

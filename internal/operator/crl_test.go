@@ -85,13 +85,15 @@ func TestCRLOperators(t *testing.T) {
 
 		{name: "notRevoked: nil context", op: NotRevoked{}},
 		{name: "notRevoked: nil cert", op: NotRevoked{}, ctx: &EvaluationContext{}},
-		{name: "notRevoked: no CRLs leave the status unknown", op: NotRevoked{}, ctx: &EvaluationContext{Cert: subject}},
+		// Without an applicable CRL the operator is undecided: a NoEvidenceError.
+		{name: "notRevoked: no CRLs leave the status undecided", op: NotRevoked{},
+			ctx: &EvaluationContext{Now: now, Cert: subject}, wantErr: true},
 		{name: "notRevoked: listed certificate", op: NotRevoked{},
-			ctx: &EvaluationContext{Cert: subject, CRLs: []*crl.Info{revoking(issuer)}}},
-		{name: "notRevoked: only unrelated CRLs leave the status unknown", op: NotRevoked{},
-			ctx: &EvaluationContext{Cert: subject, CRLs: []*crl.Info{revoking(pkix.Name{CommonName: "CA B"})}}},
+			ctx: &EvaluationContext{Now: now, Cert: subject, CRLs: []*crl.Info{revoking(issuer)}}},
+		{name: "notRevoked: only unrelated CRLs leave the status undecided", op: NotRevoked{},
+			ctx: &EvaluationContext{Now: now, Cert: subject, CRLs: []*crl.Info{revoking(pkix.Name{CommonName: "CA B"})}}, wantErr: true},
 		{name: "notRevoked: unsigned synthetic CRL cannot prove a good status", op: NotRevoked{},
-			ctx: &EvaluationContext{Cert: subject, CRLs: []*crl.Info{
+			ctx: &EvaluationContext{Now: now, Cert: subject, CRLs: []*crl.Info{
 				{CRL: nil},
 				{CRL: &x509.RevocationList{Issuer: issuer, RevokedCertificates: []x509.RevokedCertificate{}}},
 			}}},

@@ -167,7 +167,8 @@ rules:
     severity: error
     message: "A certificate without CRL Distribution Points must provide OCSP information in AIA"
 
-  # TLS_CERT_05: fail closed when applicable revocation evidence is absent.
+  # TLS_CERT_05: Revoked or unaccepted evidence fails; without any applicable
+  # CRL or OCSP evidence the rule is inconclusive.
   - id: tls-cert-05-not-revoked
     reference: TR-03116-TS 6.1.1 TLS_CERT_05; TR-03116-4 6.1.3
     target: certificate

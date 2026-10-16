@@ -55,4 +55,4 @@
   -------  --------  ---------  -----------
   FAIL     ERROR     crl-valid  RFC5280 5.1
                      └─ check failed: crlValid
-error: 9 failed rule(s) with severity error or higher
+error: 9 failed or inconclusive rule(s) with severity error or higher

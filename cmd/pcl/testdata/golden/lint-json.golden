@@ -50,7 +50,8 @@
     "total_rules": 705,
     "passed_rules": 167,
     "failed_rules": 0,
-    "skipped_rules": 538
+    "skipped_rules": 538,
+    "inconclusive_rules": 0
   },
   "results": [
     {

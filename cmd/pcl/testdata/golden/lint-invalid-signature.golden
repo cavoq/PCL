@@ -34,4 +34,4 @@
 [File] Policy: rfc5280 | Cert: crl | File: testdata/pkits-crls/TrustAnchorRootCRL.crl | Verdict: PASS | PASS: 18, FAIL: 0, SKIP: 123, WARN: 0
 ------------------------------------------------------------------------
   (no rules to display with current verbosity)
-error: 2 failed rule(s) with severity error or higher
+error: 2 failed or inconclusive rule(s) with severity error or higher

@@ -1036,11 +1036,17 @@ rules:
     operator: eq
     operands: [3]
     severity: error
+  - id: ocsp-status-good
+    target: certificate
+    operator: notRevokedOCSP
+    severity: warning
 `), 0o644)
 	if err != nil {
 		t.Fatal(err)
 	}
 
+	// Without an OCSP response ocsp-status-good is inconclusive; a gate counts
+	// it like a failure so missing evidence never opens it.
 	tests := []struct {
 		failOn  string
 		wantErr string
@@ -1048,8 +1054,8 @@ rules:
 		{failOn: ""},
 		{failOn: FailOnNone},
 		{failOn: rule.SeverityError},
-		{failOn: rule.SeverityWarning, wantErr: "1 failed rule(s) with severity warning or higher"},
-		{failOn: rule.SeverityInfo, wantErr: "1 failed rule(s) with severity info or higher"},
+		{failOn: rule.SeverityWarning, wantErr: "2 failed or inconclusive rule(s) with severity warning or higher"},
+		{failOn: rule.SeverityInfo, wantErr: "2 failed or inconclusive rule(s) with severity info or higher"},
 		{failOn: "critical", wantErr: `unknown --fail-on severity "critical"`},
 	}
 	for _, tt := range tests {

@@ -33,31 +33,42 @@ type Metadata struct {
 	Inputs      []string `yaml:"inputs,omitempty"`
 }
 
-// VerdictNotApplicable is the policy verdict when every rule was skipped as
-// not applicable to the input, so the policy decided nothing. The other
-// policy verdicts are rule.VerdictPass and rule.VerdictFail.
-const VerdictNotApplicable = "not_applicable"
+// Policy verdicts besides rule.VerdictPass, rule.VerdictFail and
+// rule.VerdictInconclusive.
+const (
+	// VerdictNotApplicable: every rule was skipped as not applicable to the
+	// input, so the policy decided nothing.
+	VerdictNotApplicable = "not_applicable"
+)
 
 // Verdict decides a policy from its rule results: fail when an error rule
-// failed, else not_applicable when no rule was decided, else pass. Warning
-// and info rules never fail a policy.
+// failed, else inconclusive when an error rule lacked evidence, else
+// not_applicable when no rule applied, else pass. Warning and info rules
+// never fail a policy or make it inconclusive.
 func Verdict(results []rule.Result) string {
-	decided := false
+	applied, inconclusive := false, false
 	for _, result := range results {
 		switch result.Verdict {
 		case rule.VerdictFail:
 			if result.Severity == rule.SeverityError {
 				return rule.VerdictFail
 			}
-			decided = true
+			applied = true
+		case rule.VerdictInconclusive:
+			inconclusive = inconclusive || result.Severity == rule.SeverityError
+			applied = true
 		case rule.VerdictPass:
-			decided = true
+			applied = true
 		}
 	}
-	if !decided {
+	switch {
+	case inconclusive:
+		return rule.VerdictInconclusive
+	case !applied:
 		return VerdictNotApplicable
+	default:
+		return rule.VerdictPass
 	}
-	return rule.VerdictPass
 }
 
 type Result struct {
