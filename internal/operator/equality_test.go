@@ -18,6 +18,17 @@ func TestEqOperator(t *testing.T) {
 	})
 }
 
+func TestNeqOperator(t *testing.T) {
+	checkEvaluations(t, nil, []evaluationCase{
+		{name: "different integers", op: Neq{}, node: node.New("x", 5), operands: []any{6}, want: true},
+		{name: "equal integers", op: Neq{}, node: node.New("x", 5), operands: []any{5}},
+		{name: "equal booleans", op: Neq{}, node: node.New("x", true), operands: []any{true}},
+		{name: "nil node is not equal", op: Neq{}, operands: []any{true}, want: true},
+		{name: "no operands", op: Neq{}, node: node.New("x", 5), operands: []any{}},
+		{name: "nil node without operands", op: Neq{}, operands: []any{}},
+	})
+}
+
 func TestMatches(t *testing.T) {
 	signature := node.New("signature", "SHA256-RSA")
 	root := tree("certificate", nil,

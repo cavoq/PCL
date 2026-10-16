@@ -26,13 +26,17 @@ type Neq struct{}
 
 func (Neq) Name() string { return "neq" }
 
+// AcceptsMissingTarget lets neq decide an absent target: an absent value is
+// not equal to the operand.
+func (Neq) AcceptsMissingTarget() {}
+
 func (Neq) Evaluate(n *node.Node, _ *EvaluationContext, operands []any) (bool, error) {
 	if len(operands) != 1 {
 		return false, nil
 	}
 
 	if n == nil {
-		return false, nil
+		return true, nil
 	}
 
 	return !reflect.DeepEqual(n.Value, operands[0]), nil

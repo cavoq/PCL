@@ -44,7 +44,9 @@ func TestRuleEvaluation(t *testing.T) {
 	root.Children["a"] = node.New("a", 42)
 	root.Children["b"] = node.New("b", true)
 	reg := operator.NewRegistry()
-	reg.RegisterAll([]operator.Operator{operator.Eq{}, operator.Present{}, operator.IsEmpty{}, errOp{}, registryAwareRuleOp{}})
+	reg.RegisterAll([]operator.Operator{
+		operator.Eq{}, operator.Neq{}, operator.Present{}, operator.IsEmpty{}, errOp{}, registryAwareRuleOp{},
+	})
 	when := func(target, operatorName string, operands ...any) *Condition {
 		return &Condition{Target: target, Operator: operatorName, Operands: operands}
 	}
@@ -77,9 +79,10 @@ func TestRuleEvaluation(t *testing.T) {
 			When: when("b", "eq", true)}, VerdictFail, "target not found: missing"},
 		{"present condition on a missing target makes the rule inapplicable", Rule{Target: "b", Operator: "eq",
 			Operands: []any{true}, When: when("missing", "present")}, VerdictSkip, ""},
-		{"missing comparison condition target is an error on applicable input", Rule{Target: "b", Operator: "eq",
-			Operands: []any{true}, When: when("missing", "eq", true)}, VerdictFail,
-			"when condition error: target not found: missing"},
+		{"comparison condition on a missing target makes the rule inapplicable", Rule{Target: "b", Operator: "eq",
+			Operands: []any{true}, When: when("missing", "eq", true)}, VerdictSkip, ""},
+		{"missing target is not equal", Rule{Target: "missing", Operator: "neq", Operands: []any{true}},
+			VerdictPass, ""},
 	}
 
 	for _, tt := range tests {
@@ -93,6 +96,28 @@ func TestRuleEvaluation(t *testing.T) {
 				t.Fatalf("message = %q, want %q", result.Message, tt.message)
 			}
 		})
+	}
+}
+
+func TestRuleEvaluationExplainsMissingConditionTarget(t *testing.T) {
+	root := node.New("root", nil)
+	root.Children["b"] = node.New("b", true)
+	reg := operator.NewRegistry()
+	reg.Register(operator.Eq{})
+
+	result := Evaluate(root, Rule{
+		ID:       "test",
+		Target:   "b",
+		Operator: "eq",
+		Operands: []any{true},
+		When:     &Condition{Target: "missing", Operator: "eq", Operands: []any{true}},
+	}, reg, nil)
+	if len(result.Findings) != 1 {
+		t.Fatalf("findings = %v, want one", result.Findings)
+	}
+	got := result.Findings[0]
+	if got.Code != CodeCondition || got.Message != "condition not met: actual: absent; expected: true" {
+		t.Fatalf("finding = %s %q, want %s with the absent condition target", got.Code, got.Message, CodeCondition)
 	}
 }
 

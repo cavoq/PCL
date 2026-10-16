@@ -108,9 +108,11 @@ load errors. Validation includes `when` and nested `every` invocations.
 
 ## Conditions and verdicts
 
-A false `when` precondition skips the rule. Use conditions for applicability,
-not to hide evidence that a requirement says must exist. Ordinary operators
-fail on missing targets; `present` and `absent` explicitly handle absence.
+A false `when` precondition skips the rule; so does a precondition whose
+target is absent. Use conditions for applicability, not to hide evidence that
+a requirement says must exist. Ordinary rule operators fail on missing
+targets; `present`, `absent`, `isEmpty`, `isNull` and `neq` decide absence
+explicitly (an absent value is not equal to any operand).
 
 | Rule result | Policy effect |
 |---|---|

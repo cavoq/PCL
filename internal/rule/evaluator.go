@@ -179,11 +179,10 @@ func evaluateCondition(
 	ctx *operator.EvaluationContext,
 ) (bool, error) {
 	ok, err := resolveAndEvaluate(root, cond.Target, cond.Operator, cond.Operands, reg, ctx)
+	// A condition on an absent target is not met: the rule is not applicable
+	// to an input that lacks the field the condition inspects.
 	if isTargetNotFound(err) {
-		if !node.HasInputNamespace(root, cond.Target) {
-			return false, nil
-		}
-		return false, err
+		return false, nil
 	}
 	return ok, err
 }

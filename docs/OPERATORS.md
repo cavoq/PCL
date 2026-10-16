@@ -22,7 +22,7 @@ semantic constraints such as OIDs, regexes, and CIDRs.
 | Operator | Operands | Description |
 |----------|----------|-------------|
 | `eq` | [value] | Returns true if target equals operand |
-| `neq` | [value] | Returns true if target does NOT equal operand |
+| `neq` | [value] | Returns true if target does NOT equal operand; an absent target is not equal |
 | `in` | [value1, value2, ...] | Returns true if target is in the list |
 | `notIn` | [value1, value2, ...] | Returns true if target is NOT in the list |
 | `contains` | [value, ...] | Target contains at least one specified value |

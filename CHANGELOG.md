@@ -37,6 +37,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   listed by cause in `tests/limbo/known-gaps.yaml`.
 
 ### Fixed
+- The RFC 5280 policy no longer fails `leaf-not-ca` and
+  `basic-constraints-critical-for-ca` for an end entity without a
+  basicConstraints extension, where cA is false by default (RFC 5280
+  4.2.1.9). This affected 167 PKITS end entities and 44 x509-limbo
+  testcases.
 - DSA public keys project `keySize` and `subgroupSize`. The projection
   expected Go's standard DSA key type, so parsed certificates exposed only an
   opaque value and key-size rules saw the size as absent. Sizes of keys whose
@@ -56,6 +61,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   no longer supplies them.
 
 ### Changed
+- A `when` condition whose target is absent is not met, so the rule is
+  skipped instead of failing with a condition error.
+- `neq` decides an absent target: an absent value is not equal to the
+  operand, so the rule passes instead of failing with "target not found".
 - Consolidated documentation into CLI workflows, policy format, operator and
   node references, and policy testing. Coverage pages now separate implemented
   checks, executable evidence, and limits; the README is a short entry point.
