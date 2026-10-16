@@ -118,8 +118,9 @@ See [output and exit status](docs/QUICKSTART.md#output-and-exit-status).
 
 The packs are built into the binary: select one with `--policy <id>`, list
 them with `pcl policies`, and export one with `pcl policies show <id>`. The
-binary also embeds a Public Suffix List snapshot (MPL 2.0, from
-publicsuffix.org) for offline PSL and TLD rules. Repeat `--policy` to combine
+binary also embeds the Public Suffix List (MPL 2.0, from publicsuffix.org,
+compiled into [publicsuffix-go](https://github.com/weppos/publicsuffix-go))
+for offline PSL and TLD rules. Repeat `--policy` to combine
 packs. Pack metadata describes source editions
 and relevant inputs; the coverage matrices state the implemented scope.
 

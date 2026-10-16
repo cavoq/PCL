@@ -143,6 +143,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a REQUIREMENT column when a rule states one.
 
 ### Changed
+- The embedded Public Suffix List is the one compiled into
+  [publicsuffix-go](https://github.com/weppos/publicsuffix-go), which zcrypto
+  already linked, instead of a second snapshot, and list files given with
+  `--psl-file` or found in the data directory are parsed by it; the binary
+  is about 440 KB smaller. `make psl-snapshot` updates the module, and
+  `pcl update-data` reports rule counts.
 - `make build` builds with `-trimpath -ldflags="-s -w"` like release builds:
   the binary drops from about 14.9 MB to 10.8 MB and no longer embeds local
   source paths.
@@ -150,6 +156,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   machine's source paths.
 
 ### Fixed
+- `tldRegistered` knew only top-level domains listed as a plain rule in
+  Unicode, so `br-subscriber-dns-no-internal-names` (cabf-tls-br) and
+  `ian-no-internal-names` (local-profile) failed names under
+  internationalized TLDs in A-label form (`example.xn--p1ai`), under TLDs the
+  list names only through wildcard rules (`shop.example.ck`), or written in
+  upper case or with a trailing dot.
+- `isPublicSuffix`, `isNotPublicSuffix`, `componentIsPublicSuffix` and
+  `componentNotPublicSuffix` matched list lines literally. They now apply the
+  list's algorithm to A-labels, ignoring case: wildcard and exception rules,
+  internationalized rules, and the implicit `*` rule, so any single label is
+  a public suffix. No shipped pack uses them.
 - `--auto-validate` no longer warns about non-HTTP CA Issuers URLs, such as
   `ldap://`, when the certificate also has an HTTP(S) one: they are skipped,
   and chain climbing uses the first HTTP(S) URL instead of the first URL. A

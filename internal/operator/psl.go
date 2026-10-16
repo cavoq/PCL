@@ -19,11 +19,11 @@ func requirePSL() error {
 	return nil
 }
 
-// TLDRegistered checks if the domain's TLD is in IANA Root Zone Database.
-// Uses external PSL data (ICANN section) for validation.
+// TLDRegistered checks if the domain's TLD is in IANA Root Zone Database:
+// whether the top-level label, in A-label form, ends a rule of the Public
+// Suffix List's ICANN section.
 //
-// Returns true if the domain's TLD exists in the ICANN domains list, and
-// false for Internal Names. Like every public suffix operator it fails when
+// Returns false for Internal Names. Like every public suffix operator it fails when
 // no Public Suffix List is loaded.
 //
 // Useful for BR 4.2.2: "CAs SHALL NOT issue Certificates containing Internal Names"
@@ -68,10 +68,9 @@ func (TLDNotRegistered) Evaluate(n *node.Node, ctx *EvaluationContext, operands 
 	return !reg, nil
 }
 
-// IsPublicSuffix checks if a domain is a public suffix.
-// Uses external PSL data (ICANN + PRIVATE sections).
-//
-// Returns true if the domain is in the Public Suffix List.
+// IsPublicSuffix checks if a domain is a public suffix under the ICANN or
+// PRIVATE section of the Public Suffix List, applying its wildcard and
+// exception rules and the implicit "*" rule, so any single label is one.
 //
 // Useful for BR 3.2.2.6: Wildcard certificate validation
 type IsPublicSuffix struct{}

@@ -87,7 +87,7 @@ func TestGolden(t *testing.T) {
 			command.SetErr(&out)
 			args := test.args
 			if test.name != "policies" && test.name != "policies-show-rfc4055" {
-				// An empty data directory selects the embedded PSL snapshot.
+				// An empty data directory selects the embedded Public Suffix List.
 				args = append(args, "--data-dir", dataDir)
 			}
 			if !slices.Contains(args, "--validation-time") && lintsOrInspects(args) {

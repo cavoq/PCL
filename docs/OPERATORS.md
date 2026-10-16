@@ -178,12 +178,12 @@ stale, unauthenticated, from an unauthorized signer, or Unknown still fails.
 
 | Operator | Operands | Description |
 |----------|----------|-------------|
-| `tldRegistered` | None | TLD is in IANA Root Zone Database |
+| `tldRegistered` | None | TLD is in IANA Root Zone Database: the top-level label, as an A-label, ends a rule of the list's ICANN section |
 | `tldNotRegistered` | None | TLD is NOT registered |
-| `isPublicSuffix` | None | Domain is a public suffix |
+| `isPublicSuffix` | None | Domain is a public suffix in the ICANN or PRIVATE section, applying the list's wildcard, exception and implicit `*` rules to A-labels |
 | `isNotPublicSuffix` | None | Domain is NOT a public suffix |
 | `componentTLDNotRegistered` | None | At least one domain's TLD is not registered |
-| `componentIsPublicSuffix` | None | Any domain is a public suffix |
+| `componentIsPublicSuffix` | None | Any domain, or the part after `*.` of a wildcard, is a public suffix as for `isPublicSuffix` |
 | `componentNotPublicSuffix` | None | All domains are NOT public suffixes |
 | `wildcardNotPublicSuffix` | None | For a `*.X` name, X is not a public suffix in the ICANN section, applying the list's wildcard, exception and implicit `*` rules to A-labels; other names pass |
 

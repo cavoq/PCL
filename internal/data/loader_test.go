@@ -10,136 +10,112 @@ import (
 	"testing"
 )
 
-func TestParsePSLFile(t *testing.T) {
-	// Create a temporary test file
-	tmpDir := t.TempDir()
-	testFile := filepath.Join(tmpDir, "test_psl.dat")
+// loadList writes content to a list file and loads it into a new loader.
+func loadList(t *testing.T, content string) *Loader {
+	t.Helper()
+	file := filepath.Join(t.TempDir(), "test_psl.dat")
+	if err := os.WriteFile(file, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	loader := &Loader{}
+	if err := loader.LoadPSL(file); err != nil {
+		t.Fatalf("LoadPSL: %v", err)
+	}
+	return loader
+}
 
-	content := `// Public Suffix List test data
+func TestLoadPSLSections(t *testing.T) {
+	loader := loadList(t, `// Public Suffix List test data
 // ===BEGIN ICANN DOMAINS===
 com
 net
 org
 edu
-gov
+co.uk
 // ===END ICANN DOMAINS===
 // ===BEGIN PRIVATE DOMAINS===
 github.io
 blogspot.com
 appspot.com
 // ===END PRIVATE DOMAINS===
-`
-
-	if err := os.WriteFile(testFile, []byte(content), 0644); err != nil {
-		t.Fatalf("Failed to write test file: %v", err)
+`)
+	if icann, private, loaded := loader.Stats(); icann != 5 || private != 3 || !loaded {
+		t.Errorf("Stats() = %d, %d, %v; want 5 ICANN and 3 private rules", icann, private, loaded)
 	}
-
-	psl, err := parsePSLFile(testFile)
-	if err != nil {
-		t.Fatalf("Failed to parse PSL file: %v", err)
-	}
-
-	// Verify ICANN domains
-	expectedICANN := []string{"com", "net", "org", "edu", "gov"}
-	for _, domain := range expectedICANN {
-		if !psl.ICANNDomains[domain] {
-			t.Errorf("Expected %s in ICANNDomains, but not found", domain)
+	for domain, want := range map[string][2]bool{ // {IsPublicSuffix, IsICANNPublicSuffix}
+		"co.uk":        {true, true},
+		"blogspot.com": {true, false},
+		"x.github.io":  {false, false},
+		"example.com":  {false, false},
+	} {
+		if got := [2]bool{loader.IsPublicSuffix(domain), loader.IsICANNPublicSuffix(domain)}; got != want {
+			t.Errorf("%s: IsPublicSuffix, IsICANNPublicSuffix = %v, want %v", domain, got, want)
 		}
-	}
-
-	// Verify Private domains
-	expectedPrivate := []string{"github.io", "blogspot.com", "appspot.com"}
-	for _, domain := range expectedPrivate {
-		if !psl.PrivateDomains[domain] {
-			t.Errorf("Expected %s in PrivateDomains, but not found", domain)
-		}
-	}
-
-	// Verify counts
-	if len(psl.ICANNDomains) != 5 {
-		t.Errorf("Expected 5 ICANN domains, got %d", len(psl.ICANNDomains))
-	}
-	if len(psl.PrivateDomains) != 3 {
-		t.Errorf("Expected 3 private domains, got %d", len(psl.PrivateDomains))
-	}
-	if len(psl.AllPublicSuffixes) != 8 {
-		t.Errorf("Expected 8 total public suffixes, got %d", len(psl.AllPublicSuffixes))
 	}
 }
 
 func TestIsPublicSuffix(t *testing.T) {
-	// Setup test loader
-	tmpDir := t.TempDir()
-	testFile := filepath.Join(tmpDir, "test_psl.dat")
-
-	content := `// ===BEGIN ICANN DOMAINS===
+	loader := loadList(t, `// ===BEGIN ICANN DOMAINS===
 com
 net
+*.ck
+!www.ck
+公司.cn
 // ===END ICANN DOMAINS===
 // ===BEGIN PRIVATE DOMAINS===
 github.io
+*.compute.example.com
 // ===END PRIVATE DOMAINS===
-`
-	if err := os.WriteFile(testFile, []byte(content), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	loader := &Loader{dataDir: tmpDir}
-	if err := loader.LoadPSL(testFile); err != nil {
-		t.Fatalf("Failed to load PSL: %v", err)
-	}
-
-	tests := []struct {
-		domain string
-		want   bool
-	}{
-		{"com", true},
-		{"net", true},
-		{"github.io", true},
-		{"example", false},
-		{"unknown.io", false},
-	}
-
-	for _, tt := range tests {
-		got := loader.IsPublicSuffix(tt.domain)
-		if got != tt.want {
-			t.Errorf("IsPublicSuffix(%s) = %v, want %v", tt.domain, got, tt.want)
+`)
+	for domain, want := range map[string]bool{
+		"com":                    true,
+		"github.io":              true,
+		"GitHub.IO.":             true,
+		"foo.ck":                 true,  // *.ck
+		"www.ck":                 false, // !www.ck
+		"xn--55qx5d.cn":          true,  // 公司.cn as an A-label
+		"eu.compute.example.com": true,  // private wildcard
+		"example":                true,  // implicit "*" rule
+		"unknown.io":             false,
+		"user.github.io":         false,
+		"":                       false,
+	} {
+		if got := loader.IsPublicSuffix(domain); got != want {
+			t.Errorf("IsPublicSuffix(%q) = %v, want %v", domain, got, want)
 		}
 	}
 }
 
 func TestTLDRegistered(t *testing.T) {
-	tmpDir := t.TempDir()
-	testFile := filepath.Join(tmpDir, "test_psl.dat")
-
-	content := `// ===BEGIN ICANN DOMAINS===
+	loader := loadList(t, `// ===BEGIN ICANN DOMAINS===
 com
 net
 org
 uk
 co.uk
+*.ck
+!www.ck
+рф
 // ===END ICANN DOMAINS===
-`
-	if err := os.WriteFile(testFile, []byte(content), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	loader := &Loader{dataDir: tmpDir}
-	if err := loader.LoadPSL(testFile); err != nil {
-		t.Fatalf("Failed to load PSL: %v", err)
-	}
+// ===BEGIN PRIVATE DOMAINS===
+github.dev
+// ===END PRIVATE DOMAINS===
+`)
 
 	tests := []struct {
 		domain string
 		want   bool
 	}{
-		{"example.com", true},    // TLD = com
-		{"test.net", true},       // TLD = net
-		{"example.org", true},    // TLD = org
-		{"example.uk", true},     // TLD = uk
-		{"example.test", false},  // TLD = test (not in list)
-		{"example.local", false}, // TLD = local (not in list)
-		{"localhost", false},     // No TLD
+		{"example.com", true},         // TLD = com
+		{"test.net", true},            // TLD = net
+		{"EXAMPLE.ORG.", true},        // case and a trailing dot are ignored
+		{"example.uk", true},          // TLD = uk
+		{"example.ck", true},          // only *.ck names ck
+		{"example.xn--p1ai", true},    // рф as an A-label
+		{"example.test", false},       // TLD = test (not in list)
+		{"example.local", false},      // TLD = local (not in list)
+		{"localhost", false},          // No TLD
+		{"example.github.dev", false}, // dev appears only in the PRIVATE section
 	}
 
 	for _, tt := range tests {
@@ -199,11 +175,8 @@ func TestGetDefaultDataDir(t *testing.T) {
 	t.Logf("Default data dir: %s", dir)
 }
 
-func TestParsePSLWithCommentsAndWhitespace(t *testing.T) {
-	tmpDir := t.TempDir()
-	testFile := filepath.Join(tmpDir, "test_psl.dat")
-
-	content := `// This is a comment
+func TestLoadPSLWithCommentsAndWhitespace(t *testing.T) {
+	loader := loadList(t, `// This is a comment
 // Another comment
 
    com
@@ -214,91 +187,13 @@ func TestParsePSLWithCommentsAndWhitespace(t *testing.T) {
 // Comment in private section
   github.io
 // ===END PRIVATE DOMAINS===
-`
-	if err := os.WriteFile(testFile, []byte(content), 0644); err != nil {
-		t.Fatal(err)
+`)
+	if !loader.TLDRegistered("example.com") || !loader.TLDRegistered("example.net") {
+		t.Error("indented ICANN rules were not loaded")
 	}
-
-	psl, err := parsePSLFile(testFile)
-	if err != nil {
-		t.Fatalf("Failed to parse: %v", err)
+	if !loader.IsPublicSuffix("github.io") || loader.IsICANNPublicSuffix("github.io") {
+		t.Error("indented private rule was not loaded into the PRIVATE section")
 	}
-
-	// Should handle whitespace trimming
-	if !psl.ICANNDomains["com"] {
-		t.Error("Should have 'com' after trimming whitespace")
-	}
-	if !psl.ICANNDomains["net"] {
-		t.Error("Should have 'net' after trimming whitespace")
-	}
-	if !psl.PrivateDomains["github.io"] {
-		t.Error("Should have 'github.io' after trimming whitespace")
-	}
-}
-
-func TestPSLWildcardDomains(t *testing.T) {
-	// PSL contains wildcard entries like *.ck which means all .ck subdomains
-	tmpDir := t.TempDir()
-	testFile := filepath.Join(tmpDir, "test_psl.dat")
-
-	content := `// ===BEGIN ICANN DOMAINS===
-*.ck
-*.jp
-// ===END ICANN DOMAINS===
-`
-	if err := os.WriteFile(testFile, []byte(content), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	psl, err := parsePSLFile(testFile)
-	if err != nil {
-		t.Fatalf("Failed to parse: %v", err)
-	}
-
-	// Wildcards are stored as-is (e.g., "*.ck")
-	if !psl.ICANNDomains["*.ck"] {
-		t.Error("Should have '*.ck' wildcard entry")
-	}
-
-	// Test wildcard matching logic separately
-	tests := []struct {
-		domain   string
-		wildcard string
-		expected bool
-	}{
-		{"com.ck", "*.ck", true},
-		{"edu.ck", "*.ck", true},
-		{"ck", "*.ck", false}, // TLD itself doesn't match wildcard
-		{"example.jp", "*.jp", true},
-	}
-
-	for _, tt := range tests {
-		matches := matchesWildcard(tt.domain, tt.wildcard)
-		if matches != tt.expected {
-			t.Errorf("matchesWildcard(%s, %s) = %v, want %v", tt.domain, tt.wildcard, matches, tt.expected)
-		}
-	}
-}
-
-// matchesWildcard checks if a domain matches a PSL wildcard entry.
-// PSL wildcard "*.ck" means any second-level domain under .ck is a public suffix.
-func matchesWildcard(domain, wildcard string) bool {
-	if !strings.HasPrefix(wildcard, "*.") {
-		return false
-	}
-
-	// Get the suffix part after "*."
-	suffix := strings.TrimPrefix(wildcard, "*.")
-
-	// Check if domain ends with the suffix and has exactly one extra label
-	labels := strings.Split(domain, ".")
-	suffixLabels := strings.Split(suffix, ".")
-
-	if len(labels) == len(suffixLabels)+1 && strings.HasSuffix(domain, "."+suffix) {
-		return true
-	}
-
-	return false
 }
 
 func TestDownloadPSL(t *testing.T) {
@@ -377,18 +272,18 @@ func TestLoadPSLReportsMissingList(t *testing.T) {
 	}
 }
 
-// Without a list file or data directory, the embedded snapshot is used; a
-// data directory list takes precedence.
-func TestLoadPSLFallsBackToEmbeddedSnapshot(t *testing.T) {
+// Without a list file or data directory, the embedded list is used; a data
+// directory list takes precedence.
+func TestLoadPSLFallsBackToEmbeddedList(t *testing.T) {
 	loader := &Loader{}
 	if err := loader.LoadPSL(""); err != nil {
 		t.Fatalf("LoadPSL without a list = %v", err)
 	}
-	if !loader.TLDRegistered("example.com") || !loader.IsPublicSuffix("github.io") {
-		t.Error("embedded snapshot lacks com or github.io")
+	if !loader.TLDRegistered("example.com") || !loader.IsPublicSuffix("github.io") || loader.IsICANNPublicSuffix("github.io") {
+		t.Error("embedded list lacks com or the PRIVATE github.io")
 	}
-	if source := loader.psl.SourceFile; source != "embedded snapshot "+EmbeddedPSLVersion() || EmbeddedPSLVersion() == "unknown" {
-		t.Errorf("source = %q", source)
+	if icann, private, _ := loader.Stats(); icann < 5000 || private < 1000 {
+		t.Errorf("embedded list has %d ICANN and %d private rules", icann, private)
 	}
 
 	dir := t.TempDir()

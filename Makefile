@@ -11,7 +11,6 @@ CMD := ./cmd/pcl
 INTEGRATION := ./tests
 FIXTUREGEN := ./tests/fixturegen
 SCHEMA_JSON := schemas/policy.schema.json
-PSL_SNAPSHOT := internal/data/public_suffix_list.dat
 LIMBO_DIR := tests/limbo
 
 LIMBO_JSON := $(LIMBO_DIR)/limbo.json
@@ -95,10 +94,12 @@ golden:
 fixtures:
 	$(GO) run $(FIXTUREGEN)
 
-# Refreshes the Public Suffix List snapshot embedded in the binary.
+# Updates github.com/weppos/publicsuffix-go, whose Public Suffix List is
+# compiled into the binary, to its main branch, which follows the list daily.
 psl-snapshot:
-	curl -sSfL https://publicsuffix.org/list/public_suffix_list.dat -o $(PSL_SNAPSHOT)
-	grep -m1 '^// VERSION:' $(PSL_SNAPSHOT)
+	$(GO) get github.com/weppos/publicsuffix-go@main
+	$(GO) mod tidy
+	$(GO) list -m github.com/weppos/publicsuffix-go
 
 # Refreshes the Let's Encrypt CRL and CA fixtures from the official endpoints.
 letsencrypt-fixtures:

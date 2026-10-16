@@ -275,8 +275,9 @@ pcl --policy local-profile --cert leaf.pem --psl-file data/public_suffix_list.da
 ```
 
 Default lookup uses `./data/public_suffix_list.dat` or `~/.pcl/data/`, and
-else the snapshot embedded in the binary, whose date is its `VERSION`
-header; `update-data` fetches a newer list. `--use-psl=false` disables
+else the list compiled into the binary from
+[publicsuffix-go](https://github.com/weppos/publicsuffix-go), dated by the
+module version in `go.mod`; `update-data` fetches a newer list. `--use-psl=false` disables
 loading, which fails PSL/TLD-dependent rules; an explicitly selected
 unreadable file is a run error. `inspect` and
 `test` accept the same PSL options. `update-data --data-dir PATH` selects the

@@ -2,50 +2,65 @@
 // List from publicsuffix.org, whose ICANN section also serves as the list of
 // registered top-level domains.
 //
-// A snapshot of the list is embedded and used when no list file is found;
-// a newer list can be downloaded with:
+// The list compiled into github.com/weppos/publicsuffix-go is used when no
+// list file is found; a newer list can be downloaded with:
 //
 //	pcl update-data
 package data
 
 import (
-	"bufio"
-	"bytes"
 	"context"
-	_ "embed"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
-	"golang.org/x/net/idna"
+	"github.com/weppos/publicsuffix-go/publicsuffix"
 
 	"github.com/cavoq/PCL/internal/httpfetch"
 )
 
-// PSL represents the Public Suffix List loaded from external file.
-// It contains both ICANN domains (official TLDs) and PRIVATE domains.
+// PSL is a loaded Public Suffix List.
 type PSL struct {
-	// ICANN domains - official TLDs from IANA Root Zone Database
-	ICANNDomains map[string]bool
+	list *publicsuffix.List
+	// tlds holds the top-level labels of the ICANN section's rules, in
+	// lowercase A-label form.
+	tlds           map[string]bool
+	icann, private int
+}
 
-	// Private domains - additional public suffixes (e.g., github.io)
-	PrivateDomains map[string]bool
+func newPSL(list *publicsuffix.List, rules []publicsuffix.Rule) *PSL {
+	psl := &PSL{list: list, tlds: make(map[string]bool)}
+	for _, rule := range rules {
+		if rule.Private {
+			psl.private++
+			continue
+		}
+		psl.icann++
+		if rule.Value != "" {
+			psl.tlds[rule.Value[strings.LastIndexByte(rule.Value, '.')+1:]] = true
+		}
+	}
+	return psl
+}
 
-	// All public suffixes (ICANN + Private combined)
-	AllPublicSuffixes map[string]bool
-
-	// icannRules holds the ICANN section's rules in lowercase A-label form,
-	// including wildcard ("*.ck") and exception ("!www.ck") rules.
-	icannRules map[string]bool
-
-	// Metadata
-	LoadedAt   time.Time
-	SourceFile string
+// isPublicSuffix applies the list's algorithm, with its wildcard and
+// exception rules and the implicit "*" rule, to domain in A-label form;
+// case and a trailing dot are ignored.
+func (psl *PSL) isPublicSuffix(domain string, ignorePrivate bool) bool {
+	domain = strings.TrimSuffix(strings.ToLower(domain), ".")
+	if domain == "" {
+		return false
+	}
+	rule := psl.list.Find(domain, &publicsuffix.FindOptions{
+		IgnorePrivate: ignorePrivate,
+		DefaultRule:   publicsuffix.DefaultRule,
+	})
+	// Decompose leaves no suffix when domain is all suffix.
+	return rule.Decompose(domain)[1] == ""
 }
 
 // Loader manages external data file loading.
@@ -81,7 +96,7 @@ func getDefaultDataDir() string {
 		}
 	}
 
-	// 3. Fallback: return empty (will use embedded/regex fallback)
+	// 3. Fallback: return empty (will use the embedded list)
 	return ""
 }
 
@@ -96,28 +111,12 @@ func (l *Loader) SetDataDir(dir string) {
 	l.dataDir = dir
 }
 
-// embeddedPSL is the Public Suffix List snapshot shipped in the binary,
-// refreshed with `make psl-snapshot`.
-//
-//go:embed public_suffix_list.dat
-var embeddedPSL []byte
-
-// EmbeddedPSLVersion returns the VERSION header of the embedded snapshot.
-func EmbeddedPSLVersion() string {
-	for _, line := range strings.Split(string(embeddedPSL), "\n") {
-		if version, found := strings.CutPrefix(line, "// VERSION: "); found {
-			return strings.TrimSpace(version)
-		}
-	}
-	return "unknown"
-}
-
 // ErrPSLNotFound reports that no Public Suffix List file was found.
 var ErrPSLNotFound = errors.New("no Public Suffix List file found")
 
 // LoadPSL loads the Public Suffix List from filename, or from the data
-// directory when filename is empty, or else from the embedded snapshot. A
-// missing filename is reported as ErrPSLNotFound.
+// directory when filename is empty, or else the list compiled into the
+// binary. A missing filename is reported as ErrPSLNotFound.
 func (l *Loader) LoadPSL(filename string) error {
 	l.pslMutex.Lock()
 	defer l.pslMutex.Unlock()
@@ -130,186 +129,46 @@ func (l *Loader) LoadPSL(filename string) error {
 		}
 	}
 	if filePath == "" {
-		psl, err := parsePSL(bytes.NewReader(embeddedPSL))
-		if err != nil {
-			return fmt.Errorf("failed to parse embedded PSL snapshot: %w", err)
-		}
-		psl.SourceFile = "embedded snapshot " + EmbeddedPSLVersion()
-		psl.LoadedAt = time.Now()
-		l.psl = psl
+		rules := publicsuffix.DefaultRules()
+		l.psl = newPSL(publicsuffix.DefaultList, rules[:])
 		return nil
 	}
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
 		return fmt.Errorf("%w: %s", ErrPSLNotFound, filePath)
 	}
 
-	psl, err := parsePSLFile(filePath)
+	list := publicsuffix.NewList()
+	rules, err := list.LoadFile(filePath, &publicsuffix.ParserOption{PrivateDomains: true})
 	if err != nil {
 		return fmt.Errorf("failed to parse PSL file: %w", err)
 	}
-
-	psl.SourceFile = filePath
-	psl.LoadedAt = time.Now()
-	l.psl = psl
-
+	l.psl = newPSL(list, rules)
 	return nil
 }
 
-// parsePSLFile parses the Public Suffix List file format.
-//
-// Format (from publicsuffix.org):
-//
-//	// ===BEGIN ICANN DOMAINS===
-//	com
-//	net
-//	...
-//	// ===END ICANN DOMAINS===
-//	// ===BEGIN PRIVATE DOMAINS===
-//	github.io
-//	...
-//	// ===END PRIVATE DOMAINS===
-func parsePSLFile(filePath string) (*PSL, error) {
-	file, err := os.Open(filePath)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = file.Close() }()
-	return parsePSL(file)
-}
-
-func parsePSL(input io.Reader) (*PSL, error) {
-	psl := &PSL{
-		ICANNDomains:      make(map[string]bool),
-		PrivateDomains:    make(map[string]bool),
-		AllPublicSuffixes: make(map[string]bool),
-		icannRules:        make(map[string]bool),
-	}
-
-	scanner := bufio.NewScanner(input)
-	var section string // "icann", "private", or ""
-
-	for scanner.Scan() {
-		line := scanner.Text()
-
-		// Skip empty lines
-		if strings.TrimSpace(line) == "" {
-			continue
-		}
-
-		// Detect section markers
-		if strings.Contains(line, "BEGIN ICANN DOMAINS") {
-			section = "icann"
-			continue
-		}
-		if strings.Contains(line, "END ICANN DOMAINS") {
-			section = ""
-			continue
-		}
-		if strings.Contains(line, "BEGIN PRIVATE DOMAINS") {
-			section = "private"
-			continue
-		}
-		if strings.Contains(line, "END PRIVATE DOMAINS") {
-			section = ""
-			continue
-		}
-
-		// Skip comments (lines starting with //)
-		if strings.HasPrefix(line, "//") {
-			continue
-		}
-
-		// Parse domain entry
-		domain := strings.TrimSpace(line)
-		if domain == "" {
-			continue
-		}
-
-		// Add to appropriate section
-		switch section {
-		case "icann":
-			psl.ICANNDomains[domain] = true
-			psl.AllPublicSuffixes[domain] = true
-			if rule, ok := asciiRule(domain); ok {
-				psl.icannRules[rule] = true
-			}
-		case "private":
-			psl.PrivateDomains[domain] = true
-			psl.AllPublicSuffixes[domain] = true
-		default:
-			// Before any section marker - still valid entries
-			// Treat as ICANN (early entries in file are TLDs)
-			psl.ICANNDomains[domain] = true
-			psl.AllPublicSuffixes[domain] = true
-		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		return nil, err
-	}
-
-	return psl, nil
-}
-
-// IsPublicSuffix checks if a domain is a public suffix.
-// Uses loaded PSL if available, otherwise returns false.
+// IsPublicSuffix reports whether domain is a public suffix under the ICANN
+// or PRIVATE section of the list, applying its wildcard and exception rules
+// and the implicit "*" rule that makes every single label a public suffix.
+// domain is a DNS name in A-label form; case and a trailing dot are ignored.
+// It is false when no list is loaded.
 func (l *Loader) IsPublicSuffix(domain string) bool {
 	l.pslMutex.RLock()
 	defer l.pslMutex.RUnlock()
-
-	if l.psl == nil {
-		return false
-	}
-
-	return l.psl.AllPublicSuffixes[domain]
+	return l.psl != nil && l.psl.isPublicSuffix(domain, false)
 }
 
-// IsICANNPublicSuffix reports whether domain is a public suffix under the
-// ICANN section of the list, applying its wildcard and exception rules and
-// the implicit "*" rule that makes every single label a public suffix.
-// domain is a DNS name in A-label form; case and a trailing dot are ignored.
-// The PRIVATE section is not consulted (CA/B Forum BR 3.2.2.6).
+// IsICANNPublicSuffix is IsPublicSuffix without the PRIVATE section
+// (CA/B Forum BR 3.2.2.6).
 func (l *Loader) IsICANNPublicSuffix(domain string) bool {
 	l.pslMutex.RLock()
 	defer l.pslMutex.RUnlock()
-
-	domain = strings.TrimSuffix(strings.ToLower(domain), ".")
-	if l.psl == nil || domain == "" {
-		return false
-	}
-	rules := l.psl.icannRules
-	if rules["!"+domain] {
-		return false
-	}
-	if rules[domain] {
-		return true
-	}
-	dot := strings.IndexByte(domain, '.')
-	if dot < 0 {
-		return true
-	}
-	return rules["*."+domain[dot+1:]]
+	return l.psl != nil && l.psl.isPublicSuffix(domain, true)
 }
 
-// asciiRule converts a list rule to lowercase A-label form, keeping its
-// "*." or "!" prefix.
-func asciiRule(rule string) (string, bool) {
-	prefix := ""
-	switch {
-	case strings.HasPrefix(rule, "!"):
-		prefix, rule = "!", rule[1:]
-	case strings.HasPrefix(rule, "*."):
-		prefix, rule = "*.", rule[2:]
-	}
-	ascii, err := idna.Lookup.ToASCII(rule)
-	if err != nil {
-		return "", false
-	}
-	return prefix + strings.ToLower(ascii), true
-}
-
-// TLDRegistered checks if a TLD is registered in IANA Root Zone.
-// This checks the top-level label of the domain against ICANN domains.
+// TLDRegistered reports whether the top-level label of domain, in A-label
+// form, is the last label of an ICANN section rule, as every top-level
+// domain of the IANA Root Zone is. Case and a trailing dot are ignored. It
+// is false when no list is loaded.
 func (l *Loader) TLDRegistered(domain string) bool {
 	l.pslMutex.RLock()
 	defer l.pslMutex.RUnlock()
@@ -317,15 +176,8 @@ func (l *Loader) TLDRegistered(domain string) bool {
 	if l.psl == nil {
 		return false
 	}
-
-	// Extract TLD (last label)
-	labels := strings.Split(domain, ".")
-	if len(labels) == 0 {
-		return false
-	}
-
-	tld := labels[len(labels)-1]
-	return l.psl.ICANNDomains[tld]
+	domain = strings.TrimSuffix(strings.ToLower(domain), ".")
+	return l.psl.tlds[domain[strings.LastIndexByte(domain, '.')+1:]]
 }
 
 // Loaded reports whether a Public Suffix List is loaded.
@@ -335,7 +187,7 @@ func (l *Loader) Loaded() bool {
 	return l.psl != nil
 }
 
-// Stats returns statistics about the loaded PSL.
+// Stats returns the number of ICANN and PRIVATE rules of the loaded list.
 func (l *Loader) Stats() (icann, private int, loaded bool) {
 	l.pslMutex.RLock()
 	defer l.pslMutex.RUnlock()
@@ -344,7 +196,7 @@ func (l *Loader) Stats() (icann, private int, loaded bool) {
 		return 0, 0, false
 	}
 
-	return len(l.psl.ICANNDomains), len(l.psl.PrivateDomains), true
+	return l.psl.icann, l.psl.private, true
 }
 
 // pslDownloadTimeout bounds the whole Public Suffix List download.
@@ -430,7 +282,7 @@ func UpdateData(dataDir string) error {
 	}
 
 	icann, private, _ := DefaultLoader.Stats()
-	fmt.Printf("Successfully loaded PSL: %d ICANN domains, %d private domains\n", icann, private)
+	fmt.Printf("Successfully loaded PSL: %d ICANN rules, %d private rules\n", icann, private)
 
 	return nil
 }

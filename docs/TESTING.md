@@ -107,7 +107,7 @@ The Makefile is the entry point; CI runs the same targets.
 | `make schema` | Regenerates `schemas/policy.schema.json` |
 | `make golden` | Rewrites the CLI golden files after an intended output change |
 | `make fixtures` | Regenerates the certificate, CRL and OCSP fixtures with `tests/fixturegen` from committed keys; fixtures whose generator did not change stay byte-identical |
-| `make psl-snapshot` | Refreshes the Public Suffix List snapshot embedded in the binary |
+| `make psl-snapshot` | Updates `github.com/weppos/publicsuffix-go`, whose Public Suffix List is compiled into the binary |
 
 The golden tests in `cmd/pcl/golden_test.go` run the CLI on the vendored
 PKITS data with the built-in policies, the embedded Public Suffix List and a
