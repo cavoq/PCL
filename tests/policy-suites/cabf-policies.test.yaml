@@ -76,15 +76,25 @@ tests:
     cert: ../vectors/cabf-policies/ca-any-mixed.pem
     expect:
       - {input: intermediate, verdict: fail, failed: [br-ca-any-policy-alone]}
-  # A cross-certificate not directly issuing subscribers may have multiple
-  # reserved policies. Its profile cannot be inferred from the role alone.
-  - name: do-not-impose-subscriber-cardinality-on-cross-ca
+  # A policy-restricted TLS CA asserts exactly one reserved policy
+  # (7.1.2.10.5); a cross-certificate may assert several (7.1.2.2.6).
+  - name: tls-ca-reserved-policy-exactly-one
     cert: ../vectors/cabf-policies/ca-multiple.pem
     expect:
       - input: intermediate
-        verdict: pass
-        failed: []
+        verdict: fail
+        profile: tls-subordinate
+        failed: [br-subordinate-reserved-policy-exactly-one]
         rules: {br-subscriber-reserved-policy-exactly-one: skip}
+  - name: cross-certificate-may-assert-several-reserved-policies
+    cert: ../vectors/cabf-policies/ca-multiple.pem
+    assumeProfiles: [cross-certified-subordinate]
+    expect:
+      - input: intermediate
+        verdict: pass
+        profile: cross-certified-subordinate (assumed)
+        failed: []
+        rules: {br-subordinate-reserved-policy-exactly-one: skip}
   - name: tls-ca-reserved-policy-order
     cert: ../vectors/cabf-policies/ca-private-first.pem
     expect:

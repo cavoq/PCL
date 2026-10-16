@@ -98,7 +98,7 @@ tests:
         failed: [br-ca-key-usage-bits, br-subordinate-crl-distribution-points,
           br-subordinate-no-organizational-unit, br-subordinate-tls-certificate-policies,
           br-subordinate-tls-eku, br-subordinate-tls-eku-only-tls, br-subordinate-policy-identifier,
-          br-subordinate-reserved-policy-first]
+          br-subordinate-reserved-policy-first, br-tls-subordinate-no-organizational-unit]
   - name: cabf-ocsp-bad-responder
     cert: ../vectors/cabf-conformant/leaf.pem
     issuers: [../vectors/cabf-conformant/intermediate.pem]
@@ -135,16 +135,26 @@ tests:
       - input: ocsp
         verdict: fail
         failed: [br-ocsp-revocation-reason]
-  # Profile/affiliation evidence is not available; do not impose stricter
-  # TLS-only naming rules on a possible cross-certificate.
-  - name: cabf-cross-subject-is-not-a-tls-profile
+  # A historical subject (OU, no countryName) breaks the TLS subordinate
+  # naming rules unless the certificate is a cross-certificate (7.1.2.2.2).
+  - name: cabf-historical-subject-as-tls-subordinate
     cert: ../vectors/cabf-cross-subject/intermediate.pem
     issuers: [../vectors/cabf-conformant/root.pem]
     expect:
       - input: intermediate
+        verdict: fail
+        profile: tls-subordinate
+        failed: [br-ca-country-present, br-subordinate-no-organizational-unit, br-tls-subordinate-no-organizational-unit]
+  - name: cabf-historical-subject-as-cross-certificate
+    cert: ../vectors/cabf-cross-subject/intermediate.pem
+    issuers: [../vectors/cabf-conformant/root.pem]
+    assumeProfiles: [cross-certified-subordinate]
+    expect:
+      - input: intermediate
         verdict: pass
+        profile: cross-certified-subordinate (assumed)
         failed: [br-subordinate-no-organizational-unit]
-        rules: {br-ca-country-present: skip}
+        rules: {br-ca-country-present: skip, br-tls-subordinate-no-organizational-unit: skip}
   - name: cabf-non-tls-private-policy
     cert: ../vectors/cabf-non-tls-subordinate/intermediate.pem
     issuers: [../vectors/cabf-conformant/root.pem]

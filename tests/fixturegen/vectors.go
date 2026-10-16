@@ -51,6 +51,7 @@ func (f fixtures) vectors() error {
 		cabfPolicyVectors,
 		cabfAKIVectors,
 		cabfWildcardVectors,
+		cabfProfileVectors,
 	} {
 		if err := vector(w); err != nil {
 			return err

@@ -1,0 +1,55 @@
+# Subordinate CA profiles (BR 7.1.2.2-7.1.2.6): each certificate is
+# evaluated under the first profile it matches; cross-certificates are
+# assumed.
+policy: ../../policies/CABF-TLS-BR.yaml
+time: "2026-06-02T00:00:00Z"
+tests:
+  - name: tls-subordinate
+    cert: ../vectors/cabf-conformant/intermediate.pem
+    issuers: [../vectors/cabf-conformant/root.pem]
+    expect:
+      - {input: intermediate, verdict: pass, profile: tls-subordinate,
+         rules: {br-ca-country-present: pass, br-tls-subordinate-no-organizational-unit: pass, br-subordinate-reserved-policy-exactly-one: pass}}
+      - {input: root, profile: root-ca}
+  - name: technically-constrained-tls-subordinate
+    cert: ../vectors/cabf-profiles/constrained-tls.pem
+    issuers: [../vectors/cabf-profiles/issuer.pem]
+    expect:
+      - {input: intermediate, verdict: pass, profile: technically-constrained-tls-subordinate, failed: []}
+  - name: precertificate-signing-ca
+    cert: ../vectors/cabf-profiles/precertificate-signing.pem
+    issuers: [../vectors/cabf-profiles/issuer.pem]
+    expect:
+      - {input: intermediate, verdict: pass, profile: precertificate-signing-ca, failed: [],
+         rules: {br-subordinate-tls-certificate-policies: pass, br-subordinate-reserved-policy-exactly-one: pass}}
+  - name: non-tls-subordinate
+    cert: ../vectors/cabf-non-tls-subordinate/intermediate.pem
+    issuers: [../vectors/cabf-conformant/root.pem]
+    expect:
+      - {input: intermediate, profile: technically-constrained-non-tls-subordinate,
+         rules: {br-non-tls-subordinate-eku: pass, br-subordinate-tls-certificate-policies: skip}}
+  - name: non-tls-subordinate-must-not-be-unrestricted
+    cert: ../vectors/cabf-profiles/non-tls-any-eku.pem
+    issuers: [../vectors/cabf-profiles/issuer.pem]
+    expect:
+      - {input: intermediate, verdict: fail, profile: technically-constrained-non-tls-subordinate,
+         failed: [br-non-tls-subordinate-eku, br-subordinate-any-eku-alone]}
+  - name: non-tls-subordinate-must-not-sign-ocsp
+    cert: ../vectors/cabf-profiles/non-tls-ocsp-signing.pem
+    issuers: [../vectors/cabf-profiles/issuer.pem]
+    expect:
+      - {input: intermediate, verdict: fail, profile: technically-constrained-non-tls-subordinate,
+         failed: [br-non-tls-subordinate-eku]}
+  - name: subordinate-without-eku-matches-no-profile
+    cert: ../vectors/cabf-profiles/no-eku.pem
+    issuers: [../vectors/cabf-profiles/issuer.pem]
+    expect:
+      - {input: intermediate, verdict: fail, profile: unidentified-subordinate, failed: [br-subordinate-eku-present],
+         rules: {br-ca-country-present: skip}}
+  - name: cross-certificate-may-omit-eku
+    cert: ../vectors/cabf-profiles/no-eku.pem
+    issuers: [../vectors/cabf-profiles/issuer.pem]
+    assumeProfiles: [cross-certified-subordinate]
+    expect:
+      - {input: intermediate, verdict: pass, profile: cross-certified-subordinate (assumed), failed: [],
+         rules: {br-subordinate-eku-present: skip, br-subordinate-tls-certificate-policies: pass}}

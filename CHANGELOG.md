@@ -64,6 +64,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `when` once; groups are expanded into ordinary rules when loaded. The
   CABF pack is organized into 20 groups, one per BR section, with the same
   rules.
+- CABF pack `2.3.1-6` declares the BR 7.1.2 certificate profiles and infers
+  the subordinate CA profile from extKeyUsage and nameConstraints;
+  cross-certificates are assumed with
+  `--assume-profile cross-certified-subordinate`. This enables CA checks
+  that previously could not tell cross-certificates apart: required C/O/CN
+  for non-cross subordinates, no OU in TLS subordinates, exactly one
+  Reserved Certificate Policy Identifier for policy-restricted CAs, non-TLS
+  EKU prohibitions, and extKeyUsage in every non-cross subordinate.
 - Policy `profiles` name the kinds of input a standard distinguishes, such
   as TLS subordinate or cross-certified CAs. Each input is evaluated under
   the first profile of its role whose condition holds, or one the user
