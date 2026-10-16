@@ -1,0 +1,46 @@
+policy: ../../policies/RFC4055.yaml
+tests:
+  - name: rfc4055-pss-sha256
+    cert: ../vectors/certificate-pss-sha256/certificate.pem
+    expect:
+      - input: leaf
+        verdict: pass
+        failed: []
+  - name: rfc4055-pss-explicit-defaults
+    cert: ../vectors/certificate-pss-explicit-defaults/certificate.pem
+    expect:
+      - input: leaf
+        verdict: fail
+        failed: [cert-tbs-pss-hash-default-omitted, cert-pss-hash-default-omitted,
+          cert-tbs-pss-mgf-default-omitted, cert-pss-mgf-default-omitted,
+          cert-tbs-pss-trailer-field-omitted, cert-pss-trailer-field-omitted]
+  - name: rfc4055-pss-missing-parameters
+    cert: ../vectors/certificate-pss-missing-parameters/certificate.pem
+    expect:
+      - input: leaf
+        verdict: fail
+        failed: [cert-tbs-pss-params-present, cert-pss-params-present]
+  - name: rfc4055-pss-mgf-hash-differs
+    cert: ../vectors/certificate-pss-mgf-hash-differs/certificate.pem
+    expect:
+      - input: leaf
+        verdict: pass
+        failed: [cert-tbs-pss-mgf-hash-matches-hash, cert-pss-mgf-hash-matches-hash]
+  - name: rfc4055-pss-key-encipherment-only
+    cert: ../vectors/certificate-pss-key-encipherment-only/certificate.pem
+    expect:
+      - input: leaf
+        verdict: fail
+        failed: [cert-pss-key-end-entity-key-usage]
+  - name: rfc4055-oaep-key-digital-signature
+    cert: ../vectors/certificate-oaep-key-digital-signature/certificate.pem
+    expect:
+      - input: leaf
+        verdict: fail
+        failed: [cert-oaep-key-usage-encipherment-only]
+  - name: rfc4055-oaep-key-both-encipherments
+    cert: ../vectors/certificate-oaep-key-both-encipherments/certificate.pem
+    expect:
+      - input: leaf
+        verdict: pass
+        failed: [cert-oaep-key-usage-not-both-encipherments]

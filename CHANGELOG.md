@@ -21,6 +21,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   state, moved to the local profile. New SHOULD rules:
   `subject-key-identifier-present-leaf`, `crl-entry-reason-not-unspecified`.
   See RFC5280-COVERAGE.md.
+- The RFC 4055 pack was audited: references cite the RFC's real sections; PSS
+  and OAEP field rules apply only when parameters are present, so an OAEP
+  key without parameters no longer fails; new rules require PSS parameters
+  in signature algorithm identifiers, omission of default PSS fields, the
+  recommended MGF1 hash, and the key usage of PSS and OAEP keys. See
+  RFC4055-COVERAGE.md.
 - A policy that skipped every rule for an input has the verdict
   `not_applicable` (`N/A` in text) instead of `pass`: it decided nothing, so
   it must not read as compliance. Policy test suites accept

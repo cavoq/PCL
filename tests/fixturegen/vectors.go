@@ -44,6 +44,7 @@ func (f fixtures) vectors() error {
 		vectorCertificateDNNoncanonicalOrder,
 		vectorCertificateOrganizationTeletexString,
 		vectorCRLEntryReasonUnspecified,
+		rfc4055Vectors,
 	} {
 		if err := vector(w); err != nil {
 			return err
