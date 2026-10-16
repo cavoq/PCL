@@ -18,10 +18,12 @@ tests:
           signature-valid: skip
           aki-matches-ski: skip
 
-  - name: without trust anchors a chain top without its issuer fails
+  # The issuer is missing evidence, not proof of non-compliance.
+  - name: without trust anchors a chain top without its issuer is inconclusive
     cert: ../certs/leaf.pem
     issuers: [../certs/intermediate.pem]
     expect:
       - input: intermediate
         rules:
-          signature-valid: fail
+          signature-valid: inconclusive
+          aki-matches-ski: inconclusive

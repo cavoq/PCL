@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Breaking changes
+- `signatureValid`, `issuedBy` and `akiMatchesSki` are `inconclusive`
+  instead of failing when the certificate's issuer is not in the evaluated
+  chain, for example the top intermediate of a chain linted without
+  `--auto-validate`. Affects `signature-valid` and `aki-matches-ski`
+  (rfc5280) and `tls-cert-02-signature-valid` (tr03116-tls-server). Exit
+  statuses do not change: `--fail-on` counts inconclusive rules.
 - The RFC 5280 pack was audited against the RFC text and states each rule's
   requirement level. Five rules that implement MUST clauses were warnings
   and are now errors (`aki-matches-ski`, `ca-issuers-der-format`,

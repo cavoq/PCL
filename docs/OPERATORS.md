@@ -108,6 +108,13 @@ These operators take no operands.
 | `pathValid` | None | Aggregate decision of the explicit-anchor path engine for the target certificate; the rule result carries its structured findings |
 | `serialNumberUnique` | None | Detects a duplicate issuer/serial pair within the supplied chain; it cannot prove CA-wide uniqueness |
 
+`signatureValid`, `issuedBy` and `akiMatchesSki` decide `inconclusive` when
+the evaluated certificate is not a root and its issuer is not in the
+evaluated chain, such as the top of a chain linted without its issuer or
+without `--auto-validate`. When the chain links an issuer, a signature, name
+or key identifier mismatch still fails; a supplied certificate that chain
+building could not link as the issuer counts as missing.
+
 ## CRL Operators
 
 | Operator | Operands | Description |

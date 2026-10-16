@@ -6,6 +6,7 @@ import (
 	certpkg "github.com/cavoq/PCL/internal/cert"
 	"github.com/cavoq/PCL/internal/node"
 	"github.com/cavoq/PCL/internal/x509asn1"
+	"github.com/zmap/zcrypto/x509"
 )
 
 type SignatureValid struct{}
@@ -24,12 +25,12 @@ func (SignatureValid) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (b
 		return err == nil, nil
 	}
 
-	issuer, ok := ctx.ChainIssuer()
-	if !ok {
-		return false, nil
+	issuer, err := suppliedIssuer(ctx)
+	if err != nil {
+		return false, err
 	}
 
-	err := certpkg.CheckSignatureFrom(cert, issuer)
+	err = certpkg.CheckSignatureFrom(cert, issuer)
 	return err == nil, nil
 }
 
@@ -48,9 +49,9 @@ func (IssuedBy) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (bool, e
 		return certpkg.IsSelfIssued(cert), nil
 	}
 
-	issuer, ok := ctx.ChainIssuer()
-	if !ok {
-		return false, nil
+	issuer, err := suppliedIssuer(ctx)
+	if err != nil {
+		return false, err
 	}
 
 	return x509asn1.NamesMatchOrText(cert.RawIssuer, issuer.RawSubject, cert.Issuer.String(), issuer.Subject.String()), nil
@@ -81,9 +82,9 @@ func (AKIMatchesSKI) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (bo
 	}
 
 	// For other certificates, check against issuer's SKI
-	issuer, ok := ctx.ChainIssuer()
-	if !ok {
-		return false, nil
+	issuer, err := suppliedIssuer(ctx)
+	if err != nil {
+		return false, err
 	}
 
 	// If issuer has no SKI, we can't verify
@@ -92,4 +93,15 @@ func (AKIMatchesSKI) Evaluate(_ *node.Node, ctx *EvaluationContext, _ []any) (bo
 	}
 
 	return bytes.Equal(cert.AuthorityKeyId, issuer.SubjectKeyId), nil
+}
+
+// suppliedIssuer returns the certificate's issuer from the evaluated chain.
+// Without it a check against the issuer is undecided, not failed: the input
+// is incomplete rather than shown non-compliant.
+func suppliedIssuer(ctx *EvaluationContext) (*x509.Certificate, error) {
+	issuer, ok := ctx.ChainIssuer()
+	if !ok {
+		return nil, NoEvidenceError{Evidence: "issuer certificate"}
+	}
+	return issuer, nil
 }

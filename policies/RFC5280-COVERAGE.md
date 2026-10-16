@@ -42,7 +42,7 @@ as RFC 5280 coverage.
 | Version | Covered | `version-v3-when-extensions`, `version-v2-when-unique-id`, `version-v2-when-subject-unique-id` |
 | Serial number | Covered | `serial-number-present`, `serial-number-positive`, `serial-number-length` |
 | Signature AlgorithmIdentifier equality | Covered | `signature-algorithm-matches-tbs` |
-| Certificate signature against supplied issuer evidence | Partial | `signature-valid` |
+| Certificate signature against supplied issuer evidence | Partial | `signature-valid` (inconclusive without the issuer) |
 | Explicit-trust certification-path decision (conditional on `--trust-anchor`) | Covered | `certification-path-valid` |
 | Encoded certificate Names | Covered | `issuer-name-well-formed`, `subject-name-well-formed` |
 | Required certificate Names | Covered | `issuer-not-empty`, `subject-not-empty-for-ca` |
@@ -50,7 +50,7 @@ as RFC 5280 coverage.
 | UniqueIdentifier profile | Covered | `issuer-unique-id-absent`, `subject-unique-id-absent` |
 | Certificate critical-extension processing | Partial | `no-unknown-critical-extensions` |
 | AKI profile | Covered | `authority-key-identifier-present`, `aki-not-critical`, `aki-well-formed` (strict decoding; authorityCertIssuer and authorityCertSerialNumber together) |
-| AKI/SKI relationship in the supplied chain | Partial | `aki-matches-ski` |
+| AKI/SKI relationship in the supplied chain | Partial | `aki-matches-ski` (inconclusive without the issuer) |
 | SKI profile | Covered | `subject-key-identifier-present`, `subject-key-identifier-present-leaf`, `ski-not-critical` |
 | Key Usage syntax and profile semantics | Covered | `key-usage-well-formed`, `key-usage-dependencies-valid`, `key-usage-present`, `key-usage-has-at-least-one-bit`, `key-usage-critical-for-ca`, `ca-key-cert-sign`, `leaf-key-usage-valid` |
 | Certificate Policies structure | Covered | `certificate-policies-well-formed` |
