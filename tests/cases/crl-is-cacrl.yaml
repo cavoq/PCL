@@ -1,7 +1,0 @@
-name: crl-is-cacrl
-policy: policies/crl-is-cacrl.yaml
-certs: certs
-crl: ../internal/crl/testdata/test.crl
-time: 2026-01-10T00:00:00Z
-expected:
-  crl: {pass: 1, fail: 0, skip: 1}

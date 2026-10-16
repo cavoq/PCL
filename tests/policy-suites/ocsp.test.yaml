@@ -1,0 +1,217 @@
+policy:
+  - ../policies/ocsp-conditional-skip.yaml
+  - ../policies/ocsp-good.yaml
+  - ../policies/ocsp-missing-fails.yaml
+tests:
+  - name: ocsp-conditional-skip
+    cert: ../certs
+    time: "2026-10-01T00:00:00Z"
+    expect:
+      - input: leaf
+        policy: integration-ocsp-conditional-skip
+        verdict: pass
+        failed: []
+      - input: intermediate
+        policy: integration-ocsp-conditional-skip
+        verdict: pass
+        failed: []
+      - input: root
+        policy: integration-ocsp-conditional-skip
+        verdict: pass
+        failed: []
+  - name: ocsp-good-leaf
+    cert: ../certs/ocsp-leaf.pem
+    issuers: [../certs/ocsp-intermediate.pem, ../certs/ocsp-root.pem]
+    ocsp: ../ocsps/good-leaf.ocsp
+    time: "2026-10-01T00:00:00Z"
+    expect:
+      - input: leaf
+        policy: integration-ocsp-good
+        verdict: pass
+        failed: []
+      - input: intermediate
+        policy: integration-ocsp-good
+        verdict: pass
+        failed: []
+      - input: root
+        policy: integration-ocsp-good
+        verdict: pass
+        failed: []
+  - name: ocsp-issuer-mismatch-leaf
+    cert: ../certs/ocsp-leaf.pem
+    issuers: [../certs/ocsp-intermediate.pem, ../certs/ocsp-root.pem]
+    ocsp: ../ocsps/issuer-mismatch-leaf.ocsp
+    time: "2026-10-01T00:00:00Z"
+    expect:
+      - input: leaf
+        policy: integration-ocsp-good
+        verdict: fail
+        failed: [ocsp-not-revoked, ocsp-response-valid, ocsp-status-good]
+      - input: intermediate
+        policy: integration-ocsp-good
+        verdict: pass
+        failed: []
+      - input: root
+        policy: integration-ocsp-good
+        verdict: pass
+        failed: []
+  - name: ocsp-missing-fails
+    cert: ../certs
+    time: "2026-10-01T00:00:00Z"
+    expect:
+      - input: leaf
+        policy: integration-ocsp-missing-fails
+        verdict: fail
+        failed: [ocsp-valid]
+      - input: intermediate
+        policy: integration-ocsp-missing-fails
+        verdict: fail
+        failed: [ocsp-valid]
+      - input: root
+        policy: integration-ocsp-missing-fails
+        verdict: fail
+        failed: [ocsp-valid]
+  - name: ocsp-mixed-good-revoked-leaf
+    cert: ../certs/ocsp-leaf.pem
+    issuers: [../certs/ocsp-intermediate.pem, ../certs/ocsp-root.pem]
+    ocsp: ../ocsps/mixed-good-revoked
+    time: "2026-10-01T00:00:00Z"
+    expect:
+      - input: leaf
+        policy: integration-ocsp-good
+        verdict: fail
+        failed: [ocsp-not-revoked]
+      - input: intermediate
+        policy: integration-ocsp-good
+        verdict: pass
+        failed: []
+      - input: root
+        policy: integration-ocsp-good
+        verdict: pass
+        failed: []
+  - name: ocsp-mixed-stale-good-leaf
+    cert: ../certs/ocsp-leaf.pem
+    issuers: [../certs/ocsp-intermediate.pem, ../certs/ocsp-root.pem]
+    ocsp: ../ocsps/mixed-stale-good
+    time: "2026-10-01T00:00:00Z"
+    expect:
+      - input: leaf
+        policy: integration-ocsp-good
+        verdict: pass
+        failed: []
+      - input: intermediate
+        policy: integration-ocsp-good
+        verdict: pass
+        failed: []
+      - input: root
+        policy: integration-ocsp-good
+        verdict: pass
+        failed: []
+  - name: ocsp-no-next-update-leaf
+    cert: ../certs/ocsp-leaf.pem
+    issuers: [../certs/ocsp-intermediate.pem, ../certs/ocsp-root.pem]
+    ocsp: ../ocsps/no-next-update-leaf.ocsp
+    time: "2026-10-01T00:00:00Z"
+    expect:
+      - input: leaf
+        policy: integration-ocsp-good
+        verdict: pass
+        failed: []
+      - input: intermediate
+        policy: integration-ocsp-good
+        verdict: pass
+        failed: []
+      - input: root
+        policy: integration-ocsp-good
+        verdict: pass
+        failed: []
+  - name: ocsp-revoked-leaf
+    cert: ../certs/ocsp-leaf.pem
+    issuers: [../certs/ocsp-intermediate.pem, ../certs/ocsp-root.pem]
+    ocsp: ../ocsps/revoked-leaf.ocsp
+    time: "2026-10-01T00:00:00Z"
+    expect:
+      - input: leaf
+        policy: integration-ocsp-good
+        verdict: fail
+        failed: [ocsp-not-revoked, ocsp-status-good]
+      - input: intermediate
+        policy: integration-ocsp-good
+        verdict: pass
+        failed: []
+      - input: root
+        policy: integration-ocsp-good
+        verdict: pass
+        failed: []
+  - name: ocsp-stale-leaf
+    cert: ../certs/ocsp-leaf.pem
+    issuers: [../certs/ocsp-intermediate.pem, ../certs/ocsp-root.pem]
+    ocsp: ../ocsps/stale-leaf.ocsp
+    time: "2026-10-01T00:00:00Z"
+    expect:
+      - input: leaf
+        policy: integration-ocsp-good
+        verdict: fail
+        failed: [ocsp-not-revoked, ocsp-response-valid, ocsp-status-good]
+      - input: intermediate
+        policy: integration-ocsp-good
+        verdict: pass
+        failed: []
+      - input: root
+        policy: integration-ocsp-good
+        verdict: pass
+        failed: []
+  - name: ocsp-unknown-leaf
+    cert: ../certs/ocsp-leaf.pem
+    issuers: [../certs/ocsp-intermediate.pem, ../certs/ocsp-root.pem]
+    ocsp: ../ocsps/unknown-leaf.ocsp
+    time: "2026-10-01T00:00:00Z"
+    expect:
+      - input: leaf
+        policy: integration-ocsp-good
+        verdict: fail
+        failed: [ocsp-not-revoked, ocsp-status-good]
+      - input: intermediate
+        policy: integration-ocsp-good
+        verdict: pass
+        failed: []
+      - input: root
+        policy: integration-ocsp-good
+        verdict: pass
+        failed: []
+  - name: ocsp-wrong-leaf
+    cert: ../certs/ocsp-leaf.pem
+    issuers: [../certs/ocsp-intermediate.pem, ../certs/ocsp-root.pem]
+    ocsp: ../ocsps/wrong-leaf.ocsp
+    time: "2026-10-01T00:00:00Z"
+    expect:
+      - input: leaf
+        policy: integration-ocsp-good
+        verdict: fail
+        failed: [ocsp-not-revoked, ocsp-response-valid, ocsp-status-good]
+      - input: intermediate
+        policy: integration-ocsp-good
+        verdict: pass
+        failed: []
+      - input: root
+        policy: integration-ocsp-good
+        verdict: pass
+        failed: []
+  - name: ocsp-wrong-signer-leaf
+    cert: ../certs/ocsp-leaf.pem
+    issuers: [../certs/ocsp-intermediate.pem, ../certs/ocsp-root.pem]
+    ocsp: ../ocsps/wrong-signer-leaf.ocsp
+    time: "2026-10-01T00:00:00Z"
+    expect:
+      - input: leaf
+        policy: integration-ocsp-good
+        verdict: fail
+        failed: [ocsp-not-revoked, ocsp-response-valid, ocsp-status-good]
+      - input: intermediate
+        policy: integration-ocsp-good
+        verdict: pass
+        failed: []
+      - input: root
+        policy: integration-ocsp-good
+        verdict: pass
+        failed: []

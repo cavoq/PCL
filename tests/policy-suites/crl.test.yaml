@@ -1,0 +1,102 @@
+policy:
+  - ../policies/crl-and-ocsp-present.yaml
+  - ../policies/crl-datediff.yaml
+  - ../policies/crl-is-cacrl.yaml
+  - ../policies/crl-letsencrypt-root.yaml
+  - ../policies/crl-signed-by.yaml
+  - ../policies/crl-validity.yaml
+  - ../policies/not-revoked.yaml
+tests:
+  - name: crl-and-ocsp-only
+    crl: ../../internal/crl/testdata/test.crl
+    ocsp: ../ocsps/good-leaf.ocsp
+    time: "2026-10-01T00:00:00Z"
+    expect:
+      - input: crl
+        policy: integration-crl-and-ocsp-present
+        verdict: pass
+        failed: []
+      - input: ocsp
+        policy: integration-crl-and-ocsp-present
+        verdict: pass
+        failed: []
+  - name: crl-datediff
+    cert: ../certs
+    crl: ../../internal/crl/testdata/test.crl
+    time: "2026-01-10T00:00:00Z"
+    expect:
+      - input: crl
+        policy: crl-datediff
+        verdict: fail
+        failed: [crl-nextupdate-within-10-days]
+  - name: crl-is-cacrl
+    cert: ../certs
+    crl: ../../internal/crl/testdata/test.crl
+    time: "2026-01-10T00:00:00Z"
+    expect:
+      - input: crl
+        policy: crl-is-cacrl
+        verdict: pass
+        failed: []
+  - name: crl-letsencrypt-root
+    cert: ../certs
+    crl: ../../internal/crl/testdata/letsencrypt/isrg-root-x1.crl
+    time: "2026-06-01T00:00:00Z"
+    expect:
+      - input: crl
+        policy: crl-letsencrypt-root
+        verdict: pass
+        failed: []
+  - name: crl-only
+    crl: ../../internal/crl/testdata/test.crl
+    time: "2026-10-01T00:00:00Z"
+    expect:
+      - input: crl
+        policy: integration-crl-validity
+        verdict: fail
+        failed: [crl-not-expired, crl-valid]
+  - name: crl-signature-invalid
+    cert: ../certs
+    crl: ../crls/revoked-leaf-wrong-signature.crl
+    time: "2026-10-01T00:00:00Z"
+    expect:
+      - input: crl
+        policy: integration-crl-signed-by
+        verdict: fail
+        failed: [crl-signed-by-chain-issuer]
+  - name: crl-signature-valid
+    cert: ../certs/crl-signature-leaf.pem
+    issuers: [../certs/crl-signature-intermediate.pem, ../certs/crl-signature-root.pem]
+    crl: ../crls/crl-signature-intermediate.crl
+    time: "2026-10-01T00:00:00Z"
+    expect:
+      - input: crl
+        policy: integration-crl-signed-by
+        verdict: pass
+        failed: []
+  - name: crl-validity
+    cert: ../certs
+    crl: ../../internal/crl/testdata/test.crl
+    time: "2026-01-10T00:00:00Z"
+    expect:
+      - input: crl
+        policy: integration-crl-validity
+        verdict: pass
+        failed: []
+  - name: revoked-leaf-fails
+    cert: ../certs
+    crl: ../crls/revoked-leaf.crl
+    time: "2026-10-01T00:00:00Z"
+    expect:
+      - input: leaf
+        policy: integration-not-revoked
+        verdict: fail
+        failed: [certificate-not-revoked]
+      - input: intermediate
+        policy: integration-not-revoked
+        verdict: fail
+        failed: [certificate-not-revoked]
+      - input: root
+        policy: integration-not-revoked
+        verdict: fail
+        failed: [certificate-not-revoked]

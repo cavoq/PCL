@@ -1,9 +1,0 @@
-name: every-san-mismatch
-policy: policies/every-san-fail.yaml
-certs: certs/leaf.pem
-issuers: [certs/intermediate.pem, certs/root.pem]
-time: 2026-10-01T00:00:00Z
-expected:
-  intermediate: {pass: 0, fail: 0, skip: 1, verdict: pass}
-  leaf: {pass: 0, fail: 1, skip: 0, verdict: fail}
-  root: {pass: 0, fail: 0, skip: 1, verdict: pass}

@@ -1,8 +1,0 @@
-name: authority-key-identifier
-policy: policies/authority-key-identifier.yaml
-certs: certs
-time: 2026-10-01T00:00:00Z
-expected:
-  intermediate: {pass: 1, fail: 0, skip: 0}
-  leaf: {pass: 1, fail: 0, skip: 0}
-  root: {pass: 0, fail: 0, skip: 1}

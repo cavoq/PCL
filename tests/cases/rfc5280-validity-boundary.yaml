@@ -1,8 +1,0 @@
-name: rfc5280-validity-boundary
-policy: ../policies/RFC5280.yaml
-rules:
-  - not-expired
-  - not-yet-valid
-fixture: certificate-validity-boundary
-expected:
-  root: {pass: 2, fail: 0, skip: 0}

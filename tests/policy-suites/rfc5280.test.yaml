@@ -1,0 +1,277 @@
+policy: ../../policies/RFC5280.yaml
+tests:
+  - name: rfc5280-certificate-algorithm-mismatch
+    cert: ../vectors/certificate-algorithm-mismatch/certificate.pem
+    expect:
+      - input: root
+        policy: rfc5280
+        rules:
+          signature-algorithm-matches-tbs: fail
+  - name: rfc5280-chain
+    cert: ../certs/leaf.pem
+    issuers: [../certs/intermediate.pem, ../certs/root.pem]
+    time: "2027-01-01T00:00:00Z"
+    expect:
+      - input: leaf
+        policy: rfc5280
+        verdict: pass
+        failed: []
+      - input: intermediate
+        policy: rfc5280
+        verdict: pass
+        failed: []
+      - input: root
+        policy: rfc5280
+        verdict: pass
+        failed: []
+  - name: rfc5280-chain-crl
+    cert: ../certs/leaf.pem
+    issuers: [../certs/intermediate.pem, ../certs/root.pem]
+    crl: ../crls/revoked-leaf.crl
+    time: "2026-06-01T00:00:00Z"
+    expect:
+      - input: leaf
+        policy: rfc5280
+        verdict: fail
+        failed: [cert-not-revoked]
+      - input: intermediate
+        policy: rfc5280
+        verdict: fail
+        failed: [cert-revocation-status-known]
+      - input: root
+        policy: rfc5280
+        verdict: fail
+        failed: [cert-revocation-status-known]
+      - input: crl
+        policy: rfc5280
+        verdict: pass
+        failed: []
+  - name: rfc5280-country-name-actual-tag
+    cert: ../vectors/certificate-country-name-utf8string/certificate.pem
+    expect:
+      - input: leaf
+        policy: rfc5280
+        rules:
+          subject-country-printable-string: fail
+  - name: rfc5280-crl-algorithm-mismatch
+    cert: ../vectors/crl-algorithm-mismatch/issuer.pem
+    crl: ../vectors/crl-algorithm-mismatch/list.pem
+    error: failed to load CRLs
+  - name: rfc5280-crl-dn-malformed
+    cert: ../vectors/crl-dn-noncanonical-order/issuer.pem
+    crl: ../vectors/crl-dn-noncanonical-order/list.pem
+    expect:
+      - input: root
+        policy: rfc5280
+        rules:
+          crl-issuer-name-well-formed: skip
+      - input: crl
+        policy: rfc5280
+        rules:
+          crl-issuer-name-well-formed: fail
+  - name: rfc5280-crl-entry-critical-extension
+    crl: ../vectors/crl-entry-critical-extension/list.pem
+    expect:
+      - input: crl
+        policy: rfc5280
+        rules:
+          crl-no-unknown-critical-extensions: fail
+  - name: rfc5280-crl-profile-invalid
+    cert: ../vectors/crl-invalid-profile/issuer.pem
+    crl: ../vectors/crl-invalid-profile/list.pem
+    expect:
+      - input: root
+        policy: rfc5280
+        rules:
+          crl-delta-omits-freshest: skip
+          crl-idp-excludes-attribute-certificates: skip
+      - input: crl
+        policy: rfc5280
+        rules:
+          crl-delta-omits-freshest: fail
+          crl-idp-excludes-attribute-certificates: fail
+  - name: rfc5280-crl-required-fields
+    cert: ../vectors/crl-missing-required-fields/issuer.pem
+    crl: ../vectors/crl-missing-required-fields/list.pem
+    expect:
+      - input: root
+        policy: rfc5280
+        rules:
+          crl-authority-key-identifier-present: skip
+          crl-next-update-present: skip
+          crl-number-present: skip
+      - input: crl
+        policy: rfc5280
+        rules:
+          crl-authority-key-identifier-present: fail
+          crl-next-update-present: fail
+          crl-number-present: fail
+  - name: rfc5280-dn-malformed
+    cert: ../vectors/certificate-dn-noncanonical-order/certificate.pem
+    expect:
+      - input: leaf
+        policy: rfc5280
+        rules:
+          issuer-name-well-formed: fail
+          subject-name-well-formed: fail
+  - name: rfc5280-dn-projected-attributes
+    cert: ../vectors/certificate-dn-projected-attributes/certificate.pem
+    expect:
+      - input: leaf
+        policy: rfc5280
+        rules:
+          subject-dc-label-max-length: fail
+          subject-email-format: fail
+          subject-givenname-max-length: pass
+          subject-surname-max-length: pass
+  - name: rfc5280-dn-second-common-name
+    cert: ../vectors/certificate-dn-second-common-name-too-long/certificate.pem
+    expect:
+      - input: leaf
+        policy: rfc5280
+        rules:
+          subject-cn-max-length: fail
+  - name: rfc5280-empty-key-usage
+    cert: ../vectors/certificate-empty-key-usage/certificate.pem
+    expect:
+      - input: root
+        policy: rfc5280
+        rules:
+          key-usage-has-at-least-one-bit: fail
+  - name: rfc5280-ian-second-invalid-label
+    cert: ../vectors/certificate-ian-second-invalid-dns-label/certificate.pem
+    expect:
+      - input: leaf
+        policy: rfc5280
+        rules:
+          ian-dns-valid-label: skip
+          ian-dnsname-valid-ia5string: skip
+          ian-general-names-well-formed: fail
+  - name: rfc5280-purpose-client-auth
+    cert: ../certs/leaf.pem
+    issuers: [../certs/intermediate.pem, ../certs/root.pem]
+    purpose: clientAuth
+    time: "2026-10-01T00:00:00Z"
+    expect:
+      - input: leaf
+        policy: rfc5280
+        rules:
+          extended-key-usage-allows-application-purpose: fail
+      - input: intermediate
+        policy: rfc5280
+        rules:
+          extended-key-usage-allows-application-purpose: pass
+      - input: root
+        policy: rfc5280
+        rules:
+          extended-key-usage-allows-application-purpose: pass
+  - name: rfc5280-purpose-client-auth-full-policy
+    cert: ../certs/leaf.pem
+    issuers: [../certs/intermediate.pem, ../certs/root.pem]
+    purpose: clientAuth
+    time: "2026-10-01T00:00:00Z"
+    expect:
+      - input: leaf
+        policy: rfc5280
+        verdict: fail
+        failed: [extended-key-usage-allows-application-purpose]
+      - input: intermediate
+        policy: rfc5280
+        verdict: pass
+        failed: []
+      - input: root
+        policy: rfc5280
+        verdict: pass
+        failed: []
+  - name: rfc5280-purpose-server-auth
+    cert: ../certs/leaf.pem
+    issuers: [../certs/intermediate.pem, ../certs/root.pem]
+    purpose: serverAuth
+    time: "2026-10-01T00:00:00Z"
+    expect:
+      - input: leaf
+        policy: rfc5280
+        rules:
+          extended-key-usage-allows-application-purpose: pass
+      - input: intermediate
+        policy: rfc5280
+        rules:
+          extended-key-usage-allows-application-purpose: pass
+      - input: root
+        policy: rfc5280
+        rules:
+          extended-key-usage-allows-application-purpose: pass
+  - name: rfc5280-revoked-status
+    cert: ../vectors/valid-revoked-certificate/leaf.pem
+    issuers: [../vectors/valid-revoked-certificate/issuer.pem]
+    crl: ../vectors/valid-revoked-certificate/list.pem
+    time: "2026-08-14T12:00:00Z"
+    expect:
+      - input: leaf
+        policy: rfc5280
+        rules:
+          cert-not-revoked: fail
+          cert-revocation-status-known: pass
+      - input: root
+        policy: rfc5280
+        rules:
+          cert-not-revoked: pass
+          cert-revocation-status-known: pass
+      - input: crl
+        policy: rfc5280
+        rules:
+          cert-not-revoked: skip
+          cert-revocation-status-known: skip
+  - name: rfc5280-san-malformed
+    cert: ../vectors/certificate-empty-general-names/certificate.pem
+    expect:
+      - input: leaf
+        policy: rfc5280
+        rules:
+          san-general-names-well-formed: fail
+  - name: rfc5280-san-second-non-ia5
+    cert: ../vectors/certificate-san-second-non-ia5-name/certificate.pem
+    expect:
+      - input: leaf
+        policy: rfc5280
+        rules:
+          san-dnsname-valid-ia5string: skip
+          san-general-names-well-formed: fail
+  - name: rfc5280-serial-sign-octet
+    cert: ../vectors/certificate-serial-leading-sign-octet/certificate.pem
+    expect:
+      - input: root
+        policy: rfc5280
+        rules:
+          serial-number-length: fail
+          serial-number-positive: pass
+  - name: rfc5280-validity-boundary
+    cert: ../vectors/certificate-validity-boundary/certificate.pem
+    time: "2026-07-18T12:00:00Z"
+    expect:
+      - input: root
+        policy: rfc5280
+        rules:
+          not-expired: pass
+          not-yet-valid: pass
+  - name: rfc5280-validity-encoding-cutover
+    cert: ../vectors/certificate-validity-encoding-cutover/certificate.pem
+    expect:
+      - input: root
+        policy: rfc5280
+        rules:
+          validity-generalizedtime-has-seconds-notafter: pass
+          validity-generalizedtime-has-seconds-notbefore: skip
+          validity-notafter-generalizedtime-from-2050: pass
+          validity-notafter-utctime-through-2049: skip
+          validity-notbefore-generalizedtime-from-2050: skip
+          validity-notbefore-utctime-through-2049: pass
+  - name: rfc5280-zero-bit-issuer-unique-id
+    cert: ../vectors/certificate-zero-bit-issuer-unique-id/certificate.pem
+    expect:
+      - input: root
+        policy: rfc5280
+        rules:
+          issuer-unique-id-absent: fail
+          tbs-certificate-metadata-well-formed: pass
+          version-v2-when-unique-id: pass

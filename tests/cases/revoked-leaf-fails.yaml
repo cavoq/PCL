@@ -1,9 +1,0 @@
-name: revoked-leaf-fails
-policy: policies/not-revoked.yaml
-certs: certs
-crl: crls/revoked-leaf.crl
-time: 2026-10-01T00:00:00Z
-expected:
-  intermediate: {pass: 0, fail: 1, skip: 0, verdict: fail}
-  leaf: {pass: 0, fail: 1, skip: 0, verdict: fail}
-  root: {pass: 0, fail: 1, skip: 0, verdict: fail}

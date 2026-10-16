@@ -12,8 +12,8 @@ algorithms. Source and edition are recorded in the policy metadata.
 
 | Requirement | Status | Implementation | Required input | Evidence |
 |---|---|---|---|---|
-| rsaEncryption SPKI NULL parameters (§1.2) | Covered | `cert-spki-rsa-params-null` | Certificate | [Chain case](../tests/cases/rfc4055-chain.yaml) |
-| RSA signature NULL parameters (§5) | Covered | `cert-tbs-signature-rsa-params-null`, `cert-signature-algorithm-rsa-params-null`, CRL equivalents | Certificate or CRL | [Chain case](../tests/cases/rfc4055-chain.yaml), [parameter parsing](../internal/x509asn1/parser_test.go) |
+| rsaEncryption SPKI NULL parameters (§1.2) | Covered | `cert-spki-rsa-params-null` | Certificate | [Chain case](../tests/policy-suites/standards.test.yaml) |
+| RSA signature NULL parameters (§5) | Covered | `cert-tbs-signature-rsa-params-null`, `cert-signature-algorithm-rsa-params-null`, CRL equivalents | Certificate or CRL | [Chain case](../tests/policy-suites/standards.test.yaml), [parameter parsing](../internal/x509asn1/parser_test.go) |
 | PSS hash, MGF1 and MGF hash (§3) | Implemented; partial end-to-end evidence | `*-pss-hash-algorithm-valid`, `*-pss-mgf-algorithm-valid`, `*-pss-mgf-hash-valid` for outer/TBS certificate and CRL algorithms | PSS AlgorithmIdentifier | [Nested MGF projection](../internal/x509node/algorithm_test.go) |
 | PSS salt length and trailer (§3) | Implemented; partial end-to-end evidence | `*-pss-salt-length-valid` requires nonnegative salt; `*-pss-trailer-field-valid` requires 1 | PSS AlgorithmIdentifier | [Parser vectors](../internal/x509asn1/parser_test.go) |
 | OAEP hash, MGF1, MGF hash and pSource (§4) | Implemented; partial end-to-end evidence | `cert-spki-oaep-*` rules | OAEP SPKI parameters | [Parser](../internal/x509asn1/parser.go), [policy](RFC4055.yaml) |
@@ -28,7 +28,7 @@ variants; combine this pack with a stricter application profile when needed.
 
 | Evidence | What it establishes |
 |---|---|
-| [RFC 4055 chain case](../tests/cases/rfc4055-chain.yaml) | Full pack execution on a conventional RSA chain |
+| [RFC 4055 chain case](../tests/policy-suites/standards.test.yaml) | Full pack execution on a conventional RSA chain |
 | [Algorithm parser tests](../internal/x509asn1/parser_test.go) | NULL/absent distinctions and selected malformed AlgorithmIdentifier/PSS vectors |
 | [Algorithm node tests](../internal/x509node/algorithm_test.go) | Absent and malformed projections, nested MGF1 identity |
 | [Schema tests](../internal/policy/schema_test.go) | Shipped policy syntax and operand contracts |

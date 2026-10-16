@@ -16,21 +16,12 @@ import (
 	"github.com/cavoq/PCL/internal/rule"
 )
 
-// lint runs the lint command like the CLI and returns every rule result.
-func lint(t *testing.T, cfg linter.Config) ([]policy.Result, error) {
-	t.Helper()
-	results, err := lintResults(cfg)
-	if errors.As(err, new(outputError)) {
-		t.Fatal(err)
-	}
-	return results, err
-}
-
 // outputError reports lint output that is not the expected JSON.
 type outputError struct{ error }
 
-// lintResults is lint for callers off the test goroutine: it returns a run
-// error as is and unparsable output as an outputError.
+// lintResults runs the lint command like the CLI and returns every rule
+// result. It does not use testing.T, so it is safe off the test goroutine; a
+// run error is returned as is and unparsable output as an outputError.
 func lintResults(cfg linter.Config) ([]policy.Result, error) {
 	cfg.OutputFmt, cfg.Verbosity, cfg.ShowMeta = output.FormatJSON, 2, false
 	var out bytes.Buffer

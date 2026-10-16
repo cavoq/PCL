@@ -1,5 +1,0 @@
-name: missing-policy
-policy: policies/missing.yaml
-certs: certs
-time: 2026-10-01T00:00:00Z
-error: "checking policy path"

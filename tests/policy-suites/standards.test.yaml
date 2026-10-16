@@ -1,0 +1,39 @@
+policy:
+  - ../../policies/RFC4055.yaml
+  - ../../policies/RFC6960.yaml
+tests:
+  - name: rfc4055-chain
+    cert: ../certs/leaf.pem
+    issuers: [../certs/intermediate.pem, ../certs/root.pem]
+    time: "2026-10-01T00:00:00Z"
+    expect:
+      - input: leaf
+        policy: rfc4055
+        verdict: pass
+        failed: []
+      - input: intermediate
+        policy: rfc4055
+        verdict: pass
+        failed: []
+      - input: root
+        policy: rfc4055
+        verdict: pass
+        failed: []
+  - name: rfc6960-good-leaf
+    cert: ../certs/ocsp-leaf.pem
+    issuers: [../certs/ocsp-intermediate.pem, ../certs/ocsp-root.pem]
+    ocsp: ../ocsps/good-leaf.ocsp
+    time: "2026-06-01T00:00:00Z"
+    expect:
+      - input: leaf
+        policy: rfc6960
+        verdict: pass
+        failed: []
+      - input: intermediate
+        policy: rfc6960
+        verdict: pass
+        failed: []
+      - input: root
+        policy: rfc6960
+        verdict: pass
+        failed: []

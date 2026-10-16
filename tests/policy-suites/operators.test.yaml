@@ -1,0 +1,214 @@
+policy:
+  - ../policies/authority-key-identifier.yaml
+  - ../policies/basic.yaml
+  - ../policies/eku-fail.yaml
+  - ../policies/eku.yaml
+  - ../policies/every-san-fail.yaml
+  - ../policies/every-san.yaml
+  - ../policies/extensions-criticality.yaml
+  - ../policies/leaf-keycertsign-fails.yaml
+  - ../policies/name-constraints.yaml
+  - ../policies/subject-alt-name.yaml
+  - ../policies/with-include.yaml
+tests:
+  - name: authority-key-identifier
+    cert: ../certs
+    time: "2026-10-01T00:00:00Z"
+    expect:
+      - input: leaf
+        policy: integration-authority-key-identifier
+        verdict: pass
+        failed: []
+      - input: intermediate
+        policy: integration-authority-key-identifier
+        verdict: pass
+        failed: []
+      - input: root
+        policy: integration-authority-key-identifier
+        verdict: pass
+        failed: []
+  - name: basic-policy
+    cert: ../certs
+    time: "2026-10-01T00:00:00Z"
+    expect:
+      - input: leaf
+        policy: integration-basic
+        verdict: pass
+        failed: []
+      - input: intermediate
+        policy: integration-basic
+        verdict: pass
+        failed: []
+      - input: root
+        policy: integration-basic
+        verdict: pass
+        failed: []
+  - name: eku-leaf
+    cert: ../certs/leaf.pem
+    issuers: [../certs/intermediate.pem, ../certs/root.pem]
+    time: "2026-10-01T00:00:00Z"
+    expect:
+      - input: leaf
+        policy: integration-eku
+        verdict: pass
+        failed: []
+      - input: intermediate
+        policy: integration-eku
+        verdict: pass
+        failed: []
+      - input: root
+        policy: integration-eku
+        verdict: pass
+        failed: []
+  - name: eku-missing-leaf
+    cert: ../certs/leaf.pem
+    issuers: [../certs/intermediate.pem, ../certs/root.pem]
+    time: "2026-10-01T00:00:00Z"
+    expect:
+      - input: leaf
+        policy: integration-eku-fail
+        verdict: fail
+        failed: [leaf-must-have-client-auth]
+      - input: intermediate
+        policy: integration-eku-fail
+        verdict: pass
+        failed: []
+      - input: root
+        policy: integration-eku-fail
+        verdict: pass
+        failed: []
+  - name: every-san-mismatch
+    cert: ../certs/leaf.pem
+    issuers: [../certs/intermediate.pem, ../certs/root.pem]
+    time: "2026-10-01T00:00:00Z"
+    expect:
+      - input: leaf
+        policy: integration-every-san-fail
+        verdict: fail
+        failed: [san-dns-must-match-com]
+      - input: intermediate
+        policy: integration-every-san-fail
+        verdict: pass
+        failed: []
+      - input: root
+        policy: integration-every-san-fail
+        verdict: pass
+        failed: []
+  - name: every-san-regex
+    cert: ../certs/leaf.pem
+    issuers: [../certs/intermediate.pem, ../certs/root.pem]
+    time: "2026-10-01T00:00:00Z"
+    expect:
+      - input: leaf
+        policy: integration-every-san
+        verdict: pass
+        failed: []
+      - input: intermediate
+        policy: integration-every-san
+        verdict: pass
+        failed: []
+      - input: root
+        policy: integration-every-san
+        verdict: pass
+        failed: []
+  - name: extensions-criticality
+    cert: ../certs
+    time: "2026-10-01T00:00:00Z"
+    expect:
+      - input: leaf
+        policy: integration-extensions-criticality
+        verdict: pass
+        failed: []
+      - input: intermediate
+        policy: integration-extensions-criticality
+        verdict: pass
+        failed: []
+      - input: root
+        policy: integration-extensions-criticality
+        verdict: pass
+        failed: []
+  - name: leaf-keycertsign-fails
+    cert: ../certs
+    time: "2026-10-01T00:00:00Z"
+    expect:
+      - input: leaf
+        policy: integration-leaf-keycertsign-fails
+        verdict: fail
+        failed: [leaf-keycertsign-must-be-true]
+      - input: intermediate
+        policy: integration-leaf-keycertsign-fails
+        verdict: pass
+        failed: []
+      - input: root
+        policy: integration-leaf-keycertsign-fails
+        verdict: pass
+        failed: []
+  - name: name-constraints-fail
+    cert: ../certs/nc-bad-leaf.pem
+    issuers: [../certs/nc-intermediate.pem, ../certs/nc-root.pem]
+    time: "2026-10-01T00:00:00Z"
+    expect:
+      - input: leaf
+        policy: integration-name-constraints
+        verdict: fail
+        failed: [name-constraints-valid]
+      - input: intermediate
+        policy: integration-name-constraints
+        verdict: pass
+        failed: []
+      - input: root
+        policy: integration-name-constraints
+        verdict: pass
+        failed: []
+  - name: name-constraints-pass
+    cert: ../certs/nc-good-leaf.pem
+    issuers: [../certs/nc-intermediate.pem, ../certs/nc-root.pem]
+    time: "2026-10-01T00:00:00Z"
+    expect:
+      - input: leaf
+        policy: integration-name-constraints
+        verdict: pass
+        failed: []
+      - input: intermediate
+        policy: integration-name-constraints
+        verdict: pass
+        failed: []
+      - input: root
+        policy: integration-name-constraints
+        verdict: pass
+        failed: []
+  - name: policy-includes
+    cert: ../certs
+    time: "2026-10-01T00:00:00Z"
+    expect:
+      - input: leaf
+        policy: integration-with-include
+        verdict: pass
+        failed: []
+      - input: intermediate
+        policy: integration-with-include
+        verdict: pass
+        failed: []
+      - input: root
+        policy: integration-with-include
+        verdict: pass
+        failed: []
+  - name: subject-alt-name
+    cert: ../certs
+    time: "2026-10-01T00:00:00Z"
+    expect:
+      - input: leaf
+        policy: integration-subject-alt-name
+        verdict: pass
+        failed: []
+      - input: intermediate
+        policy: integration-subject-alt-name
+        verdict: pass
+        failed: []
+      - input: root
+        policy: integration-subject-alt-name
+        verdict: pass
+        failed: []
+  - name: unreadable certificate is reported
+    cert: ../certs/missing.pem
+    error: failed to load certificates

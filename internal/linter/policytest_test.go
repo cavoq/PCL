@@ -47,6 +47,7 @@ tests:
         rules:
           ocsp-status-good: pass
           no-such-rule: fail
+        failed: [ocsp-response-valid]
       - input: crl
         verdict: pass
   - name: missing error
@@ -65,6 +66,7 @@ tests:
 		"leaf: policy integration-ocsp-good verdict fail, want pass",
 		"leaf: rule ocsp-status-good fail, want pass",
 		"leaf: rule no-such-rule was not evaluated",
+		"leaf: failed rules [ocsp-not-revoked, ocsp-status-good], want [ocsp-response-valid]",
 		"crl: no policy evaluated this input",
 		`expected an error containing "never happens"`,
 	} {
@@ -76,12 +78,13 @@ tests:
 
 func TestLoadPolicySuiteRejectsInvalidFiles(t *testing.T) {
 	tests := map[string]string{
-		"field expct not found":              "policy: p.yaml\ntests:\n  - name: typo\n    cert: a.pem\n    expct: []\n",
-		"policy is required":                 "tests:\n  - name: t\n    cert: a.pem\n    error: x\n",
-		"tests must not be empty":            "policy: p.yaml\ntests: []\n",
-		"expect or error is required":        "policy: p.yaml\ntests:\n  - name: t\n    cert: a.pem\n",
-		"verdict must be pass or fail":       "policy: p.yaml\ntests:\n  - name: t\n    expect: [{input: leaf, verdict: skip}]\n",
-		"verdict must be pass, fail or skip": "policy: p.yaml\ntests:\n  - name: t\n    expect: [{input: leaf, rules: {r: ok}}]\n",
+		"field expct not found":                "policy: p.yaml\ntests:\n  - name: typo\n    cert: a.pem\n    expct: []\n",
+		"policy is required":                   "tests:\n  - name: t\n    cert: a.pem\n    error: x\n",
+		"tests must not be empty":              "policy: p.yaml\ntests: []\n",
+		"expect or error is required":          "policy: p.yaml\ntests:\n  - name: t\n    cert: a.pem\n",
+		"verdict must be pass or fail":         "policy: p.yaml\ntests:\n  - name: t\n    expect: [{input: leaf, verdict: skip}]\n",
+		"verdict, rules or failed is required": "policy: p.yaml\ntests:\n  - name: t\n    expect: [{input: leaf}]\n",
+		"verdict must be pass, fail or skip":   "policy: p.yaml\ntests:\n  - name: t\n    expect: [{input: leaf, rules: {r: ok}}]\n",
 	}
 	for want, body := range tests {
 		path := filepath.Join(t.TempDir(), "suite.test.yaml")

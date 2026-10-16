@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -85,12 +86,14 @@ func (inputs *policyTestCertificateInput) operatorInputs() operator.CertificateP
 
 // policyExpectation states the verdicts expected for one evaluated input,
 // selected by its role (leaf, intermediate, root, ocspSigning) or input type
-// (crl, ocsp) and optionally by policy id.
+// (crl, ocsp) and optionally by policy id. Failed, when set, lists exactly
+// the rules that fail for the input; an empty list expects that none fails.
 type policyExpectation struct {
 	Input   string            `yaml:"input"`
 	Policy  string            `yaml:"policy,omitempty"`
 	Verdict string            `yaml:"verdict,omitempty"`
 	Rules   map[string]string `yaml:"rules,omitempty"`
+	Failed  *[]string         `yaml:"failed,omitempty"`
 }
 
 // PolicyTestSummary counts the cases of a policy test run.
@@ -219,8 +222,8 @@ func validateExpectation(expectation policyExpectation) error {
 	if expectation.Input == "" {
 		return errors.New("expect: input is required")
 	}
-	if expectation.Verdict == "" && len(expectation.Rules) == 0 {
-		return fmt.Errorf("expect %s: verdict or rules is required", expectation.Input)
+	if expectation.Verdict == "" && len(expectation.Rules) == 0 && expectation.Failed == nil {
+		return fmt.Errorf("expect %s: verdict, rules or failed is required", expectation.Input)
 	}
 	if expectation.Verdict != "" && expectation.Verdict != rule.VerdictPass && expectation.Verdict != rule.VerdictFail {
 		return fmt.Errorf("expect %s: verdict must be pass or fail", expectation.Input)
@@ -354,7 +357,33 @@ func checkExpectation(expectation policyExpectation, results []policy.Result) []
 	for _, ruleID := range ruleIDs {
 		failures = append(failures, checkRuleVerdict(label, ruleID, expectation.Rules[ruleID], matched)...)
 	}
+	if expectation.Failed != nil {
+		got, want := failedRuleIDs(matched), sortedUnique(*expectation.Failed)
+		if !slices.Equal(got, want) {
+			failures = append(failures, fmt.Sprintf("%s: failed rules [%s], want [%s]",
+				label, strings.Join(got, ", "), strings.Join(want, ", ")))
+		}
+	}
 	return failures
+}
+
+// failedRuleIDs returns the sorted IDs of the rules that fail in results.
+func failedRuleIDs(results []policy.Result) []string {
+	var ruleIDs []string
+	for _, result := range results {
+		for _, ruleResult := range result.Results {
+			if ruleResult.Verdict == rule.VerdictFail {
+				ruleIDs = append(ruleIDs, ruleResult.RuleID)
+			}
+		}
+	}
+	return sortedUnique(ruleIDs)
+}
+
+func sortedUnique(values []string) []string {
+	sorted := slices.Clone(values)
+	slices.Sort(sorted)
+	return slices.Compact(sorted)
 }
 
 func matchingResults(expectation policyExpectation, results []policy.Result) []policy.Result {

@@ -1,9 +1,0 @@
-name: name-constraints-fail
-policy: policies/name-constraints.yaml
-certs: certs/nc-bad-leaf.pem
-issuers: [certs/nc-intermediate.pem, certs/nc-root.pem]
-time: 2026-10-01T00:00:00Z
-expected:
-  intermediate: {pass: 0, fail: 0, skip: 1, verdict: pass}
-  leaf: {pass: 0, fail: 1, skip: 0, verdict: fail}
-  root: {pass: 0, fail: 0, skip: 1, verdict: pass}

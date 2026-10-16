@@ -1,9 +1,0 @@
-name: rfc5280-ian-second-invalid-label
-policy: ../policies/RFC5280.yaml
-rules:
-  - ian-general-names-well-formed
-  - ian-dns-valid-label
-  - ian-dnsname-valid-ia5string
-fixture: certificate-ian-second-invalid-dns-label
-expected:
-  leaf: {pass: 0, fail: 1, skip: 2}

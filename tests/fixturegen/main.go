@@ -1,5 +1,6 @@
 // Command fixturegen writes the certificate, CRL and OCSP fixtures under
-// tests/certs, tests/crls and tests/ocsps. Run it from the repository root
+// tests/certs, tests/crls and tests/ocsps, and the DER vectors under
+// tests/vectors. Run it from the repository root
 // with `make fixtures`. Keys are new on every run, so every fixture is
 // rewritten; their names, extensions, validity windows and serial numbers
 // are fixed here. Private keys are never written.
@@ -46,7 +47,7 @@ type fixtures struct {
 
 func generate(dir string) error {
 	f := fixtures{dir: dir}
-	for _, step := range []func() error{f.bsiChain, f.crlSignatureChain, f.ocspChain, f.nameConstraintsChain} {
+	for _, step := range []func() error{f.bsiChain, f.crlSignatureChain, f.ocspChain, f.nameConstraintsChain, f.vectors} {
 		if err := step(); err != nil {
 			return err
 		}

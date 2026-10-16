@@ -1,7 +1,0 @@
-name: crl-letsencrypt-root
-policy: policies/crl-letsencrypt-root.yaml
-certs: certs
-crl: ../internal/crl/testdata/letsencrypt/isrg-root-x1.crl
-time: 2026-06-01T00:00:00Z
-expected:
-  crl: {pass: 1, fail: 0, skip: 1}

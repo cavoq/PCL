@@ -12,11 +12,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `fuzz`, `lint`, `schema`, ...); CI runs the same targets. It replaces the
   limbo, fuzz and Let's Encrypt fixture scripts, pins golangci-lint and
   govulncheck, and coverage now includes the integration tests.
+- Policy test expectations accept `failed`, the exact list of rules that
+  fail for an input (`[]` for none).
 - `make fixtures` regenerates every certificate, CRL and OCSP test fixture
   with the Go program `tests/fixturegen`, replacing the OpenSSL scripts
   `mkcerts.sh` and `gen-nc-certs.sh`. The CRL and OCSP fixtures had no
   generator. `revoked-leaf.crl` now verifies against its issuer; the
   invalid-signature case uses the new `revoked-leaf-wrong-signature.crl`.
+  The DER vectors that tests built in code are generated into
+  `tests/vectors`.
+- The integration scenarios in `tests/cases`, with their own format and
+  per-role rule counts, are policy suites in `tests/policy-suites`, run by
+  `pcl test`; expectations name the failing rules instead of counting them.
 - Optional descriptive policy `metadata` with title, standard, edition, source,
   description, and relevant input names. The parser and editor schema validate
   it; it does not change evaluation or inherit through includes.
