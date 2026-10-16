@@ -78,13 +78,13 @@ tests:
 
 func TestLoadPolicySuiteRejectsInvalidFiles(t *testing.T) {
 	tests := map[string]string{
-		"field expct not found":                "policy: p.yaml\ntests:\n  - name: typo\n    cert: a.pem\n    expct: []\n",
-		"policy is required":                   "tests:\n  - name: t\n    cert: a.pem\n    error: x\n",
-		"tests must not be empty":              "policy: p.yaml\ntests: []\n",
-		"expect or error is required":          "policy: p.yaml\ntests:\n  - name: t\n    cert: a.pem\n",
-		"verdict must be pass, fail, inconclusive or not_applicable":         "policy: p.yaml\ntests:\n  - name: t\n    expect: [{input: leaf, verdict: skip}]\n",
-		"verdict, rules or failed is required": "policy: p.yaml\ntests:\n  - name: t\n    expect: [{input: leaf}]\n",
-		"verdict must be pass, fail, skip or inconclusive":   "policy: p.yaml\ntests:\n  - name: t\n    expect: [{input: leaf, rules: {r: ok}}]\n",
+		"field expct not found":                                      "policy: p.yaml\ntests:\n  - name: typo\n    cert: a.pem\n    expct: []\n",
+		"policy is required":                                         "tests:\n  - name: t\n    cert: a.pem\n    error: x\n",
+		"tests must not be empty":                                    "policy: p.yaml\ntests: []\n",
+		"expect or error is required":                                "policy: p.yaml\ntests:\n  - name: t\n    cert: a.pem\n",
+		"verdict must be pass, fail, inconclusive or not_applicable": "policy: p.yaml\ntests:\n  - name: t\n    expect: [{input: leaf, verdict: skip}]\n",
+		"verdict, rules or failed is required":                       "policy: p.yaml\ntests:\n  - name: t\n    expect: [{input: leaf}]\n",
+		"verdict must be pass, fail, skip or inconclusive":           "policy: p.yaml\ntests:\n  - name: t\n    expect: [{input: leaf, rules: {r: ok}}]\n",
 	}
 	for want, body := range tests {
 		path := filepath.Join(t.TempDir(), "suite.test.yaml")
