@@ -53,13 +53,17 @@ func CollectViaCAIssuers(seed []*x509.Certificate, cfg AIACollectConfig) []*x509
 }
 
 // FetchParentViaCAIssuers fetches the issuing certificate for child using the first
-// CA Issuers URL, matching ClimbChain behavior.
+// HTTP(S) CA Issuers URL, matching ClimbChain behavior.
 func FetchParentViaCAIssuers(child *x509.Certificate, timeout time.Duration, w io.Writer) (*x509.Certificate, source.Info, string, error) {
 	if child == nil || len(child.IssuingCertificateURL) == 0 {
 		return nil, source.Info{}, "", nil
 	}
 
-	url := child.IssuingCertificateURL[0]
+	supported, err := aia.SupportedCAIssuersURLs(child.IssuingCertificateURL)
+	if err != nil {
+		return nil, source.Info{}, child.IssuingCertificateURL[0], err
+	}
+	url := supported[0]
 	results, errs := aia.FetchCAIssuers([]string{url}, timeout)
 	if len(errs) > 0 {
 		return nil, source.Info{}, url, errs[0]

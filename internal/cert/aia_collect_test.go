@@ -3,6 +3,7 @@ package cert
 import (
 	"bytes"
 	"math/big"
+	"strings"
 	"testing"
 	"time"
 
@@ -87,6 +88,62 @@ func TestCollectViaCAIssuers_warnsOnFetchError(t *testing.T) {
 	}
 	if buf.Len() == 0 {
 		t.Fatal("expected fetch warning")
+	}
+}
+
+func TestCollectViaCAIssuers_skipsLDAPWithoutWarning(t *testing.T) {
+	parent, url := servedCA(t, "Parent CA")
+	child := aiaChild("leaf.example", parent.Cert, url)
+	child.IssuingCertificateURL = []string{"ldap://directory.example/cn=Parent%20CA?cACertificate", url}
+
+	var buf bytes.Buffer
+	got := CollectViaCAIssuers([]*zx509.Certificate{child}, AIACollectConfig{
+		Timeout:  time.Second,
+		MaxDepth: 1,
+		Warn:     &buf,
+	})
+	if len(got) != 2 || got[1].Subject.CommonName != "Parent CA" {
+		t.Fatalf("got %v, want seed + Parent CA", got)
+	}
+	if buf.Len() != 0 {
+		t.Fatalf("warnings = %q, want none", buf.String())
+	}
+}
+
+func TestCollectViaCAIssuers_warnsOnceForLDAPOnly(t *testing.T) {
+	child := &zx509.Certificate{
+		SerialNumber: big.NewInt(1),
+		IssuingCertificateURL: []string{
+			"ldap://directory.example/cn=CA?cACertificate",
+			"ldap://backup.example/cn=CA?cACertificate",
+		},
+	}
+
+	var buf bytes.Buffer
+	CollectViaCAIssuers([]*zx509.Certificate{child}, AIACollectConfig{
+		Timeout:  50 * time.Millisecond,
+		MaxDepth: 1,
+		Warn:     &buf,
+	})
+	if count := strings.Count(buf.String(), "Warning:"); count != 1 {
+		t.Fatalf("warnings = %q, want exactly one", buf.String())
+	}
+	if !strings.Contains(buf.String(), "only ldap:// CA Issuers URLs") {
+		t.Fatalf("warning = %q, want the unsupported-scheme warning", buf.String())
+	}
+}
+
+func TestFetchParentViaCAIssuers_skipsLeadingLDAP(t *testing.T) {
+	parent, url := servedCA(t, "Parent CA")
+	child := aiaChild("leaf.example", parent.Cert, url)
+	child.IssuingCertificateURL = []string{"ldap://directory.example/cn=Parent%20CA?cACertificate", url}
+
+	got, _, gotURL, err := FetchParentViaCAIssuers(child, time.Second, nil)
+	if err != nil {
+		t.Fatalf("FetchParentViaCAIssuers() error: %v", err)
+	}
+	if got == nil || got.Subject.CommonName != "Parent CA" || gotURL != url {
+		t.Fatalf("FetchParentViaCAIssuers() = %v from %q, want Parent CA from %q", got, gotURL, url)
 	}
 }
 

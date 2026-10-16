@@ -143,6 +143,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a REQUIREMENT column when a rule states one.
 
 ### Fixed
+- `--auto-validate` no longer warns about non-HTTP CA Issuers URLs, such as
+  `ldap://`, when the certificate also has an HTTP(S) one: they are skipped,
+  and chain climbing uses the first HTTP(S) URL instead of the first URL. A
+  certificate with only non-HTTP CA Issuers URLs gets one warning, e.g.
+  "only ldap:// CA Issuers URLs (...); LDAP retrieval is not supported".
 - `--cert-url` acquires the chain of servers whose certificates Go's TLS
   stack rejects (untrusted root, expired, wrong name). Acquisition used to
   verify the chain against the system roots, so those servers could not be
