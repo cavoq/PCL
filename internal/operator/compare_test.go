@@ -123,3 +123,23 @@ func TestOdd(t *testing.T) {
 		{name: "nil node", op: Odd{}},
 	})
 }
+
+func TestMultipleOf(t *testing.T) {
+	registry := DefaultRegistry()
+	for _, test := range []struct {
+		value any
+		want  bool
+	}{
+		{2048, true}, {3072, true}, {2047, false}, {int64(4096), true}, {"4104", true}, {"4100", false}, {"x", false},
+	} {
+		got, err := registry.Evaluate("multipleOf", node.New("keySize", test.value), nil, []any{8})
+		if err != nil || got != test.want {
+			t.Errorf("multipleOf(%v, 8) = %v, %v; want %v", test.value, got, err, test.want)
+		}
+	}
+	for _, operands := range [][]any{{0}, {-8}, {1.5}, {}, {8, 16}} {
+		if err := registry.Validate("multipleOf", operands); err == nil {
+			t.Errorf("Validate(%v) accepted invalid operands", operands)
+		}
+	}
+}

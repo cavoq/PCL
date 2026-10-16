@@ -483,6 +483,30 @@
             "properties": {
               "operator": {
                 "enum": [
+                  "multipleOf"
+                ]
+              }
+            },
+            "required": [
+              "operator"
+            ]
+          },
+          "then": {
+            "properties": {
+              "operands": {
+                "$ref": "#/definitions/operands.multipleOf"
+              }
+            },
+            "required": [
+              "operands"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "operator": {
+                "enum": [
                   "validityDays"
                 ]
               }
@@ -563,6 +587,7 @@
             "matches",
             "maxLength",
             "minLength",
+            "multipleOf",
             "nameConstraintsDependenciesValid",
             "nameConstraintsDistancesValid",
             "nameConstraintsValid",
@@ -928,6 +953,10 @@
               "minLength": 1,
               "type": "string"
             },
+            "inclusive": {
+              "description": "Count the end second, as an RFC 5280 validity period does: the duration is end - start + 1s.",
+              "type": "boolean"
+            },
             "maxDays": {
               "minimum": 1,
               "type": "integer"
@@ -1014,6 +1043,10 @@
                 "description": "Legacy alias of start.",
                 "minLength": 1,
                 "type": "string"
+              },
+              "inclusive": {
+                "description": "Count the end second, as an RFC 5280 validity period does: the duration is end - start + 1s.",
+                "type": "boolean"
               },
               "maxDays": {
                 "minimum": 1,
@@ -1341,6 +1374,36 @@
         }
       ],
       "description": "A nonnegative length."
+    },
+    "operands.multipleOf": {
+      "anyOf": [
+        {
+          "items": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "maxItems": 1,
+          "minItems": 1,
+          "type": "array"
+        },
+        {
+          "allOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "not": {
+                "type": [
+                  "array",
+                  "null"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "A positive integer."
     },
     "operands.validityDays": {
       "anyOf": [
@@ -1843,6 +1906,30 @@
             "properties": {
               "operator": {
                 "enum": [
+                  "multipleOf"
+                ]
+              }
+            },
+            "required": [
+              "operator"
+            ]
+          },
+          "then": {
+            "properties": {
+              "operands": {
+                "$ref": "#/definitions/operands.multipleOf"
+              }
+            },
+            "required": [
+              "operands"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "operator": {
+                "enum": [
                   "validityDays"
                 ]
               }
@@ -2002,6 +2089,7 @@
             "matches",
             "maxLength",
             "minLength",
+            "multipleOf",
             "nameConstraintsDependenciesValid",
             "nameConstraintsDistancesValid",
             "nameConstraintsValid",

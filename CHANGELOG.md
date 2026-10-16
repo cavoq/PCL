@@ -55,6 +55,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - `anyOf` operator: a rule passes when at least one of its conditions holds,
   for requirements with alternatives.
+- `multipleOf` operator, and a `dateDiff` option `inclusive` that counts the
+  end second, so a validity period matches RFC 5280 and the CA/B Forum
+  Baseline Requirements: 398 days allow notAfter − notBefore of 398 days
+  minus one second.
 - `--validation-time` evaluates a lint or `pcl inspect` run at a fixed time
   (RFC 3339 or YYYY-MM-DD) instead of now, for repeatable and historical
   results.

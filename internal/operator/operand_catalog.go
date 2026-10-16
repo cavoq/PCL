@@ -96,6 +96,20 @@ func validateNonnegativeLength(operands []any, _ *Registry) error {
 	return nil
 }
 
+func validatePositiveInteger(operands []any, _ *Registry) error {
+	if err := validateOperandCount(operands, 1, 1); err != nil {
+		return err
+	}
+	value, err := parseIntegerOperand(operands[0])
+	if err != nil {
+		return fmt.Errorf("operand 0: %w", err)
+	}
+	if value <= 0 {
+		return fmt.Errorf("operand 0 must be positive")
+	}
+	return nil
+}
+
 func validateOptionalTime(operands []any, _ *Registry) error {
 	if err := validateOperandCount(operands, 0, 1); err != nil {
 		return err

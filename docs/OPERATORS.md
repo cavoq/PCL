@@ -38,6 +38,7 @@ semantic constraints such as OIDs, regexes, and CIDRs.
 | `lt` | [number] | Returns true if target < operand |
 | `positive` | None | Returns true if target is a positive number |
 | `odd` | None | Returns true if target is an odd number |
+| `multipleOf` | [divisor] | Returns true if the target integer is a multiple of the positive integer divisor |
 
 ## String Operators
 
@@ -58,7 +59,7 @@ semantic constraints such as OIDs, regexes, and CIDRs.
 | `onOrAfter` | [date] (optional) | Returns true if target date is after or equal to the specified date, or current time if omitted |
 | `validityOrderCorrect` | None | Returns true if notBefore < notAfter |
 | `validityDays` | [minDays, maxDays] | Returns true if the validity period is within the inclusive day range |
-| `dateDiff` | {start, end?, minDays?, maxDays?, minHours?, maxHours?, maxMonths?} | Returns true if the date difference is within every supplied bound |
+| `dateDiff` | {start, end?, minDays?, maxDays?, minHours?, maxHours?, maxMonths?, inclusive?} | Returns true if the date difference is within every supplied bound; `inclusive: true` counts the end second, as an RFC 5280 validity period does |
 
 ## Extension Operators
 

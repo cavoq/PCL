@@ -131,6 +131,9 @@ func toTime(v any) (time.Time, error) {
 //   - minDays: minimum allowed days (optional)
 //   - minHours: minimum allowed hours (optional, for OCSP validity interval)
 //   - maxHours: maximum allowed hours (optional)
+//   - inclusive: count the end second itself, as an RFC 5280 validity
+//     period does (optional, default false): 398 days then allow
+//     notAfter - notBefore of at most 398 days minus one second
 //
 // Example YAML usage:
 //
@@ -197,6 +200,9 @@ func nodeTime(n *node.Node) (time.Time, bool) {
 // withinBounds reports whether end follows start by a duration inside every
 // configured bound. Months use calendar arithmetic via AddDate.
 func (parsed dateDiffOperands) withinBounds(start, end time.Time) bool {
+	if parsed.inclusive {
+		end = end.Add(time.Second)
+	}
 	diff := end.Sub(start)
 	if diff < 0 {
 		return false
@@ -227,6 +233,8 @@ type dateDiffOperands struct {
 	minDays   int
 	minHours  int
 	maxHours  int
+	// inclusive counts the end second, making the duration end - start + 1s.
+	inclusive bool
 }
 
 const (
@@ -246,7 +254,7 @@ func parseDateDiffOperands(operands []any) (dateDiffOperands, error) {
 
 	if err := rejectUnknownFields(
 		object,
-		"start", "from", "end", "maxDays", "maxMonths", "minDays", "minHours", "maxHours",
+		"start", "from", "end", "maxDays", "maxMonths", "minDays", "minHours", "maxHours", "inclusive",
 	); err != nil {
 		return dateDiffOperands{}, err
 	}
@@ -260,6 +268,13 @@ func parseDateDiffOperands(operands []any) (dateDiffOperands, error) {
 	}
 	if err := parsed.parseBounds(object); err != nil {
 		return dateDiffOperands{}, err
+	}
+	if value, exists := object["inclusive"]; exists {
+		inclusive, ok := value.(bool)
+		if !ok {
+			return dateDiffOperands{}, fmt.Errorf("operands[0].inclusive: expected boolean")
+		}
+		parsed.inclusive = inclusive
 	}
 	if err := parsed.validateBoundOrder(); err != nil {
 		return dateDiffOperands{}, err

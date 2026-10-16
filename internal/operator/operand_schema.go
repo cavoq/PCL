@@ -116,6 +116,8 @@ var (
 		operandList(trimmedString, 1, -1), "One or more node paths.")}
 	nonnegativeLengthContract = operandContract{validateNonnegativeLength, withDescription(
 		operandList(nonnegativeInteger, 1, 1), "A nonnegative length.")}
+	positiveIntegerContract = operandContract{validatePositiveInteger, withDescription(
+		operandList(map[string]any{"type": "integer", "minimum": 1}, 1, 1), "A positive integer.")}
 	oneRegexContract = operandContract{validateOneRegex, withDescription(
 		operandList(stringOperand, 1, 1), "One Go regular expression.")}
 	validityDaysContract = operandContract{validateValidityDays, withDescription(
@@ -173,6 +175,10 @@ func (DateDiff) OperandSchema() map[string]any {
 		"start": map[string]any{"type": "string", "minLength": 1, "description": "Path of the start date below the target."},
 		"from":  map[string]any{"type": "string", "minLength": 1, "description": "Legacy alias of start."},
 		"end":   map[string]any{"type": "string", "minLength": 1, "description": "Path of the end date; defaults to the target's own value."},
+		"inclusive": map[string]any{
+			"type":        "boolean",
+			"description": "Count the end second, as an RFC 5280 validity period does: the duration is end - start + 1s.",
+		},
 	}
 	anyBound := make([]any, 0, len(bounds))
 	for _, bound := range bounds {

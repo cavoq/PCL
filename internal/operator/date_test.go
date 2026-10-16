@@ -101,6 +101,12 @@ func TestDateDiff(t *testing.T) {
 		evaluate("int64 for minHours", updates(hours(12)), between(map[string]any{"minHours": int64(8)}), true, false),
 		evaluate("float64 for maxHours", updates(hours(6)), between(map[string]any{"maxHours": float64(8)}), true, false),
 		evaluate("reversed interval fails maximum-only rule", updates(hours(-1)), between(map[string]any{"maxDays": 10}), false, false),
+		// An inclusive period counts the end second: exactly 398 days
+		// between the dates is 398 days and one second.
+		evaluate("exclusive period of exactly maxDays", updates(days(398)), between(map[string]any{"maxDays": 398}), true, false),
+		evaluate("inclusive period of maxDays and one second", updates(days(398)), between(map[string]any{"maxDays": 398, "inclusive": true}), false, false),
+		evaluate("inclusive period of exactly maxDays", updates(days(398).Add(-time.Second)), between(map[string]any{"maxDays": 398, "inclusive": true}), true, false),
+		evaluate("inclusive must be boolean", updates(days(5)), between(map[string]any{"maxDays": 10, "inclusive": "yes"}), false, true),
 	})
 }
 

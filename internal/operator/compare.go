@@ -121,3 +121,26 @@ func (Odd) Evaluate(n *node.Node, _ *EvaluationContext, _ []any) (bool, error) {
 		return false, nil
 	}
 }
+
+// MultipleOf is true when the target is an integer that the operand, a
+// positive integer, divides evenly, such as an RSA modulus size that must
+// be a multiple of 8 bits.
+type MultipleOf struct{}
+
+func (MultipleOf) Name() string { return "multipleOf" }
+
+func (MultipleOf) Evaluate(n *node.Node, _ *EvaluationContext, operands []any) (bool, error) {
+	if n == nil || n.Value == nil || len(operands) != 1 {
+		return false, nil
+	}
+	value, ok := numericValue(n.Value)
+	if text, isText := n.Value.(string); isText {
+		value, ok = new(big.Rat).SetString(text)
+	}
+	divisor, divisorOK := numericValue(operands[0])
+	if !ok || !divisorOK || !value.IsInt() || !divisor.IsInt() || divisor.Sign() <= 0 {
+		return false, nil
+	}
+	remainder := new(big.Int).Rem(value.Num(), divisor.Num())
+	return remainder.Sign() == 0, nil
+}

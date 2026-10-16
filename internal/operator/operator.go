@@ -75,6 +75,7 @@ var builtins = []builtinOperator{
 	{Matches{}, nodePathsContract},
 	{Positive{}, noOperandsContract},
 	{Odd{}, noOperandsContract},
+	{MultipleOf{}, positiveIntegerContract},
 	{MaxLength{}, nonnegativeLengthContract},
 	{MinLength{}, nonnegativeLengthContract},
 	{IsCritical{}, noOperandsContract},
