@@ -132,11 +132,12 @@ issuer and distribution point. Missing evidence leaves compliance
 unestablished rather than proving a violation. Applicable evidence that is
 stale, unauthenticated, from an unauthorized signer, or Unknown still fails.
 
-## Every Operator (Array Iteration)
+## Composite Operators
 
 | Operator | Operands | Description |
 |----------|----------|-------------|
 | `every` | [{path, operator, operands, skipMissing}] | Iterates array elements and checks each |
+| `anyOf` | [{path?, operator, operands?}, ...] (two or more) | True when at least one condition holds on the target; a condition whose path does not resolve does not hold |
 
 ## Path Validation Operators
 
@@ -205,6 +206,21 @@ stale, unauthenticated, from an unauthorized signer, or Unknown still fails.
 | Operator | Operands | Description |
 |----------|----------|-------------|
 | `noDuplicateAttributes` | None | CABF single-instance subject attribute OIDs do not repeat |
+
+## Alternatives
+
+`anyOf` states requirements with alternatives, such as a key usage that
+must contain one of two bits. Each condition has an optional `path` below
+the target, an `operator` and its `operands`:
+
+```yaml
+- id: pss-end-entity-key-usage
+  target: certificate.extensions.keyUsage
+  operator: anyOf
+  operands:
+    - {path: digitalSignature, operator: eq, operands: [true]}
+    - {path: nonRepudiation, operator: eq, operands: [true]}
+```
 
 ## Collection traversal
 

@@ -118,6 +118,7 @@ var builtins = []builtinOperator{
 	{OCSPGood{}, noOperandsContract},
 	// Generic operators
 	{Every{}, operandContract{}},
+	{AnyOf{}, operandContract{}},
 	{DateDiff{}, operandContract{}},
 	{NameConstraintsValid{}, noOperandsContract},
 	{CertificatePolicyValid{}, policyOIDsContract},

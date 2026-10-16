@@ -139,6 +139,30 @@
             "properties": {
               "operator": {
                 "enum": [
+                  "anyOf"
+                ]
+              }
+            },
+            "required": [
+              "operator"
+            ]
+          },
+          "then": {
+            "properties": {
+              "operands": {
+                "$ref": "#/definitions/operands.anyOf"
+              }
+            },
+            "required": [
+              "operands"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "operator": {
+                "enum": [
                   "certificatePolicyValid"
                 ]
               }
@@ -492,6 +516,7 @@
             "akiMatchesSki",
             "anyComponentMatches",
             "anyExtendedKeyUsageNotCritical",
+            "anyOf",
             "applicationPurposeValid",
             "basicConstraintsDependenciesValid",
             "before",
@@ -660,6 +685,32 @@
         }
       ],
       "description": "One Go regular expression."
+    },
+    "operands.anyOf": {
+      "description": "Conditions on the target; the rule passes when at least one holds.",
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "operands": {
+            "description": "Operands of the condition's operator."
+          },
+          "operator": {
+            "description": "Operator of the condition.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "path": {
+            "description": "Path below the target; omit for the target itself.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "operator"
+        ],
+        "type": "object"
+      },
+      "minItems": 2,
+      "type": "array"
     },
     "operands.certificatePolicyValid": {
       "anyOf": [
@@ -1448,6 +1499,30 @@
             "properties": {
               "operator": {
                 "enum": [
+                  "anyOf"
+                ]
+              }
+            },
+            "required": [
+              "operator"
+            ]
+          },
+          "then": {
+            "properties": {
+              "operands": {
+                "$ref": "#/definitions/operands.anyOf"
+              }
+            },
+            "required": [
+              "operands"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "operator": {
+                "enum": [
                   "certificatePolicyValid"
                 ]
               }
@@ -1880,6 +1955,7 @@
             "akiMatchesSki",
             "anyComponentMatches",
             "anyExtendedKeyUsageNotCritical",
+            "anyOf",
             "applicationPurposeValid",
             "basicConstraintsDependenciesValid",
             "before",

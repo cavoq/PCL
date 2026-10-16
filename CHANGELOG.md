@@ -34,6 +34,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   inconclusive rules like failures, so exit statuses do not change.
 
 ### Added
+- `anyOf` operator: a rule passes when at least one of its conditions holds,
+  for requirements with alternatives.
 - `--validation-time` evaluates a lint or `pcl inspect` run at a fixed time
   (RFC 3339 or YYYY-MM-DD) instead of now, for repeatable and historical
   results.
