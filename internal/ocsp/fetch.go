@@ -57,7 +57,7 @@ func postOCSPRequest(url string, req []byte, timeout time.Duration) (*ocsp.Respo
 		return nil, fmt.Errorf("OCSP request to %s failed: %w", url, err)
 	}
 
-	resp, err := ocsp.ParseResponse(body, nil)
+	resp, err := ParseResponse(body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse OCSP response: %w", err)
 	}

@@ -53,10 +53,10 @@ func buildOCSP(resp *ocsp.Response) *node.Node {
 	// Signature algorithm (from BasicOCSPResponse)
 	// OCSP has only one signatureAlgorithm field, not separate TBS and outer like certificates/CRLs
 	params := pclocsp.ParseOCSPSignatureAlgorithmParams(resp.Raw)
-	root.Children["signatureAlgorithm"] = x509node.BuildAlgorithmIdentifier("signatureAlgorithm", resp.SignatureAlgorithm.String(), params)
+	root.Children["signatureAlgorithm"] = x509node.BuildAlgorithmIdentifier("signatureAlgorithm", pclocsp.SignatureAlgorithmName(resp), params)
 	// For consistency with cert/CRL tree structure, we also create tbsSignatureAlgorithm
 	// pointing to the same signature algorithm
-	root.Children["tbsSignatureAlgorithm"] = x509node.BuildAlgorithmIdentifier("tbsSignatureAlgorithm", resp.SignatureAlgorithm.String(), params)
+	root.Children["tbsSignatureAlgorithm"] = x509node.BuildAlgorithmIdentifier("tbsSignatureAlgorithm", pclocsp.SignatureAlgorithmName(resp), params)
 
 	// Responder ID
 	root.Children["responderID"] = buildResponderID(resp)

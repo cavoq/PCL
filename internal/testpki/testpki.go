@@ -10,6 +10,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/asn1"
 	"encoding/pem"
 	"math/big"
 	"net/http"
@@ -19,6 +20,8 @@ import (
 	"time"
 
 	zx509 "github.com/zmap/zcrypto/x509"
+	"golang.org/x/crypto/cryptobyte"
+	cryptobyte_asn1 "golang.org/x/crypto/cryptobyte/asn1"
 	"golang.org/x/crypto/ocsp"
 )
 
@@ -140,15 +143,124 @@ func (c *Certificate) RevocationList(t testing.TB, template *x509.RevocationList
 // a certificate issued by issuer, and parses it.
 func OCSPResponse(t testing.TB, issuer, responder *Certificate, template ocsp.Response) *ocsp.Response {
 	t.Helper()
-	der, err := ocsp.CreateResponse(issuer.Std, responder.Std, template, responder.Key)
-	if err != nil {
-		t.Fatalf("create OCSP response: %v", err)
-	}
-	response, err := ocsp.ParseResponse(der, nil)
+	response, err := ocsp.ParseResponse(OCSPResponseDER(t, issuer, responder, template), nil)
 	if err != nil {
 		t.Fatalf("parse OCSP response: %v", err)
 	}
 	return response
+}
+
+// OCSPResponseDER is OCSPResponse before parsing. A template Certificate is
+// embedded as the responder certificate.
+func OCSPResponseDER(t testing.TB, issuer, responder *Certificate, template ocsp.Response) []byte {
+	t.Helper()
+	der, err := ocsp.CreateResponse(issuer.Std, responder.Std, template, responder.Key)
+	if err != nil {
+		t.Fatalf("create OCSP response: %v", err)
+	}
+	return der
+}
+
+// PSS describes RSASSA-PSS signature parameters: the message hash, the MGF1
+// hash, and the salt length.
+type PSS struct {
+	Hash, MGFHash crypto.Hash
+	SaltLength    int
+}
+
+// SignOCSPWithPSS re-signs the DER OCSP response der with key using
+// RSASSA-PSS, replacing its signature algorithm and signature and keeping
+// any embedded certificates. golang.org/x/crypto/ocsp cannot create such
+// responses.
+func SignOCSPWithPSS(t testing.TB, der []byte, key *rsa.PrivateKey, params PSS) []byte {
+	t.Helper()
+	input := cryptobyte.String(der)
+	var response, status, outer, responseBytes, responseType, basicOctets, basic, tbs cryptobyte.String
+	if !input.ReadASN1(&response, cryptobyte_asn1.SEQUENCE) ||
+		!response.ReadASN1Element(&status, cryptobyte_asn1.ENUM) ||
+		!response.ReadASN1(&outer, cryptobyte_asn1.Tag(0).ContextSpecific().Constructed()) ||
+		!outer.ReadASN1(&responseBytes, cryptobyte_asn1.SEQUENCE) ||
+		!responseBytes.ReadASN1Element(&responseType, cryptobyte_asn1.OBJECT_IDENTIFIER) ||
+		!responseBytes.ReadASN1(&basicOctets, cryptobyte_asn1.OCTET_STRING) ||
+		!basicOctets.ReadASN1(&basic, cryptobyte_asn1.SEQUENCE) ||
+		!basic.ReadASN1Element(&tbs, cryptobyte_asn1.SEQUENCE) ||
+		!basic.SkipASN1(cryptobyte_asn1.SEQUENCE) || !basic.SkipASN1(cryptobyte_asn1.BIT_STRING) {
+		t.Fatal("decode OCSP response for PSS signing")
+	}
+	certificates := basic // the optional [0] certs, possibly empty
+
+	digest := params.Hash.New()
+	digest.Write(tbs)
+	signature, err := rsa.SignPSS(rand.Reader, key, params.Hash, digest.Sum(nil), &rsa.PSSOptions{SaltLength: params.SaltLength})
+	if err != nil {
+		t.Fatalf("sign OCSP response with PSS: %v", err)
+	}
+	algorithm, err := asn1.Marshal(pkix.AlgorithmIdentifier{
+		Algorithm:  asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 10},
+		Parameters: asn1.RawValue{FullBytes: pssParameters(t, params)},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	signatureBits, err := asn1.Marshal(asn1.BitString{Bytes: signature, BitLength: 8 * len(signature)})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var builder cryptobyte.Builder
+	builder.AddASN1(cryptobyte_asn1.SEQUENCE, func(b *cryptobyte.Builder) {
+		b.AddBytes(status)
+		b.AddASN1(cryptobyte_asn1.Tag(0).ContextSpecific().Constructed(), func(b *cryptobyte.Builder) {
+			b.AddASN1(cryptobyte_asn1.SEQUENCE, func(b *cryptobyte.Builder) {
+				b.AddBytes(responseType)
+				b.AddASN1(cryptobyte_asn1.OCTET_STRING, func(b *cryptobyte.Builder) {
+					b.AddASN1(cryptobyte_asn1.SEQUENCE, func(b *cryptobyte.Builder) {
+						b.AddBytes(tbs)
+						b.AddBytes(algorithm)
+						b.AddBytes(signatureBits)
+						b.AddBytes(certificates)
+					})
+				})
+			})
+		})
+	})
+	resigned, err := builder.Bytes()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return resigned
+}
+
+// pssParameters encodes RSASSA-PSS-params with explicit hash, MGF1 and salt
+// length fields.
+func pssParameters(t testing.TB, params PSS) []byte {
+	t.Helper()
+	hashAlgorithm := func(hash crypto.Hash) pkix.AlgorithmIdentifier {
+		oids := map[crypto.Hash]asn1.ObjectIdentifier{
+			crypto.SHA256: {2, 16, 840, 1, 101, 3, 4, 2, 1},
+			crypto.SHA384: {2, 16, 840, 1, 101, 3, 4, 2, 2},
+			crypto.SHA512: {2, 16, 840, 1, 101, 3, 4, 2, 3},
+			crypto.SHA1:   {1, 3, 14, 3, 2, 26},
+		}
+		return pkix.AlgorithmIdentifier{Algorithm: oids[hash], Parameters: asn1.NullRawValue}
+	}
+	mgfHash, err := asn1.Marshal(hashAlgorithm(params.MGFHash))
+	if err != nil {
+		t.Fatal(err)
+	}
+	encoded, err := asn1.Marshal(struct {
+		Hash       pkix.AlgorithmIdentifier `asn1:"explicit,tag:0"`
+		MGF        pkix.AlgorithmIdentifier `asn1:"explicit,tag:1"`
+		SaltLength int                      `asn1:"explicit,tag:2"`
+	}{
+		Hash:       hashAlgorithm(params.Hash),
+		MGF:        pkix.AlgorithmIdentifier{Algorithm: asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 8}, Parameters: asn1.RawValue{FullBytes: mgfHash}},
+		SaltLength: params.SaltLength,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return encoded
 }
 
 // RSAKey generates an RSA-2048 key.

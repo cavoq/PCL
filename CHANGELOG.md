@@ -36,6 +36,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   has to fail the policy. Rule results report the level, and text output adds
   a REQUIREMENT column when a rule states one.
 
+### Fixed
+- OCSP responses signed with RSASSA-PSS are verified: x/crypto/ocsp does
+  not know the algorithm, so their signatures never verified, and a response
+  that embedded its delegated responder certificate could not be loaded at
+  all. PCL now parses such responses and verifies PSS with the response's
+  parameters (SHA-256, SHA-384 or SHA-512 with MGF1 over the same hash, any
+  salt length). `pcl inspect` names the algorithm, such as `SHA256-RSAPSS`.
+
 ## [6.0.0] - 2026-10-16
 
 ### Breaking changes

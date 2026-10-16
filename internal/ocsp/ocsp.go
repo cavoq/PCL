@@ -60,9 +60,7 @@ func ParseOCSP(data []byte) (*ocsp.Response, error) {
 // parseOCSPs parses a DER OCSP response or every OCSP RESPONSE block of PEM
 // data.
 func parseOCSPs(data []byte) ([]*ocsp.Response, source.Format, error) {
-	return source.DecodePEMOrDER(data, "OCSP RESPONSE", func(der []byte) (*ocsp.Response, error) {
-		return ocsp.ParseResponse(der, nil)
-	})
+	return source.DecodePEMOrDER(data, "OCSP RESPONSE", ParseResponse)
 }
 
 // GetOCSPs loads the OCSP responses of a file, or of every OCSP response file

@@ -42,7 +42,7 @@ negative integration suite for every parameter combination.
 |---|---|
 | Algorithm strength | Key-size, exponent and weak-algorithm restrictions belong to a selected application/local profile |
 | Signature trust | Parameter checks alone do not verify a trusted certification path |
-| PSS hash/MGF consistency | The pack validates both identifiers but does not require them to be equal |
+| PSS hash/MGF consistency | The pack validates both identifiers but does not require them to be equal; OCSP signature verification accepts only MGF1 with the message hash, and SHA-256, SHA-384 or SHA-512 |
 | OAEP label semantics | No complete pSpecified label-validation claim |
 | Nonstandard hash OIDs | Only the pack's enumerated identifiers are accepted |
 

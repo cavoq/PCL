@@ -9,6 +9,8 @@ import (
 
 	"github.com/zmap/zcrypto/x509"
 	xocsp "golang.org/x/crypto/ocsp"
+
+	"github.com/cavoq/PCL/internal/x509asn1"
 )
 
 // Status is the accepted revocation state for a certificate. NotApplicable
@@ -204,7 +206,7 @@ func responseSignatureValid(response *xocsp.Response, issuer *stdx509.Certificat
 	if response == nil || issuer == nil {
 		return false
 	}
-	if response.CheckSignatureFrom(issuer) == nil {
+	if checkSignature(response, issuer) == nil {
 		return true
 	}
 
@@ -212,7 +214,38 @@ func responseSignatureValid(response *xocsp.Response, issuer *stdx509.Certificat
 	if responder == nil || responder.CheckSignatureFrom(issuer) != nil || !hasOCSPSigningUsage(responder) {
 		return false
 	}
-	return response.CheckSignatureFrom(responder) == nil
+	return checkSignature(response, responder) == nil
+}
+
+// SignatureAlgorithmName names the response's signature algorithm like
+// crypto/x509. x/crypto reports RSASSA-PSS as unknown; it is named by its
+// hash, such as SHA256-RSAPSS.
+func SignatureAlgorithmName(response *xocsp.Response) string {
+	if response.SignatureAlgorithm == stdx509.UnknownSignatureAlgorithm {
+		params := ParseOCSPSignatureAlgorithmParams(response.Raw)
+		if params.OID == x509asn1.RSASSAPSS && params.PSS != nil {
+			switch params.PSS.HashAlgorithm.OID {
+			case "2.16.840.1.101.3.4.2.1":
+				return stdx509.SHA256WithRSAPSS.String()
+			case "2.16.840.1.101.3.4.2.2":
+				return stdx509.SHA384WithRSAPSS.String()
+			case "2.16.840.1.101.3.4.2.3":
+				return stdx509.SHA512WithRSAPSS.String()
+			}
+		}
+	}
+	return response.SignatureAlgorithm.String()
+}
+
+// checkSignature verifies the response signature with signer's key.
+// x/crypto verifies the algorithms it knows; RSASSA-PSS, which it reports as
+// unknown, is verified with the response's parsed PSS parameters.
+func checkSignature(response *xocsp.Response, signer *stdx509.Certificate) error {
+	if response.SignatureAlgorithm != stdx509.UnknownSignatureAlgorithm {
+		return response.CheckSignatureFrom(signer)
+	}
+	params := ParseOCSPSignatureAlgorithmParams(response.Raw)
+	return x509asn1.VerifyRSASSAPSS(params, signer.PublicKey, response.TBSResponseData, response.Signature)
 }
 
 func hasOCSPSigningUsage(certificate *stdx509.Certificate) bool {
