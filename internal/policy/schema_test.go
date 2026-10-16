@@ -134,6 +134,18 @@ metadata: {inputs: [" certificate"]}`},
 		{name: "metadata must be a mapping", policy: `
 id: example
 metadata: [certificate]`},
+		{name: "effective window", valid: true, policy: `
+id: example
+rules:
+  - {id: r1, target: certificate.version, operator: present, severity: error, effective: {basis: issuance, from: 2026-03-15, until: "2027-03-15T00:00:00Z"}}`},
+		{name: "effective without a bound", policy: `
+id: example
+rules:
+  - {id: r1, target: certificate.version, operator: present, severity: error, effective: {basis: issuance}}`},
+		{name: "effective with an unknown basis", policy: `
+id: example
+rules:
+  - {id: r1, target: certificate.version, operator: present, severity: error, effective: {basis: issued, from: 2026-03-15}}`},
 		{name: "requirement without severity", valid: true, policy: `
 id: example
 rules:

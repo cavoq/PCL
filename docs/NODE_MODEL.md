@@ -363,6 +363,7 @@ structured `details`.
 | `rule.input-type` | Skipped: the rule does not apply to this input type |
 | `rule.condition` | Skipped: the `when` condition was not met |
 | `rule.input-unavailable` | Skipped: the target's input namespace was not supplied |
+| `rule.not-effective` | Skipped: the input's issuance or the validation time lies outside the rule's `effective` window |
 
 See [output controls](QUICKSTART.md#output-and-exit-status) for verbosity and
 exit-status behavior.

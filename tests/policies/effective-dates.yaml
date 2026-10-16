@@ -1,0 +1,31 @@
+id: integration-effective-dates
+version: "1"
+
+# Successive versions of one requirement, each in effect for certificates
+# issued in its window, and a requirement that takes effect at a validation
+# time. The fixture leaf is issued 2025-12-20 and valid for 825 days.
+rules:
+  - id: validity-max-398-days
+    target: certificate.validity
+    operator: dateDiff
+    operands:
+      - {start: notBefore, end: notAfter, maxDays: 398}
+    certType: [leaf]
+    severity: error
+    effective: {basis: issuance, until: 2026-03-15}
+
+  - id: validity-max-200-days
+    target: certificate.validity
+    operator: dateDiff
+    operands:
+      - {start: notBefore, end: notAfter, maxDays: 200}
+    certType: [leaf]
+    severity: error
+    effective: {basis: issuance, from: 2026-03-15}
+
+  - id: not-expired-from-2027
+    target: certificate.validity.notAfter
+    operator: onOrAfter
+    certType: [leaf]
+    severity: error
+    effective: {basis: validation, from: 2027-01-01}

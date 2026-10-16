@@ -30,6 +30,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   whether a valid alternative path replaced the constructed one. Text output
   prints them below the summary line; JSON and YAML add `validation_time`,
   `policies` and `chain` to `meta`.
+- Rules can be limited to an effective window, `effective: {basis, from,
+  until}`, compared with the input's issuance time (certificate notBefore,
+  CRL thisUpdate, OCSP producedAt) or the validation time. Outside it a rule
+  is skipped with `rule.not-effective`, so a policy can carry successive
+  versions of a requirement, such as validity limits that tighten by date.
 - Rules state the RFC 2119 requirement level of their source clause with
   `requirement: must | should | may`. Without an explicit `severity` it
   supplies the severity (error, warning, info), so a failed SHOULD no longer

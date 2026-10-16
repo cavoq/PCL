@@ -54,6 +54,10 @@ var (
 		rule.SeverityWarning,
 		rule.SeverityInfo,
 	)
+	validEffectiveBases = stringSet(
+		rule.EffectiveByIssuance,
+		rule.EffectiveByValidation,
+	)
 	validRequirements = stringSet(
 		rule.RequirementMust,
 		rule.RequirementShould,
@@ -146,6 +150,9 @@ func validateRule(index int, candidate rule.Rule, seenIDs map[string]struct{}) e
 	if err := validateValues("rule "+candidate.ID+" certType", candidate.CertType, validRuleCertTypes); err != nil {
 		return err
 	}
+	if err := validateEffective(candidate); err != nil {
+		return err
+	}
 
 	if candidate.When == nil {
 		return nil
@@ -185,6 +192,23 @@ func validateSeverity(candidate rule.Rule) error {
 	}
 	if _, ok := validSeverities[severity]; !ok {
 		return fmt.Errorf("rule %s: invalid severity %q", candidate.ID, candidate.Severity)
+	}
+	return nil
+}
+
+func validateEffective(candidate rule.Rule) error {
+	effective := candidate.Effective
+	if effective == nil {
+		return nil
+	}
+	if _, ok := validEffectiveBases[effective.Basis]; !ok {
+		return fmt.Errorf("rule %s: effective.basis must be issuance or validation, not %q", candidate.ID, effective.Basis)
+	}
+	if effective.From.IsZero() && effective.Until.IsZero() {
+		return fmt.Errorf("rule %s: effective needs from, until or both", candidate.ID)
+	}
+	if !effective.From.IsZero() && !effective.Until.IsZero() && !effective.From.Before(effective.Until.Time) {
+		return fmt.Errorf("rule %s: effective.from must be before effective.until", candidate.ID)
 	}
 	return nil
 }

@@ -2,6 +2,7 @@ package rule
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -353,5 +354,71 @@ func TestRuleEvaluationReportsMissingEvidenceAsInconclusive(t *testing.T) {
 	// Any other operator error still fails the rule.
 	if result := Evaluate(root, Rule{ID: "broken", Target: "certificate", Operator: "err", Severity: SeverityError}, reg, nil); result.Verdict != VerdictFail {
 		t.Fatalf("operator error verdict = %s, want fail", result.Verdict)
+	}
+}
+
+func TestRuleEvaluationHonorsEffectiveWindows(t *testing.T) {
+	reg := operator.NewRegistry()
+	reg.Register(operator.Present{})
+	date := func(year int, month time.Month, day int) Date {
+		return Date{time.Date(year, month, day, 0, 0, 0, 0, time.UTC)}
+	}
+	tree := func(namespace, path string, issued time.Time) *node.Node {
+		root := node.New(namespace, nil)
+		parent := root
+		for _, name := range strings.Split(path, ".") {
+			child := node.New(name, nil)
+			parent.Children[name] = child
+			parent = child
+		}
+		parent.Value = issued
+		root.Children["version"] = node.New("version", 3)
+		return root
+	}
+	issued := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
+	certificate := tree("certificate", "validity.notBefore", issued)
+	window := &Effective{Basis: EffectiveByIssuance, From: date(2026, 3, 15), Until: date(2027, 3, 15)}
+
+	tests := []struct {
+		name      string
+		root      *node.Node
+		effective *Effective
+		now       time.Time
+		want      string
+		wantSkip  string
+	}{
+		{"issued inside the window", certificate, window, time.Time{}, VerdictPass, ""},
+		{"issued before from", certificate, &Effective{Basis: EffectiveByIssuance, From: date(2026, 7, 1)}, time.Time{},
+			VerdictSkip, "not in effect: issuance (validity.notBefore) 2026-06-01T00:00:00Z is before 2026-07-01T00:00:00Z"},
+		{"issued at until", certificate, &Effective{Basis: EffectiveByIssuance, Until: date(2026, 6, 1)}, time.Time{},
+			VerdictSkip, "not in effect: issuance (validity.notBefore) 2026-06-01T00:00:00Z is not before 2026-06-01T00:00:00Z"},
+		{"issued at from", certificate, &Effective{Basis: EffectiveByIssuance, From: date(2026, 6, 1)}, time.Time{}, VerdictPass, ""},
+		{"CRL thisUpdate", tree("crl", "thisUpdate", issued), &Effective{Basis: EffectiveByIssuance, From: date(2027, 1, 1)}, time.Time{},
+			VerdictSkip, "not in effect: issuance (thisUpdate) 2026-06-01T00:00:00Z is before 2027-01-01T00:00:00Z"},
+		{"OCSP producedAt", tree("ocsp", "producedAt", issued), window, time.Time{}, VerdictPass, ""},
+		{"validation time inside", certificate, &Effective{Basis: EffectiveByValidation, From: date(2030, 1, 1)},
+			time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC), VerdictPass, ""},
+		{"validation time before", certificate, &Effective{Basis: EffectiveByValidation, From: date(2030, 1, 1)},
+			time.Date(2029, 12, 31, 23, 59, 59, 0, time.UTC), VerdictSkip,
+			"not in effect: validation time 2029-12-31T23:59:59Z is before 2030-01-01T00:00:00Z"},
+		{"no issuance time", node.New("certificate", nil), window, time.Time{},
+			VerdictSkip, "the input has no issuance time to decide the effective date"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if test.name == "no issuance time" {
+				test.root.Children["version"] = node.New("version", 3)
+			}
+			result := Evaluate(test.root, Rule{
+				ID: "r", Target: test.root.Name + ".version", Operator: "present",
+				Severity: SeverityError, Effective: test.effective,
+			}, reg, &operator.EvaluationContext{Now: test.now})
+			if result.Verdict != test.want {
+				t.Fatalf("verdict = %s, want %s (%+v)", result.Verdict, test.want, result.Findings)
+			}
+			if test.wantSkip != "" {
+				wantFinding(t, result, CodeNotEffective, test.wantSkip)
+			}
+		})
 	}
 }

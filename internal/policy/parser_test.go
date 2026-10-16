@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/cavoq/PCL/internal/operator"
 	"github.com/cavoq/PCL/internal/rule"
@@ -305,6 +306,41 @@ rules:
 	for _, r := range p.Rules {
 		if got := [2]string{r.Requirement, r.Severity}; got != want[r.ID] {
 			t.Errorf("rule %s: requirement, severity = %v, want %v", r.ID, got, want[r.ID])
+		}
+	}
+}
+
+func TestParse_EffectiveWindow(t *testing.T) {
+	p, err := Parse([]byte(`
+id: test-policy
+rules:
+  - id: windowed
+    target: certificate.version
+    operator: present
+    severity: error
+    effective: {basis: issuance, from: 2026-03-15, until: "2027-03-15T12:00:00+01:00"}
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	effective := p.Rules[0].Effective
+	if effective == nil || effective.Basis != rule.EffectiveByIssuance ||
+		!effective.From.Equal(time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC)) ||
+		!effective.Until.Equal(time.Date(2027, 3, 15, 11, 0, 0, 0, time.UTC)) {
+		t.Fatalf("effective = %+v", effective)
+	}
+
+	for name, test := range map[string]struct{ effective, want string }{
+		"unknown basis":   {`{basis: issued, from: 2026-03-15}`, `effective.basis must be issuance or validation`},
+		"missing basis":   {`{from: 2026-03-15}`, `effective.basis must be issuance or validation`},
+		"no bound":        {`{basis: validation}`, `effective needs from, until or both`},
+		"empty window":    {`{basis: issuance, from: 2026-03-15, until: 2026-03-15}`, `effective.from must be before effective.until`},
+		"malformed date":  {`{basis: issuance, from: 15.03.2026}`, `time "15.03.2026" is not RFC 3339 or YYYY-MM-DD`},
+		"non-scalar date": {`{basis: issuance, from: [2026]}`, `a date must be a scalar`},
+	} {
+		_, err := Parse([]byte("id: p\nrules:\n  - {id: r, target: certificate.version, operator: present, severity: error, effective: " + test.effective + "}\n"))
+		if err == nil || !strings.Contains(err.Error(), test.want) {
+			t.Errorf("%s: error = %v, want %q", name, err, test.want)
 		}
 	}
 }

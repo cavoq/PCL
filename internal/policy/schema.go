@@ -123,9 +123,39 @@ func ruleSchema(operatorName map[string]any, operandRules []any) map[string]any 
 				"items":       map[string]any{"type": "string", "enum": setToAny(validRuleCertTypes)},
 				"description": "Evaluate the rule only for these roles; other roles skip it.",
 			},
-			"when": map[string]any{"$ref": "#/definitions/condition"},
+			"when":      map[string]any{"$ref": "#/definitions/condition"},
+			"effective": effectiveSchema(),
 		},
 		"allOf": operandRules,
+	}
+}
+
+// policyDate is a date or time as rule.ParseDate accepts it; YAML may
+// resolve an unquoted date to a timestamp, which validators see as a string.
+var policyDate = map[string]any{
+	"type":    "string",
+	"pattern": `^[0-9]{4}-[0-9]{2}-[0-9]{2}([Tt][0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]+)?([Zz]|[+-][0-9]{2}:[0-9]{2}))?$`,
+}
+
+func effectiveSchema() map[string]any {
+	return map[string]any{
+		"type":                 "object",
+		"additionalProperties": false,
+		"required":             []any{"basis"},
+		"anyOf": []any{
+			map[string]any{"required": []any{"from"}},
+			map[string]any{"required": []any{"until"}},
+		},
+		"description": "Evaluate the rule only when the basis time lies in [from, until); otherwise it is skipped as not effective.",
+		"properties": map[string]any{
+			"basis": map[string]any{
+				"type":        "string",
+				"enum":        setToAny(validEffectiveBases),
+				"description": "issuance: certificate notBefore, CRL thisUpdate or OCSP producedAt; validation: the evaluation time.",
+			},
+			"from":  withSchemaDescription(policyDate, "First instant the rule is in effect (inclusive); YYYY-MM-DD is UTC midnight."),
+			"until": withSchemaDescription(policyDate, "First instant the rule is no longer in effect (exclusive)."),
+		},
 	}
 }
 

@@ -1820,6 +1820,46 @@
           "type": "array",
           "uniqueItems": true
         },
+        "effective": {
+          "additionalProperties": false,
+          "anyOf": [
+            {
+              "required": [
+                "from"
+              ]
+            },
+            {
+              "required": [
+                "until"
+              ]
+            }
+          ],
+          "description": "Evaluate the rule only when the basis time lies in [from, until); otherwise it is skipped as not effective.",
+          "properties": {
+            "basis": {
+              "description": "issuance: certificate notBefore, CRL thisUpdate or OCSP producedAt; validation: the evaluation time.",
+              "enum": [
+                "issuance",
+                "validation"
+              ],
+              "type": "string"
+            },
+            "from": {
+              "description": "First instant the rule is in effect (inclusive); YYYY-MM-DD is UTC midnight.",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}([Tt][0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?([Zz]|[+-][0-9]{2}:[0-9]{2}))?$",
+              "type": "string"
+            },
+            "until": {
+              "description": "First instant the rule is no longer in effect (exclusive).",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}([Tt][0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?([Zz]|[+-][0-9]{2}:[0-9]{2}))?$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "basis"
+          ],
+          "type": "object"
+        },
         "id": {
           "description": "Rule identifier, unique within the policy.",
           "pattern": "^\\S(.*\\S)?$",

@@ -1,0 +1,18 @@
+policy: ../policies/effective-dates.yaml
+tests:
+  - name: effective-before-validation-date
+    cert: ../certs/leaf.pem
+    time: "2026-10-01T00:00:00Z"
+    expect:
+      - input: leaf
+        verdict: fail
+        failed: [validity-max-398-days]
+        rules: {validity-max-200-days: skip, not-expired-from-2027: skip}
+  - name: effective-after-validation-date
+    cert: ../certs/leaf.pem
+    time: "2027-06-01T00:00:00Z"
+    expect:
+      - input: leaf
+        verdict: fail
+        failed: [validity-max-398-days]
+        rules: {validity-max-200-days: skip, not-expired-from-2027: pass}

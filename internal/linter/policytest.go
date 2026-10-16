@@ -331,12 +331,7 @@ func parsePolicyTestTime(caseTime, suiteTime string) (time.Time, error) {
 // ParseEvaluationTime parses an evaluation time given as RFC 3339 or
 // YYYY-MM-DD (UTC midnight).
 func ParseEvaluationTime(value string) (time.Time, error) {
-	for _, layout := range []string{time.RFC3339, "2006-01-02"} {
-		if parsed, err := time.Parse(layout, value); err == nil {
-			return parsed, nil
-		}
-	}
-	return time.Time{}, fmt.Errorf("time %q is not RFC 3339 or YYYY-MM-DD", value)
+	return rule.ParseDate(value)
 }
 
 // checkExpectation compares the results for one input with expectation.

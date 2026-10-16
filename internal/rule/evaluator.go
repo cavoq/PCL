@@ -26,6 +26,7 @@ const (
 	CodeInputType        = "rule.input-type"
 	CodeCondition        = "rule.condition"
 	CodeInputUnavailable = "rule.input-unavailable"
+	CodeNotEffective     = "rule.not-effective"
 )
 
 // Result is the outcome of one rule. Findings explain it: the structured
@@ -58,6 +59,10 @@ func Evaluate(
 			kind,
 			strings.Join(r.CertType, ", "),
 		))
+	}
+
+	if reason := notEffective(r.Effective, root, ctx); reason != "" {
+		return Skipped(r, CodeNotEffective, reason)
 	}
 
 	if r.When != nil {

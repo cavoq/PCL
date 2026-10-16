@@ -45,9 +45,12 @@ type Rule struct {
 	Operands  any    `yaml:"operands"` // Can be []any or map[string]any
 	// Requirement is the source's requirement level; it supplies Severity
 	// when the policy omits it.
-	Requirement string     `yaml:"requirement,omitempty"`
-	Severity    string     `yaml:"severity"`
-	Message     string     `yaml:"message,omitempty"`
-	CertType    []string   `yaml:"certType,omitempty"`
-	When        *Condition `yaml:"when,omitempty"`
+	Requirement string   `yaml:"requirement,omitempty"`
+	Severity    string   `yaml:"severity"`
+	Message     string   `yaml:"message,omitempty"`
+	CertType    []string `yaml:"certType,omitempty"`
+	// Effective limits the rule to inputs issued, or evaluated, within a
+	// window.
+	Effective *Effective `yaml:"effective,omitempty"`
+	When      *Condition `yaml:"when,omitempty"`
 }

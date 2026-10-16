@@ -100,6 +100,7 @@ part of this format.
 | `message` | No | Human-readable failure message |
 | `certType` | No | Rule role filter; nonmatching roles skip |
 | `when` | No | Precondition with `target`, `operator`, and optional `operands` |
+| `effective` | No | Window `{basis, from, until}` in which the rule is in effect; see [Effective dates](#effective-dates) |
 
 State `requirement` for rules that implement a normative source, so a SHOULD
 does not read as a MUST: with only `requirement`, a failed SHOULD is a
@@ -114,6 +115,40 @@ and reserved `tst`, `sct`, `attrCert`. Omit `certType` to allow all roles.
 
 Unknown fields/operators, invalid operands, and multiple YAML documents are
 load errors. Validation includes `when` and nested `every` invocations.
+
+## Effective dates
+
+Requirements change over time: a rule may apply only to certificates issued
+from a date, or only from a date on. `effective` limits a rule to a
+half-open window `[from, until)`; outside it the rule is skipped with
+`rule.not-effective`. Successive versions of one requirement are separate
+rules with adjacent windows:
+
+```yaml
+- id: leaf-validity-max-398-days
+  target: certificate.validity
+  operator: dateDiff
+  operands: [{start: notBefore, end: notAfter, maxDays: 398}]
+  severity: error
+  effective: {basis: issuance, until: 2026-03-15}
+- id: leaf-validity-max-200-days
+  target: certificate.validity
+  operator: dateDiff
+  operands: [{start: notBefore, end: notAfter, maxDays: 200}]
+  severity: error
+  effective: {basis: issuance, from: 2026-03-15, until: 2027-03-15}
+```
+
+| Field | Meaning |
+|---|---|
+| `basis` | Required. `issuance` compares the input's issuance time: a certificate's `notBefore`, a CRL's `thisUpdate`, or an OCSP response's `producedAt`. `validation` compares the evaluation time (`--validation-time` or now) |
+| `from` | First instant in effect, inclusive |
+| `until` | First instant no longer in effect, exclusive |
+
+At least one bound is required; dates are RFC 3339 or `YYYY-MM-DD` (UTC
+midnight). Certificates do not record when they were issued, so `notBefore`
+stands in for the issuance date; a backdated `notBefore` places a
+certificate under an earlier requirement.
 
 ## Conditions and verdicts
 
