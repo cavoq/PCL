@@ -400,3 +400,42 @@ func TestLoadPSLFallsBackToEmbeddedSnapshot(t *testing.T) {
 		t.Errorf("data directory list was not preferred: %v", err)
 	}
 }
+
+func TestIsICANNPublicSuffix(t *testing.T) {
+	testFile := filepath.Join(t.TempDir(), "test_psl.dat")
+	content := `// ===BEGIN ICANN DOMAINS===
+com
+co.uk
+*.ck
+!www.ck
+公司.cn
+// ===END ICANN DOMAINS===
+// ===BEGIN PRIVATE DOMAINS===
+github.io
+// ===END PRIVATE DOMAINS===
+`
+	if err := os.WriteFile(testFile, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	loader := &Loader{}
+	if err := loader.LoadPSL(testFile); err != nil {
+		t.Fatal(err)
+	}
+	for domain, want := range map[string]bool{
+		"com":           true,
+		"CO.UK.":        true,
+		"example.co.uk": false,
+		"foo.ck":        true,  // *.ck
+		"www.ck":        false, // !www.ck
+		"ck":            true,  // implicit "*" rule
+		"local":         true,  // implicit "*" rule
+		"xn--55qx5d.cn": true,  // 公司.cn as an A-label
+		"github.io":     false, // PRIVATE section
+		"example.com":   false,
+		"":              false,
+	} {
+		if got := loader.IsICANNPublicSuffix(domain); got != want {
+			t.Errorf("IsICANNPublicSuffix(%q) = %v, want %v", domain, got, want)
+		}
+	}
+}

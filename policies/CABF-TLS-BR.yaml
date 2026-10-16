@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/cavoq/PCL/master/schemas/policy.schema.json
 id: cabf-tls-br
-version: "2.3.1-4"
+version: "2.3.1-5"
 metadata:
   title: TLS certificate, CRL and OCSP profiles
   standard: CA/B Forum TLS Baseline Requirements
@@ -960,6 +960,20 @@ rules:
     certType: [leaf]
     requirement: must
     message: "A wildcard must be a leftmost \"*.\" label of a Wildcard Domain Name"
+  # A registry or gTLD registrant that controls the whole namespace may get
+  # such a wildcard; that exception needs evidence outside the certificate.
+  - id: br-subscriber-wildcard-not-public-suffix
+    reference: CABF-BR 3.2.2.6
+    when:
+      target: certificate.subjectAltName.dNSName
+      operator: present
+    target: certificate.subjectAltName.dNSName
+    operator: every
+    operands:
+      - {operator: wildcardNotPublicSuffix}
+    certType: [leaf]
+    requirement: must
+    message: "A wildcard must not cover a public suffix (ICANN section of the PSL)"
   - id: br-subscriber-dns-ldh-labels
     reference: CABF-BR 7.1.2.7.12
     when:

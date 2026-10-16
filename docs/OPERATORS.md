@@ -183,6 +183,7 @@ stale, unauthenticated, from an unauthorized signer, or Unknown still fails.
 | `componentTLDNotRegistered` | None | At least one domain's TLD is not registered |
 | `componentIsPublicSuffix` | None | Any domain is a public suffix |
 | `componentNotPublicSuffix` | None | All domains are NOT public suffixes |
+| `wildcardNotPublicSuffix` | None | For a `*.X` name, X is not a public suffix in the ICANN section, applying the list's wildcard, exception and implicit `*` rules to A-labels; other names pass |
 
 ## ASN.1 String Type Operators
 

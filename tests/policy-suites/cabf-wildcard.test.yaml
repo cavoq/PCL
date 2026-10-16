@@ -1,0 +1,22 @@
+# BR 3.2.2.6 consults the ICANN section of the Public Suffix List only.
+policy: ../../policies/CABF-TLS-BR.yaml
+time: "2026-06-02T00:00:00Z"
+tests:
+  - name: wildcard-over-registrable-domain
+    cert: ../vectors/cabf-wildcard/registrable-domain.pem
+    issuers: [../vectors/cabf-wildcard/issuer.pem]
+    expect:
+      - {input: leaf, verdict: pass, failed: [], rules: {br-subscriber-wildcard-not-public-suffix: pass}}
+  - name: wildcard-over-icann-suffix
+    cert: ../vectors/cabf-wildcard/icann-suffix.pem
+    expect:
+      # br-subscriber-dns-ldh-labels requires two labels after "*.".
+      - {input: leaf, verdict: fail, failed: [br-subscriber-dns-ldh-labels, br-subscriber-wildcard-not-public-suffix]}
+  - name: wildcard-over-multi-label-icann-suffix
+    cert: ../vectors/cabf-wildcard/multi-label-icann-suffix.pem
+    expect:
+      - {input: leaf, verdict: fail, failed: [br-subscriber-wildcard-not-public-suffix]}
+  - name: private-section-suffix-is-not-consulted
+    cert: ../vectors/cabf-wildcard/private-suffix.pem
+    expect:
+      - {input: leaf, verdict: pass, failed: [], rules: {br-subscriber-wildcard-not-public-suffix: pass}}

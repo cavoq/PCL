@@ -59,6 +59,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   inconclusive rules like failures, so exit statuses do not change.
 
 ### Added
+- `wildcardNotPublicSuffix` checks that a wildcard does not cover a public
+  suffix in the ICANN section of the Public Suffix List, honoring its
+  wildcard, exception and implicit rules and IDN entries. CABF pack
+  `2.3.1-5` uses it for BR 3.2.2.6 (`br-subscriber-wildcard-not-public-suffix`).
 - CRL `thisUpdate`, `nextUpdate` and entry `revocationDate` nodes carry their
   time encoding facts, as certificate validity times do. RFC5280 pack `2.2`
   checks them (5.1.2.4-5.1.2.6): UTCTime through 2049, GeneralizedTime from

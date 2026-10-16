@@ -22,6 +22,8 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/net/idna"
+
 	"github.com/cavoq/PCL/internal/httpfetch"
 )
 
@@ -36,6 +38,10 @@ type PSL struct {
 
 	// All public suffixes (ICANN + Private combined)
 	AllPublicSuffixes map[string]bool
+
+	// icannRules holds the ICANN section's rules in lowercase A-label form,
+	// including wildcard ("*.ck") and exception ("!www.ck") rules.
+	icannRules map[string]bool
 
 	// Metadata
 	LoadedAt   time.Time
@@ -176,6 +182,7 @@ func parsePSL(input io.Reader) (*PSL, error) {
 		ICANNDomains:      make(map[string]bool),
 		PrivateDomains:    make(map[string]bool),
 		AllPublicSuffixes: make(map[string]bool),
+		icannRules:        make(map[string]bool),
 	}
 
 	scanner := bufio.NewScanner(input)
@@ -223,6 +230,9 @@ func parsePSL(input io.Reader) (*PSL, error) {
 		case "icann":
 			psl.ICANNDomains[domain] = true
 			psl.AllPublicSuffixes[domain] = true
+			if rule, ok := asciiRule(domain); ok {
+				psl.icannRules[rule] = true
+			}
 		case "private":
 			psl.PrivateDomains[domain] = true
 			psl.AllPublicSuffixes[domain] = true
@@ -252,6 +262,50 @@ func (l *Loader) IsPublicSuffix(domain string) bool {
 	}
 
 	return l.psl.AllPublicSuffixes[domain]
+}
+
+// IsICANNPublicSuffix reports whether domain is a public suffix under the
+// ICANN section of the list, applying its wildcard and exception rules and
+// the implicit "*" rule that makes every single label a public suffix.
+// domain is a DNS name in A-label form; case and a trailing dot are ignored.
+// The PRIVATE section is not consulted (CA/B Forum BR 3.2.2.6).
+func (l *Loader) IsICANNPublicSuffix(domain string) bool {
+	l.pslMutex.RLock()
+	defer l.pslMutex.RUnlock()
+
+	domain = strings.TrimSuffix(strings.ToLower(domain), ".")
+	if l.psl == nil || domain == "" {
+		return false
+	}
+	rules := l.psl.icannRules
+	if rules["!"+domain] {
+		return false
+	}
+	if rules[domain] {
+		return true
+	}
+	dot := strings.IndexByte(domain, '.')
+	if dot < 0 {
+		return true
+	}
+	return rules["*."+domain[dot+1:]]
+}
+
+// asciiRule converts a list rule to lowercase A-label form, keeping its
+// "*." or "!" prefix.
+func asciiRule(rule string) (string, bool) {
+	prefix := ""
+	switch {
+	case strings.HasPrefix(rule, "!"):
+		prefix, rule = "!", rule[1:]
+	case strings.HasPrefix(rule, "*."):
+		prefix, rule = "*.", rule[2:]
+	}
+	ascii, err := idna.Lookup.ToASCII(rule)
+	if err != nil {
+		return "", false
+	}
+	return prefix + strings.ToLower(ascii), true
 }
 
 // TLDRegistered checks if a TLD is registered in IANA Root Zone.

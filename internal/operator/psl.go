@@ -213,3 +213,26 @@ func (ComponentNotPublicSuffix) Evaluate(n *node.Node, ctx *EvaluationContext, o
 	}
 	return !isPS, nil
 }
+
+// WildcardNotPublicSuffix checks that a Wildcard Domain Name does not cover
+// a public suffix: for "*.X", X must not be a public suffix under the ICANN
+// section of the list (BR 3.2.2.6 excludes the PRIVATE section). Names that
+// are not wildcards pass. "*.local" fails through the implicit "*" rule.
+type WildcardNotPublicSuffix struct{}
+
+func (WildcardNotPublicSuffix) Name() string { return "wildcardNotPublicSuffix" }
+
+func (WildcardNotPublicSuffix) Evaluate(n *node.Node, _ *EvaluationContext, _ []any) (bool, error) {
+	if err := requirePSL(); err != nil {
+		return false, err
+	}
+	if n == nil {
+		return false, nil
+	}
+	name, ok := n.Value.(string)
+	if !ok {
+		return false, nil
+	}
+	covered, wildcard := strings.CutPrefix(name, "*.")
+	return !wildcard || !data.DefaultLoader.IsICANNPublicSuffix(covered), nil
+}

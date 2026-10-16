@@ -144,6 +144,7 @@ var builtins = []builtinOperator{
 	{ComponentTLDNotRegistered{}, noOperandsContract},
 	{ComponentIsPublicSuffix{}, noOperandsContract},
 	{ComponentNotPublicSuffix{}, noOperandsContract},
+	{WildcardNotPublicSuffix{}, noOperandsContract},
 	// UTF-8 validation operators
 	{UTF8NoBOM{}, noOperandsContract},
 	{ContainsBOM{}, noOperandsContract},

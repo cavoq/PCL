@@ -68,7 +68,8 @@
                   "utf8NoBom",
                   "validIA5String",
                   "validPrintableString",
-                  "validityOrderCorrect"
+                  "validityOrderCorrect",
+                  "wildcardNotPublicSuffix"
                 ]
               }
             },
@@ -653,7 +654,8 @@
             "validIA5String",
             "validPrintableString",
             "validityDays",
-            "validityOrderCorrect"
+            "validityOrderCorrect",
+            "wildcardNotPublicSuffix"
           ],
           "type": "string"
         },
@@ -1544,7 +1546,8 @@
                   "utf8NoBom",
                   "validIA5String",
                   "validPrintableString",
-                  "validityOrderCorrect"
+                  "validityOrderCorrect",
+                  "wildcardNotPublicSuffix"
                 ]
               }
             },
@@ -2208,7 +2211,8 @@
             "validIA5String",
             "validPrintableString",
             "validityDays",
-            "validityOrderCorrect"
+            "validityOrderCorrect",
+            "wildcardNotPublicSuffix"
           ],
           "type": "string"
         },

@@ -224,6 +224,12 @@ func TestPublicSuffixOperatorsAndNegations(t *testing.T) {
 			want: true,
 		},
 		{name: "wildcard over a suffix", op: ComponentNotPublicSuffix{}, node: collection("dNSName", "example.com", "*.com")},
+		{name: "wildcard over a registrable domain", op: WildcardNotPublicSuffix{}, node: value("*.example.com"), want: true},
+		{name: "wildcard over an ICANN suffix", op: WildcardNotPublicSuffix{}, node: value("*.com")},
+		{name: "wildcard over a single label", op: WildcardNotPublicSuffix{}, node: value("*.local")},
+		{name: "wildcard over a private suffix", op: WildcardNotPublicSuffix{}, node: value("*.github.io"), want: true},
+		{name: "not a wildcard", op: WildcardNotPublicSuffix{}, node: value("com"), want: true},
+		{name: "non-string wildcard value", op: WildcardNotPublicSuffix{}, node: node.New("dNSName", 1)},
 	})
 }
 
@@ -236,6 +242,7 @@ func TestPublicSuffixOperatorsFailWithoutList(t *testing.T) {
 	for _, op := range []Operator{
 		TLDRegistered{}, TLDNotRegistered{}, IsPublicSuffix{}, IsNotPublicSuffix{},
 		ComponentTLDNotRegistered{}, ComponentIsPublicSuffix{}, ComponentNotPublicSuffix{},
+		WildcardNotPublicSuffix{},
 	} {
 		if _, err := op.Evaluate(domain, nil, nil); !errors.Is(err, errPSLNotLoaded) {
 			t.Errorf("%s without a list: error = %v, want errPSLNotLoaded", op.Name(), err)
