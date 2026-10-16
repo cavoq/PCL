@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `--validation-time` evaluates a lint or `pcl inspect` run at a fixed time
+  (RFC 3339 or YYYY-MM-DD) instead of now, for repeatable and historical
+  results.
+
 ## [6.0.0] - 2026-10-16
 
 ### Breaking changes

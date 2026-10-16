@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -77,6 +78,29 @@ func TestRootCommandAcceptsDetails(t *testing.T) {
 	}
 	if !config.ShowDetails {
 		t.Fatal("ShowDetails = false, want true")
+	}
+}
+
+func TestValidationTimeFlag(t *testing.T) {
+	for value, want := range map[string]time.Time{
+		"2031-01-01":                time.Date(2031, 1, 1, 0, 0, 0, 0, time.UTC),
+		"2026-03-15T12:30:00+02:00": time.Date(2026, 3, 15, 10, 30, 0, 0, time.UTC),
+	} {
+		var config linter.Config
+		if err := newRootCmd(&config).ParseFlags([]string{"--validation-time", value}); err != nil {
+			t.Fatalf("parse --validation-time %s: %v", value, err)
+		}
+		if !config.ValidationTime.Equal(want) {
+			t.Errorf("--validation-time %s = %v, want %v", value, config.ValidationTime, want)
+		}
+		if err := newInspectCmd().ParseFlags([]string{"--validation-time", value}); err != nil {
+			t.Errorf("inspect: parse --validation-time %s: %v", value, err)
+		}
+	}
+
+	var config linter.Config
+	if err := newRootCmd(&config).ParseFlags([]string{"--validation-time", "31.12.2030"}); err == nil {
+		t.Error("--validation-time accepted 31.12.2030")
 	}
 }
 

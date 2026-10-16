@@ -22,10 +22,6 @@ import (
 
 var version = "6.0.0"
 
-// evaluationTime fixes the evaluation time of lint and inspect runs when set;
-// the golden tests use it, the CLI always evaluates at the current time.
-var evaluationTime time.Time
-
 func newRootCmd(opts *linter.Config) *cobra.Command {
 	var dataOpts dataOptions
 	root := &cobra.Command{
@@ -41,7 +37,6 @@ func newRootCmd(opts *linter.Config) *cobra.Command {
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			opts.Diagnostics = cmd.ErrOrStderr()
 			opts.Color = colorOutput(cmd.OutOrStdout())
-			opts.ValidationTime = evaluationTime
 			markCertificatePolicyInputsConfigured(cmd.Flags(), opts)
 			markPathInputsConfigured(cmd.Flags(), opts)
 			if err := dataOpts.load(opts.Diagnostics); err != nil {
@@ -56,6 +51,7 @@ func newRootCmd(opts *linter.Config) *cobra.Command {
 	addInputFlags(root.Flags(), opts)
 	addCertificatePolicyFlags(root.Flags(), opts)
 	addPathValidationFlags(root.Flags(), opts)
+	addValidationTimeFlag(root.Flags(), opts)
 	root.Flags().StringVar(&opts.OutputFmt, "output", output.FormatText, "Output format: text, json, or yaml")
 	root.Flags().CountVarP(&opts.Verbosity, "verbose", "v", "Increase output detail: -v shows passed, -vv includes skipped")
 	root.Flags().BoolVar(&opts.ShowDetails, "details", false, "Show wrapped rule explanations in text output")
@@ -146,6 +142,33 @@ type dataOptions struct {
 	DataDir string
 }
 
+// validationTimeValue is a flag value holding an evaluation time given as
+// RFC 3339 or YYYY-MM-DD; the zero time stands for the current time.
+type validationTimeValue struct{ at *time.Time }
+
+func (v validationTimeValue) String() string {
+	if v.at == nil || v.at.IsZero() {
+		return ""
+	}
+	return v.at.Format(time.RFC3339)
+}
+
+func (v validationTimeValue) Set(value string) error {
+	parsed, err := linter.ParseEvaluationTime(value)
+	if err != nil {
+		return err
+	}
+	*v.at = parsed
+	return nil
+}
+
+func (validationTimeValue) Type() string { return "time" }
+
+func addValidationTimeFlag(flags *pflag.FlagSet, opts *linter.Config) {
+	flags.Var(validationTimeValue{&opts.ValidationTime}, "validation-time",
+		"Evaluate at this time instead of now (RFC 3339 or YYYY-MM-DD, UTC midnight)")
+}
+
 func addDataFlags(flags *pflag.FlagSet, opts *dataOptions) {
 	flags.StringVar(&opts.PSLFile, "psl-file", "", "Path to Public Suffix List file (default: ./data/public_suffix_list.dat or ~/.pcl/data/public_suffix_list.dat)")
 	flags.BoolVar(&opts.UsePSL, "use-psl", true, "Enable PSL loading for TLD validation (BR 4.2.2, 3.2.2.6)")
@@ -223,7 +246,6 @@ as a lint run. Every path shown can be used as a rule target.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			opts.Diagnostics = cmd.ErrOrStderr()
-			opts.ValidationTime = evaluationTime
 			if err := dataOpts.load(opts.Diagnostics); err != nil {
 				return err
 			}
@@ -232,6 +254,7 @@ as a lint run. Every path shown can be used as a rule target.`,
 	}
 
 	addInputFlags(cmd.Flags(), &opts)
+	addValidationTimeFlag(cmd.Flags(), &opts)
 	addDataFlags(cmd.Flags(), &dataOpts)
 	cmd.Flags().StringVar(&opts.OutputFmt, "output", output.FormatText, "Output format: text, json, or yaml")
 	cmd.Flags().BoolVar(&inspect.Paths, "paths", false, "List every rule target path with its value type and value instead of the tree")

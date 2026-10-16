@@ -6,8 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"testing"
-	"time"
 
 	"github.com/cavoq/PCL/internal/linter"
 )
@@ -16,14 +16,15 @@ var update = flag.Bool("update", false, "rewrite the golden files in testdata/go
 
 // The golden tests run the pcl command tree on the NIST PKITS data, which is
 // vendored and never regenerated, with the built-in policies, the embedded
-// Public Suffix List and a fixed evaluation time. A golden file holds the
-// output, then any error; only the run timestamp is masked.
+// Public Suffix List and a fixed --validation-time for lint and inspect runs.
+// A golden file holds the output, then any error; only the run timestamp is
+// masked.
 const (
 	pkitsCerts = "../../tests/pkits/certs/"
 	pkitsCRLs  = "testdata/pkits-crls"
 )
 
-var goldenTime = time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+const goldenTime = "2020-01-01T00:00:00Z"
 
 // checkedAt matches the run timestamp in text, JSON and YAML output.
 var checkedAt = regexp.MustCompile(`(Checked: |"checked_at": "|checked_at: )[0-9][0-9T:.+\- Z]*[0-9Z]`)
@@ -51,6 +52,9 @@ func TestGolden(t *testing.T) {
 		{"lint-json", append([]string{"--policy", "rfc5280", "--output", "json", "-v"}, validPath...)},
 		{"lint-yaml", append([]string{"--policy", "rfc5280", "--output", "yaml", "-v"}, validPath...)},
 		{"lint-invalid-signature", append([]string{"--policy", "rfc5280", "--details", "--fail-on", "error"}, invalidSignature...)},
+		// The PKITS certificates expire at the end of 2030.
+		{"lint-validation-time-expired", append([]string{"--policy", "rfc5280", "--details", "--fail-on", "error",
+			"--validation-time", "2031-01-01"}, validPath...)},
 		{"lint-other-builtins", []string{"--policy", "local-profile", "--policy", "tr03116-tls-server",
 			"--cert", pkitsCerts + "ValidCertificatePathTest1EE.crt", "--issuer", pkitsCerts + "GoodCACert.crt", "-v"}},
 		// psl-leaf.pem is a static copy outside tests/fixturegen, so it never
@@ -68,8 +72,6 @@ func TestGolden(t *testing.T) {
 	}
 
 	dataDir := t.TempDir()
-	evaluationTime = goldenTime
-	t.Cleanup(func() { evaluationTime = time.Time{} })
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			var config linter.Config
@@ -81,6 +83,9 @@ func TestGolden(t *testing.T) {
 			if test.name != "policies" && test.name != "policies-show-rfc4055" {
 				// An empty data directory selects the embedded PSL snapshot.
 				args = append(args, "--data-dir", dataDir)
+			}
+			if !slices.Contains(args, "--validation-time") && lintsOrInspects(args) {
+				args = append(args, "--validation-time", goldenTime)
 			}
 			command.SetArgs(args)
 			if err := command.Execute(); err != nil {
@@ -107,4 +112,10 @@ func TestGolden(t *testing.T) {
 			}
 		})
 	}
+}
+
+// lintsOrInspects reports whether args run a lint or pcl inspect, the
+// commands that take --validation-time.
+func lintsOrInspects(args []string) bool {
+	return args[0] != "policies" && args[0] != "test"
 }

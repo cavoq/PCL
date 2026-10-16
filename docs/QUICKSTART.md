@@ -198,8 +198,12 @@ and info failures remain visible but do not change that verdict.
 
 ## Validation parameters
 
-The lint CLI uses the current time. For repeatable historical evaluation,
-set `time` in a [policy test suite](TESTING.md) or supply the API evaluation time.
+Lint and `inspect` evaluate at the current time unless `--validation-time`
+fixes it, as RFC 3339 (`2026-03-15T12:00:00Z`) or a date (`2026-03-15`, UTC
+midnight); [policy test suites](TESTING.md) set it with `time`. The time
+decides certificate, CRL and OCSP currency and path validity; it does not
+change which CRLs or OCSP responses `--auto-validate` retrieves, which are
+the ones current now.
 The evaluation time is truncated to whole seconds, the granularity of
 certificate, CRL and OCSP times, so a certificate is valid through its entire
 notAfter second.

@@ -1,0 +1,53 @@
+[Summary] Checked: <time> | Certs: 5 | Rules: 705 | PASS: 158, FAIL: 9, SKIP: 538, WARN: 0
+
+========================================================================
+[File] Policy: rfc5280 | Cert: leaf | File: ../../tests/pkits/certs/ValidCertificatePathTest1EE.crt | Verdict: FAIL | PASS: 39, FAIL: 3, SKIP: 99, WARN: 0
+------------------------------------------------------------------------
+  VERDICT  SEVERITY  RULE                          REFERENCE      
+  -------  --------  ----------------------------  ---------------
+  FAIL     ERROR     certification-path-valid      RFC5280 6, 7   
+                     ├─ path.validity: certificate is not valid at the validation time
+                     ├─ path.revocation: revocation evidence does not establish certificate status
+                     ├─ path.validity: certificate is not valid at the validation time
+                     └─ path.revocation: revocation evidence does not establish certificate status
+  FAIL     ERROR     not-expired                   RFC5280 4.1.2.5
+                     └─ actual: 2030-12-31T08:30:00Z; earliest allowed: 2031-01-01T00:00:00Z
+  FAIL     ERROR     cert-revocation-status-known  RFC5280 6.3    
+                     └─ actual: unknown; disallowed: unknown
+
+========================================================================
+[File] Policy: rfc5280 | Cert: intermediate | File: ../../tests/pkits/certs/GoodCACert.crt | Verdict: FAIL | PASS: 47, FAIL: 2, SKIP: 92, WARN: 0
+------------------------------------------------------------------------
+  VERDICT  SEVERITY  RULE                          REFERENCE      
+  -------  --------  ----------------------------  ---------------
+  FAIL     ERROR     not-expired                   RFC5280 4.1.2.5
+                     └─ actual: 2030-12-31T08:30:00Z; earliest allowed: 2031-01-01T00:00:00Z
+  FAIL     ERROR     cert-revocation-status-known  RFC5280 6.3    
+                     └─ actual: unknown; disallowed: unknown
+
+========================================================================
+[File] Policy: rfc5280 | Cert: root | File: ../../tests/pkits/certs/TrustAnchorRootCertificate.crt | Verdict: FAIL | PASS: 38, FAIL: 2, SKIP: 101, WARN: 0
+------------------------------------------------------------------------
+  VERDICT  SEVERITY  RULE                          REFERENCE      
+  -------  --------  ----------------------------  ---------------
+  FAIL     ERROR     not-expired                   RFC5280 4.1.2.5
+                     └─ actual: 2030-12-31T08:30:00Z; earliest allowed: 2031-01-01T00:00:00Z
+  FAIL     ERROR     cert-revocation-status-known  RFC5280 6.3    
+                     └─ actual: unknown; disallowed: unknown
+
+========================================================================
+[File] Policy: rfc5280 | Cert: crl | File: testdata/pkits-crls/GoodCACRL.crl | Verdict: FAIL | PASS: 17, FAIL: 1, SKIP: 123, WARN: 0
+------------------------------------------------------------------------
+  VERDICT  SEVERITY  RULE       REFERENCE  
+  -------  --------  ---------  -----------
+  FAIL     ERROR     crl-valid  RFC5280 5.1
+                     └─ check failed: crlValid
+
+========================================================================
+[File] Policy: rfc5280 | Cert: crl | File: testdata/pkits-crls/TrustAnchorRootCRL.crl | Verdict: FAIL | PASS: 17, FAIL: 1, SKIP: 123, WARN: 0
+------------------------------------------------------------------------
+  VERDICT  SEVERITY  RULE       REFERENCE  
+  -------  --------  ---------  -----------
+  FAIL     ERROR     crl-valid  RFC5280 5.1
+                     └─ check failed: crlValid
+error: 9 failed rule(s) with severity error or higher
