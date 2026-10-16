@@ -9,7 +9,6 @@ CLAUDE.md
 .codex
 .claude
 /data/
-tests/certs/generated
 tests/limbo/limbo.json
 tests/limbo/limbo.json.*
 

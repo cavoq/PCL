@@ -12,6 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `fuzz`, `lint`, `schema`, ...); CI runs the same targets. It replaces the
   limbo, fuzz and Let's Encrypt fixture scripts, pins golangci-lint and
   govulncheck, and coverage now includes the integration tests.
+- `make fixtures` regenerates every certificate, CRL and OCSP test fixture
+  with the Go program `tests/fixturegen`, replacing the OpenSSL scripts
+  `mkcerts.sh` and `gen-nc-certs.sh`. The CRL and OCSP fixtures had no
+  generator. `revoked-leaf.crl` now verifies against its issuer; the
+  invalid-signature case uses the new `revoked-leaf-wrong-signature.crl`.
 - Optional descriptive policy `metadata` with title, standard, edition, source,
   description, and relevant input names. The parser and editor schema validate
   it; it does not change evaluation or inherit through includes.

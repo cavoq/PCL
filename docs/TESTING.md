@@ -99,6 +99,7 @@ The Makefile is the entry point; CI runs the same targets.
 | `make fuzz FUZZTIME=30s` | Every fuzz target for the given time |
 | `make lint` / `make vuln` | golangci-lint and govulncheck at pinned versions |
 | `make schema` | Regenerates `schemas/policy.schema.json` |
+| `make fixtures` | Regenerates the certificate, CRL and OCSP fixtures with `tests/fixturegen` |
 
 Changes to policy fields or operator contracts must also regenerate
 `schemas/policy.schema.json` with `make schema`. The policy tests
