@@ -1,5 +1,5 @@
 [Summary] Checked: <time> | Validation time: 2020-01-01T00:00:00Z | Certs: 4 | Rules: 88 | PASS: 23, FAIL: 11, SKIP: 52, WARN: 1, INCONCLUSIVE: 2
-[Policy] local-profile 1.0
+[Policy] local-profile 2.0
 [Policy] tr03116-tls-server 2025.1 | BSI TR-03116-TS; BSI TR-03116-4 | TS v1.1 (2023); Part 4 (2025)
 [Chain] 2 certificate(s), no trust anchor supplied
   leaf          CN=Valid EE Certificate Test1, O=Test Certificates 2011, C=US
