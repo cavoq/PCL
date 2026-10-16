@@ -13,7 +13,7 @@ LETSENCRYPT_CRL := internal/crl/testdata/letsencrypt
 LETSENCRYPT_CERT := internal/cert/testdata/letsencrypt
 
 .PHONY: all build test race cover integration limbo limbo-fetch fuzz lint vuln tidy-check \
-	schema schema-check check fixtures letsencrypt-fixtures clean
+	schema schema-check check fixtures letsencrypt-fixtures psl-snapshot clean
 
 all: check
 
@@ -80,6 +80,11 @@ check: tidy-check schema-check lint race
 # tests/crls and tests/ocsps with new keys.
 fixtures:
 	$(GO) run ./tests/fixturegen
+
+# Refreshes the Public Suffix List snapshot embedded in the binary.
+psl-snapshot:
+	curl -sSfL https://publicsuffix.org/list/public_suffix_list.dat -o internal/data/public_suffix_list.dat
+	grep -m1 '^// VERSION:' internal/data/public_suffix_list.dat
 
 # Refreshes the Let's Encrypt CRL and CA fixtures from the official endpoints.
 letsencrypt-fixtures:

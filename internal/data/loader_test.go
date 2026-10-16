@@ -361,14 +361,11 @@ func TestDownloadPSL(t *testing.T) {
 
 func TestLoadPSLReportsMissingList(t *testing.T) {
 	loader := &Loader{}
-	if err := loader.LoadPSL(""); !errors.Is(err, ErrPSLNotFound) {
-		t.Errorf("LoadPSL without a data directory = %v, want ErrPSLNotFound", err)
-	}
 	if err := loader.LoadPSL(filepath.Join(t.TempDir(), "missing.dat")); !errors.Is(err, ErrPSLNotFound) {
 		t.Errorf("LoadPSL of a missing file = %v, want ErrPSLNotFound", err)
 	}
 	if loader.Loaded() {
-		t.Error("Loaded() after failed loads")
+		t.Error("Loaded() after a failed load")
 	}
 
 	list := filepath.Join(t.TempDir(), "public_suffix_list.dat")
@@ -377,5 +374,29 @@ func TestLoadPSLReportsMissingList(t *testing.T) {
 	}
 	if err := loader.LoadPSL(list); err != nil || !loader.Loaded() {
 		t.Fatalf("LoadPSL(%s) = %v, Loaded() = %v", list, err, loader.Loaded())
+	}
+}
+
+// Without a list file or data directory, the embedded snapshot is used; a
+// data directory list takes precedence.
+func TestLoadPSLFallsBackToEmbeddedSnapshot(t *testing.T) {
+	loader := &Loader{}
+	if err := loader.LoadPSL(""); err != nil {
+		t.Fatalf("LoadPSL without a list = %v", err)
+	}
+	if !loader.TLDRegistered("example.com") || !loader.IsPublicSuffix("github.io") {
+		t.Error("embedded snapshot lacks com or github.io")
+	}
+	if source := loader.psl.SourceFile; source != "embedded snapshot "+EmbeddedPSLVersion() || EmbeddedPSLVersion() == "unknown" {
+		t.Errorf("source = %q", source)
+	}
+
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "public_suffix_list.dat"), []byte("// ===BEGIN ICANN DOMAINS===\ntest\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	loader = &Loader{dataDir: dir}
+	if err := loader.LoadPSL(""); err != nil || loader.TLDRegistered("example.com") || !loader.TLDRegistered("x.test") {
+		t.Errorf("data directory list was not preferred: %v", err)
 	}
 }

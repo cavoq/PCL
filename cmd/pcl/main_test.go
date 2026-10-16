@@ -100,6 +100,44 @@ func TestInspectCommandSharesInputFlags(t *testing.T) {
 	}
 }
 
+func TestPoliciesCommandListsAndShowsBuiltinPacks(t *testing.T) {
+	var out bytes.Buffer
+	command := newPoliciesCmd()
+	command.SetOut(&out)
+	command.SetArgs(nil)
+	if err := command.Execute(); err != nil {
+		t.Fatalf("policies command: %v", err)
+	}
+	for _, id := range []string{"rfc5280", "rfc4055", "rfc6960", "tr03116-tls-server", "local-profile"} {
+		if !strings.Contains(out.String(), id) {
+			t.Errorf("policies output lacks %s:\n%s", id, out.String())
+		}
+	}
+
+	out.Reset()
+	command = newPoliciesCmd()
+	command.SetOut(&out)
+	command.SetArgs([]string{"show", "RFC5280"})
+	if err := command.Execute(); err != nil {
+		t.Fatalf("policies show: %v", err)
+	}
+	shipped, err := os.ReadFile("../../policies/RFC5280.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(out.Bytes(), shipped) {
+		t.Error("policies show RFC5280 differs from policies/RFC5280.yaml")
+	}
+
+	command = newPoliciesCmd()
+	command.SetOut(&out)
+	command.SetErr(&out)
+	command.SetArgs([]string{"show", "no-such-pack"})
+	if err := command.Execute(); err == nil || !strings.Contains(err.Error(), "unknown built-in policy") {
+		t.Errorf("unknown pack error = %v", err)
+	}
+}
+
 func TestSchemaCommandPrintsCommittedSchema(t *testing.T) {
 	var out bytes.Buffer
 	command := newSchemaCmd()

@@ -159,7 +159,11 @@ func runPolicySuite(file string, w io.Writer, summary *PolicyTestSummary) error 
 	}
 	dir := filepath.Dir(file)
 	registry := operator.DefaultRegistry()
-	policies, err := loadPolicies(resolvePaths(dir, suite.Policy), registry)
+	policyPaths := make([]string, 0, len(suite.Policy))
+	for _, path := range suite.Policy {
+		policyPaths = append(policyPaths, resolvePolicyPath(dir, path))
+	}
+	policies, err := loadPolicies(policyPaths, registry)
 	if err != nil {
 		return err
 	}

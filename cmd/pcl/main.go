@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"text/tabwriter"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -44,7 +45,8 @@ func newRootCmd(opts *linter.Config) *cobra.Command {
 		},
 	}
 
-	root.Flags().StringSliceVar(&opts.PolicyPaths, "policy", nil, "Path to policy YAML file or directory (repeatable)")
+	root.Flags().StringSliceVar(&opts.PolicyPaths, "policy", nil,
+		"Policy YAML file or directory, or a built-in policy id such as rfc5280 (repeatable; see pcl policies)")
 	addInputFlags(root.Flags(), opts)
 	addCertificatePolicyFlags(root.Flags(), opts)
 	addPathValidationFlags(root.Flags(), opts)
@@ -145,9 +147,9 @@ func addDataFlags(flags *pflag.FlagSet, opts *dataOptions) {
 }
 
 // load loads the selected data into the default loader. A --psl-file that
-// cannot be loaded is an error. Without one, a missing list is not reported
-// here: rules that use public suffix or TLD operators fail and say why. A
-// list that exists but cannot be read is reported on w.
+// cannot be loaded is an error. Without one, the data directory's list is
+// used, or else the snapshot embedded in the binary. A list that exists but
+// cannot be read is reported on w.
 func (opts dataOptions) load(w io.Writer) error {
 	data.DefaultLoader.SetDataDir(opts.DataDir)
 	if opts.PSLFile == "" && !opts.UsePSL {
@@ -249,6 +251,43 @@ validation. Reference the published copy from a policy with:
 	}
 }
 
+func newPoliciesCmd() *cobra.Command {
+	list := &cobra.Command{
+		Use:   "policies",
+		Short: "List the built-in policy packs",
+		Long: `List the policy packs shipped in the binary. Select one with --policy <id>
+or --policy builtin:<id>; a file of the same name takes precedence over the
+bare id. "pcl policies show <id>" prints a pack, for example to customize it.`,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			builtins, err := linter.BuiltinPolicies()
+			if err != nil {
+				return err
+			}
+			out := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 4, 2, ' ', 0)
+			_, _ = fmt.Fprintln(out, "ID\tSTANDARD\tTITLE")
+			for _, builtin := range builtins {
+				_, _ = fmt.Fprintf(out, "%s\t%s\t%s\n", builtin.ID, builtin.Metadata.Standard, builtin.Metadata.Title)
+			}
+			return out.Flush()
+		},
+	}
+	list.AddCommand(&cobra.Command{
+		Use:   "show <id>",
+		Short: "Print a built-in policy pack",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			builtin, ok := linter.LookupBuiltinPolicy(args[0])
+			if !ok {
+				return fmt.Errorf("unknown built-in policy %q; see pcl policies", args[0])
+			}
+			_, err := cmd.OutOrStdout().Write(builtin.Data)
+			return err
+		},
+	})
+	return list
+}
+
 func newTestCmd() *cobra.Command {
 	var dataOpts dataOptions
 	cmd := &cobra.Command{
@@ -300,6 +339,7 @@ func main() {
 
 	root := newRootCmd(&opts)
 	root.AddCommand(newInspectCmd())
+	root.AddCommand(newPoliciesCmd())
 	root.AddCommand(newSchemaCmd())
 	root.AddCommand(newTestCmd())
 	root.AddCommand(newUpdateDataCmd())

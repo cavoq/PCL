@@ -2,16 +2,20 @@
 // List from publicsuffix.org, whose ICANN section also serves as the list of
 // registered top-level domains.
 //
-// Data files can be updated via:
+// A snapshot of the list is embedded and used when no list file is found;
+// a newer list can be downloaded with:
 //
 //	pcl update-data
 package data
 
 import (
 	"bufio"
+	"bytes"
 	"context"
+	_ "embed"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -86,33 +90,53 @@ func (l *Loader) SetDataDir(dir string) {
 	l.dataDir = dir
 }
 
+// embeddedPSL is the Public Suffix List snapshot shipped in the binary,
+// refreshed with `make psl-snapshot`.
+//
+//go:embed public_suffix_list.dat
+var embeddedPSL []byte
+
+// EmbeddedPSLVersion returns the VERSION header of the embedded snapshot.
+func EmbeddedPSLVersion() string {
+	for _, line := range strings.Split(string(embeddedPSL), "\n") {
+		if version, found := strings.CutPrefix(line, "// VERSION: "); found {
+			return strings.TrimSpace(version)
+		}
+	}
+	return "unknown"
+}
+
 // ErrPSLNotFound reports that no Public Suffix List file was found.
 var ErrPSLNotFound = errors.New("no Public Suffix List file found")
 
 // LoadPSL loads the Public Suffix List from filename, or from the data
-// directory when filename is empty. A missing file is reported as
-// ErrPSLNotFound.
+// directory when filename is empty, or else from the embedded snapshot. A
+// missing filename is reported as ErrPSLNotFound.
 func (l *Loader) LoadPSL(filename string) error {
 	l.pslMutex.Lock()
 	defer l.pslMutex.Unlock()
 
-	// Resolve file path
-	var filePath string
-	switch {
-	case filename != "":
-		filePath = filename
-	case l.dataDir != "":
+	filePath := filename
+	if filePath == "" && l.dataDir != "" {
 		filePath = filepath.Join(l.dataDir, "public_suffix_list.dat")
-	default:
-		return fmt.Errorf("%w: no PSL file specified and no data directory found", ErrPSLNotFound)
+		if _, err := os.Stat(filePath); errors.Is(err, os.ErrNotExist) {
+			filePath = ""
+		}
 	}
-
-	// Check file exists
+	if filePath == "" {
+		psl, err := parsePSL(bytes.NewReader(embeddedPSL))
+		if err != nil {
+			return fmt.Errorf("failed to parse embedded PSL snapshot: %w", err)
+		}
+		psl.SourceFile = "embedded snapshot " + EmbeddedPSLVersion()
+		psl.LoadedAt = time.Now()
+		l.psl = psl
+		return nil
+	}
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
 		return fmt.Errorf("%w: %s", ErrPSLNotFound, filePath)
 	}
 
-	// Parse file
 	psl, err := parsePSLFile(filePath)
 	if err != nil {
 		return fmt.Errorf("failed to parse PSL file: %w", err)
@@ -144,14 +168,17 @@ func parsePSLFile(filePath string) (*PSL, error) {
 		return nil, err
 	}
 	defer func() { _ = file.Close() }()
+	return parsePSL(file)
+}
 
+func parsePSL(input io.Reader) (*PSL, error) {
 	psl := &PSL{
 		ICANNDomains:      make(map[string]bool),
 		PrivateDomains:    make(map[string]bool),
 		AllPublicSuffixes: make(map[string]bool),
 	}
 
-	scanner := bufio.NewScanner(file)
+	scanner := bufio.NewScanner(input)
 	var section string // "icann", "private", or ""
 
 	for scanner.Scan() {

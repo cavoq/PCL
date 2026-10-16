@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- The shipped policy packs are embedded in the binary. `--policy rfc5280`
+  (or `builtin:rfc5280`) selects one by id without the repository, policy
+  suites accept the ids too, and `pcl policies` lists the packs and
+  `pcl policies show <id>` prints one. A file of the same name takes
+  precedence over a bare id.
+- A Public Suffix List snapshot is embedded and used when neither
+  `--psl-file` nor the data directory provides a list, so PSL and TLD rules
+  work offline; `pcl update-data` still fetches a newer list.
 - A Makefile as the development entry point (`make check`, `cover`, `limbo`,
   `fuzz`, `lint`, `schema`, ...); CI runs the same targets. It replaces the
   limbo, fuzz and Let's Encrypt fixture scripts, pins golangci-lint and

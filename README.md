@@ -34,7 +34,7 @@ go build -o pcl ./cmd/pcl
 revocation evidence:
 
 ```bash
-pcl --policy policies/RFC5280.yaml --cert leaf.pem --auto-validate
+pcl --policy rfc5280 --cert leaf.pem --auto-validate
 ```
 
 No `--issuer` is needed when the certificates advertise reachable CA Issuers
@@ -43,7 +43,7 @@ URLs. If an issuer cannot be acquired, supply it locally.
 **Use a chain directory** containing the leaf, intermediates, and root:
 
 ```bash
-pcl --policy policies/RFC5280.yaml --cert chain/ --details
+pcl --policy rfc5280 --cert chain/ --details
 ```
 
 Add `--auto-validate` to acquire missing issuers and revocation evidence.
@@ -52,26 +52,26 @@ The directory supplies one chain, not a batch of unrelated leaf certificates.
 **Keep the leaf and issuers separate** for a run using local inputs:
 
 ```bash
-pcl --policy policies/RFC5280.yaml --cert leaf.pem --issuer issuers/ --details
+pcl --policy rfc5280 --cert leaf.pem --issuer issuers/ --details
 ```
 
 **Check a live TLS endpoint** — replace the example URL with your server:
 
 ```bash
-pcl --policy policies/RFC5280.yaml --cert-url https://example.test --auto-validate
+pcl --policy rfc5280 --cert-url https://example.test --auto-validate
 ```
 
 **Validate against explicit trust** while acquiring issuers and revocation evidence:
 
 ```bash
-pcl --policy policies/RFC5280.yaml --cert leaf.pem --auto-validate \
+pcl --policy rfc5280 --cert leaf.pem --auto-validate \
   --trust-anchor roots/ --path-revocation required --fail-on error
 ```
 
 **Save structured results**, including passed and skipped rules:
 
 ```bash
-pcl --policy policies/RFC5280.yaml --cert chain/ --output json -vv > results.json
+pcl --policy rfc5280 --cert chain/ --output json -vv > results.json
 ```
 
 **Discover paths for writing a policy**, using a local chain or automatic acquisition:
@@ -107,15 +107,19 @@ See [output and exit status](docs/QUICKSTART.md#output-and-exit-status).
 
 ## 🏛️ Policy Packs
 
-| Pack | Scope |
-|---|---|
-| [RFC 5280](policies/RFC5280.yaml) | Certificate/CRL profiles and conditional explicit-trust path validation; [coverage](policies/RFC5280-COVERAGE.md) |
-| [RFC 4055](policies/RFC4055.yaml) | RSA algorithm-identifier parameters; [coverage](policies/RFC4055-COVERAGE.md) |
-| [RFC 6960](policies/RFC6960.yaml) | Leaf-bound, authenticated OCSP evidence; missing or unacceptable evidence fails |
-| [TR-03116 TLS server](policies/TR03116-TLS-SERVER.yaml) | BSI certificate checklist and 2025 cryptographic profile; [coverage](policies/TR03116-TLS-SERVER-COVERAGE.md) |
-| [Local profile](policies/LOCAL-PROFILE.yaml) | Supplemental local and WebPKI checks |
+| Pack | Id | Scope |
+|---|---|---|
+| [RFC 5280](policies/RFC5280.yaml) | `rfc5280` | Certificate/CRL profiles and conditional explicit-trust path validation; [coverage](policies/RFC5280-COVERAGE.md) |
+| [RFC 4055](policies/RFC4055.yaml) | `rfc4055` | RSA algorithm-identifier parameters; [coverage](policies/RFC4055-COVERAGE.md) |
+| [RFC 6960](policies/RFC6960.yaml) | `rfc6960` | Leaf-bound, authenticated OCSP evidence; missing or unacceptable evidence fails |
+| [TR-03116 TLS server](policies/TR03116-TLS-SERVER.yaml) | `tr03116-tls-server` | BSI certificate checklist and 2025 cryptographic profile; [coverage](policies/TR03116-TLS-SERVER-COVERAGE.md) |
+| [Local profile](policies/LOCAL-PROFILE.yaml) | `local-profile` | Supplemental local and WebPKI checks |
 
-Repeat `--policy` to combine packs. Pack metadata describes source editions
+The packs are built into the binary: select one with `--policy <id>`, list
+them with `pcl policies`, and export one with `pcl policies show <id>`. The
+binary also embeds a Public Suffix List snapshot (MPL 2.0, from
+publicsuffix.org) for offline PSL and TLD rules. Repeat `--policy` to combine
+packs. Pack metadata describes source editions
 and relevant inputs; the coverage matrices state the implemented scope.
 
 ### 🧪 Conformance Evidence

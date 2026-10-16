@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/zmap/zcrypto/x509"
@@ -319,9 +320,22 @@ func buildSubjects(
 func loadPolicies(paths []string, reg *operator.Registry) ([]policy.Policy, error) {
 	var policies []policy.Policy
 	for _, path := range paths {
+		if name, prefixed := strings.CutPrefix(path, BuiltinPolicyPrefix); prefixed {
+			if _, ok := LookupBuiltinPolicy(name); !ok {
+				return nil, fmt.Errorf("unknown built-in policy %q (built-in policies: %s)", name, builtinPolicyIDs())
+			}
+		}
+		if builtin, ok := builtinPolicyReference(path); ok {
+			p, err := policy.ParseWithRegistry(builtin.Data, reg)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse built-in policy %s: %w", builtin.ID, err)
+			}
+			policies = append(policies, p)
+			continue
+		}
 		isDir, err := isDirectory(path)
 		if err != nil {
-			return nil, fmt.Errorf("checking policy path %s: %w", path, err)
+			return nil, fmt.Errorf("checking policy path %s: %w (built-in policies: %s)", path, err, builtinPolicyIDs())
 		}
 
 		if isDir {

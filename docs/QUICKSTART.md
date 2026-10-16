@@ -10,7 +10,7 @@ flags for the installed version.
 
 | Flag | Meaning | File or directory? |
 |---|---|---|
-| `--policy` | YAML rules to execute; repeatable | Both |
+| `--policy` | YAML rules to execute, or a built-in pack id; repeatable | Both |
 | `--cert` | Target certificate and supplied chain certificates | Both, PEM/DER |
 | `--issuer` | Issuer candidates; repeatable | Both, PEM/DER |
 | `--trust-anchor` | Explicitly trusted certificates; repeatable | Both, PEM/DER |
@@ -33,13 +33,13 @@ Inputs: a certificate and policy; provide the chain together or supply issuers s
 Leaf and chain certificates in one directory:
 
 ```bash
-pcl --policy policies/RFC5280.yaml --cert chain/ --details
+pcl --policy rfc5280 --cert chain/ --details
 ```
 
 Leaf and issuer candidates in separate locations:
 
 ```bash
-pcl --policy policies/RFC5280.yaml --cert leaf.pem --issuer issuers/ --details
+pcl --policy rfc5280 --cert leaf.pem --issuer issuers/ --details
 ```
 
 Result: per-rule verdicts for the selected chain. The explicit path rule skips
@@ -58,14 +58,14 @@ Acquire issuers and revocation evidence automatically; only the target and
 explicit trust anchors need to be local:
 
 ```bash
-pcl --policy policies/RFC5280.yaml --cert leaf.pem --trust-anchor roots/ \
+pcl --policy rfc5280 --cert leaf.pem --trust-anchor roots/ \
   --auto-validate --path-revocation required --fail-on error --details
 ```
 
 Use local chain and CRL evidence instead:
 
 ```bash
-pcl --policy policies/RFC5280.yaml \
+pcl --policy rfc5280 \
   --cert leaf.pem --issuer intermediates/ --trust-anchor roots/ \
   --crl crls/ --path-revocation required --purpose serverAuth \
   --peer-name www.example.com --fail-on error --details
@@ -105,7 +105,7 @@ if an explicit path decision is wanted.
 Start with just the leaf:
 
 ```bash
-pcl --policy policies/RFC5280.yaml --cert leaf.pem --auto-validate
+pcl --policy rfc5280 --cert leaf.pem --auto-validate
 ```
 
 `--issuer` is optional: PCL follows advertised CA Issuers URLs. If those URLs
@@ -113,14 +113,14 @@ are absent or unreachable, add `--issuer issuers/` or supply the available
 chain with `--cert chain/`. Automatic acquisition also works with that directory:
 
 ```bash
-pcl --policy policies/RFC5280.yaml --cert chain/ --auto-validate -v --details
+pcl --policy rfc5280 --cert chain/ --auto-validate -v --details
 ```
 
 Combine policies for a TLS server profile:
 
 ```bash
-pcl --policy policies/TR03116-TLS-SERVER.yaml \
-  --policy policies/RFC4055.yaml --cert server.pem --auto-validate -v --details
+pcl --policy tr03116-tls-server \
+  --policy rfc4055 --cert server.pem --auto-validate -v --details
 ```
 
 Result: rules consume the acquired evidence. The TR profile's external
@@ -148,7 +148,7 @@ DER retrieval from CRLDP and Freshest CRL; PEM CRLs are local-input only.
 To acquire a live TLS chain instead of loading a local target:
 
 ```bash
-pcl --policy policies/TR03116-TLS-SERVER.yaml \
+pcl --policy tr03116-tls-server \
   --cert-url https://example.test --cert-url-save-dir downloads/ --auto-validate
 ```
 
@@ -221,7 +221,7 @@ for exactly one label.
 Certificate-policy processing accepts independent initial inputs:
 
 ```bash
-pcl --policy policies/RFC5280.yaml --cert leaf.pem --issuer issuers/ \
+pcl --policy rfc5280 --cert leaf.pem --issuer issuers/ \
   --trust-anchor root.pem --initial-policy-set 1.2.3.4,1.2.3.5 \
   --initial-explicit-policy --initial-policy-mapping-inhibit --initial-any-policy-inhibit
 ```
@@ -230,15 +230,25 @@ The initial set defaults to `anyPolicy`; OIDs can be repeated or comma-separated
 Supplying any `--initial-*` input overrides legacy `certificatePolicyValid`
 operands. Without explicit inputs, that adapter retains its operand behavior.
 
+## Built-in policy packs
+
+The shipped packs are embedded in the binary. `pcl policies` lists them;
+`--policy <id>` selects one, and `pcl policies show <id> > my-profile.yaml`
+exports one to customize. A file or directory of the same name takes
+precedence over a bare id; `--policy builtin:<id>` always names the pack.
+Policy suites accept the same ids in `policy`.
+
 ## Public Suffix List
 
 ```bash
 pcl update-data
-pcl --policy policies/LOCAL-PROFILE.yaml --cert leaf.pem --psl-file data/public_suffix_list.dat
+pcl --policy local-profile --cert leaf.pem --psl-file data/public_suffix_list.dat
 ```
 
-Default lookup uses `./data/public_suffix_list.dat` or `~/.pcl/data/`.
-`--use-psl=false` disables loading. A missing list fails PSL/TLD-dependent
-rules; an explicitly selected unreadable file is a run error. `inspect` and
+Default lookup uses `./data/public_suffix_list.dat` or `~/.pcl/data/`, and
+else the snapshot embedded in the binary, whose date is its `VERSION`
+header; `update-data` fetches a newer list. `--use-psl=false` disables
+loading, which fails PSL/TLD-dependent rules; an explicitly selected
+unreadable file is a run error. `inspect` and
 `test` accept the same PSL options. `update-data --data-dir PATH` selects the
 download destination.
