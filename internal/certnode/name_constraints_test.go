@@ -38,7 +38,9 @@ func TestNameConstraintsStrictProjectsAllGeneralNameFormsLosslessly(t *testing.T
 	if err != nil {
 		t.Fatalf("ParseNameConstraintsStrict() error = %v", err)
 	}
-	assertExtensionSchemaValue(t, n, "unprocessed", true)
+	if n.Children["unprocessed"] != nil {
+		t.Fatal("name constraints with every GeneralName form were marked unprocessed")
+	}
 	permitted := n.Children["permittedSubtrees"]
 	assertExtensionSchemaValue(t, permitted, "count", 9)
 	for tag := 0; tag <= 8; tag++ {

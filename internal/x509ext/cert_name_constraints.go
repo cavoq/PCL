@@ -216,17 +216,15 @@ func decodeGeneralSubtree(
 	return decoded, nil
 }
 
-// NameConstraintsContainUnsupportedNameForm reports whether a subtree uses
-// a name form that name constraint processing does not support.
-func NameConstraintsContainUnsupportedNameForm(decoded NameConstraints) bool {
-	for _, subtrees := range [][]GeneralSubtree{decoded.Permitted, decoded.Excluded} {
-		for _, subtree := range subtrees {
-			switch subtree.Base.Tag {
-			case 1, 2, 4, 6, 7: // rfc822Name, dNSName, directoryName, URI, iPAddress
-			default:
-				return true
-			}
-		}
+// NameConstraintSupportedNameForm reports whether name constraint
+// processing compares names of the GeneralName form with this tag:
+// rfc822Name, dNSName, directoryName, URI and iPAddress. A constraint on
+// another form is processed by rejecting every subsequent certificate that
+// presents a name of that form (RFC 5280 4.2.1.10).
+func NameConstraintSupportedNameForm(tag int) bool {
+	switch tag {
+	case 1, 2, 4, 6, 7:
+		return true
 	}
 	return false
 }

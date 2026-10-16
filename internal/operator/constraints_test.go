@@ -188,19 +188,26 @@ func TestNoUnknownCriticalExtensionsUsesProcessedRegistry(t *testing.T) {
 	})
 }
 
+// A registeredID constraint is processed by rejecting subordinate names of
+// that form during path validation, so the extension itself is processable.
+func TestNoUnknownCriticalExtensionsAcceptsUnsupportedNameConstraintForm(t *testing.T) {
+	certificate := &x509.Certificate{Extensions: []pkix.Extension{{
+		Id:       zasn1.ObjectIdentifier{2, 5, 29, 30},
+		Critical: true,
+		Value:    []byte{0x30, 0x08, 0xa0, 0x06, 0x30, 0x04, 0x88, 0x02, 0x2a, 0x03},
+	}}}
+	got, err := NoUnknownCriticalExtensions{}.Evaluate(certnode.BuildTree(certificate), nil, nil)
+	if err != nil || !got {
+		t.Fatalf("critical registeredID name constraint = %v, %v; want accepted", got, err)
+	}
+}
+
 func TestNoUnknownCriticalExtensionsRejectsUnprocessedExtensionContent(t *testing.T) {
 	tests := []struct {
 		name       string
 		identifier zasn1.ObjectIdentifier
 		value      []byte
 	}{
-		{
-			name:       "unsupported Name Constraints form",
-			identifier: zasn1.ObjectIdentifier{2, 5, 29, 30},
-			value: []byte{
-				0x30, 0x08, 0xa0, 0x06, 0x30, 0x04, 0x88, 0x02, 0x2a, 0x03,
-			},
-		},
 		{
 			name:       "unknown Certificate Policies qualifier",
 			identifier: zasn1.ObjectIdentifier{2, 5, 29, 32},

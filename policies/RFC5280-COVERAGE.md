@@ -22,7 +22,7 @@ profile context is checked. Coverage does not imply universal RFC completeness.
 | Critical extensions and duplicate OIDs | Partial | Location-specific processed registry; unsupported critical semantics fail closed | Signed object | [Vectors](../tests/vector_coverage_test.go), [registry tests](../internal/oid/processed_extensions_test.go) |
 | DN attributes, mailbox syntax, IA5 repertoire (Appendix A) | Partial | Per-occurrence rules; role/severity limits below | Encoded Names / GeneralNames | [Integration cases](../tests/cases) |
 | Trust termination, signatures, validity, CA and path length (§6) | Covered | Explicit path domain; anchor is excluded from ordinary certificate processing | Target, issuer candidates, explicit anchors, time | [Path tests](../internal/path/validate_test.go), [PKITS](../tests/pkits_test.go) |
-| Name constraints and name chaining (§6–7) | Partial across all RFC forms | DNS, email, URI, IP, directoryName; dNSName subtrees must be empty or in the preferred name syntax; shared encoded-DN comparison | Constructed path | [Name constraints](../internal/cert/name_constraints_test.go), [DN matching](../internal/x509asn1/name_match_test.go) |
+| Name constraints and name chaining (§6–7) | Partial across all RFC forms | DNS, email, URI, IP, directoryName compared; other forms reject names of that form; dNSName subtrees must be empty or in the preferred name syntax; shared encoded-DN comparison | Constructed path | [Name constraints](../internal/cert/name_constraints_test.go), [DN matching](../internal/x509asn1/name_match_test.go) |
 | Certificate-policy processing (§6.1) | Covered | Policy tree, mappings, counters and independent initial inputs | Path and optional initial policy inputs | [Policy processing](../internal/operator/policy_test.go), [PKITS](../tests/pkits_test.go) |
 | Application purpose | Covered for supported mappings | EKU across chain plus end-entity Key Usage | Concrete purpose and chain | [Purpose tests](../internal/cert/purpose_test.go) |
 | CRL profile and entries (§5) | Covered for active checks | Strict AKI, number, delta, IDP, Freshest and entry decoding | CRL DER, signer candidates | [Extension tests](../internal/x509ext/crl_extensions_test.go) |
@@ -138,7 +138,7 @@ as RFC 5280 coverage.
 | Area | Limit |
 |---|---|
 | Discovery and trust | No unbounded discovery, exhaustive alternative-path validation, platform trust-store selection, or out-of-band anchor constraints |
-| Name constraints | Attribute certificates and unsupported GeneralName constraint forms are outside scope; unsupported critical semantics fail closed |
+| Name constraints | Attribute certificates are outside scope. otherName, x400Address, ediPartyName and registeredID subtrees are not compared; a subsequent certificate presenting a name of a constrained form of these fails |
 | Internationalized names | No complete Section 7 preparation claim beyond supported encoded DN, DNS, email, URI and IP forms |
 | CA-wide uniqueness | A path cannot prove serial-number uniqueness across a CA issuance database |
 | Version preference | The SHOULD preference for v1 when only basic fields exist is not enforced |

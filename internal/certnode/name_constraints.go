@@ -23,12 +23,6 @@ func ParseNameConstraintsStrict(extValue []byte) (*node.Node, error) {
 func projectNameConstraints(decoded x509ext.NameConstraints) *node.Node {
 	n := node.New("nameConstraints", nil)
 	n.Children["raw"] = node.New("raw", append([]byte(nil), decoded.RawDER...))
-	if x509ext.NameConstraintsContainUnsupportedNameForm(decoded) {
-		// The representation is valid, but the bounded matching domain does not
-		// implement every GeneralName comparison. Critical-extension handling
-		// uses this marker to reject constraints it cannot enforce.
-		n.Children["unprocessed"] = node.New("unprocessed", true)
-	}
 	if len(decoded.Permitted) > 0 {
 		n.Children["permittedSubtrees"] = projectGeneralSubtrees(
 			"permittedSubtrees",

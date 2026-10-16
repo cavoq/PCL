@@ -76,8 +76,10 @@ func TestCertificateCriticalExtensionsProcessable(t *testing.T) {
 		},
 		{name: "critical malformed extension", extensions: []pkix.Extension{extension(keyUsage, true, malformedKeyUsage)}},
 		{
+			// Path validation rejects subordinate names of the form instead.
 			name:       "critical unsupported name constraint form",
 			extensions: []pkix.Extension{extension(nameConstraints, true, unsupportedNameForm)},
+			want:       true,
 		},
 		{
 			name:       "critical unknown policy qualifier",

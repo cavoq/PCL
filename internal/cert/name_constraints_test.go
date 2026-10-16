@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/cavoq/PCL/internal/oid"
+	"github.com/cavoq/PCL/internal/x509ext"
 	"github.com/zmap/zcrypto/x509"
 	"github.com/zmap/zcrypto/x509/pkix"
 )
@@ -303,5 +304,51 @@ func TestNameConstraintsEmailAndURIHostBoundaries(t *testing.T) {
 
 	if !matchesURIConstraint("relative/path", nil, nil) {
 		t.Fatal("an unconstrained URI was rejected by Name Constraints")
+	}
+}
+
+// RFC 5280 4.2.1.10 requires a constraint on an uncompared name form to be
+// enforced only when a subsequent certificate presents a name of that form.
+func TestNameConstraintsValidUnsupportedFormsApplyOnlyToPresentNames(t *testing.T) {
+	// registeredID [8] 1.2.3
+	registeredID := []byte{0x88, 0x02, 0x2a, 0x03}
+	dnsName := append([]byte{0x82, byte(len("www.example.test"))}, "www.example.test"...)
+	subtrees := func(base []byte) []byte {
+		subtree := append([]byte{0x30, byte(len(base))}, base...)
+		return append([]byte{0xa1, byte(len(subtree))}, subtree...)
+	}
+	excluded := subtrees(registeredID)
+	issuerExtension := extensionForCertificateTest(oid.NameConstraints)
+	issuerExtension.Critical = true
+	issuerExtension.Value = append([]byte{0x30, byte(len(excluded))}, excluded...)
+	issuer := &Info{Cert: &x509.Certificate{Extensions: []pkix.Extension{issuerExtension}}}
+
+	leafWith := func(names ...[]byte) *Info {
+		var content []byte
+		for _, name := range names {
+			content = append(content, name...)
+		}
+		san := extensionForCertificateTest(oid.SubjectAlternativeName)
+		san.Value = append([]byte{0x30, byte(len(content))}, content...)
+		return &Info{Cert: &x509.Certificate{
+			DNSNames:   []string{"www.example.test"},
+			Extensions: []pkix.Extension{san},
+		}}
+	}
+
+	if !x509ext.CertificateCriticalExtensionsProcessable(issuer.Cert.Extensions) {
+		t.Fatal("critical registeredID name constraint is not processable")
+	}
+	leaf := leafWith(dnsName)
+	if !NameConstraintsValid(leaf, []*Info{leaf, issuer}) {
+		t.Fatal("registeredID constraint rejected a certificate without registeredID names")
+	}
+	leaf = leafWith(dnsName, registeredID)
+	if NameConstraintsValid(leaf, []*Info{leaf, issuer}) {
+		t.Fatal("registeredID constraint accepted a certificate presenting a registeredID")
+	}
+	withoutSAN := &Info{Cert: &x509.Certificate{}}
+	if !NameConstraintsValid(withoutSAN, []*Info{withoutSAN, issuer}) {
+		t.Fatal("registeredID constraint rejected a certificate without subjectAltName")
 	}
 }

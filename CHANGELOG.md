@@ -44,6 +44,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   cause in `tests/limbo/known-gaps.yaml`.
 
 ### Fixed
+- A critical nameConstraints extension with an otherName, x400Address,
+  ediPartyName or registeredID subtree is no longer rejected as
+  unprocessed. As RFC 5280 4.2.1.10 requires, the path rejects only a
+  subsequent certificate whose subjectAltName presents a name of that form.
 - A dNSName name constraint must be empty or a domain name in the preferred
   name syntax (RFC 5280 4.2.1.10). An OpenSSL-style leading-period form such
   as `.example.com`, a trailing dot, a wildcard or an underscore makes the

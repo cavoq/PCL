@@ -3,6 +3,7 @@ package cert
 import (
 	"net"
 	"net/url"
+	"slices"
 	"strings"
 
 	"github.com/zmap/zcrypto/x509"
@@ -14,8 +15,10 @@ import (
 
 // NameConstraintsValid applies the supported Name Constraints forms to one
 // certificate in an already ordered leaf-to-root chain. DNS, rfc822Name,
-// URI-host, IP, and directoryName constraints are supported. registeredID,
-// otherName, x400Address, and ediPartyName remain outside this bounded check.
+// URI-host, IP, and directoryName constraints are compared. A constraint on
+// otherName, x400Address, ediPartyName or registeredID is not compared: the
+// certificate fails only when its subjectAltName presents a name of that
+// form, as RFC 5280 4.2.1.10 requires.
 func NameConstraintsValid(current *Info, chain []*Info) bool {
 	if current == nil || current.Cert == nil || len(chain) == 0 {
 		return false
@@ -57,6 +60,14 @@ func NameConstraintsValid(current *Info, chain []*Info) bool {
 	if subjectAlternativeName.Present() && !subjectAlternativeName.Unique() {
 		return false
 	}
+	if !unsupportedFormsAbsent(subjectAlternativeName, excluded.unsupportedForms) {
+		return false
+	}
+	for _, permitted := range permittedSets {
+		if !unsupportedFormsAbsent(subjectAlternativeName, permitted.unsupportedForms) {
+			return false
+		}
+	}
 	emailAddresses := certificate.EmailAddresses
 	if !subjectAlternativeName.Present() {
 		// RFC 5280 requires rfc822Name constraints to cover legacy
@@ -85,27 +96,63 @@ func NameConstraintsValid(current *Info, chain []*Info) bool {
 }
 
 type nameConstraints struct {
-	dns    []string
-	emails []string
-	uris   []string
-	ips    []net.IPNet
+	// unsupportedForms are the GeneralName tags of subtrees whose names are
+	// not compared.
+	unsupportedForms []int
+	dns              []string
+	emails           []string
+	uris             []string
+	ips              []net.IPNet
 	// directoryNames are DER-encoded Names of directoryName subtrees.
 	directoryNames [][]byte
 }
 
 func (constraints nameConstraints) empty() bool {
-	return len(constraints.dns) == 0 && len(constraints.emails) == 0 &&
+	return len(constraints.unsupportedForms) == 0 && len(constraints.dns) == 0 && len(constraints.emails) == 0 &&
 		len(constraints.uris) == 0 && len(constraints.ips) == 0 && len(constraints.directoryNames) == 0
 }
 
 func (constraints nameConstraints) merge(other nameConstraints) nameConstraints {
 	return nameConstraints{
-		dns:            append(constraints.dns, other.dns...),
-		emails:         append(constraints.emails, other.emails...),
-		uris:           append(constraints.uris, other.uris...),
-		ips:            append(constraints.ips, other.ips...),
-		directoryNames: append(constraints.directoryNames, other.directoryNames...),
+		unsupportedForms: append(constraints.unsupportedForms, other.unsupportedForms...),
+		dns:              append(constraints.dns, other.dns...),
+		emails:           append(constraints.emails, other.emails...),
+		uris:             append(constraints.uris, other.uris...),
+		ips:              append(constraints.ips, other.ips...),
+		directoryNames:   append(constraints.directoryNames, other.directoryNames...),
 	}
+}
+
+// unsupportedNameForms returns the tags of the subtrees whose GeneralName
+// form name constraint processing does not compare.
+func unsupportedNameForms(subtrees []x509ext.NameConstraintSubtreeFacts) []int {
+	var tags []int
+	for _, subtree := range subtrees {
+		if !x509ext.NameConstraintSupportedNameForm(subtree.BaseTag) {
+			tags = append(tags, subtree.BaseTag)
+		}
+	}
+	return tags
+}
+
+// unsupportedFormsAbsent reports whether the subjectAltName presents no name
+// of the constrained forms. A subjectAltName that does not decode presents
+// names PCL cannot inspect and fails when such a form is constrained.
+func unsupportedFormsAbsent(subjectAlternativeName x509ext.ExtensionMatch, forms []int) bool {
+	if len(forms) == 0 || !subjectAlternativeName.Present() {
+		return true
+	}
+	extension, _ := subjectAlternativeName.Extension()
+	names, err := x509ext.DecodeGeneralNames(extension.Value)
+	if err != nil {
+		return false
+	}
+	for _, name := range names {
+		if slices.Contains(forms, name.Tag) {
+			return false
+		}
+	}
+	return true
 }
 
 // directoryNameSubtrees returns the directoryName bases in subtrees.
@@ -168,6 +215,7 @@ func checkDirectoryNames(names, permitted, excluded [][]byte) bool {
 
 func extractNameConstraints(certificate *x509.Certificate) (nameConstraints, nameConstraints, bool) {
 	var permittedDirectoryNames, excludedDirectoryNames [][]byte
+	var permittedUnsupported, excludedUnsupported []int
 	match := certificateExtension(certificate, oid.NameConstraints)
 	if match.Present() {
 		extension, unique := match.Extension()
@@ -180,9 +228,11 @@ func extractNameConstraints(certificate *x509.Certificate) (nameConstraints, nam
 		}
 		permittedDirectoryNames = directoryNameSubtrees(facts.PermittedSubtrees)
 		excludedDirectoryNames = directoryNameSubtrees(facts.ExcludedSubtrees)
+		permittedUnsupported = unsupportedNameForms(facts.PermittedSubtrees)
+		excludedUnsupported = unsupportedNameForms(facts.ExcludedSubtrees)
 	}
 
-	permitted := nameConstraints{directoryNames: permittedDirectoryNames}
+	permitted := nameConstraints{directoryNames: permittedDirectoryNames, unsupportedForms: permittedUnsupported}
 	for _, value := range certificate.PermittedDNSNames {
 		if !validDNSNameConstraint(value.Data) {
 			return nameConstraints{}, nameConstraints{}, false
@@ -199,7 +249,7 @@ func extractNameConstraints(certificate *x509.Certificate) (nameConstraints, nam
 		permitted.ips = append(permitted.ips, value.Data)
 	}
 
-	excluded := nameConstraints{directoryNames: excludedDirectoryNames}
+	excluded := nameConstraints{directoryNames: excludedDirectoryNames, unsupportedForms: excludedUnsupported}
 	for _, value := range certificate.ExcludedDNSNames {
 		if !validDNSNameConstraint(value.Data) {
 			return nameConstraints{}, nameConstraints{}, false

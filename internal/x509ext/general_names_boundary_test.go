@@ -130,16 +130,17 @@ func TestDecodeNameConstraintsPresenceAndMalformedDER(t *testing.T) {
 	if facts.PermittedSubtrees[1].MinimumPresent || facts.PermittedSubtrees[1].MaximumPresent {
 		t.Fatalf("absent constraint distances became present: %#v", facts.PermittedSubtrees[1])
 	}
-	decoded, err := DecodeNameConstraints(der)
-	if err != nil || NameConstraintsContainUnsupportedNameForm(decoded) {
-		t.Fatalf("supported name constraints = %#v, %v", decoded, err)
+	for tag := 0; tag <= 8; tag++ {
+		want := tag == 1 || tag == 2 || tag == 4 || tag == 6 || tag == 7
+		if got := NameConstraintSupportedNameForm(tag); got != want {
+			t.Errorf("NameConstraintSupportedNameForm(%d) = %v, want %v", tag, got, want)
+		}
 	}
 	unsupportedDER := buildBoundaryNameConstraints([]boundaryConstraintSubtree{{
 		name: boundaryGeneralName{tag: 8, content: []byte{0x2a, 0x03}},
 	}}, nil)
-	unsupported, err := DecodeNameConstraints(unsupportedDER)
-	if err != nil || !NameConstraintsContainUnsupportedNameForm(unsupported) {
-		t.Fatalf("registeredID constraint = %#v, %v", unsupported, err)
+	if _, err := DecodeNameConstraints(unsupportedDER); err != nil {
+		t.Fatalf("registeredID constraint does not decode: %v", err)
 	}
 
 	zero := 0

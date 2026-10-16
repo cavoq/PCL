@@ -18,11 +18,8 @@ var certificateExtensionChecks = map[string]certificateExtensionCheck{
 	oid.SubjectAlternativeName: decodeOnly(DecodeGeneralNames),
 	oid.IssuerAlternativeName:  decodeOnly(DecodeGeneralNames),
 	oid.BasicConstraints:       decodeOnly(DecodeBasicConstraints),
-	oid.NameConstraints: func(extValue []byte) (bool, error) {
-		decoded, err := DecodeNameConstraints(extValue)
-		return err == nil && NameConstraintsContainUnsupportedNameForm(decoded), err
-	},
-	oid.CRLDistributionPoints: decodeOnly(DecodeDistributionPoints),
+	oid.NameConstraints:        decodeOnly(DecodeNameConstraints),
+	oid.CRLDistributionPoints:  decodeOnly(DecodeDistributionPoints),
 	oid.CertificatePolicies: func(extValue []byte) (bool, error) {
 		decoded, err := DecodeCertificatePolicies(extValue)
 		return err == nil && CertificatePoliciesContainUnknownQualifier(decoded), err
