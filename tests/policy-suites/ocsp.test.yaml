@@ -9,15 +9,15 @@ tests:
     expect:
       - input: leaf
         policy: integration-ocsp-conditional-skip
-        verdict: pass
+        verdict: not_applicable
         failed: []
       - input: intermediate
         policy: integration-ocsp-conditional-skip
-        verdict: pass
+        verdict: not_applicable
         failed: []
       - input: root
         policy: integration-ocsp-conditional-skip
-        verdict: pass
+        verdict: not_applicable
         failed: []
   - name: ocsp-good-leaf
     cert: ../certs/ocsp-leaf.pem
@@ -31,11 +31,11 @@ tests:
         failed: []
       - input: intermediate
         policy: integration-ocsp-good
-        verdict: pass
+        verdict: not_applicable
         failed: []
       - input: root
         policy: integration-ocsp-good
-        verdict: pass
+        verdict: not_applicable
         failed: []
   - name: ocsp-issuer-mismatch-leaf
     cert: ../certs/ocsp-leaf.pem
@@ -49,11 +49,11 @@ tests:
         failed: [ocsp-not-revoked, ocsp-response-valid, ocsp-status-good]
       - input: intermediate
         policy: integration-ocsp-good
-        verdict: pass
+        verdict: not_applicable
         failed: []
       - input: root
         policy: integration-ocsp-good
-        verdict: pass
+        verdict: not_applicable
         failed: []
   - name: ocsp-missing-fails
     cert: ../certs
@@ -83,11 +83,11 @@ tests:
         failed: [ocsp-not-revoked]
       - input: intermediate
         policy: integration-ocsp-good
-        verdict: pass
+        verdict: not_applicable
         failed: []
       - input: root
         policy: integration-ocsp-good
-        verdict: pass
+        verdict: not_applicable
         failed: []
   - name: ocsp-mixed-stale-good-leaf
     cert: ../certs/ocsp-leaf.pem
@@ -101,11 +101,11 @@ tests:
         failed: []
       - input: intermediate
         policy: integration-ocsp-good
-        verdict: pass
+        verdict: not_applicable
         failed: []
       - input: root
         policy: integration-ocsp-good
-        verdict: pass
+        verdict: not_applicable
         failed: []
   - name: ocsp-no-next-update-leaf
     cert: ../certs/ocsp-leaf.pem
@@ -119,11 +119,11 @@ tests:
         failed: []
       - input: intermediate
         policy: integration-ocsp-good
-        verdict: pass
+        verdict: not_applicable
         failed: []
       - input: root
         policy: integration-ocsp-good
-        verdict: pass
+        verdict: not_applicable
         failed: []
   - name: ocsp-revoked-leaf
     cert: ../certs/ocsp-leaf.pem
@@ -137,11 +137,11 @@ tests:
         failed: [ocsp-not-revoked, ocsp-status-good]
       - input: intermediate
         policy: integration-ocsp-good
-        verdict: pass
+        verdict: not_applicable
         failed: []
       - input: root
         policy: integration-ocsp-good
-        verdict: pass
+        verdict: not_applicable
         failed: []
   - name: ocsp-stale-leaf
     cert: ../certs/ocsp-leaf.pem
@@ -155,11 +155,11 @@ tests:
         failed: [ocsp-not-revoked, ocsp-response-valid, ocsp-status-good]
       - input: intermediate
         policy: integration-ocsp-good
-        verdict: pass
+        verdict: not_applicable
         failed: []
       - input: root
         policy: integration-ocsp-good
-        verdict: pass
+        verdict: not_applicable
         failed: []
   - name: ocsp-unknown-leaf
     cert: ../certs/ocsp-leaf.pem
@@ -173,11 +173,11 @@ tests:
         failed: [ocsp-not-revoked, ocsp-status-good]
       - input: intermediate
         policy: integration-ocsp-good
-        verdict: pass
+        verdict: not_applicable
         failed: []
       - input: root
         policy: integration-ocsp-good
-        verdict: pass
+        verdict: not_applicable
         failed: []
   - name: ocsp-wrong-leaf
     cert: ../certs/ocsp-leaf.pem
@@ -191,11 +191,11 @@ tests:
         failed: [ocsp-not-revoked, ocsp-response-valid, ocsp-status-good]
       - input: intermediate
         policy: integration-ocsp-good
-        verdict: pass
+        verdict: not_applicable
         failed: []
       - input: root
         policy: integration-ocsp-good
-        verdict: pass
+        verdict: not_applicable
         failed: []
   - name: ocsp-wrong-signer-leaf
     cert: ../certs/ocsp-leaf.pem
@@ -209,9 +209,9 @@ tests:
         failed: [ocsp-not-revoked, ocsp-response-valid, ocsp-status-good]
       - input: intermediate
         policy: integration-ocsp-good
-        verdict: pass
+        verdict: not_applicable
         failed: []
       - input: root
         policy: integration-ocsp-good
-        verdict: pass
+        verdict: not_applicable
         failed: []

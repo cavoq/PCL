@@ -122,7 +122,9 @@ absence explicitly (an absent value equals no operand and is in no set).
 | `fail` with `warning` or `info` | Reported; policy verdict remains unchanged |
 | `skip` | Not evaluated for this input/condition |
 
-There is no `warn` policy verdict. CLI exit status is controlled separately by
+A policy whose rules were all skipped decided nothing for the input, such as
+a leaf-only pack on a CA certificate; its verdict is `not_applicable` (`N/A`
+in text), not `pass`. There is no `warn` policy verdict. CLI exit status is controlled separately by
 [`--fail-on`](QUICKSTART.md#output-and-exit-status).
 
 ## Authoring checklist

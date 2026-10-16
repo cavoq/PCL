@@ -345,7 +345,7 @@ JSON and YAML, summary lines in text) that makes a result reproducible:
 | Field | Meaning |
 |---|---|
 | `policy_id`, `cert_type`, `cert_path`, `source` | Policy and evaluated input |
-| `verdict` | Policy `pass` or `fail`; only failed error-severity rules fail the policy |
+| `verdict` | Policy `pass`, `fail`, or `not_applicable` when every rule was skipped; only failed error-severity rules fail the policy |
 | `checked_at` | Result creation time |
 | `rules` | Emitted rule results, filtered by verbosity |
 

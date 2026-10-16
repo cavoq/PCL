@@ -25,7 +25,7 @@ tests:
         failed: []
       - input: root
         policy: integration-authority-key-identifier
-        verdict: pass
+        verdict: not_applicable
         failed: []
   - name: basic-policy
     cert: ../certs
@@ -54,11 +54,11 @@ tests:
         failed: []
       - input: intermediate
         policy: integration-eku
-        verdict: pass
+        verdict: not_applicable
         failed: []
       - input: root
         policy: integration-eku
-        verdict: pass
+        verdict: not_applicable
         failed: []
   - name: eku-missing-leaf
     cert: ../certs/leaf.pem
@@ -71,11 +71,11 @@ tests:
         failed: [leaf-must-have-client-auth]
       - input: intermediate
         policy: integration-eku-fail
-        verdict: pass
+        verdict: not_applicable
         failed: []
       - input: root
         policy: integration-eku-fail
-        verdict: pass
+        verdict: not_applicable
         failed: []
   - name: every-san-mismatch
     cert: ../certs/leaf.pem
@@ -88,11 +88,11 @@ tests:
         failed: [san-dns-must-match-com]
       - input: intermediate
         policy: integration-every-san-fail
-        verdict: pass
+        verdict: not_applicable
         failed: []
       - input: root
         policy: integration-every-san-fail
-        verdict: pass
+        verdict: not_applicable
         failed: []
   - name: every-san-regex
     cert: ../certs/leaf.pem
@@ -105,11 +105,11 @@ tests:
         failed: []
       - input: intermediate
         policy: integration-every-san
-        verdict: pass
+        verdict: not_applicable
         failed: []
       - input: root
         policy: integration-every-san
-        verdict: pass
+        verdict: not_applicable
         failed: []
   - name: extensions-criticality
     cert: ../certs
@@ -137,11 +137,11 @@ tests:
         failed: [leaf-keycertsign-must-be-true]
       - input: intermediate
         policy: integration-leaf-keycertsign-fails
-        verdict: pass
+        verdict: not_applicable
         failed: []
       - input: root
         policy: integration-leaf-keycertsign-fails
-        verdict: pass
+        verdict: not_applicable
         failed: []
   - name: name-constraints-fail
     cert: ../certs/nc-bad-leaf.pem
@@ -154,11 +154,11 @@ tests:
         failed: [name-constraints-valid]
       - input: intermediate
         policy: integration-name-constraints
-        verdict: pass
+        verdict: not_applicable
         failed: []
       - input: root
         policy: integration-name-constraints
-        verdict: pass
+        verdict: not_applicable
         failed: []
   - name: name-constraints-pass
     cert: ../certs/nc-good-leaf.pem
@@ -171,11 +171,11 @@ tests:
         failed: []
       - input: intermediate
         policy: integration-name-constraints
-        verdict: pass
+        verdict: not_applicable
         failed: []
       - input: root
         policy: integration-name-constraints
-        verdict: pass
+        verdict: not_applicable
         failed: []
   - name: policy-includes
     cert: ../certs
@@ -203,11 +203,11 @@ tests:
         failed: []
       - input: intermediate
         policy: integration-subject-alt-name
-        verdict: pass
+        verdict: not_applicable
         failed: []
       - input: root
         policy: integration-subject-alt-name
-        verdict: pass
+        verdict: not_applicable
         failed: []
   - name: unreadable certificate is reported
     cert: ../certs/missing.pem

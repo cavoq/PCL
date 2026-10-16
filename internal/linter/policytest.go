@@ -229,8 +229,10 @@ func validateExpectation(expectation policyExpectation) error {
 	if expectation.Verdict == "" && len(expectation.Rules) == 0 && expectation.Failed == nil {
 		return fmt.Errorf("expect %s: verdict, rules or failed is required", expectation.Input)
 	}
-	if expectation.Verdict != "" && expectation.Verdict != rule.VerdictPass && expectation.Verdict != rule.VerdictFail {
-		return fmt.Errorf("expect %s: verdict must be pass or fail", expectation.Input)
+	switch expectation.Verdict {
+	case "", rule.VerdictPass, rule.VerdictFail, policy.VerdictNotApplicable:
+	default:
+		return fmt.Errorf("expect %s: verdict must be pass, fail or not_applicable", expectation.Input)
 	}
 	for ruleID, verdict := range expectation.Rules {
 		switch verdict {

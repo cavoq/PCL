@@ -53,7 +53,7 @@ tests:
 
 An expectation selects `input` (`leaf`, `intermediate`, `root`, `ocspSigning`,
 `crl`, or `ocsp`) and optionally a policy ID. `verdict` checks the overall
-result; `rules` checks named rule verdicts; `failed` lists exactly the rules
+result (`pass`, `fail` or `not_applicable`); `rules` checks named rule verdicts; `failed` lists exactly the rules
 that fail, `[]` for none, so a new failing rule is caught while new passing or
 skipped rules are not. At least one of them is required.
 

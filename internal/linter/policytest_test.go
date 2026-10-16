@@ -82,7 +82,7 @@ func TestLoadPolicySuiteRejectsInvalidFiles(t *testing.T) {
 		"policy is required":                   "tests:\n  - name: t\n    cert: a.pem\n    error: x\n",
 		"tests must not be empty":              "policy: p.yaml\ntests: []\n",
 		"expect or error is required":          "policy: p.yaml\ntests:\n  - name: t\n    cert: a.pem\n",
-		"verdict must be pass or fail":         "policy: p.yaml\ntests:\n  - name: t\n    expect: [{input: leaf, verdict: skip}]\n",
+		"verdict must be pass, fail or not_applicable":         "policy: p.yaml\ntests:\n  - name: t\n    expect: [{input: leaf, verdict: skip}]\n",
 		"verdict, rules or failed is required": "policy: p.yaml\ntests:\n  - name: t\n    expect: [{input: leaf}]\n",
 		"verdict must be pass, fail or skip":   "policy: p.yaml\ntests:\n  - name: t\n    expect: [{input: leaf, rules: {r: ok}}]\n",
 	}

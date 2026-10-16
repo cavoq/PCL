@@ -31,9 +31,9 @@ tests:
         failed: []
       - input: intermediate
         policy: rfc6960
-        verdict: pass
+        verdict: not_applicable
         failed: []
       - input: root
         policy: rfc6960
-        verdict: pass
+        verdict: not_applicable
         failed: []

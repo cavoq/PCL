@@ -115,3 +115,26 @@ func TestPolicyMultipleRules(t *testing.T) {
 		t.Fatalf("rules evaluated out of policy order: %q, %q", res.Results[0].RuleID, res.Results[1].RuleID)
 	}
 }
+
+func TestVerdict(t *testing.T) {
+	pass := rule.Result{Verdict: rule.VerdictPass, Severity: rule.SeverityError}
+	skip := rule.Result{Verdict: rule.VerdictSkip, Severity: rule.SeverityError}
+	failError := rule.Result{Verdict: rule.VerdictFail, Severity: rule.SeverityError}
+	failWarning := rule.Result{Verdict: rule.VerdictFail, Severity: rule.SeverityWarning}
+	tests := []struct {
+		name    string
+		results []rule.Result
+		want    string
+	}{
+		{"no rules", nil, VerdictNotApplicable},
+		{"every rule skipped", []rule.Result{skip, skip}, VerdictNotApplicable},
+		{"one rule decided", []rule.Result{skip, pass}, rule.VerdictPass},
+		{"only a warning failed", []rule.Result{skip, failWarning}, rule.VerdictPass},
+		{"an error rule failed", []rule.Result{pass, failError, skip}, rule.VerdictFail},
+	}
+	for _, test := range tests {
+		if got := Verdict(test.results); got != test.want {
+			t.Errorf("%s: Verdict = %s, want %s", test.name, got, test.want)
+		}
+	}
+}

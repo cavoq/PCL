@@ -33,6 +33,33 @@ type Metadata struct {
 	Inputs      []string `yaml:"inputs,omitempty"`
 }
 
+// VerdictNotApplicable is the policy verdict when every rule was skipped as
+// not applicable to the input, so the policy decided nothing. The other
+// policy verdicts are rule.VerdictPass and rule.VerdictFail.
+const VerdictNotApplicable = "not_applicable"
+
+// Verdict decides a policy from its rule results: fail when an error rule
+// failed, else not_applicable when no rule was decided, else pass. Warning
+// and info rules never fail a policy.
+func Verdict(results []rule.Result) string {
+	decided := false
+	for _, result := range results {
+		switch result.Verdict {
+		case rule.VerdictFail:
+			if result.Severity == rule.SeverityError {
+				return rule.VerdictFail
+			}
+			decided = true
+		case rule.VerdictPass:
+			decided = true
+		}
+	}
+	if !decided {
+		return VerdictNotApplicable
+	}
+	return rule.VerdictPass
+}
+
 type Result struct {
 	PolicyID  string        `json:"policy_id" yaml:"policy_id"`
 	CertType  string        `json:"cert_type" yaml:"cert_type"`
@@ -51,20 +78,13 @@ func Evaluate(
 ) Result {
 	inputType := inputTypeFromContext(ctx)
 	results := make([]rule.Result, 0, len(p.Rules))
-	verdict := rule.VerdictPass
 
 	for _, r := range p.Rules {
 		if !RuleAppliesToInput(r, inputType) {
 			results = append(results, rule.Skipped(r, rule.CodeInputType, "not applicable to input type "+inputType))
 			continue
 		}
-
-		res := rule.Evaluate(root, r, reg, ctx)
-		results = append(results, res)
-
-		if res.Verdict == rule.VerdictFail && r.Severity == rule.SeverityError {
-			verdict = rule.VerdictFail
-		}
+		results = append(results, rule.Evaluate(root, r, reg, ctx))
 	}
 
 	var input operator.Input
@@ -78,7 +98,7 @@ func Evaluate(
 		CertPath:  input.Path,
 		Source:    input.Source.String(),
 		Results:   results,
-		Verdict:   verdict,
+		Verdict:   Verdict(results),
 		CheckedAt: time.Now(),
 	}
 }

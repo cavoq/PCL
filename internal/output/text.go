@@ -8,6 +8,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/cavoq/PCL/internal/finding"
+	"github.com/cavoq/PCL/internal/policy"
 	"github.com/cavoq/PCL/internal/rule"
 )
 
@@ -161,6 +162,9 @@ func writeRunMeta(w io.Writer, meta LintMeta) error {
 }
 
 func verdictLabel(verdict string) string {
+	if verdict == policy.VerdictNotApplicable {
+		return "N/A"
+	}
 	return strings.ToUpper(verdict)
 }
 
@@ -182,7 +186,7 @@ func (p palette) verdict(verdict string) string {
 		return p.paint(label, ansiGreen)
 	case rule.VerdictFail:
 		return p.paint(label, ansiRed)
-	case rule.VerdictSkip:
+	case rule.VerdictSkip, policy.VerdictNotApplicable:
 		return p.paint(label, ansiCyan)
 	default:
 		return label

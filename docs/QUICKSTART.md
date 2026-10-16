@@ -194,7 +194,8 @@ or `-vv` for the complete rule list. `--details` affects text formatting only.
 | Failed rules at/above `--fail-on error`, `warning`, or `info` | 1 after results are written |
 
 The policy verdict is separate: failed `error` rules make it `fail`; warning
-and info failures remain visible but do not change that verdict.
+and info failures remain visible but do not change that verdict. A policy
+that skipped every rule is `not_applicable` (`N/A`), never `pass`.
 
 ## Validation parameters
 

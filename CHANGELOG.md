@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Breaking changes
+- A policy that skipped every rule for an input has the verdict
+  `not_applicable` (`N/A` in text) instead of `pass`: it decided nothing, so
+  it must not read as compliance. Policy test suites accept
+  `verdict: not_applicable`; expectations of `pass` for such inputs fail.
+
 ### Added
 - `--validation-time` evaluates a lint or `pcl inspect` run at a fixed time
   (RFC 3339 or YYYY-MM-DD) instead of now, for repeatable and historical
