@@ -54,17 +54,14 @@
     - webpki::ca-as-leaf
 
 - reason: >-
-    CA/B Forum Baseline Requirements checks that RFC 5280 does not make and
-    RFC5280.yaml does not lint: key types and sizes (6.1.5), subject common
-    name encoding and SAN consistency (7.1.4.3), end-entity and root EKU
-    (7.1.2.7.10, 7.1.2.1.2), root authorityKeyIdentifier fields (7.1.2.1.3),
-    critical subjectAltName with a non-empty subject, public-suffix
-    wildcards (3.2.2.6) and duplicate CRL serial numbers.
+    CA/B Forum Baseline Requirements checks that cabf-tls-br makes but this
+    harness does not run: it lints with the path policy and RFC5280.yaml only,
+    because limbo models validator behavior and its synthetic certificates are
+    not BR-shaped (no certificatePolicies or CRL distribution points). Each
+    case fails cabf-tls-br for its own reason: commonName in SAN (7.1.4.3),
+    end-entity EKU (7.1.2.7.10), key types and sizes (6.1.5), critical SAN
+    (7.1.2.7.12) and wildcards over ICANN public suffixes (3.2.2.6).
   cases:
-    - crl::structure::crl-duplicate-revoked-serial
-    - webpki::aki::root-with-aki-missing-keyidentifier
-    - webpki::aki::root-with-aki-all-fields
-    - webpki::aki::root-with-aki-ski-mismatch
     - webpki::cn::ipv4-hex-mismatch
     - webpki::cn::ipv4-leading-zeros-mismatch
     - webpki::cn::ipv6-uppercase-mismatch
@@ -77,10 +74,8 @@
     - webpki::eku::ee-anyeku
     - webpki::eku::ee-critical-eku
     - webpki::eku::ee-without-eku
-    - webpki::eku::root-has-eku
     - webpki::san::public-suffix-wildcard-san
     - webpki::san::public-suffix-multi-label-wildcard-san
-    - webpki::san::public-suffix-private-namespace-wildcard-san
     - webpki::san::san-critical-with-nonempty-subject
     - webpki::forbidden-dsa-root
     - webpki::forbidden-dsa-leaf
@@ -88,3 +83,26 @@
     - webpki::forbidden-weak-rsa-in-leaf
     - webpki::forbidden-rsa-not-divisible-by-8-in-root
     - webpki::forbidden-rsa-key-not-divisible-by-8-in-leaf
+
+- reason: >-
+    CA/B Forum root profile checks (7.1.2.1.2, 7.1.2.1.3) that cabf-tls-br
+    applies to roots issued from 2023-09-15 (BR 2.0.0); limbo's roots date
+    from 1970 and limbo applies the profile regardless of issuance date.
+  cases:
+    - webpki::aki::root-with-aki-missing-keyidentifier
+    - webpki::aki::root-with-aki-all-fields
+    - webpki::aki::root-with-aki-ski-mismatch
+    - webpki::eku::root-has-eku
+
+- reason: >-
+    Wildcard over a PRIVATE-section public suffix (s3.amazonaws.com). BR
+    3.2.2.6 says CAs SHOULD consult the ICANN section only; limbo follows
+    validators that use the whole Public Suffix List.
+  cases:
+    - webpki::san::public-suffix-private-namespace-wildcard-san
+
+- reason: >-
+    Duplicate serial numbers in a CRL are not forbidden by RFC 5280 or BR
+    2.3.1; the prohibition is proposed in cabforum/servercert#589 (open).
+  cases:
+    - crl::structure::crl-duplicate-revoked-serial
