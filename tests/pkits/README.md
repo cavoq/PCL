@@ -9,8 +9,7 @@ lint entry point (`tests/pkits_test.go`).
 |------|----------|
 | `certs/`, `crls/` | PKITS data, unchanged |
 | `manifest.json` | One entry per PKITS Section 4 test: end entity, issuers, CRLs and one run per input setting with the expected result |
-| `path-policy.yaml` | PCL rules that make up path validation |
-| `known-gaps.yaml` | Runs PCL cannot pass yet, with the reason |
+| `known-gaps.yaml` | Runs PCL cannot pass yet, grouped by cause |
 
 ## Source
 
@@ -32,13 +31,12 @@ python3 -I tests/scripts/pkits-manifest.py PKITS.txt tests/pkits > tests/pkits/m
 ## How a PKITS run maps to PCL
 
 Each run lints the end entity with `--issuer` set to the path's certificates,
-`--crl` to its CRLs and an evaluation time of 2020-01-01 (inside the
-2010-2030 validity of the data). The path is valid when no error rule of
-`path-policy.yaml` fails for any certificate of the chain, and the
-operand-free `certificatePolicyValid` rule added for the run passes for the
-end entity. The harness supplies every run's initial policy set,
-explicit-policy, policy-mapping-inhibit and any-policy-inhibit inputs through
-the evaluator context, independently of the rule definition.
+`--crl` to its CRLs, `--trust-anchor` to the PKITS trust anchor, required
+path revocation and an evaluation time of 2020-01-01 (inside the 2010-2030
+validity of the data). The run passes the path engine's aggregate decision
+in the shared `tests/policies/path-valid.yaml`, which also processes
+certificate policies with the run's initial policy set, explicit-policy,
+policy-mapping-inhibit and any-policy-inhibit inputs.
 
 All 247 runs reach the PKITS result. `known-gaps.yaml` is retained as an empty
 ratchet: any future exception must be explicit and documented there.

@@ -1,33 +1,26 @@
 package tests
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
-	"sort"
 	"strconv"
 	"sync"
 	"testing"
 	"time"
 
-	"gopkg.in/yaml.v3"
-
 	"github.com/cavoq/PCL/internal/cert"
 	"github.com/cavoq/PCL/internal/linter"
-	"github.com/cavoq/PCL/internal/output"
 	pathpkg "github.com/cavoq/PCL/internal/path"
-	"github.com/cavoq/PCL/internal/policy"
-	"github.com/cavoq/PCL/internal/rule"
 )
 
-// x509-limbo runs through the lint entry point with the limbo path policy and
-// the shipped RFC 5280 profile. tests/limbo/limbo.json is not committed; fetch
-// it with `make limbo-fetch`. PCL_REQUIRE_LIMBO=1 turns a missing
-// file into a failure.
+// x509-limbo runs through the lint entry point with the shared path policy
+// and the shipped RFC 5280 profile. tests/limbo/limbo.json is not committed;
+// fetch it with `make limbo-fetch`. PCL_REQUIRE_LIMBO=1 turns a missing file
+// into a failure.
 
 const limboDir = "limbo"
 
@@ -60,18 +53,12 @@ type limboPeerName struct {
 	Value string `json:"value"`
 }
 
-// limboKnownGap documents testcases whose PCL outcome differs from limbo.
-type limboKnownGap struct {
-	Reason string   `yaml:"reason"`
-	Cases  []string `yaml:"cases"`
-}
-
 const (
 	limboSuccess = "SUCCESS"
 	limboFailure = "FAILURE"
 )
 
-func loadLimbo(t *testing.T) (limboSuite, map[string]string) {
+func loadLimbo(t *testing.T) limboSuite {
 	t.Helper()
 	data, err := os.ReadFile(filepath.Join(limboDir, "limbo.json"))
 	if os.IsNotExist(err) && os.Getenv("PCL_REQUIRE_LIMBO") == "" {
@@ -88,27 +75,7 @@ func loadLimbo(t *testing.T) (limboSuite, map[string]string) {
 		t.Fatalf("limbo schema version %d, want 1", suite.Version)
 	}
 
-	gaps := map[string]string{}
-	data, err = os.ReadFile(filepath.Join(limboDir, "known-gaps.yaml"))
-	if err != nil {
-		t.Fatalf("read limbo known gaps: %v", err)
-	}
-	var listed []limboKnownGap
-	if err := yaml.Unmarshal(data, &listed); err != nil {
-		t.Fatalf("parse limbo known gaps: %v", err)
-	}
-	for _, gap := range listed {
-		if gap.Reason == "" {
-			t.Fatalf("known gap group %v has no reason", gap.Cases)
-		}
-		for _, id := range gap.Cases {
-			if _, dup := gaps[id]; dup {
-				t.Fatalf("known gap %s is listed twice", id)
-			}
-			gaps[id] = gap.Reason
-		}
-	}
-	return suite, gaps
+	return suite
 }
 
 type limboOutcome struct {
@@ -120,7 +87,7 @@ func TestLimbo(t *testing.T) {
 	if testing.Short() {
 		t.Skip("x509-limbo runs every testcase")
 	}
-	suite, gaps := loadLimbo(t)
+	suite := loadLimbo(t)
 
 	// Testcases run on a worker pool; workers report errors instead of
 	// calling t.Fatal, which must run on the test goroutine.
@@ -146,29 +113,11 @@ func TestLimbo(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	seen := map[string]bool{}
-	var conforming, gapped int
+	conformance := loadConformance(t, "x509-limbo", filepath.Join(limboDir, "known-gaps.yaml"))
 	for index, tc := range suite.Testcases {
-		seen[tc.ID] = true
-		outcome := outcomes[index]
-		_, known := gaps[tc.ID]
-		switch {
-		case outcome.got == tc.ExpectedResult && known:
-			t.Errorf("%s: now %s as limbo expects; remove it from known-gaps.yaml", tc.ID, outcome.got)
-		case outcome.got == tc.ExpectedResult:
-			conforming++
-		case known:
-			gapped++
-		default:
-			t.Errorf("%s: %s, limbo expects %s; failed rules: %v", tc.ID, outcome.got, tc.ExpectedResult, outcome.failures)
-		}
+		conformance.check(t, tc.ID, outcomes[index].got, tc.ExpectedResult, outcomes[index].failures)
 	}
-	for id := range gaps {
-		if !seen[id] {
-			t.Errorf("known gap %s does not name a limbo testcase", id)
-		}
-	}
-	t.Logf("x509-limbo: %d testcases conform, %d known gaps", conforming, gapped)
+	conformance.finish(t)
 }
 
 // runLimbo lints one limbo testcase in dir and reports SUCCESS when no error
@@ -180,7 +129,7 @@ func runLimbo(dir string, tc limboCase) (limboOutcome, error) {
 	}
 	cfg := linter.Config{
 		PolicyPaths: []string{
-			filepath.Join(limboDir, "path-policy.yaml"),
+			pathPolicy,
 			filepath.Join("..", "policies", "RFC5280.yaml"),
 		},
 		CertPath:         filepath.Join(dir, "peer.pem"),
@@ -188,7 +137,6 @@ func runLimbo(dir string, tc limboCase) (limboOutcome, error) {
 		ValidationTime:   limboValidationTime,
 		PeerNames:        peerNames,
 		PathRevocation:   pathpkg.RevocationIfPresent,
-		OutputFmt:        output.FormatJSON,
 	}
 	files := map[string]string{cfg.CertPath: tc.PeerCertificate}
 	for i, certificate := range tc.TrustedCerts {
@@ -224,27 +172,14 @@ func runLimbo(dir string, tc limboCase) (limboOutcome, error) {
 		cfg.MaximumPathLengthConfigured = true
 	}
 
-	var out bytes.Buffer
-	if err := linter.Run(cfg, &out); err != nil {
-		return limboOutcome{got: limboFailure, failures: []string{"error: " + err.Error()}}, nil
+	valid, failures, err := lintAccepts(cfg)
+	if err != nil {
+		return limboOutcome{}, fmt.Errorf("%s: %w", tc.ID, err)
 	}
-	var results []policy.Result
-	if err := json.Unmarshal(out.Bytes(), &results); err != nil {
-		return limboOutcome{}, fmt.Errorf("%s: parse lint output: %w", tc.ID, err)
+	if valid {
+		return limboOutcome{got: limboSuccess}, nil
 	}
-	var failures []string
-	for _, result := range results {
-		for _, ruleResult := range result.Results {
-			if ruleResult.Verdict == rule.VerdictFail && ruleResult.Severity == rule.SeverityError {
-				failures = append(failures, result.CertType+":"+ruleResult.RuleID)
-			}
-		}
-	}
-	sort.Strings(failures)
-	if len(failures) > 0 {
-		return limboOutcome{got: limboFailure, failures: failures}, nil
-	}
-	return limboOutcome{got: limboSuccess}, nil
+	return limboOutcome{got: limboFailure, failures: failures}, nil
 }
 
 // limboPeerNames returns the testcase's expected peer names. PCL infers a

@@ -1,3 +1,4 @@
-# PKITS runs whose PCL outcome differs from the PKITS expectation. This list
-# must stay empty; TestPKITS requires all 247 runs.
+# PKITS runs whose PCL outcome differs from the PKITS expectation, grouped by
+# cause as in tests/limbo/known-gaps.yaml. This list must stay empty;
+# TestPKITS requires all 247 runs.
 []

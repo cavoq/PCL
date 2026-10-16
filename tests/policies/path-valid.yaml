@@ -1,5 +1,9 @@
 # yaml-language-server: $schema=../../schemas/policy.schema.json
-id: integration-path
+#
+# The path engine's aggregate RFC 5280 Section 6/7 decision. It is attached
+# to the evaluated target when explicit trust anchors are supplied; the PKITS
+# and x509-limbo harnesses and the path policy suite share this policy.
+id: path-valid
 version: "1.0"
 appliesTo: [cert]
 
@@ -11,5 +15,4 @@ rules:
       operator: present
     target: certificate
     operator: pathValid
-    certType: [leaf]
     severity: error

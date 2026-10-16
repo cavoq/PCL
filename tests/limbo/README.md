@@ -8,7 +8,6 @@ Limbo bundles its own path validation cases with the BetterTLS
 | File | Contents |
 |------|----------|
 | `limbo.json` | Limbo testcases; not committed, see below |
-| `path-policy.yaml` | The `pathValid` aggregate decision of the path engine |
 | `known-gaps.yaml` | Testcases PCL does not pass yet, grouped by cause |
 | `pin` | The pinned limbo commit and SHA-256 of `limbo.json` |
 
@@ -41,7 +40,7 @@ x509-limbo is licensed under the Apache License 2.0.
 | `max_chain_depth` | `--max-path-length` |
 | `expected_peer_name(s)` | `--peer-name` |
 
-Each testcase is linted with `path-policy.yaml` and the shipped
+Each testcase is linted with the shared `tests/policies/path-valid.yaml` and the shipped
 `policies/RFC5280.yaml`. It succeeds when no error rule fails for any
 certificate of the chain, so limbo checks the path engine and the RFC 5280
 profile together.
