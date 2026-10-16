@@ -83,18 +83,24 @@ expected verdict is `fail`.
 See [repository suites](../tests/policy-suites) for runnable examples,
 [PKITS](../tests/pkits/README.md) for the NIST suite mapping and
 [x509-limbo](../tests/limbo/README.md) for the limbo mapping. Limbo's
-testcases are downloaded with `tests/scripts/fetch-limbo.sh`; without them
-`TestLimbo` skips.
+testcases are downloaded with `make limbo-fetch`; without them `TestLimbo`
+skips.
 
 ## Development checks
 
-```bash
-go test -race ./...
-go vet ./...
-golangci-lint run ./...
-```
+The Makefile is the entry point; CI runs the same targets.
+
+| Target | Runs |
+|---|---|
+| `make check` | `tidy-check`, `schema-check`, `lint` and `race`: the checks before pushing |
+| `make test` / `make race` | All tests, without or with the race detector |
+| `make cover` | All tests with race detection and coverage over every package |
+| `make limbo` | Fetches the pinned x509-limbo testcases and runs `TestLimbo` |
+| `make fuzz FUZZTIME=30s` | Every fuzz target for the given time |
+| `make lint` / `make vuln` | golangci-lint and govulncheck at pinned versions |
+| `make schema` | Regenerates `schemas/policy.schema.json` |
 
 Changes to policy fields or operator contracts must also regenerate
-`schemas/policy.schema.json` with `go run ./cmd/pcl schema`. The policy tests
+`schemas/policy.schema.json` with `make schema`. The policy tests
 check the committed schema and parser agreement. Add executable evidence for
 new coverage claims; retain known gaps in the coverage matrix.

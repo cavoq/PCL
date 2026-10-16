@@ -10,18 +10,19 @@ Limbo bundles its own path validation cases with the BetterTLS
 | `limbo.json` | Limbo testcases; not committed, see below |
 | `path-policy.yaml` | The `pathValid` aggregate decision of the path engine |
 | `known-gaps.yaml` | Testcases PCL does not pass yet, grouped by cause |
+| `pin` | The pinned limbo commit and SHA-256 of `limbo.json` |
 
 ## Source
 
 `limbo.json` is about 40 MB, so it is downloaded instead of vendored:
 
 ```bash
-tests/scripts/fetch-limbo.sh
+make limbo-fetch   # or make limbo to fetch and run
 ```
 
-The script pins limbo commit `554528a9b0c0d95e071f55de018326f0b65a8364` and
-checks the file's SHA-256. To move to a newer limbo, update `COMMIT` and
-`SHA256` in the script and reconcile `known-gaps.yaml` with the new results.
+`pin` names the limbo commit and the file's SHA-256, which the download is
+checked against; CI caches the file per pin. To move to a newer limbo, update
+`pin` and reconcile `known-gaps.yaml` with the new results.
 x509-limbo is licensed under the Apache License 2.0.
 
 `TestLimbo` skips when `limbo.json` is missing or under `go test -short`.

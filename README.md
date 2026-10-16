@@ -149,10 +149,9 @@ requirements outside RFC 5280.
 ## 🔧 Development
 
 ```bash
-go test -race ./...
-go vet ./...
-golangci-lint run ./...
+make check   # tidy, schema, lint and race-enabled tests, as in CI
+make limbo   # x509-limbo conformance suite
 ```
 
-Run repository policy examples with `pcl test tests/policy-suites`.
+See [testing](docs/TESTING.md) for every target. Run repository policy examples with `pcl test tests/policy-suites`.
 Documentation conventions are in the [documentation index](docs/POLICY_WRITING_GUIDE.md).

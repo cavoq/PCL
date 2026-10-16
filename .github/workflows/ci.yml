@@ -10,6 +10,7 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Each job runs a Makefile target, so CI and local checks are the same.
 jobs:
   lint:
     name: Lint
@@ -24,12 +25,10 @@ jobs:
           cache: true
 
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v9
-        with:
-          version: v2.14.0
+        run: make lint
 
   dependencies:
-    name: Dependencies
+    name: Dependencies and schema
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -41,10 +40,13 @@ jobs:
           cache: true
 
       - name: Check go.mod and go.sum are tidy
-        run: go mod tidy -diff
+        run: make tidy-check
+
+      - name: Check the committed policy schema
+        run: make schema-check
 
       - name: Check for reachable vulnerabilities
-        run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
+        run: make vuln
 
   fuzz:
     name: Fuzz
@@ -59,10 +61,10 @@ jobs:
           cache: true
 
       - name: Run each fuzz target briefly
-        run: tests/scripts/fuzz.sh 10s
+        run: make fuzz FUZZTIME=10s
 
-  unit-tests:
-    name: Unit Tests
+  test:
+    name: Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -73,8 +75,8 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Run unit tests with coverage
-        run: go test -v -race -coverprofile=coverage.out -covermode=atomic $(go list ./... | grep -v '/tests$')
+      - name: Run tests with race detection and coverage
+        run: make cover
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v7
@@ -85,22 +87,7 @@ jobs:
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
-  integration-tests:
-    name: Integration Tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Set up Go
-        uses: actions/setup-go@v7
-        with:
-          go-version-file: go.mod
-          cache: true
-
-      - name: Run integration tests
-        run: go test -v -race ./tests
-
-  limbo-tests:
+  limbo:
     name: x509-limbo
     runs-on: ubuntu-latest
     steps:
@@ -112,10 +99,12 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Fetch x509-limbo testcases
-        run: tests/scripts/fetch-limbo.sh
+      # The testcases change only with tests/limbo/pin.
+      - name: Cache x509-limbo testcases
+        uses: actions/cache@v4
+        with:
+          path: tests/limbo/limbo.json
+          key: limbo-${{ hashFiles('tests/limbo/pin') }}
 
       - name: Run x509-limbo
-        run: go test -v -run '^TestLimbo$' ./tests
-        env:
-          PCL_REQUIRE_LIMBO: "1"
+        run: make limbo

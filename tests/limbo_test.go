@@ -26,7 +26,7 @@ import (
 
 // x509-limbo runs through the lint entry point with the limbo path policy and
 // the shipped RFC 5280 profile. tests/limbo/limbo.json is not committed; fetch
-// it with tests/scripts/fetch-limbo.sh. PCL_REQUIRE_LIMBO=1 turns a missing
+// it with `make limbo-fetch`. PCL_REQUIRE_LIMBO=1 turns a missing
 // file into a failure.
 
 const limboDir = "limbo"
@@ -75,7 +75,7 @@ func loadLimbo(t *testing.T) (limboSuite, map[string]string) {
 	t.Helper()
 	data, err := os.ReadFile(filepath.Join(limboDir, "limbo.json"))
 	if os.IsNotExist(err) && os.Getenv("PCL_REQUIRE_LIMBO") == "" {
-		t.Skip("tests/limbo/limbo.json is missing; run tests/scripts/fetch-limbo.sh")
+		t.Skip("tests/limbo/limbo.json is missing; run make limbo-fetch")
 	}
 	if err != nil {
 		t.Fatalf("read limbo testcases: %v", err)

@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- A Makefile as the development entry point (`make check`, `cover`, `limbo`,
+  `fuzz`, `lint`, `schema`, ...); CI runs the same targets. It replaces the
+  limbo, fuzz and Let's Encrypt fixture scripts, pins golangci-lint and
+  govulncheck, and coverage now includes the integration tests.
 - Optional descriptive policy `metadata` with title, standard, edition, source,
   description, and relevant input names. The parser and editor schema validate
   it; it does not change evaluation or inherit through includes.
@@ -39,7 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - x509-limbo conformance suite in the integration tests, including the
   BetterTLS name-constraint and path-building cases, run against the path
   engine and the shipped RFC 5280 profile with each testcase's expected peer
-  names. `tests/scripts/fetch-limbo.sh` downloads the pinned testcases;
+  names. `make limbo-fetch` downloads the pinned testcases;
   9737 of 9802 reach the limbo result, and the differences are listed by
   cause in `tests/limbo/known-gaps.yaml`.
 

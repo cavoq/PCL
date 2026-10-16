@@ -3,7 +3,7 @@
 Pinned from [Let's Encrypt certificates](https://letsencrypt.org/certificates/) CDNs (HTTP). Refresh:
 
 ```bash
-# Or: tests/scripts/fetch-letsencrypt-crl-fixtures.sh
+# Or, from the repository root: make letsencrypt-fixtures
 curl -sS http://crl.root-x1.letsencrypt.org/ -o isrg-root-x1.crl
 curl -sS http://x2.c.lencr.org/ -o isrg-root-x2.crl
 curl -sSL http://letsencrypt.org/certs/isrgrootx1.der -o isrgrootx1.der
