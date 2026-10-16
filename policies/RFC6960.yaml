@@ -1,26 +1,116 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/cavoq/PCL/master/schemas/policy.schema.json
 id: rfc6960
-version: 1.0
+version: "2.0"
 metadata:
-  title: OCSP evidence validation
-  standard: RFC 6960
-  edition: "2013"
+  title: OCSP evidence and response checks
+  standard: RFC 6960; RFC 8954
+  edition: "2013; 2020"
   source: https://www.rfc-editor.org/rfc/rfc6960
-  description: Leaf-certificate checks requiring current, authenticated, issuer-bound Good OCSP evidence.
+  description: >-
+    Current, authenticated, issuer-bound OCSP evidence for leaf certificates,
+    the response validity window and nonce, and delegated responder
+    certificates; see RFC6960-COVERAGE.md.
   inputs: [certificate, issuers, ocsp, validationTime]
-appliesTo: [cert]
+appliesTo: [cert, ocsp]
 
 rules:
+  # -------------------------------------------------
+  # Response acceptance for the evaluated certificate (Section 3.2)
+  # Without an OCSP response for the certificate both are inconclusive.
+  # -------------------------------------------------
+
+  # The response names the certificate and its issuer, its signature is
+  # valid, the signer is the CA or a responder it authorized, and it is
+  # current (3.2 items 1-6).
   - id: ocsp-valid
-    reference: RFC6960
+    reference: RFC6960 3.2
     target: certificate
     operator: ocspValid
     certType: [leaf]
-    severity: error
+    requirement: must
 
   - id: ocsp-not-revoked
-    reference: RFC6960
+    reference: RFC6960 2.2, 3.2
     target: certificate
     operator: notRevokedOCSP
     certType: [leaf]
-    severity: error
+    requirement: must
+
+  # -------------------------------------------------
+  # Response validity window (Sections 3.2, 4.2.2.1)
+  # -------------------------------------------------
+
+  - id: ocsp-response-next-update-not-past
+    reference: RFC6960 3.2, 4.2.2.1
+    when:
+      target: ocsp.nextUpdate
+      operator: present
+    target: ocsp.nextUpdate
+    operator: onOrAfter
+    requirement: must
+    message: "nextUpdate must not be before the validation time"
+
+  - id: ocsp-response-this-update-not-future
+    reference: RFC6960 4.2.2.1
+    target: ocsp.thisUpdate
+    operator: onOrBefore
+    requirement: should
+    message: "A response whose thisUpdate is after the validation time should be considered unreliable"
+
+  # -------------------------------------------------
+  # Nonce (RFC 8954 2.1)
+  # -------------------------------------------------
+
+  - id: ocsp-response-nonce-not-empty
+    reference: RFC8954 2.1
+    when:
+      target: ocsp.nonce.present
+      operator: eq
+      operands: [true]
+    target: ocsp.nonce.length
+    operator: gte
+    operands: [1]
+    requirement: must
+    message: "A nonce must be at least 1 octet"
+
+  - id: ocsp-response-nonce-max-length
+    reference: RFC8954 2.1
+    when:
+      target: ocsp.nonce.present
+      operator: eq
+      operands: [true]
+    target: ocsp.nonce.length
+    operator: lte
+    operands: [32]
+    requirement: must
+    message: "A nonce must not exceed 32 octets"
+
+  # -------------------------------------------------
+  # Delegated responder certificates (Section 4.2.2.2.1)
+  # The responder certificate embedded in a response is evaluated as an
+  # ocspSigning certificate.
+  # -------------------------------------------------
+
+  - id: ocsp-responder-nocheck-not-critical
+    reference: RFC6960 4.2.2.2.1
+    when:
+      target: certificate.extensions.1.3.6.1.5.5.7.48.1.5
+      operator: present
+    target: certificate.extensions.1.3.6.1.5.5.7.48.1.5.critical
+    operator: eq
+    operands: [false]
+    certType: [ocspSigning]
+    requirement: should
+    message: "id-pkix-ocsp-nocheck should be non-critical"
+
+  - id: ocsp-responder-nocheck-null
+    reference: RFC6960 4.2.2.2.1
+    when:
+      target: certificate.extensions.1.3.6.1.5.5.7.48.1.5
+      operator: present
+    target: certificate.extensions.1.3.6.1.5.5.7.48.1.5.value
+    operator: derEqualsHex
+    operands: ["0500"]
+    certType: [ocspSigning]
+    requirement: must
+    message: "The id-pkix-ocsp-nocheck value must be NULL"

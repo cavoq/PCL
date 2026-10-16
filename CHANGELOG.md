@@ -27,6 +27,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   in signature algorithm identifiers, omission of default PSS fields, the
   recommended MGF1 hash, and the key usage of PSS and OAEP keys. See
   RFC4055-COVERAGE.md.
+- The RFC 6960 pack (version 2.0) also evaluates OCSP responses and their
+  delegated responder certificates: nextUpdate must not have passed, a
+  thisUpdate in the future is a warning, a nonce must have 1 to 32 octets
+  (RFC 8954), and id-pkix-ocsp-nocheck must be NULL and should be
+  non-critical. Its rules cite their sections and state requirement levels.
+  See RFC6960-COVERAGE.md.
 - A policy that skipped every rule for an input has the verdict
   `not_applicable` (`N/A` in text) instead of `pass`: it decided nothing, so
   it must not read as compliance. Policy test suites accept

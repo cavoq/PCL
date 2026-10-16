@@ -1,0 +1,64 @@
+policy: ../../policies/RFC6960.yaml
+tests:
+  - name: rfc6960-delegated-responder
+    cert: ../certs/ocsp-leaf.pem
+    issuers: [../certs/ocsp-intermediate.pem, ../certs/ocsp-root.pem]
+    ocsp: ../ocsps/delegated-leaf.ocsp
+    time: "2026-06-01T00:00:00Z"
+    expect:
+      - input: leaf
+        verdict: pass
+        failed: []
+      - input: ocsp
+        verdict: pass
+        failed: []
+      - input: ocspSigning
+        verdict: pass
+        failed: []
+  - name: rfc6960-delegated-responder-bad-nocheck
+    cert: ../certs/ocsp-leaf.pem
+    issuers: [../certs/ocsp-intermediate.pem, ../certs/ocsp-root.pem]
+    ocsp: ../ocsps/delegated-bad-nocheck-leaf.ocsp
+    time: "2026-06-01T00:00:00Z"
+    expect:
+      - input: ocspSigning
+        verdict: fail
+        failed: [ocsp-responder-nocheck-not-critical, ocsp-responder-nocheck-null]
+  - name: rfc6960-stale-response
+    cert: ../certs/ocsp-leaf.pem
+    issuers: [../certs/ocsp-intermediate.pem, ../certs/ocsp-root.pem]
+    ocsp: ../ocsps/stale-leaf.ocsp
+    time: "2026-06-01T00:00:00Z"
+    expect:
+      - input: leaf
+        verdict: fail
+        failed: [ocsp-not-revoked, ocsp-valid]
+      - input: ocsp
+        verdict: fail
+        failed: [ocsp-response-next-update-not-past]
+  - name: rfc6960-response-before-this-update
+    cert: ../certs/ocsp-leaf.pem
+    issuers: [../certs/ocsp-intermediate.pem, ../certs/ocsp-root.pem]
+    ocsp: ../ocsps/good-leaf.ocsp
+    time: "2025-06-01T00:00:00Z"
+    expect:
+      - input: ocsp
+        verdict: pass
+        failed: [ocsp-response-this-update-not-future]
+  - name: rfc6960-nonce-too-long
+    cert: ../certs/ocsp-leaf.pem
+    issuers: [../certs/ocsp-intermediate.pem, ../certs/ocsp-root.pem]
+    ocsp: ../ocsps/nonce-too-long-leaf.ocsp
+    time: "2026-06-01T00:00:00Z"
+    expect:
+      - input: ocsp
+        verdict: fail
+        failed: [ocsp-response-nonce-max-length]
+  - name: rfc6960-no-response
+    cert: ../certs/ocsp-leaf.pem
+    issuers: [../certs/ocsp-intermediate.pem, ../certs/ocsp-root.pem]
+    time: "2026-06-01T00:00:00Z"
+    expect:
+      - input: leaf
+        verdict: inconclusive
+        rules: {ocsp-valid: inconclusive, ocsp-not-revoked: inconclusive}

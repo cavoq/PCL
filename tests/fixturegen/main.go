@@ -7,10 +7,12 @@
 package main
 
 import (
+	"bytes"
 	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha1" //nolint:gosec // RFC 5280 4.2.1.2 method (1) key identifier
+	"crypto/sha256"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
@@ -250,6 +252,30 @@ func (f fixtures) ocspChain() error {
 	if err != nil {
 		return err
 	}
+	// Delegated responders issued by the intermediate: one whose
+	// id-pkix-ocsp-nocheck is non-critical NULL (RFC 6960 4.2.2.2.1), and one
+	// whose nocheck is critical and an empty OCTET STRING instead of NULL.
+	delegatedResponder := func(serial int64, common string, noCheck pkix.Extension) (issued, error) {
+		return issue(&intermediate, func(template *x509.Certificate) {
+			template.SerialNumber = big.NewInt(serial)
+			template.Subject = name(common)
+			template.NotBefore, template.NotAfter = date(2025, 1, 10, 0, 0, 0), date(2030, 1, 10, 0, 0, 0)
+			template.KeyUsage = x509.KeyUsageDigitalSignature
+			template.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageOCSPSigning}
+			template.ExtraExtensions = []pkix.Extension{noCheck}
+		})
+	}
+	oidOCSPNoCheck := asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 48, 1, 5}
+	delegated, err := delegatedResponder(2005, "PCL Delegated OCSP Responder",
+		pkix.Extension{Id: oidOCSPNoCheck, Value: []byte{0x05, 0x00}})
+	if err != nil {
+		return err
+	}
+	badNoCheck, err := delegatedResponder(2006, "PCL Delegated OCSP Responder Bad nocheck",
+		pkix.Extension{Id: oidOCSPNoCheck, Critical: true, Value: []byte{0x04, 0x00}})
+	if err != nil {
+		return err
+	}
 	for file, certificate := range map[string]issued{
 		"ocsp-root.pem":         root,
 		"ocsp-intermediate.pem": intermediate,
@@ -278,6 +304,10 @@ func (f fixtures) ocspChain() error {
 	wrongLeaf := current(ocsp.Good)
 	wrongLeaf.SerialNumber = big.NewInt(2004)
 
+	embedding := func(template ocsp.Response, responder issued) ocsp.Response {
+		template.Certificate = responder.cert
+		return template
+	}
 	responses := []struct {
 		file      string
 		issuer    issued // CertID issuer
@@ -296,6 +326,8 @@ func (f fixtures) ocspChain() error {
 		{"mixed-good-revoked/z-revoked-leaf.ocsp", intermediate, intermediate, revoked},
 		{"mixed-stale-good/a-stale-leaf.ocsp", intermediate, intermediate, stale},
 		{"mixed-stale-good/z-good-leaf.ocsp", intermediate, intermediate, current(ocsp.Good)},
+		{"delegated-leaf.ocsp", intermediate, delegated, embedding(current(ocsp.Good), delegated)},
+		{"delegated-bad-nocheck-leaf.ocsp", intermediate, badNoCheck, embedding(current(ocsp.Good), badNoCheck)},
 	}
 	for _, response := range responses {
 		der, err := ocsp.CreateResponse(response.issuer.cert, response.responder.cert, response.template, response.responder.key)
@@ -306,7 +338,70 @@ func (f fixtures) ocspChain() error {
 			return err
 		}
 	}
-	return nil
+
+	// A 33-octet response nonce, longer than RFC 8954 2.1 permits.
+	der, err := ocsp.CreateResponse(intermediate.cert, intermediate.cert, current(ocsp.Good), intermediate.key)
+	if err != nil {
+		return err
+	}
+	if der, err = withResponseNonce(der, bytes.Repeat([]byte{0x5a}, 33), intermediate.key); err != nil {
+		return err
+	}
+	return f.write(filepath.Join("ocsps", "nonce-too-long-leaf.ocsp"), der)
+}
+
+// withResponseNonce adds a Nonce responseExtension to the DER OCSP response
+// der, which must have none, and signs it again with key using
+// sha256WithRSAEncryption. golang.org/x/crypto/ocsp cannot create response
+// extensions.
+func withResponseNonce(der, nonce []byte, key crypto.Signer) ([]byte, error) {
+	var response struct {
+		Status        asn1.Enumerated
+		ResponseBytes struct {
+			Type     asn1.ObjectIdentifier
+			Response []byte
+		} `asn1:"explicit,tag:0"`
+	}
+	if _, err := asn1.Unmarshal(der, &response); err != nil {
+		return nil, fmt.Errorf("decode OCSP response: %w", err)
+	}
+	var basic struct {
+		TBS       asn1.RawValue
+		Algorithm asn1.RawValue
+		Signature asn1.BitString
+		Certs     asn1.RawValue `asn1:"optional"`
+	}
+	if _, err := asn1.Unmarshal(response.ResponseBytes.Response, &basic); err != nil {
+		return nil, fmt.Errorf("decode BasicOCSPResponse: %w", err)
+	}
+	value, err := asn1.Marshal(nonce)
+	if err != nil {
+		return nil, err
+	}
+	extensions, err := asn1.Marshal([]pkix.Extension{{Id: asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 48, 1, 2}, Value: value}})
+	if err != nil {
+		return nil, err
+	}
+	explicit, err := asn1.Marshal(asn1.RawValue{Class: asn1.ClassContextSpecific, Tag: 1, IsCompound: true, Bytes: extensions})
+	if err != nil {
+		return nil, err
+	}
+	tbs := sequence(append(bytes.Clone(basic.TBS.Bytes), explicit...))
+	digest := sha256.Sum256(tbs)
+	signature, err := key.Sign(rand.Reader, digest[:], crypto.SHA256)
+	if err != nil {
+		return nil, err
+	}
+	signatureBits, err := asn1.Marshal(asn1.BitString{Bytes: signature, BitLength: 8 * len(signature)})
+	if err != nil {
+		return nil, err
+	}
+	content := append(append(tbs, basic.Algorithm.FullBytes...), signatureBits...)
+	if len(basic.Certs.FullBytes) > 0 {
+		content = append(content, basic.Certs.FullBytes...)
+	}
+	response.ResponseBytes.Response = sequence(content)
+	return asn1.Marshal(response)
 }
 
 // nameConstraintsChain writes nc-root.pem, which permits example.test,

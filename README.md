@@ -111,7 +111,7 @@ See [output and exit status](docs/QUICKSTART.md#output-and-exit-status).
 |---|---|---|
 | [RFC 5280](policies/RFC5280.yaml) | `rfc5280` | Certificate/CRL profiles and conditional explicit-trust path validation; [coverage](policies/RFC5280-COVERAGE.md) |
 | [RFC 4055](policies/RFC4055.yaml) | `rfc4055` | RSA algorithm-identifier parameters; [coverage](policies/RFC4055-COVERAGE.md) |
-| [RFC 6960](policies/RFC6960.yaml) | `rfc6960` | Leaf-bound, authenticated OCSP evidence; missing or unacceptable evidence fails |
+| [RFC 6960](policies/RFC6960.yaml) | `rfc6960` | Leaf-bound, authenticated OCSP evidence (unacceptable evidence fails, missing evidence is inconclusive), response window and nonce, delegated responders; [coverage](policies/RFC6960-COVERAGE.md) |
 | [TR-03116 TLS server](policies/TR03116-TLS-SERVER.yaml) | `tr03116-tls-server` | BSI certificate checklist and 2025 cryptographic profile; [coverage](policies/TR03116-TLS-SERVER-COVERAGE.md) |
 | [Local profile](policies/LOCAL-PROFILE.yaml) | `local-profile` | Supplemental local and WebPKI checks |
 
