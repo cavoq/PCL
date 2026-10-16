@@ -190,10 +190,13 @@ func Validate(inputs Inputs) Result {
 		validateMaximumPathLength(&result, processed, *inputs.MaximumPathLength)
 	}
 
+	// Validity is compared at the one-second granularity of the encoded
+	// times (RFC 5280 4.1.2.5).
 	now := inputs.ValidationTime
 	if now.IsZero() {
 		now = time.Now()
 	}
+	now = now.Truncate(time.Second)
 	for index, info := range processed {
 		certificate := info.Cert
 		validateValidity(&result, index, certificate, now)

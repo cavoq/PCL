@@ -195,6 +195,9 @@ and info failures remain visible but do not change that verdict.
 
 The lint CLI uses the current time. For repeatable historical evaluation,
 set `time` in a [policy test suite](TESTING.md) or supply the API evaluation time.
+The evaluation time is truncated to whole seconds, the granularity of
+certificate, CRL and OCSP times, so a certificate is valid through its entire
+notAfter second.
 
 `--purpose` accepts `serverAuth`, `clientAuth`, `codeSigning`, `emailProtection`,
 `timeStamping`, `ocspSigning`, or a concrete EKU OID. Wildcards (`any`,

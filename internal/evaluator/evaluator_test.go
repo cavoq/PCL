@@ -107,6 +107,35 @@ func TestChainSubjectsProjectTrustAnchor(t *testing.T) {
 	}
 }
 
+func TestChainComparesDatesInWholeSeconds(t *testing.T) {
+	notAfter := time.Date(2024, 4, 1, 0, 0, 0, 0, time.UTC)
+	certificate := &cert.Info{Cert: &x509.Certificate{NotAfter: notAfter}}
+	profile := policy.Policy{
+		ID: "validity",
+		Rules: []rule.Rule{{
+			ID:       "not-expired",
+			Target:   "certificate.validity.notAfter",
+			Operator: "onOrAfter",
+			Severity: rule.SeverityError,
+		}},
+	}
+	verdict := func(now time.Time) string {
+		results := Chain(Context{
+			Policies:       []policy.Policy{profile},
+			Registry:       operator.DefaultRegistry(),
+			Chain:          []*cert.Info{certificate},
+			ValidationTime: now,
+		})
+		return results[0].Results[0].Verdict
+	}
+	if got := verdict(notAfter.Add(5 * time.Millisecond)); got != rule.VerdictPass {
+		t.Fatalf("5 ms into the notAfter second: verdict %s, want pass", got)
+	}
+	if got := verdict(notAfter.Add(time.Second)); got != rule.VerdictFail {
+		t.Fatalf("one second after notAfter: verdict %s, want fail", got)
+	}
+}
+
 func TestChainProjectsAndPropagatesApplicationPurpose(t *testing.T) {
 	certificate := &cert.Info{
 		Cert: &x509.Certificate{},
@@ -286,7 +315,7 @@ func (probe evaluationTimeProbe) Evaluate(
 func TestChainUsesConfiguredValidationTime(t *testing.T) {
 	expected := time.Date(2026, 8, 14, 12, 0, 0, 123, time.UTC)
 	registry := operator.NewRegistry()
-	registry.Register(evaluationTimeProbe{expected: expected})
+	registry.Register(evaluationTimeProbe{expected: expected.Truncate(time.Second)})
 	profile := policy.Policy{
 		ID: "validation-time",
 		Rules: []rule.Rule{{
@@ -310,7 +339,7 @@ func TestChainUsesConfiguredValidationTime(t *testing.T) {
 func TestOCSPUsesConfiguredValidationTime(t *testing.T) {
 	expected := time.Date(2026, 8, 14, 12, 0, 0, 123, time.UTC)
 	registry := operator.NewRegistry()
-	registry.Register(evaluationTimeProbe{expected: expected})
+	registry.Register(evaluationTimeProbe{expected: expected.Truncate(time.Second)})
 	profile := policy.Policy{
 		ID: "ocsp-validation-time",
 		Rules: []rule.Rule{{
@@ -450,7 +479,7 @@ func TestChainSuppliesTargetScopedOCSPAssessments(t *testing.T) {
 func TestCRLUsesConfiguredValidationTime(t *testing.T) {
 	expected := time.Date(2026, 8, 14, 12, 0, 0, 123, time.UTC)
 	registry := operator.NewRegistry()
-	registry.Register(evaluationTimeProbe{expected: expected})
+	registry.Register(evaluationTimeProbe{expected: expected.Truncate(time.Second)})
 	profile := policy.Policy{
 		ID: "crl-validation-time",
 		Rules: []rule.Rule{{

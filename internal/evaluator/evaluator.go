@@ -555,11 +555,15 @@ func revocationLists(infos []*crl.Info) []*x509.RevocationList {
 	return lists
 }
 
+// evaluationTime is the configured time or the current time, truncated to
+// whole seconds: certificate, CRL and OCSP times have one-second
+// granularity (RFC 5280 4.1.2.5), so an instant within the notAfter second
+// still lies within the validity period.
 func evaluationTime(configured time.Time) time.Time {
-	if !configured.IsZero() {
-		return configured
+	if configured.IsZero() {
+		configured = time.Now()
 	}
-	return time.Now()
+	return configured.Truncate(time.Second)
 }
 
 // crlSignerCandidates returns the chain followed by the other supplied

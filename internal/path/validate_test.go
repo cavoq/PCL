@@ -172,6 +172,27 @@ func TestValidatePeerNames(t *testing.T) {
 	}
 }
 
+func TestValidateComparesValidityInWholeSeconds(t *testing.T) {
+	notAfter := time.Date(2024, 4, 1, 0, 0, 0, 0, time.UTC)
+	root := testpki.Issue(t, "Root", nil, testpki.CA(), testpki.Serial(1))
+	leaf := testpki.Issue(t, "Leaf", root, testpki.Serial(2),
+		testpki.Validity(notAfter.Add(-24*time.Hour), notAfter))
+	validate := func(now time.Time) Result {
+		return Validate(Inputs{
+			Chain:          []*cert.Info{pathInfo(leaf), pathInfo(root)},
+			TrustAnchors:   []*cert.Info{pathInfo(root)},
+			ValidationTime: now,
+			RevocationMode: RevocationNone,
+		})
+	}
+	if result := validate(notAfter.Add(5 * time.Millisecond)); hasFailedFinding(result, "path.validity") {
+		t.Fatalf("5 ms into the notAfter second: %q", result.FailureSummary())
+	}
+	if result := validate(notAfter.Add(time.Second)); !hasFailedFinding(result, "path.validity") {
+		t.Fatal("one second after notAfter passed validity")
+	}
+}
+
 func hasFinding(result Result, code string) bool {
 	for _, finding := range result.Findings {
 		if finding.Code == code {

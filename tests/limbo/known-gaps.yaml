@@ -29,13 +29,6 @@
     - online::fastly.com
 
 - reason: >-
-    Validity is compared at the instant of the validation time; limbo expects
-    comparison at the one-second granularity of the encoded notAfter and
-    itself calls the case ambiguous.
-  cases:
-    - rfc5280::validity::notafter-fractional
-
-- reason: >-
     ML-DSA (RFC 9881) keys and signatures are not supported by the
     certificate parser.
   cases:

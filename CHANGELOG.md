@@ -44,6 +44,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   cause in `tests/limbo/known-gaps.yaml`.
 
 ### Fixed
+- The evaluation time is truncated to whole seconds, the granularity of
+  certificate, CRL and OCSP times (RFC 5280 4.1.2.5), so a certificate stays
+  valid through its entire notAfter second.
 - Name constraint processing is bounded: a certificate whose names times
   the issuers' constraint subtrees exceed 250,000 comparisons fails the name
   constraint check instead of being checked quadratically.
