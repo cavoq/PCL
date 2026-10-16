@@ -142,6 +142,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   has to fail the policy. Rule results report the level, and text output adds
   a REQUIREMENT column when a rule states one.
 
+### Changed
+- `make build` builds with `-trimpath -ldflags="-s -w"` like release builds:
+  the binary drops from about 14.9 MB to 10.8 MB and no longer embeds local
+  source paths.
+
 ### Fixed
 - `--auto-validate` no longer warns about non-HTTP CA Issuers URLs, such as
   `ldap://`, when the certificate also has an HTTP(S) one: they are skipped,

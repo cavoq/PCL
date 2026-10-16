@@ -18,7 +18,7 @@ LETSENCRYPT_CERT := internal/cert/testdata/letsencrypt
 all: check
 
 build:
-	$(GO) build -o pcl ./cmd/pcl
+	$(GO) build -trimpath -ldflags="-s -w" -o pcl ./cmd/pcl
 
 test:
 	$(GO) test ./...
