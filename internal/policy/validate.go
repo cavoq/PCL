@@ -91,6 +91,9 @@ func validatePolicy(p Policy) error {
 		return err
 	}
 
+	if err := validateProfiles(p.Profiles); err != nil {
+		return err
+	}
 	seenRuleIDs := make(map[string]struct{}, len(p.Rules))
 	for i, candidate := range p.Rules {
 		if err := validateRule(i, candidate, seenRuleIDs); err != nil {

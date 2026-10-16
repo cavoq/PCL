@@ -72,12 +72,16 @@ func (f *TextFormatter) Format(w io.Writer, out LintOutput) error {
 		if pr.Source != "" && pr.Source != "local" {
 			sourceInfo = fmt.Sprintf(" (%s)", pr.Source)
 		}
+		certType := pr.CertType
+		if pr.Profile != "" {
+			certType += fmt.Sprintf(" (%s, %s)", pr.Profile, pr.ProfileBasis)
+		}
 		counts := countRules(pr.Results)
 		if _, err := fmt.Fprintf(
 			w,
 			"[File] Policy: %s | Cert: %s | File: %s%s | Verdict: %s | %s: %d, %s: %d, %s: %d, %s: %d%s\n",
 			pr.PolicyID,
-			pr.CertType,
+			certType,
 			certPath,
 			sourceInfo,
 			colors.verdict(pr.Verdict),

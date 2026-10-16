@@ -45,6 +45,7 @@ unreleased features. Execution validates semantic operand constraints as well.
 | `crlType` | No | CRL filter: `completeCRL`, `indirectCRL`, `deltaCRLIndicator`, or `2.5.29.27` |
 | `tstType`, `sctType` | No | Reserved subtype filters; no CLI loaders yet |
 | `rules` | No | Rule sequence; include-only packs are allowed |
+| `profiles` | No | Kinds of input the policy distinguishes; see [Profiles](#profiles) |
 | `groups` | No | Rule groups, evaluated after `rules`; see [Groups](#groups) |
 
 Includes merge rules before the parent's own rules. Cycles and duplicate rule
@@ -100,6 +101,7 @@ part of this format.
 | `reference` | No | Requirement reference |
 | `message` | No | Human-readable failure message |
 | `certType` | No | Rule role filter; nonmatching roles skip |
+| `profile` | No | Evaluate only for inputs under one of these [profiles](#profiles) |
 | `when` | No | Precondition: `target`, `operator` and optional `operands`, or a [compound condition](#compound-conditions) |
 | `effective` | No | Window `{basis, from, until}` in which the rule is in effect; see [Effective dates](#effective-dates) |
 
@@ -141,7 +143,7 @@ groups:
 |---|---|
 | `id` | Required, unique among the policy's groups |
 | `title` | Section title, for readers and tools |
-| `reference`, `requirement`, `certType`, `effective` | Defaults: a rule that states its own value keeps it |
+| `reference`, `requirement`, `certType`, `profile`, `effective` | Defaults: a rule that states its own value keeps it |
 | `when` | Applies to every rule: it must hold as well as the rule's own `when` |
 | `rules` | Required, at least one rule |
 
@@ -149,6 +151,52 @@ Groups are expanded when the policy is loaded: their rules follow the
 policy's own `rules`, in group order, and behave exactly like ungrouped rules
 with the inherited fields written out. Rule IDs stay unique across groups. A
 rule inherits the group's `requirement` even when it states a `severity`.
+
+## Profiles
+
+Standards set different requirements for different kinds of one input: the
+CA/B Forum Baseline Requirements have a profile for subscriber certificates,
+TLS subordinate CAs, technically constrained CAs, cross-certified CAs and
+more. A policy names them once and rules state which they apply to:
+
+```yaml
+profiles:
+  - id: technically-constrained-tls-subordinate
+    title: Technically Constrained TLS Subordinate CA (7.1.2.5)
+    role: intermediate
+    when:
+      allOf:
+        - {target: certificate.extKeyUsage.serverAuth, operator: eq, operands: [true]}
+        - {target: certificate.nameConstraints, operator: present}
+  - id: tls-subordinate
+    role: intermediate
+    when: {target: certificate.extKeyUsage.serverAuth, operator: eq, operands: [true]}
+  - id: cross-certified-subordinate
+    role: intermediate
+    assumeOnly: true
+rules:
+  - id: tls-ca-policies
+    profile: [technically-constrained-tls-subordinate, tls-subordinate]
+    ...
+```
+
+| Field | Meaning |
+|---|---|
+| `id` | Required, unique among the policy's profiles |
+| `title`, `reference` | The source's name and section for the profile |
+| `role` | Required input role: `leaf`, `intermediate`, `root`, `ocspSigning`, `crl` or `ocsp` |
+| `when` | Condition the input must meet; omit it for the fallback profile of a role |
+| `assumeOnly` | Never inferred: selected only when the user assumes it, for facts the input cannot show |
+
+Each input is evaluated under at most one profile per policy. A profile of
+its role that the user assumed comes first; otherwise the first profile of
+its role, in policy order, whose `when` holds. List the most specific
+profile of a role first. A rule with `profile` runs only for inputs under one
+of its profiles and is skipped with `rule.profile` otherwise; rules without
+`profile` run for every input as before. Results report the profile and
+whether it was `inferred` or `assumed` (`profile`, `profile_basis`; text
+shows `Cert: intermediate (tls-subordinate, inferred)`). Rules may name
+profiles of included policies.
 
 ## Compound conditions
 

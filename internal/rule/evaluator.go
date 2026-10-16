@@ -27,6 +27,7 @@ const (
 	CodeCondition        = "rule.condition"
 	CodeInputUnavailable = "rule.input-unavailable"
 	CodeNotEffective     = "rule.not-effective"
+	CodeProfile          = "rule.profile"
 )
 
 // Result is the outcome of one rule. Findings explain it: the structured

@@ -45,6 +45,13 @@ func Parse(data []byte) (Policy, error) {
 	if err := validatePolicy(p); err != nil {
 		return Policy{}, err
 	}
+	// Rules may name profiles of included policies; ParseFile checks those
+	// references after merging.
+	if len(p.Includes) == 0 {
+		if err := validateProfileReferences(p); err != nil {
+			return Policy{}, err
+		}
+	}
 	for i := range p.Rules {
 		if p.Rules[i].Severity == "" {
 			p.Rules[i].Severity = rule.DefaultSeverity(p.Rules[i].Requirement)
@@ -120,6 +127,7 @@ func parseFileWithIncludes(path string, state *includeState) (Policy, error) {
 
 	merged := p
 	merged.Rules = make([]rule.Rule, 0, len(p.Rules))
+	merged.Profiles = nil
 	baseDir := filepath.Dir(absPath)
 
 	for _, inc := range p.Includes {
@@ -132,10 +140,15 @@ func parseFileWithIncludes(path string, state *includeState) (Policy, error) {
 			return Policy{}, fmt.Errorf("including %s: %w", inc, err)
 		}
 		merged.Rules = append(merged.Rules, incPolicy.Rules...)
+		merged.Profiles = append(merged.Profiles, incPolicy.Profiles...)
 	}
 
 	merged.Rules = append(merged.Rules, p.Rules...)
+	merged.Profiles = append(merged.Profiles, p.Profiles...)
 	if err := validatePolicy(merged); err != nil {
+		return Policy{}, fmt.Errorf("validating merged policy %s: %w", p.ID, err)
+	}
+	if err := validateProfileReferences(merged); err != nil {
 		return Policy{}, fmt.Errorf("validating merged policy %s: %w", p.ID, err)
 	}
 	state.loaded[absPath] = true

@@ -9,7 +9,7 @@ import (
 
 // Group collects the rules of one section of a source, such as one clause,
 // and states the fields they share. A rule's own reference, requirement,
-// certType or effective window replaces the group's; a group condition is
+// certType, profile or effective window replaces the group's; a group condition is
 // combined with the rule's own, and both must hold.
 type Group struct {
 	ID          string          `yaml:"id"`
@@ -17,6 +17,7 @@ type Group struct {
 	Reference   string          `yaml:"reference,omitempty"`
 	Requirement string          `yaml:"requirement,omitempty"`
 	CertType    []string        `yaml:"certType,omitempty"`
+	Profile     []string        `yaml:"profile,omitempty"`
 	Effective   *rule.Effective `yaml:"effective,omitempty"`
 	When        *rule.Condition `yaml:"when,omitempty"`
 	Rules       []rule.Rule     `yaml:"rules"`
@@ -85,6 +86,9 @@ func applyGroup(group Group, candidate rule.Rule) rule.Rule {
 	}
 	if candidate.CertType == nil {
 		candidate.CertType = group.CertType
+	}
+	if candidate.Profile == nil {
+		candidate.Profile = group.Profile
 	}
 	if candidate.Effective == nil {
 		candidate.Effective = group.Effective

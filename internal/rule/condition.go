@@ -32,6 +32,17 @@ func (c *Condition) Leaves(visit func(*Condition)) {
 	}
 }
 
+// ConditionHolds evaluates cond against root; a condition on an absent
+// target does not hold.
+func ConditionHolds(
+	root *node.Node,
+	cond *Condition,
+	reg *operator.Registry,
+	ctx *operator.EvaluationContext,
+) (bool, error) {
+	return evaluateCondition(root, cond, reg, ctx)
+}
+
 func evaluateCondition(
 	root *node.Node,
 	cond *Condition,

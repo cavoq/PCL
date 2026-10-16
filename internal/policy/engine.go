@@ -1,6 +1,7 @@
 package policy
 
 import (
+	"slices"
 	"time"
 
 	"github.com/cavoq/PCL/internal/node"
@@ -19,6 +20,8 @@ type Policy struct {
 	TSTType   []string    `yaml:"tstType,omitempty"`
 	SCTType   []string    `yaml:"sctType,omitempty"`
 	Rules     []rule.Rule `yaml:"rules"`
+	// Profiles are the kinds of input the policy distinguishes; see Profile.
+	Profiles []Profile `yaml:"profiles,omitempty"`
 	// Groups are expanded into Rules, after the policy's own rules, when the
 	// policy is parsed; parsed policies carry no groups.
 	Groups []Group `yaml:"groups,omitempty"`
@@ -75,13 +78,17 @@ func Verdict(results []rule.Result) string {
 }
 
 type Result struct {
-	PolicyID  string        `json:"policy_id" yaml:"policy_id"`
-	CertType  string        `json:"cert_type" yaml:"cert_type"`
-	CertPath  string        `json:"cert_path" yaml:"cert_path"`
-	Source    string        `json:"source" yaml:"source"`
-	Results   []rule.Result `json:"rules" yaml:"rules"`
-	Verdict   string        `json:"verdict" yaml:"verdict"`
-	CheckedAt time.Time     `json:"checked_at" yaml:"checked_at"`
+	PolicyID string `json:"policy_id" yaml:"policy_id"`
+	CertType string `json:"cert_type" yaml:"cert_type"`
+	CertPath string `json:"cert_path" yaml:"cert_path"`
+	// Profile is the policy profile the input was evaluated under, and
+	// ProfileBasis whether it was inferred from the input or assumed.
+	Profile      string        `json:"profile,omitempty" yaml:"profile,omitempty"`
+	ProfileBasis string        `json:"profile_basis,omitempty" yaml:"profile_basis,omitempty"`
+	Source       string        `json:"source" yaml:"source"`
+	Results      []rule.Result `json:"rules" yaml:"rules"`
+	Verdict      string        `json:"verdict" yaml:"verdict"`
+	CheckedAt    time.Time     `json:"checked_at" yaml:"checked_at"`
 }
 
 func Evaluate(
@@ -92,10 +99,15 @@ func Evaluate(
 ) Result {
 	inputType := inputTypeFromContext(ctx)
 	results := make([]rule.Result, 0, len(p.Rules))
+	selected := selectProfile(p, root, reg, ctx)
 
 	for _, r := range p.Rules {
 		if !RuleAppliesToInput(r, inputType) {
 			results = append(results, rule.Skipped(r, rule.CodeInputType, "not applicable to input type "+inputType))
+			continue
+		}
+		if len(r.Profile) > 0 && !slices.Contains(r.Profile, selected.id) {
+			results = append(results, rule.Skipped(r, rule.CodeProfile, selected.mismatch(r.Profile)))
 			continue
 		}
 		results = append(results, rule.Evaluate(root, r, reg, ctx))
@@ -107,12 +119,14 @@ func Evaluate(
 	}
 
 	return Result{
-		PolicyID:  p.ID,
-		CertType:  input.Kind,
-		CertPath:  input.Path,
-		Source:    input.Source.String(),
-		Results:   results,
-		Verdict:   Verdict(results),
-		CheckedAt: time.Now(),
+		PolicyID:     p.ID,
+		CertType:     input.Kind,
+		CertPath:     input.Path,
+		Profile:      selected.id,
+		ProfileBasis: selected.basis,
+		Source:       input.Source.String(),
+		Results:      results,
+		Verdict:      Verdict(results),
+		CheckedAt:    time.Now(),
 	}
 }

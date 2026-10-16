@@ -515,3 +515,18 @@ func TestWriteRulesTableDetailsExplainFindings(t *testing.T) {
 		})
 	}
 }
+
+func TestTextFormatterShowsTheProfile(t *testing.T) {
+	output := LintOutput{Results: []policy.Result{
+		{PolicyID: "p", CertType: "intermediate", Profile: "tls-subordinate", ProfileBasis: policy.ProfileInferred, Verdict: rule.VerdictPass},
+		{PolicyID: "p", CertType: "root", Verdict: rule.VerdictPass},
+	}}
+	var buf bytes.Buffer
+	if err := NewTextFormatter(Options{}).Format(&buf, output); err != nil {
+		t.Fatal(err)
+	}
+	if text := buf.String(); !strings.Contains(text, "Cert: intermediate (tls-subordinate, inferred) |") ||
+		!strings.Contains(text, "Cert: root |") {
+		t.Errorf("output does not show the profile only where one applies:\n%s", text)
+	}
+}

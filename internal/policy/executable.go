@@ -16,6 +16,20 @@ func ValidateExecutable(p Policy, registry *operator.Registry) error {
 		return fmt.Errorf("operator registry is required")
 	}
 
+	for _, profile := range p.Profiles {
+		if profile.When == nil {
+			continue
+		}
+		var err error
+		profile.When.Leaves(func(leaf *rule.Condition) {
+			if err == nil {
+				err = registry.Validate(leaf.Operator, operator.NormalizeOperands(leaf.Operands))
+			}
+		})
+		if err != nil {
+			return fmt.Errorf("profile %s: when: %w", profile.ID, err)
+		}
+	}
 	for _, candidate := range p.Rules {
 		if err := registry.Validate(candidate.Operator, operator.NormalizeOperands(candidate.Operands)); err != nil {
 			return fmt.Errorf("rule %s: %w", candidate.ID, err)

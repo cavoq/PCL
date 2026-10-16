@@ -34,9 +34,12 @@ type EvaluationContext struct {
 	// Input identifies the evaluated input. Cert is set only when it is a
 	// certificate.
 	Input Input
-	Cert  *cert.Info
-	Chain []*cert.Info
-	CRLs  []*crl.Info
+	// AssumedProfiles names policy profiles the user assumed for this input,
+	// such as a cross-certified CA, which its content cannot show.
+	AssumedProfiles []string
+	Cert            *cert.Info
+	Chain           []*cert.Info
+	CRLs            []*crl.Info
 	// CRLAssessment is the single domain decision projected for Cert. Keeping
 	// it on the evaluation context lets policy adapters consume the same
 	// assessment without rerunning revocation processing.

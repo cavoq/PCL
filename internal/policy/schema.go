@@ -29,6 +29,7 @@ func JSONSchema(registry *operator.Registry) ([]byte, error) {
 	delete(groupRule, "anyOf")
 	definitions["groupRule"] = groupRule
 	definitions["group"] = groupSchema()
+	definitions["profile"] = profileSchema()
 
 	schema := map[string]any{
 		"$schema":              "http://json-schema.org/draft-07/schema#",
@@ -112,6 +113,37 @@ func conditionSchema(operatorName map[string]any, operandRules []any) map[string
 	}
 }
 
+func profileListSchema(description string) map[string]any {
+	return map[string]any{
+		"type":        "array",
+		"minItems":    1,
+		"uniqueItems": true,
+		"items":       trimmedString,
+		"description": description,
+	}
+}
+
+func profileSchema() map[string]any {
+	return map[string]any{
+		"type":                 "object",
+		"additionalProperties": false,
+		"required":             []any{"id", "role"},
+		"description":          "A kind of input the standard sets requirements for. Each input is evaluated under an assumed profile of its role, or else the first of its role whose when holds.",
+		"properties": map[string]any{
+			"id":        withSchemaDescription(trimmedString, "Profile identifier, unique within the policy."),
+			"title":     map[string]any{"type": "string", "description": "Profile name, for example the source section heading."},
+			"reference": map[string]any{"type": "string", "description": "Specification reference of the profile."},
+			"role":      map[string]any{"type": "string", "enum": setToAny(validRuleCertTypes), "description": "Input role the profile applies to."},
+			"when":      map[string]any{"$ref": "#/definitions/condition"},
+			"assumeOnly": map[string]any{
+				"type":        "boolean",
+				"description": "Never inferred: selected only when assumed with --assume-profile, for facts the input cannot show.",
+			},
+		},
+		"not": map[string]any{"required": []any{"assumeOnly", "when"}, "properties": map[string]any{"assumeOnly": map[string]any{"const": true}}},
+	}
+}
+
 func groupSchema() map[string]any {
 	return map[string]any{
 		"type":                 "object",
@@ -129,6 +161,7 @@ func groupSchema() map[string]any {
 				"items":       map[string]any{"type": "string", "enum": setToAny(validRuleCertTypes)},
 				"description": "Default roles of the rules.",
 			},
+			"profile":   profileListSchema("Default profiles of the rules."),
 			"when":      map[string]any{"$ref": "#/definitions/condition"},
 			"effective": effectiveSchema(),
 			"rules":     map[string]any{"type": "array", "minItems": 1, "items": map[string]any{"$ref": "#/definitions/groupRule"}},
@@ -168,6 +201,7 @@ func ruleSchema(operatorName map[string]any, operandRules []any) map[string]any 
 				"items":       map[string]any{"type": "string", "enum": setToAny(validRuleCertTypes)},
 				"description": "Evaluate the rule only for these roles; other roles skip it.",
 			},
+			"profile":   profileListSchema("Evaluate the rule only for inputs evaluated under one of these profiles of the policy."),
 			"when":      map[string]any{"$ref": "#/definitions/condition"},
 			"effective": effectiveSchema(),
 		},
@@ -233,6 +267,11 @@ func policyProperties() map[string]any {
 		"tstType": map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
 		"sctType": map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
 		"rules":   map[string]any{"type": "array", "items": map[string]any{"$ref": "#/definitions/rule"}},
+		"profiles": map[string]any{
+			"type":        "array",
+			"items":       map[string]any{"$ref": "#/definitions/profile"},
+			"description": "Kinds of input the policy distinguishes, most specific first within a role.",
+		},
 		"groups": map[string]any{
 			"type":        "array",
 			"items":       map[string]any{"$ref": "#/definitions/group"},

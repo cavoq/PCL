@@ -172,6 +172,19 @@ rules:
 id: example
 rules:
   - {id: r1, target: certificate.version, operator: present, severity: error, when: {allOf: [{target: a, operator: present}]}}`},
+		{name: "profiles", valid: true, policy: `
+id: example
+profiles:
+  - {id: tls-subordinate, title: TLS Subordinate CA, reference: SPEC 2, role: intermediate, when: {target: certificate.extKeyUsage.serverAuth, operator: eq, operands: [true]}}
+  - {id: cross-certified, role: intermediate, assumeOnly: true}
+rules:
+  - {id: r1, target: certificate.version, operator: present, severity: error, profile: [tls-subordinate, cross-certified]}`},
+		{name: "profile with an unknown role", policy: `
+id: example
+profiles: [{id: p, role: ca}]`},
+		{name: "assumeOnly profile with a condition", policy: `
+id: example
+profiles: [{id: p, role: leaf, assumeOnly: true, when: {target: a, operator: present}}]`},
 		{name: "effective window", valid: true, policy: `
 id: example
 rules:

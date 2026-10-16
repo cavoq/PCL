@@ -64,6 +64,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `when` once; groups are expanded into ordinary rules when loaded. The
   CABF pack is organized into 20 groups, one per BR section, with the same
   rules.
+- Policy `profiles` name the kinds of input a standard distinguishes, such
+  as TLS subordinate or cross-certified CAs. Each input is evaluated under
+  the first profile of its role whose condition holds, or one the user
+  assumed; rules and groups state the profiles they apply to, and results
+  report the profile and whether it was inferred or assumed.
 - `when` takes compound conditions: `allOf`, `anyOf` and `not`, nested. The
   `allOf` operator is the conjunction counterpart of `anyOf` and `oneOf`.
 - `wildcardNotPublicSuffix` checks that a wildcard does not cover a public

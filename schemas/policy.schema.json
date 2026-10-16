@@ -815,6 +815,16 @@
           "pattern": "^\\S(.*\\S)?$",
           "type": "string"
         },
+        "profile": {
+          "description": "Default profiles of the rules.",
+          "items": {
+            "pattern": "^\\S(.*\\S)?$",
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
         "reference": {
           "description": "Default specification reference of the rules.",
           "type": "string"
@@ -1596,6 +1606,16 @@
             "wildcardNotPublicSuffix"
           ],
           "type": "string"
+        },
+        "profile": {
+          "description": "Evaluate the rule only for inputs evaluated under one of these profiles of the policy.",
+          "items": {
+            "pattern": "^\\S(.*\\S)?$",
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
         },
         "reference": {
           "description": "Specification reference, for example RFC 5280 4.2.1.9.",
@@ -2471,6 +2491,63 @@
       ],
       "description": "Minimum and maximum validity in days."
     },
+    "profile": {
+      "additionalProperties": false,
+      "description": "A kind of input the standard sets requirements for. Each input is evaluated under an assumed profile of its role, or else the first of its role whose when holds.",
+      "not": {
+        "properties": {
+          "assumeOnly": {
+            "const": true
+          }
+        },
+        "required": [
+          "assumeOnly",
+          "when"
+        ]
+      },
+      "properties": {
+        "assumeOnly": {
+          "description": "Never inferred: selected only when assumed with --assume-profile, for facts the input cannot show.",
+          "type": "boolean"
+        },
+        "id": {
+          "description": "Profile identifier, unique within the policy.",
+          "pattern": "^\\S(.*\\S)?$",
+          "type": "string"
+        },
+        "reference": {
+          "description": "Specification reference of the profile.",
+          "type": "string"
+        },
+        "role": {
+          "description": "Input role the profile applies to.",
+          "enum": [
+            "attrCert",
+            "crl",
+            "intermediate",
+            "leaf",
+            "ocsp",
+            "ocspSigning",
+            "root",
+            "sct",
+            "tst"
+          ],
+          "type": "string"
+        },
+        "title": {
+          "description": "Profile name, for example the source section heading.",
+          "type": "string"
+        },
+        "when": {
+          "$ref": "#/definitions/condition"
+        }
+      },
+      "required": [
+        "id",
+        "role"
+      ],
+      "type": "object"
+    },
     "rule": {
       "additionalProperties": false,
       "allOf": [
@@ -3231,6 +3308,16 @@
           ],
           "type": "string"
         },
+        "profile": {
+          "description": "Evaluate the rule only for inputs evaluated under one of these profiles of the policy.",
+          "items": {
+            "pattern": "^\\S(.*\\S)?$",
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
         "reference": {
           "description": "Specification reference, for example RFC 5280 4.2.1.9.",
           "type": "string"
@@ -3392,6 +3479,13 @@
         }
       },
       "type": "object"
+    },
+    "profiles": {
+      "description": "Kinds of input the policy distinguishes, most specific first within a role.",
+      "items": {
+        "$ref": "#/definitions/profile"
+      },
+      "type": "array"
     },
     "rules": {
       "items": {
