@@ -33,6 +33,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (RFC 8954), and id-pkix-ocsp-nocheck must be NULL and should be
   non-critical. Its rules cite their sections and state requirement levels.
   See RFC6960-COVERAGE.md.
+- The TR-03116 TLS server pack (version 2025.1) was audited against
+  TR-03116-4 (2025), TR-03116-TS v1.1 and TR-02102-2: the trust-anchor
+  lifetime limit is a warning ("sollten"); the server's RSA key needs 3000
+  bits (TR-02102-2) while keys that sign certificates keep 3072 (Table 29);
+  DSA keys and signatures are rejected from 2030; an end-entity EKU is
+  recommended and must contain serverAuth when present. See
+  TR03116-TLS-SERVER-COVERAGE.md for where TR-03116-4 and the TS differ.
 - A policy that skipped every rule for an input has the verdict
   `not_applicable` (`N/A` in text) instead of `pass`: it decided nothing, so
   it must not read as compliance. Policy test suites accept

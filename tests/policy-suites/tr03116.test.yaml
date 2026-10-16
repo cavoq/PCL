@@ -1,0 +1,74 @@
+policy: tr03116-tls-server
+time: "2026-06-01T00:00:00Z"
+tests:
+  - name: tr03116-conformant-chain
+    cert: ../vectors/tr03116-conformant/leaf.pem
+    issuers: [../vectors/tr03116-conformant/intermediate.pem]
+    trustAnchors: [../vectors/tr03116-conformant/root.pem]
+    crl: ../vectors/tr03116-conformant
+    expect:
+      - input: leaf
+        verdict: pass
+        failed: []
+      - input: intermediate
+        verdict: pass
+        failed: []
+      - input: root
+        verdict: pass
+        failed: []
+  - name: tr03116-without-revocation-evidence
+    cert: ../vectors/tr03116-conformant/leaf.pem
+    issuers: [../vectors/tr03116-conformant/intermediate.pem]
+    trustAnchors: [../vectors/tr03116-conformant/root.pem]
+    expect:
+      - input: leaf
+        verdict: inconclusive
+        failed: []
+        rules: {tls-cert-05-not-revoked: inconclusive}
+  # DSA ends with 2029 (Table 29): from 2030 the from-2030 algorithm rules
+  # take over; this chain uses neither DSA keys nor DSA signatures.
+  - name: tr03116-algorithm-rules-from-2030
+    cert: ../vectors/tr03116-conformant/leaf.pem
+    issuers: [../vectors/tr03116-conformant/intermediate.pem]
+    time: "2030-06-01T00:00:00Z"
+    expect:
+      - input: leaf
+        rules:
+          tls-cert-01-public-key-algorithm: skip
+          tls-cert-01-public-key-algorithm-from-2030: pass
+          tls-cert-02-signature-algorithm-and-hash: skip
+          tls-cert-02-signature-algorithm-and-hash-from-2030: pass
+  - name: tr03116-leaf-without-eku
+    cert: ../vectors/tr03116-leaf-without-eku/leaf.pem
+    issuers: [../vectors/tr03116-leaf-without-eku/intermediate.pem]
+    trustAnchors: [../vectors/tr03116-leaf-without-eku/root.pem]
+    crl: ../vectors/tr03116-leaf-without-eku
+    expect:
+      - input: leaf
+        verdict: pass
+        failed: [tls-cert-08-eku-present]
+        rules: {tls-cert-08-server-auth-eku: skip}
+  - name: tr03116-leaf-rsa-3000
+    cert: ../vectors/tr03116-leaf-rsa-3000/leaf.pem
+    issuers: [../vectors/tr03116-leaf-rsa-3000/intermediate.pem]
+    trustAnchors: [../vectors/tr03116-leaf-rsa-3000/root.pem]
+    crl: ../vectors/tr03116-leaf-rsa-3000
+    expect:
+      - input: leaf
+        verdict: pass
+        failed: []
+  - name: tr03116-leaf-rsa-2048
+    cert: ../vectors/tr03116-leaf-rsa-2048/leaf.pem
+    issuers: [../vectors/tr03116-leaf-rsa-2048/intermediate.pem]
+    trustAnchors: [../vectors/tr03116-leaf-rsa-2048/root.pem]
+    crl: ../vectors/tr03116-leaf-rsa-2048
+    expect:
+      - input: leaf
+        verdict: fail
+        failed: [tls-cert-01-leaf-rsa-key-size]
+  # TR-03116-4 (2025) recommends at most six years for trust anchors.
+  - name: tr03116-root-seven-years
+    cert: ../vectors/tr03116-root-seven-years/root.pem
+    expect:
+      - input: root
+        rules: {tls-cert-11-root-validity-max-six-years: fail}
