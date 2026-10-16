@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/cavoq/PCL/master/schemas/policy.schema.json
 id: rfc5280
-version: "2.1"
+version: "2.2"
 metadata:
   title: X.509 certificate, CRL, and certification-path checks
   standard: RFC 5280
@@ -818,6 +818,118 @@ rules:
     target: crl.nextUpdate
     operator: present
     requirement: must
+
+  # TBSCertList time encodings (5.1.2.4-5.1.2.6): UTCTime through 2049,
+  # GeneralizedTime from 2050, with seconds, "Z" and no fraction. The tag
+  # rules pin the length, so one pattern checks the format. The CRL parser
+  # rejects versions other than v2 (5.1.2.1) and fractional seconds.
+  - id: crl-this-update-utctime-through-2049
+    reference: RFC5280 5.1.2.4
+    when:
+      target: crl.thisUpdate
+      operator: before
+      operands: ["2050-01-01T00:00:00Z"]
+    target: crl.thisUpdate.encoding
+    operator: eq
+    operands: [23]
+    requirement: must
+
+  - id: crl-this-update-generalizedtime-from-2050
+    reference: RFC5280 5.1.2.4
+    when:
+      target: crl.thisUpdate
+      operator: onOrAfter
+      operands: ["2050-01-01T00:00:00Z"]
+    target: crl.thisUpdate.encoding
+    operator: eq
+    operands: [24]
+    requirement: must
+
+  - id: crl-this-update-time-format
+    reference: RFC5280 5.1.2.4, 4.1.2.5.1, 4.1.2.5.2
+    when:
+      target: crl.thisUpdate
+      operator: present
+    target: crl.thisUpdate.rawValue
+    operator: regex
+    operands: ["^([0-9]{12}|[0-9]{14})Z$"]
+    requirement: must
+    message: "thisUpdate must be YYMMDDHHMMSSZ (UTCTime) or YYYYMMDDHHMMSSZ (GeneralizedTime)"
+
+  - id: crl-next-update-utctime-through-2049
+    reference: RFC5280 5.1.2.5
+    when:
+      target: crl.nextUpdate
+      operator: before
+      operands: ["2050-01-01T00:00:00Z"]
+    target: crl.nextUpdate.encoding
+    operator: eq
+    operands: [23]
+    requirement: must
+
+  - id: crl-next-update-generalizedtime-from-2050
+    reference: RFC5280 5.1.2.5
+    when:
+      target: crl.nextUpdate
+      operator: onOrAfter
+      operands: ["2050-01-01T00:00:00Z"]
+    target: crl.nextUpdate.encoding
+    operator: eq
+    operands: [24]
+    requirement: must
+
+  - id: crl-next-update-time-format
+    reference: RFC5280 5.1.2.5, 4.1.2.5.1, 4.1.2.5.2
+    when:
+      target: crl.nextUpdate
+      operator: present
+    target: crl.nextUpdate.rawValue
+    operator: regex
+    operands: ["^([0-9]{12}|[0-9]{14})Z$"]
+    requirement: must
+    message: "nextUpdate must be YYMMDDHHMMSSZ (UTCTime) or YYYYMMDDHHMMSSZ (GeneralizedTime)"
+
+  - id: crl-revocation-date-utctime-through-2049
+    reference: RFC5280 5.1.2.6, 5.1.2.4
+    when:
+      target: crl.revokedCertificates
+      operator: present
+    target: crl.revokedCertificates
+    operator: every
+    operands:
+      - operator: anyOf
+        operands:
+          - {path: revocationDate, operator: onOrAfter, operands: ["2050-01-01T00:00:00Z"]}
+          - {path: revocationDate.encoding, operator: eq, operands: [23]}
+    requirement: must
+    message: "revocationDate through 2049 must be UTCTime"
+
+  - id: crl-revocation-date-generalizedtime-from-2050
+    reference: RFC5280 5.1.2.6, 5.1.2.4
+    when:
+      target: crl.revokedCertificates
+      operator: present
+    target: crl.revokedCertificates
+    operator: every
+    operands:
+      - operator: anyOf
+        operands:
+          - {path: revocationDate, operator: before, operands: ["2050-01-01T00:00:00Z"]}
+          - {path: revocationDate.encoding, operator: eq, operands: [24]}
+    requirement: must
+    message: "revocationDate from 2050 must be GeneralizedTime"
+
+  - id: crl-revocation-date-time-format
+    reference: RFC5280 5.1.2.6, 4.1.2.5.1, 4.1.2.5.2
+    when:
+      target: crl.revokedCertificates
+      operator: present
+    target: crl.revokedCertificates
+    operator: every
+    operands:
+      - {path: revocationDate.rawValue, operator: regex, operands: ["^([0-9]{12}|[0-9]{14})Z$"]}
+    requirement: must
+    message: "revocationDate must be YYMMDDHHMMSSZ (UTCTime) or YYYYMMDDHHMMSSZ (GeneralizedTime)"
 
   - id: crl-signed-by
     reference: RFC5280 5.1

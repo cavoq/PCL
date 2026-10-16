@@ -127,11 +127,11 @@ func readIntegerMetadata(input *cryptobyte.String, field string) (integerMetadat
 }
 
 func parseValidityMetadata(validity cryptobyte.String) (validityMetadata, error) {
-	notBefore, err := readValidityTime(&validity, "notBefore")
+	notBefore, err := x509asn1.ReadTime(&validity, "notBefore")
 	if err != nil {
 		return validityMetadata{}, err
 	}
-	notAfter, err := readValidityTime(&validity, "notAfter")
+	notAfter, err := x509asn1.ReadTime(&validity, "notAfter")
 	if err != nil {
 		return validityMetadata{}, err
 	}
@@ -139,31 +139,6 @@ func parseValidityMetadata(validity cryptobyte.String) (validityMetadata, error)
 		return validityMetadata{}, fmt.Errorf("unexpected data after notAfter")
 	}
 	return validityMetadata{NotBefore: notBefore, NotAfter: notAfter}, nil
-}
-
-func readValidityTime(validity *cryptobyte.String, field string) (x509asn1.TimeEncoding, error) {
-	var der cryptobyte.String
-	var tag cryptobyte_asn1.Tag
-	if !validity.ReadAnyASN1Element(&der, &tag) {
-		return x509asn1.TimeEncoding{}, fmt.Errorf("failed to read %s", field)
-	}
-
-	var (
-		info *x509asn1.TimeEncoding
-		err  error
-	)
-	switch tag {
-	case cryptobyte_asn1.UTCTime:
-		info, err = x509asn1.ParseUTCTime(der)
-	case cryptobyte_asn1.GeneralizedTime:
-		info, err = x509asn1.ParseGeneralizedTime(der)
-	default:
-		return x509asn1.TimeEncoding{}, fmt.Errorf("unsupported %s tag %d", field, tag)
-	}
-	if err != nil {
-		return x509asn1.TimeEncoding{}, fmt.Errorf("parse %s: %w", field, err)
-	}
-	return *info, nil
 }
 
 func readOptionalUniqueIdentifier(

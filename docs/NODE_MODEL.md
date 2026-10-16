@@ -257,6 +257,9 @@ fallback, is authoritative.
 crl.issuer                    # CRL issuer DN
 crl.thisUpdate                 # ThisUpdate time
 crl.nextUpdate                 # Optional NextUpdate time; absent when omitted
+crl.thisUpdate.encoding        # 23 UTCTime, 24 GeneralizedTime; also raw, rawValue,
+                               # hasSeconds, hasZulu, hasFraction (as for validity);
+                               # nextUpdate and revocationDate carry the same facts
 crl.isCACRL                   # Boolean: CA signer or >10-day profile inference
 crl.signatureAlgorithm         # Signature algorithm node
 crl.signatureAlgorithm.oid     # Algorithm OID

@@ -59,6 +59,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   inconclusive rules like failures, so exit statuses do not change.
 
 ### Added
+- CRL `thisUpdate`, `nextUpdate` and entry `revocationDate` nodes carry their
+  time encoding facts, as certificate validity times do. RFC5280 pack `2.2`
+  checks them (5.1.2.4-5.1.2.6): UTCTime through 2049, GeneralizedTime from
+  2050, with seconds and "Z".
 - Certificates project the strictly decoded authorityKeyIdentifier fields
   (`keyIdentifier`, `authorityCertIssuer`, `authorityCertSerialNumber`) under
   `certificate.extensions.authorityKeyIdentifier`, as CRLs already did. RFC5280

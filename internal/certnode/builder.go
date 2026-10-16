@@ -289,22 +289,13 @@ func buildValidity(cert *x509.Certificate, metadata *tbsCertificateMetadata) *no
 	notAfterNode := node.New("notAfter", cert.NotAfter)
 
 	if metadata != nil {
-		addTimeEncoding(notBeforeNode, metadata.Validity.NotBefore)
-		addTimeEncoding(notAfterNode, metadata.Validity.NotAfter)
+		x509node.AddTimeEncoding(notBeforeNode, metadata.Validity.NotBefore)
+		x509node.AddTimeEncoding(notAfterNode, metadata.Validity.NotAfter)
 	}
 
 	n.Children["notBefore"] = notBeforeNode
 	n.Children["notAfter"] = notAfterNode
 	return n
-}
-
-func addTimeEncoding(target *node.Node, encoding x509asn1.TimeEncoding) {
-	target.Children["encoding"] = node.New("encoding", encoding.Tag)
-	target.Children["raw"] = node.New("raw", append([]byte(nil), encoding.RawDER...))
-	target.Children["rawValue"] = node.New("rawValue", encoding.RawValue)
-	target.Children["hasFraction"] = node.New("hasFraction", encoding.HasFraction)
-	target.Children["hasSeconds"] = node.New("hasSeconds", encoding.HasSeconds)
-	target.Children["hasZulu"] = node.New("hasZulu", encoding.HasZulu)
 }
 
 func projectUniqueIdentifier(parent *node.Node, name string, metadata *uniqueIdentifierMetadata) {

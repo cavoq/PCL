@@ -148,6 +148,53 @@ tests:
         policy: rfc5280
         rules:
           aki-well-formed: fail
+  - name: rfc5280-crl-next-update-2050-generalizedtime
+    cert: ../vectors/crl-tbs-encoding/issuer.pem
+    crl: ../vectors/crl-tbs-encoding/next-update-2050.crl
+    time: "2026-07-18T12:00:00Z"
+    expect:
+      - input: crl
+        policy: rfc5280
+        rules:
+          crl-next-update-generalizedtime-from-2050: pass
+          crl-next-update-utctime-through-2049: skip
+          crl-next-update-time-format: pass
+  - name: rfc5280-crl-this-update-generalizedtime-before-2050
+    cert: ../vectors/crl-tbs-encoding/issuer.pem
+    crl: ../vectors/crl-tbs-encoding/this-update-generalizedtime.crl
+    time: "2026-07-18T12:00:00Z"
+    expect:
+      - input: crl
+        policy: rfc5280
+        rules:
+          crl-this-update-utctime-through-2049: fail
+          crl-this-update-time-format: pass
+  - name: rfc5280-crl-next-update-without-seconds
+    cert: ../vectors/crl-tbs-encoding/issuer.pem
+    crl: ../vectors/crl-tbs-encoding/next-update-no-seconds.crl
+    time: "2026-07-18T12:00:00Z"
+    expect:
+      - input: crl
+        policy: rfc5280
+        rules:
+          crl-next-update-time-format: fail
+          crl-next-update-utctime-through-2049: pass
+  - name: rfc5280-crl-revocation-date-offset
+    cert: ../vectors/crl-tbs-encoding/issuer.pem
+    crl: ../vectors/crl-tbs-encoding/revocation-date-offset.crl
+    time: "2026-07-18T12:00:00Z"
+    expect:
+      - input: crl
+        policy: rfc5280
+        rules:
+          crl-revocation-date-utctime-through-2049: fail
+          crl-revocation-date-time-format: fail
+          crl-revocation-date-generalizedtime-from-2050: pass
+  # The CRL parser accepts only v2 (5.1.2.1).
+  - name: rfc5280-crl-version-absent
+    cert: ../vectors/crl-tbs-encoding/issuer.pem
+    crl: ../vectors/crl-tbs-encoding/version-absent.crl
+    error: failed to load CRLs
   - name: rfc5280-ian-second-invalid-label
     cert: ../vectors/certificate-ian-second-invalid-dns-label/certificate.pem
     expect:

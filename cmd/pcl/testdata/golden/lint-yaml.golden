@@ -3,7 +3,7 @@ meta:
   validation_time: 2020-01-01T00:00:00Z
   policies:
     - id: rfc5280
-      version: "2.1"
+      version: "2.2"
       title: X.509 certificate, CRL, and certification-path checks
       standard: RFC 5280
       edition: "2008"
@@ -35,10 +35,10 @@ meta:
         cert_path: ../../tests/pkits/certs/TrustAnchorRootCertificate.crt
         trust_anchor: true
   total_certs: 5
-  total_rules: 720
-  passed_rules: 169
+  total_rules: 765
+  passed_rules: 183
   failed_rules: 0
-  skipped_rules: 551
+  skipped_rules: 582
   inconclusive_rules: 0
 results:
   - policy_id: rfc5280
@@ -1512,6 +1512,76 @@ results:
             status: pass
             certificate_index: -1
             message: 'actual: present; expected: present'
+      - rule_id: crl-this-update-utctime-through-2049
+        reference: RFC5280 5.1.2.4
+        verdict: pass
+        severity: error
+        requirement: must
+        findings:
+          - code: eq
+            status: pass
+            certificate_index: -1
+            message: 'actual: 23; expected: 23'
+      - rule_id: crl-this-update-time-format
+        reference: RFC5280 5.1.2.4, 4.1.2.5.1, 4.1.2.5.2
+        verdict: pass
+        severity: error
+        requirement: must
+        findings:
+          - code: regex
+            status: pass
+            certificate_index: -1
+            message: 'actual: 100101083000Z; required pattern: ^([0-9]{12}|[0-9]{14})Z$'
+      - rule_id: crl-next-update-utctime-through-2049
+        reference: RFC5280 5.1.2.5
+        verdict: pass
+        severity: error
+        requirement: must
+        findings:
+          - code: eq
+            status: pass
+            certificate_index: -1
+            message: 'actual: 23; expected: 23'
+      - rule_id: crl-next-update-time-format
+        reference: RFC5280 5.1.2.5, 4.1.2.5.1, 4.1.2.5.2
+        verdict: pass
+        severity: error
+        requirement: must
+        findings:
+          - code: regex
+            status: pass
+            certificate_index: -1
+            message: 'actual: 301231083000Z; required pattern: ^([0-9]{12}|[0-9]{14})Z$'
+      - rule_id: crl-revocation-date-utctime-through-2049
+        reference: RFC5280 5.1.2.6, 5.1.2.4
+        verdict: pass
+        severity: error
+        requirement: must
+        findings:
+          - code: every
+            status: pass
+            certificate_index: -1
+            message: 'check passed: every; criteria: [{"operands":[{"operands":["2050-01-01T00:00:00Z"],"operator":"onOrAfter","path":"revocationDate"},{"operands":[23],"operator":"eq","path":"revocationDate.enc...]'
+      - rule_id: crl-revocation-date-generalizedtime-from-2050
+        reference: RFC5280 5.1.2.6, 5.1.2.4
+        verdict: pass
+        severity: error
+        requirement: must
+        findings:
+          - code: every
+            status: pass
+            certificate_index: -1
+            message: 'check passed: every; criteria: [{"operands":[{"operands":["2050-01-01T00:00:00Z"],"operator":"before","path":"revocationDate"},{"operands":[24],"operator":"eq","path":"revocationDate.encodi...]'
+      - rule_id: crl-revocation-date-time-format
+        reference: RFC5280 5.1.2.6, 4.1.2.5.1, 4.1.2.5.2
+        verdict: pass
+        severity: error
+        requirement: must
+        findings:
+          - code: every
+            status: pass
+            certificate_index: -1
+            message: 'check passed: every; criteria: [{"operands":["^([0-9]{12}|[0-9]{14})Z$"],"operator":"regex","path":"revocationDate.rawValue"}]'
       - rule_id: crl-signed-by
         reference: RFC5280 5.1
         verdict: pass
@@ -1709,6 +1779,76 @@ results:
             status: pass
             certificate_index: -1
             message: 'actual: present; expected: present'
+      - rule_id: crl-this-update-utctime-through-2049
+        reference: RFC5280 5.1.2.4
+        verdict: pass
+        severity: error
+        requirement: must
+        findings:
+          - code: eq
+            status: pass
+            certificate_index: -1
+            message: 'actual: 23; expected: 23'
+      - rule_id: crl-this-update-time-format
+        reference: RFC5280 5.1.2.4, 4.1.2.5.1, 4.1.2.5.2
+        verdict: pass
+        severity: error
+        requirement: must
+        findings:
+          - code: regex
+            status: pass
+            certificate_index: -1
+            message: 'actual: 100101083000Z; required pattern: ^([0-9]{12}|[0-9]{14})Z$'
+      - rule_id: crl-next-update-utctime-through-2049
+        reference: RFC5280 5.1.2.5
+        verdict: pass
+        severity: error
+        requirement: must
+        findings:
+          - code: eq
+            status: pass
+            certificate_index: -1
+            message: 'actual: 23; expected: 23'
+      - rule_id: crl-next-update-time-format
+        reference: RFC5280 5.1.2.5, 4.1.2.5.1, 4.1.2.5.2
+        verdict: pass
+        severity: error
+        requirement: must
+        findings:
+          - code: regex
+            status: pass
+            certificate_index: -1
+            message: 'actual: 301231083000Z; required pattern: ^([0-9]{12}|[0-9]{14})Z$'
+      - rule_id: crl-revocation-date-utctime-through-2049
+        reference: RFC5280 5.1.2.6, 5.1.2.4
+        verdict: pass
+        severity: error
+        requirement: must
+        findings:
+          - code: every
+            status: pass
+            certificate_index: -1
+            message: 'check passed: every; criteria: [{"operands":[{"operands":["2050-01-01T00:00:00Z"],"operator":"onOrAfter","path":"revocationDate"},{"operands":[23],"operator":"eq","path":"revocationDate.enc...]'
+      - rule_id: crl-revocation-date-generalizedtime-from-2050
+        reference: RFC5280 5.1.2.6, 5.1.2.4
+        verdict: pass
+        severity: error
+        requirement: must
+        findings:
+          - code: every
+            status: pass
+            certificate_index: -1
+            message: 'check passed: every; criteria: [{"operands":[{"operands":["2050-01-01T00:00:00Z"],"operator":"before","path":"revocationDate"},{"operands":[24],"operator":"eq","path":"revocationDate.encodi...]'
+      - rule_id: crl-revocation-date-time-format
+        reference: RFC5280 5.1.2.6, 4.1.2.5.1, 4.1.2.5.2
+        verdict: pass
+        severity: error
+        requirement: must
+        findings:
+          - code: every
+            status: pass
+            certificate_index: -1
+            message: 'check passed: every; criteria: [{"operands":["^([0-9]{12}|[0-9]{14})Z$"],"operator":"regex","path":"revocationDate.rawValue"}]'
       - rule_id: crl-signed-by
         reference: RFC5280 5.1
         verdict: pass

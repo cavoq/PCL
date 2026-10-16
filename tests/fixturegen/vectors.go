@@ -44,6 +44,7 @@ func (f fixtures) vectors() error {
 		vectorCertificateDNNoncanonicalOrder,
 		vectorCertificateOrganizationTeletexString,
 		vectorCRLEntryReasonUnspecified,
+		vectorCRLTBSEncoding,
 		rfc4055Vectors,
 		tr03116Vectors,
 		cabfVectors,
@@ -412,6 +413,76 @@ func vectorCRLEntryReasonUnspecified(w vectorWriter) error {
 	}
 	return firstError(w.certificate("crl-entry-reason-unspecified", "issuer.pem", issuer.cert.Raw),
 		w.crl("crl-entry-reason-unspecified", list))
+}
+
+// vectorCRLTBSEncoding writes CRLs whose TBSCertList breaks one encoding
+// rule of RFC 5280 5.1.2 each: no version field (v1, rejected when loaded),
+// a GeneralizedTime thisUpdate before 2050, a UTCTime nextUpdate without
+// seconds and a GeneralizedTime revocationDate with a zone offset. next-update-2050.crl is
+// conforming and has a GeneralizedTime nextUpdate. Fields are rewritten
+// after Go encoded the CRL, then signed again.
+func vectorCRLTBSEncoding(w vectorWriter) error {
+	issuer, err := vectorCA(nil)
+	if err != nil {
+		return err
+	}
+	template := func(nextUpdate time.Time) *x509.RevocationList {
+		return &x509.RevocationList{
+			ThisUpdate: date(2026, 7, 18, 11, 0, 0),
+			NextUpdate: nextUpdate,
+			RevokedCertificateEntries: []x509.RevocationListEntry{{
+				SerialNumber:   big.NewInt(42),
+				RevocationTime: date(2026, 7, 18, 10, 0, 0),
+			}},
+		}
+	}
+	list, err := revocationList(issuer, template(date(2026, 7, 19, 11, 0, 0)))
+	if err != nil {
+		return err
+	}
+	late, err := revocationList(issuer, template(date(2050, 1, 1, 0, 0, 0)))
+	if err != nil {
+		return err
+	}
+	const (
+		version, thisUpdate, nextUpdate, revoked = 0, 3, 4, 5
+	)
+	files := map[string]func([][]byte) [][]byte{
+		"version-absent.crl": func(fields [][]byte) [][]byte { return fields[1:] },
+		"this-update-generalizedtime.crl": func(fields [][]byte) [][]byte {
+			fields[thisUpdate] = element(0x18, []byte("20260718110000Z"))
+			return fields
+		},
+		"next-update-no-seconds.crl": func(fields [][]byte) [][]byte {
+			fields[nextUpdate] = element(0x17, []byte("2607191100Z"))
+			return fields
+		},
+		"revocation-date-offset.crl": func(fields [][]byte) [][]byte {
+			entry := append(element(0x02, []byte{42}), element(0x18, []byte("20260718120000+0200"))...)
+			fields[revoked] = sequence(sequence(entry))
+			return fields
+		},
+	}
+	errs := []error{
+		w.certificate("crl-tbs-encoding", "issuer.pem", issuer.cert.Raw),
+		w.write("crl-tbs-encoding", "next-update-2050.crl", "X509 CRL", late),
+	}
+	for file, rewrite := range files {
+		der, err := rewriteTBSCertificate(list, func(fields [][]byte) ([][]byte, error) {
+			if len(fields) != 7 || fields[version][0] != 0x02 {
+				return nil, fmt.Errorf("%s: unexpected TBSCertList layout", file)
+			}
+			return rewrite(fields), nil
+		})
+		if err == nil {
+			der, err = resign(der, issuer.key)
+		}
+		if err != nil {
+			return err
+		}
+		errs = append(errs, w.write("crl-tbs-encoding", file, "X509 CRL", der))
+	}
+	return firstError(errs...)
 }
 
 func vectorCertificateDNNoncanonicalOrder(w vectorWriter) error {

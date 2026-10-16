@@ -90,3 +90,30 @@ func readDERValue(derBytes []byte, expectedTag int, name string) ([]byte, error)
 	}
 	return value, nil
 }
+
+// ReadTime reads one UTCTime or GeneralizedTime element from input and
+// returns its encoding facts; field names it in errors.
+func ReadTime(input *cryptobyte.String, field string) (TimeEncoding, error) {
+	var der cryptobyte.String
+	var tag cryptobyte_asn1.Tag
+	if !input.ReadAnyASN1Element(&der, &tag) {
+		return TimeEncoding{}, fmt.Errorf("failed to read %s", field)
+	}
+
+	var (
+		info *TimeEncoding
+		err  error
+	)
+	switch tag {
+	case cryptobyte_asn1.UTCTime:
+		info, err = ParseUTCTime(der)
+	case cryptobyte_asn1.GeneralizedTime:
+		info, err = ParseGeneralizedTime(der)
+	default:
+		return TimeEncoding{}, fmt.Errorf("unsupported %s tag %d", field, tag)
+	}
+	if err != nil {
+		return TimeEncoding{}, fmt.Errorf("parse %s: %w", field, err)
+	}
+	return *info, nil
+}

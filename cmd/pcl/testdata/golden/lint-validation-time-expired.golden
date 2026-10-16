@@ -1,12 +1,12 @@
-[Summary] Checked: <time> | Validation time: 2031-01-01T00:00:00Z | Certs: 5 | Rules: 720 | PASS: 160, FAIL: 9, SKIP: 551, WARN: 0
-[Policy] rfc5280 2.1 | RFC 5280 | 2008
+[Summary] Checked: <time> | Validation time: 2031-01-01T00:00:00Z | Certs: 5 | Rules: 765 | PASS: 174, FAIL: 9, SKIP: 582, WARN: 0
+[Policy] rfc5280 2.2 | RFC 5280 | 2008
 [Chain] 3 certificate(s), anchored
   leaf          CN=Valid EE Certificate Test1, O=Test Certificates 2011, C=US
   intermediate  CN=Good CA, O=Test Certificates 2011, C=US
   root          CN=Trust Anchor, O=Test Certificates 2011, C=US (trust anchor)
 
 ========================================================================
-[File] Policy: rfc5280 | Cert: leaf | File: ../../tests/pkits/certs/ValidCertificatePathTest1EE.crt | Verdict: FAIL | PASS: 41, FAIL: 3, SKIP: 100, WARN: 0
+[File] Policy: rfc5280 | Cert: leaf | File: ../../tests/pkits/certs/ValidCertificatePathTest1EE.crt | Verdict: FAIL | PASS: 41, FAIL: 3, SKIP: 109, WARN: 0
 ------------------------------------------------------------------------
   VERDICT  SEVERITY  REQUIREMENT  RULE                      REFERENCE      
   -------  --------  -----------  ------------------------  ---------------
@@ -21,7 +21,7 @@
                                   └─ check failed: notRevoked
 
 ========================================================================
-[File] Policy: rfc5280 | Cert: intermediate | File: ../../tests/pkits/certs/GoodCACert.crt | Verdict: FAIL | PASS: 47, FAIL: 2, SKIP: 95, WARN: 0
+[File] Policy: rfc5280 | Cert: intermediate | File: ../../tests/pkits/certs/GoodCACert.crt | Verdict: FAIL | PASS: 47, FAIL: 2, SKIP: 104, WARN: 0
 ------------------------------------------------------------------------
   VERDICT  SEVERITY  REQUIREMENT  RULE              REFERENCE      
   -------  --------  -----------  ----------------  ---------------
@@ -31,7 +31,7 @@
                                   └─ check failed: notRevoked
 
 ========================================================================
-[File] Policy: rfc5280 | Cert: root | File: ../../tests/pkits/certs/TrustAnchorRootCertificate.crt | Verdict: FAIL | PASS: 36, FAIL: 2, SKIP: 106, WARN: 0
+[File] Policy: rfc5280 | Cert: root | File: ../../tests/pkits/certs/TrustAnchorRootCertificate.crt | Verdict: FAIL | PASS: 36, FAIL: 2, SKIP: 115, WARN: 0
 ------------------------------------------------------------------------
   VERDICT  SEVERITY  REQUIREMENT  RULE              REFERENCE      
   -------  --------  -----------  ----------------  ---------------
@@ -41,7 +41,7 @@
                                   └─ check failed: notRevoked
 
 ========================================================================
-[File] Policy: rfc5280 | Cert: crl | File: testdata/pkits-crls/GoodCACRL.crl | Verdict: FAIL | PASS: 18, FAIL: 1, SKIP: 125, WARN: 0
+[File] Policy: rfc5280 | Cert: crl | File: testdata/pkits-crls/GoodCACRL.crl | Verdict: FAIL | PASS: 25, FAIL: 1, SKIP: 127, WARN: 0
 ------------------------------------------------------------------------
   VERDICT  SEVERITY  REQUIREMENT  RULE       REFERENCE  
   -------  --------  -----------  ---------  -----------
@@ -49,7 +49,7 @@
                                   └─ check failed: crlValid
 
 ========================================================================
-[File] Policy: rfc5280 | Cert: crl | File: testdata/pkits-crls/TrustAnchorRootCRL.crl | Verdict: FAIL | PASS: 18, FAIL: 1, SKIP: 125, WARN: 0
+[File] Policy: rfc5280 | Cert: crl | File: testdata/pkits-crls/TrustAnchorRootCRL.crl | Verdict: FAIL | PASS: 25, FAIL: 1, SKIP: 127, WARN: 0
 ------------------------------------------------------------------------
   VERDICT  SEVERITY  REQUIREMENT  RULE       REFERENCE  
   -------  --------  -----------  ---------  -----------

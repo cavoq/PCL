@@ -74,6 +74,7 @@ as RFC 5280 coverage.
 | CRL window, required nextUpdate, signature, and algorithms | Covered | `crl-valid`, `crl-next-update-present`, `crl-signed-by`, `crl-signature-algorithm-matches-tbs` |
 | Certificate revocation conclusion | Partial | `cert-not-revoked` |
 | CRL AKI and CRL Number profile | Covered | `crl-aki-well-formed`, `crl-aki-not-critical`, `crl-authority-key-identifier-present`, `crl-number-well-formed`, `crl-number-not-critical`, `crl-number-present` |
+| CRL time encodings (5.1.2.4-5.1.2.6) | Covered | `crl-this-update-utctime-through-2049`, `crl-this-update-generalizedtime-from-2050`, `crl-this-update-time-format`, `crl-next-update-utctime-through-2049`, `crl-next-update-generalizedtime-from-2050`, `crl-next-update-time-format`, `crl-revocation-date-utctime-through-2049`, `crl-revocation-date-generalizedtime-from-2050`, `crl-revocation-date-time-format` |
 | Delta CRL and IDP structure/profile | Covered | `crl-delta-indicator-well-formed`, `crl-delta-indicator-critical`, `crl-idp-well-formed`, `crl-idp-critical`, `crl-idp-excludes-attribute-certificates` |
 | CRL Freshest structure/profile | Covered | `crl-freshest-well-formed`, `crl-freshest-not-critical`, `crl-delta-omits-freshest` |
 | CRL critical-extension processing | Covered | `crl-no-unknown-critical-extensions` |
@@ -149,7 +150,7 @@ as RFC 5280 coverage.
 | Other standards | RFC 6960 evidence checks, RFC 9549 DNS checks, PSL, CA/B Forum and local size/profile rules are not RFC 5280 coverage |
 | Parser credit | A known OID or successful library parse alone is not evidence of full semantic processing |
 | CRL entries | removeFromCRL (8) outside delta CRLs is not checked: the rule needs both "not a delta CRL" and "entries present", and a rule takes one condition |
-| CRL encodings | CRL version and thisUpdate/nextUpdate time encodings are not projected, so 5.1.2.1 and 5.1.2.4 encoding rules are absent |
+| CRL encodings | The CRL parser rejects a CRL that is not v2 (5.1.2.1) or has fractional GeneralizedTime seconds, so those cases fail to load rather than reaching a rule. Time rules see the other violations: the wrong type for the year, missing seconds and zone offsets other than "Z" |
 
 Revocation follows the selected `--path-revocation` mode; separate profile
 rules remain active. CRL signers must reach the same explicit trust set when

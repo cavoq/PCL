@@ -1,12 +1,12 @@
-[Summary] Checked: <time> | Validation time: 2020-01-01T00:00:00Z | Certs: 5 | Rules: 720 | PASS: 169, FAIL: 0, SKIP: 551, WARN: 0
-[Policy] rfc5280 2.1 | RFC 5280 | 2008
+[Summary] Checked: <time> | Validation time: 2020-01-01T00:00:00Z | Certs: 5 | Rules: 765 | PASS: 183, FAIL: 0, SKIP: 582, WARN: 0
+[Policy] rfc5280 2.2 | RFC 5280 | 2008
 [Chain] 3 certificate(s), anchored
   leaf          CN=Valid EE Certificate Test1, O=Test Certificates 2011, C=US
   intermediate  CN=Good CA, O=Test Certificates 2011, C=US
   root          CN=Trust Anchor, O=Test Certificates 2011, C=US (trust anchor)
 
 ========================================================================
-[File] Policy: rfc5280 | Cert: leaf | File: ../../tests/pkits/certs/ValidCertificatePathTest1EE.crt | Verdict: PASS | PASS: 44, FAIL: 0, SKIP: 100, WARN: 0
+[File] Policy: rfc5280 | Cert: leaf | File: ../../tests/pkits/certs/ValidCertificatePathTest1EE.crt | Verdict: PASS | PASS: 44, FAIL: 0, SKIP: 109, WARN: 0
 ------------------------------------------------------------------------
   VERDICT  SEVERITY  REQUIREMENT  RULE                                     REFERENCE                        
   -------  --------  -----------  ---------------------------------------  ---------------------------------
@@ -107,7 +107,7 @@
                                      [{"operands":[12,19],"operator":"in","path":"encoding"}]
 
 ========================================================================
-[File] Policy: rfc5280 | Cert: intermediate | File: ../../tests/pkits/certs/GoodCACert.crt | Verdict: PASS | PASS: 49, FAIL: 0, SKIP: 95, WARN: 0
+[File] Policy: rfc5280 | Cert: intermediate | File: ../../tests/pkits/certs/GoodCACert.crt | Verdict: PASS | PASS: 49, FAIL: 0, SKIP: 104, WARN: 0
 ------------------------------------------------------------------------
   VERDICT  SEVERITY  REQUIREMENT  RULE                                     REFERENCE                        
   -------  --------  -----------  ---------------------------------------  ---------------------------------
@@ -216,7 +216,7 @@
                                      [{"operands":[19],"operator":"eq","path":"encoding"}]
 
 ========================================================================
-[File] Policy: rfc5280 | Cert: root | File: ../../tests/pkits/certs/TrustAnchorRootCertificate.crt | Verdict: PASS | PASS: 38, FAIL: 0, SKIP: 106, WARN: 0
+[File] Policy: rfc5280 | Cert: root | File: ../../tests/pkits/certs/TrustAnchorRootCertificate.crt | Verdict: PASS | PASS: 38, FAIL: 0, SKIP: 115, WARN: 0
 ------------------------------------------------------------------------
   VERDICT  SEVERITY  REQUIREMENT  RULE                                     REFERENCE         
   -------  --------  -----------  ---------------------------------------  ------------------
@@ -298,111 +298,151 @@
                                   └─ actual: true; expected: true
 
 ========================================================================
-[File] Policy: rfc5280 | Cert: crl | File: testdata/pkits-crls/GoodCACRL.crl | Verdict: PASS | PASS: 19, FAIL: 0, SKIP: 125, WARN: 0
+[File] Policy: rfc5280 | Cert: crl | File: testdata/pkits-crls/GoodCACRL.crl | Verdict: PASS | PASS: 26, FAIL: 0, SKIP: 127, WARN: 0
 ------------------------------------------------------------------------
-  VERDICT  SEVERITY  REQUIREMENT  RULE                                      REFERENCE               
-  -------  --------  -----------  ----------------------------------------  ------------------------
-  PASS     ERROR     MUST         crl-issuer-name-well-formed               RFC5280 5.1.2.3         
+  VERDICT  SEVERITY  REQUIREMENT  RULE                                           REFERENCE                            
+  -------  --------  -----------  ---------------------------------------------  -------------------------------------
+  PASS     ERROR     MUST         crl-issuer-name-well-formed                    RFC5280 5.1.2.3                      
                                   └─ actual: absent; expected: absent
-  PASS     ERROR     MUST         crl-valid                                 RFC5280 5.1             
+  PASS     ERROR     MUST         crl-valid                                      RFC5280 5.1                          
                                   └─ check passed: crlValid
-  PASS     ERROR     MUST         crl-next-update-present                   RFC5280 5.1.2.5         
+  PASS     ERROR     MUST         crl-next-update-present                        RFC5280 5.1.2.5                      
                                   └─ actual: present; expected: present
-  PASS     ERROR     MUST         crl-signed-by                             RFC5280 5.1             
+  PASS     ERROR     MUST         crl-this-update-utctime-through-2049           RFC5280 5.1.2.4                      
+                                  └─ actual: 23; expected: 23
+  PASS     ERROR     MUST         crl-this-update-time-format                    RFC5280 5.1.2.4, 4.1.2.5.1, 4.1.2.5.2
+                                  └─ actual: 100101083000Z; required pattern: ^([0-9]{12}|[0-9]{14})Z$
+  PASS     ERROR     MUST         crl-next-update-utctime-through-2049           RFC5280 5.1.2.5                      
+                                  └─ actual: 23; expected: 23
+  PASS     ERROR     MUST         crl-next-update-time-format                    RFC5280 5.1.2.5, 4.1.2.5.1, 4.1.2.5.2
+                                  └─ actual: 301231083000Z; required pattern: ^([0-9]{12}|[0-9]{14})Z$
+  PASS     ERROR     MUST         crl-revocation-date-utctime-through-2049       RFC5280 5.1.2.6, 5.1.2.4             
+                                  └─ check passed: every; criteria:
+                                     [{"operands":[{"operands":["2050-01-01T00:00:00Z"],"operator":"onOrAfter","path":"r
+                                     evocationDate"},{"operands":[23],"operator":"eq","path":"revocationDate.enc...]
+  PASS     ERROR     MUST         crl-revocation-date-generalizedtime-from-2050  RFC5280 5.1.2.6, 5.1.2.4             
+                                  └─ check passed: every; criteria:
+                                     [{"operands":[{"operands":["2050-01-01T00:00:00Z"],"operator":"before","path":"revo
+                                     cationDate"},{"operands":[24],"operator":"eq","path":"revocationDate.encodi...]
+  PASS     ERROR     MUST         crl-revocation-date-time-format                RFC5280 5.1.2.6, 4.1.2.5.1, 4.1.2.5.2
+                                  └─ check passed: every; criteria:
+                                     [{"operands":["^([0-9]{12}|[0-9]{14})Z$"],"operator":"regex","path":"revocationDate
+                                     .rawValue"}]
+  PASS     ERROR     MUST         crl-signed-by                                  RFC5280 5.1                          
                                   └─ check passed: crlSignedBy
-  PASS     ERROR     MUST         crl-signature-algorithm-matches-tbs       RFC5280 5.1.1.2, 5.1.2.2
+  PASS     ERROR     MUST         crl-signature-algorithm-matches-tbs            RFC5280 5.1.1.2, 5.1.2.2             
                                   └─ check passed: signatureAlgorithmMatchesTBS
-  PASS     ERROR     MUST         crl-aki-not-critical                      RFC5280 5.2             
+  PASS     ERROR     MUST         crl-aki-not-critical                           RFC5280 5.2                          
                                   └─ actual: false; expected: false
-  PASS     ERROR     MUST         crl-aki-well-formed                       RFC5280 5.2.1           
+  PASS     ERROR     MUST         crl-aki-well-formed                            RFC5280 5.2.1                        
                                   └─ actual: absent; expected: absent
-  PASS     ERROR     MUST         crl-authority-key-identifier-present      RFC5280 5.2.1           
+  PASS     ERROR     MUST         crl-authority-key-identifier-present           RFC5280 5.2.1                        
                                   └─ actual: present; expected: present
-  PASS     ERROR     MUST         crl-number-not-critical                   RFC5280 5.2             
+  PASS     ERROR     MUST         crl-number-not-critical                        RFC5280 5.2                          
                                   └─ actual: false; expected: false
-  PASS     ERROR     MUST         crl-number-well-formed                    RFC5280 5.2.3           
+  PASS     ERROR     MUST         crl-number-well-formed                         RFC5280 5.2.3                        
                                   └─ actual: absent; expected: absent
-  PASS     ERROR     MUST         crl-number-present                        RFC5280 5.2.3           
+  PASS     ERROR     MUST         crl-number-present                             RFC5280 5.2.3                        
                                   └─ actual: present; expected: present
-  PASS     ERROR     MUST         crl-no-unknown-critical-extensions        RFC5280 5.2, 5.3        
+  PASS     ERROR     MUST         crl-no-unknown-critical-extensions             RFC5280 5.2, 5.3                     
                                   └─ check passed: noUnknownCriticalExtensions
-  PASS     ERROR     MUST         crl-entry-reason-valid                    RFC5280 5.3.1           
+  PASS     ERROR     MUST         crl-entry-reason-valid                         RFC5280 5.3.1                        
                                   └─ check passed: every; criteria:
                                      [{"check":"absent","path":"extensions.2.5.29.21.malformed","skipMissing":true}]
-  PASS     ERROR     MUST         crl-entry-reason-not-critical             RFC5280 5.3.1           
+  PASS     ERROR     MUST         crl-entry-reason-not-critical                  RFC5280 5.3.1                        
                                   └─ check passed: every; criteria:
                                      [{"check":"eq","path":"extensions.2.5.29.21.critical","skipMissing":true,"values":[
                                      false]}]
-  PASS     WARN      SHOULD       crl-entry-reason-not-unspecified          RFC5280 5.3.1           
+  PASS     WARN      SHOULD       crl-entry-reason-not-unspecified               RFC5280 5.3.1                        
                                   └─ check passed: every; criteria:
                                      [{"operands":[0],"operator":"neq","path":"extensions.2.5.29.21.value","skipMissing"
                                      :true}]
-  PASS     ERROR     MUST         crl-entry-invalidity-date-well-formed     RFC5280 5.3.2           
+  PASS     ERROR     MUST         crl-entry-invalidity-date-well-formed          RFC5280 5.3.2                        
                                   └─ check passed: every; criteria:
                                      [{"check":"absent","path":"extensions.2.5.29.24.malformed","skipMissing":true}]
-  PASS     ERROR     MUST         crl-entry-invalidity-date-not-critical    RFC5280 5.3.2           
+  PASS     ERROR     MUST         crl-entry-invalidity-date-not-critical         RFC5280 5.3.2                        
                                   └─ check passed: every; criteria:
                                      [{"check":"eq","path":"extensions.2.5.29.24.critical","skipMissing":true,"values":[
                                      false]}]
-  PASS     ERROR     MUST         crl-entry-certificate-issuer-well-formed  RFC5280 5.3.3           
+  PASS     ERROR     MUST         crl-entry-certificate-issuer-well-formed       RFC5280 5.3.3                        
                                   └─ check passed: every; criteria:
                                      [{"check":"absent","path":"extensions.2.5.29.29.malformed","skipMissing":true}]
-  PASS     ERROR     MUST         crl-entry-certificate-issuer-critical     RFC5280 5.3.3           
+  PASS     ERROR     MUST         crl-entry-certificate-issuer-critical          RFC5280 5.3.3                        
                                   └─ check passed: every; criteria:
                                      [{"check":"eq","path":"extensions.2.5.29.29.critical","skipMissing":true,"values":[
                                      true]}]
 
 ========================================================================
-[File] Policy: rfc5280 | Cert: crl | File: testdata/pkits-crls/TrustAnchorRootCRL.crl | Verdict: PASS | PASS: 19, FAIL: 0, SKIP: 125, WARN: 0
+[File] Policy: rfc5280 | Cert: crl | File: testdata/pkits-crls/TrustAnchorRootCRL.crl | Verdict: PASS | PASS: 26, FAIL: 0, SKIP: 127, WARN: 0
 ------------------------------------------------------------------------
-  VERDICT  SEVERITY  REQUIREMENT  RULE                                      REFERENCE               
-  -------  --------  -----------  ----------------------------------------  ------------------------
-  PASS     ERROR     MUST         crl-issuer-name-well-formed               RFC5280 5.1.2.3         
+  VERDICT  SEVERITY  REQUIREMENT  RULE                                           REFERENCE                            
+  -------  --------  -----------  ---------------------------------------------  -------------------------------------
+  PASS     ERROR     MUST         crl-issuer-name-well-formed                    RFC5280 5.1.2.3                      
                                   └─ actual: absent; expected: absent
-  PASS     ERROR     MUST         crl-valid                                 RFC5280 5.1             
+  PASS     ERROR     MUST         crl-valid                                      RFC5280 5.1                          
                                   └─ check passed: crlValid
-  PASS     ERROR     MUST         crl-next-update-present                   RFC5280 5.1.2.5         
+  PASS     ERROR     MUST         crl-next-update-present                        RFC5280 5.1.2.5                      
                                   └─ actual: present; expected: present
-  PASS     ERROR     MUST         crl-signed-by                             RFC5280 5.1             
+  PASS     ERROR     MUST         crl-this-update-utctime-through-2049           RFC5280 5.1.2.4                      
+                                  └─ actual: 23; expected: 23
+  PASS     ERROR     MUST         crl-this-update-time-format                    RFC5280 5.1.2.4, 4.1.2.5.1, 4.1.2.5.2
+                                  └─ actual: 100101083000Z; required pattern: ^([0-9]{12}|[0-9]{14})Z$
+  PASS     ERROR     MUST         crl-next-update-utctime-through-2049           RFC5280 5.1.2.5                      
+                                  └─ actual: 23; expected: 23
+  PASS     ERROR     MUST         crl-next-update-time-format                    RFC5280 5.1.2.5, 4.1.2.5.1, 4.1.2.5.2
+                                  └─ actual: 301231083000Z; required pattern: ^([0-9]{12}|[0-9]{14})Z$
+  PASS     ERROR     MUST         crl-revocation-date-utctime-through-2049       RFC5280 5.1.2.6, 5.1.2.4             
+                                  └─ check passed: every; criteria:
+                                     [{"operands":[{"operands":["2050-01-01T00:00:00Z"],"operator":"onOrAfter","path":"r
+                                     evocationDate"},{"operands":[23],"operator":"eq","path":"revocationDate.enc...]
+  PASS     ERROR     MUST         crl-revocation-date-generalizedtime-from-2050  RFC5280 5.1.2.6, 5.1.2.4             
+                                  └─ check passed: every; criteria:
+                                     [{"operands":[{"operands":["2050-01-01T00:00:00Z"],"operator":"before","path":"revo
+                                     cationDate"},{"operands":[24],"operator":"eq","path":"revocationDate.encodi...]
+  PASS     ERROR     MUST         crl-revocation-date-time-format                RFC5280 5.1.2.6, 4.1.2.5.1, 4.1.2.5.2
+                                  └─ check passed: every; criteria:
+                                     [{"operands":["^([0-9]{12}|[0-9]{14})Z$"],"operator":"regex","path":"revocationDate
+                                     .rawValue"}]
+  PASS     ERROR     MUST         crl-signed-by                                  RFC5280 5.1                          
                                   └─ check passed: crlSignedBy
-  PASS     ERROR     MUST         crl-signature-algorithm-matches-tbs       RFC5280 5.1.1.2, 5.1.2.2
+  PASS     ERROR     MUST         crl-signature-algorithm-matches-tbs            RFC5280 5.1.1.2, 5.1.2.2             
                                   └─ check passed: signatureAlgorithmMatchesTBS
-  PASS     ERROR     MUST         crl-aki-not-critical                      RFC5280 5.2             
+  PASS     ERROR     MUST         crl-aki-not-critical                           RFC5280 5.2                          
                                   └─ actual: false; expected: false
-  PASS     ERROR     MUST         crl-aki-well-formed                       RFC5280 5.2.1           
+  PASS     ERROR     MUST         crl-aki-well-formed                            RFC5280 5.2.1                        
                                   └─ actual: absent; expected: absent
-  PASS     ERROR     MUST         crl-authority-key-identifier-present      RFC5280 5.2.1           
+  PASS     ERROR     MUST         crl-authority-key-identifier-present           RFC5280 5.2.1                        
                                   └─ actual: present; expected: present
-  PASS     ERROR     MUST         crl-number-not-critical                   RFC5280 5.2             
+  PASS     ERROR     MUST         crl-number-not-critical                        RFC5280 5.2                          
                                   └─ actual: false; expected: false
-  PASS     ERROR     MUST         crl-number-well-formed                    RFC5280 5.2.3           
+  PASS     ERROR     MUST         crl-number-well-formed                         RFC5280 5.2.3                        
                                   └─ actual: absent; expected: absent
-  PASS     ERROR     MUST         crl-number-present                        RFC5280 5.2.3           
+  PASS     ERROR     MUST         crl-number-present                             RFC5280 5.2.3                        
                                   └─ actual: present; expected: present
-  PASS     ERROR     MUST         crl-no-unknown-critical-extensions        RFC5280 5.2, 5.3        
+  PASS     ERROR     MUST         crl-no-unknown-critical-extensions             RFC5280 5.2, 5.3                     
                                   └─ check passed: noUnknownCriticalExtensions
-  PASS     ERROR     MUST         crl-entry-reason-valid                    RFC5280 5.3.1           
+  PASS     ERROR     MUST         crl-entry-reason-valid                         RFC5280 5.3.1                        
                                   └─ check passed: every; criteria:
                                      [{"check":"absent","path":"extensions.2.5.29.21.malformed","skipMissing":true}]
-  PASS     ERROR     MUST         crl-entry-reason-not-critical             RFC5280 5.3.1           
+  PASS     ERROR     MUST         crl-entry-reason-not-critical                  RFC5280 5.3.1                        
                                   └─ check passed: every; criteria:
                                      [{"check":"eq","path":"extensions.2.5.29.21.critical","skipMissing":true,"values":[
                                      false]}]
-  PASS     WARN      SHOULD       crl-entry-reason-not-unspecified          RFC5280 5.3.1           
+  PASS     WARN      SHOULD       crl-entry-reason-not-unspecified               RFC5280 5.3.1                        
                                   └─ check passed: every; criteria:
                                      [{"operands":[0],"operator":"neq","path":"extensions.2.5.29.21.value","skipMissing"
                                      :true}]
-  PASS     ERROR     MUST         crl-entry-invalidity-date-well-formed     RFC5280 5.3.2           
+  PASS     ERROR     MUST         crl-entry-invalidity-date-well-formed          RFC5280 5.3.2                        
                                   └─ check passed: every; criteria:
                                      [{"check":"absent","path":"extensions.2.5.29.24.malformed","skipMissing":true}]
-  PASS     ERROR     MUST         crl-entry-invalidity-date-not-critical    RFC5280 5.3.2           
+  PASS     ERROR     MUST         crl-entry-invalidity-date-not-critical         RFC5280 5.3.2                        
                                   └─ check passed: every; criteria:
                                      [{"check":"eq","path":"extensions.2.5.29.24.critical","skipMissing":true,"values":[
                                      false]}]
-  PASS     ERROR     MUST         crl-entry-certificate-issuer-well-formed  RFC5280 5.3.3           
+  PASS     ERROR     MUST         crl-entry-certificate-issuer-well-formed       RFC5280 5.3.3                        
                                   └─ check passed: every; criteria:
                                      [{"check":"absent","path":"extensions.2.5.29.29.malformed","skipMissing":true}]
-  PASS     ERROR     MUST         crl-entry-certificate-issuer-critical     RFC5280 5.3.3           
+  PASS     ERROR     MUST         crl-entry-certificate-issuer-critical          RFC5280 5.3.3                        
                                   └─ check passed: every; criteria:
                                      [{"check":"eq","path":"extensions.2.5.29.29.critical","skipMissing":true,"values":[
                                      true]}]

@@ -42,6 +42,7 @@ func buildCRL(crl *x509.RevocationList) *node.Node {
 	if len(crl.RevokedCertificates) > 0 {
 		root.Children["revokedCertificates"] = buildRevokedCertificates(crl.RevokedCertificates)
 	}
+	projectTBSCertListMetadata(root, crl.RawTBSRevocationList)
 
 	if len(crl.Extensions) > 0 {
 		root.Children["extensions"] = x509node.BuildExtensions(crl.Extensions)
