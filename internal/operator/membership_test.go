@@ -37,6 +37,7 @@ func TestMembershipOperators(t *testing.T) {
 		is("notIn: string not in set", NotIn{}, "MD5WithRSA", algorithms, true),
 		is("notIn: string in set", NotIn{}, "SHA256WithRSA", algorithms, false),
 		is("notIn: int not in set", NotIn{}, 1024, []any{2048, 4096}, true),
+		{name: "notIn: nil node is not a member", op: NotIn{}, operands: []any{"a"}, want: true},
 
 		is("contains: slice contains string", Contains{}, usages, []any{"digitalSignature"}, true),
 		is("contains: slice does not contain", Contains{}, usages, []any{"cRLSign"}, false),

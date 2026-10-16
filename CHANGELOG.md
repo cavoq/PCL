@@ -105,8 +105,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - A `when` condition whose target is absent is not met, so the rule is
   skipped instead of failing with a condition error.
-- `neq` decides an absent target: an absent value is not equal to the
-  operand, so the rule passes instead of failing with "target not found".
+- `neq` and `notIn` decide an absent target: an absent value is not equal to
+  the operand and not in the set, so the rule passes instead of failing with
+  "target not found".
 - Consolidated documentation into CLI workflows, policy format, operator and
   node references, and policy testing. Coverage pages now separate implemented
   checks, executable evidence, and limits; the README is a short entry point.

@@ -33,12 +33,16 @@ type NotIn struct{}
 
 func (NotIn) Name() string { return "notIn" }
 
+// AcceptsMissingTarget lets notIn decide an absent target, like neq: an
+// absent value is not a member of the operand set.
+func (NotIn) AcceptsMissingTarget() {}
+
 func (NotIn) Evaluate(n *node.Node, _ *EvaluationContext, operands []any) (bool, error) {
-	if n == nil {
-		return false, nil
-	}
 	if len(operands) == 0 {
 		return false, fmt.Errorf("notIn requires at least 1 operand")
+	}
+	if n == nil {
+		return true, nil
 	}
 	for _, op := range operands {
 		if equal(n.Value, op) {

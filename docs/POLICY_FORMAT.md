@@ -112,8 +112,8 @@ load errors. Validation includes `when` and nested `every` invocations.
 A false `when` precondition skips the rule; so does a precondition whose
 target is absent. Use conditions for applicability, not to hide evidence that
 a requirement says must exist. Ordinary rule operators fail on missing
-targets; `present`, `absent`, `isEmpty`, `isNull` and `neq` decide absence
-explicitly (an absent value is not equal to any operand).
+targets; `present`, `absent`, `isEmpty`, `isNull`, `neq` and `notIn` decide
+absence explicitly (an absent value equals no operand and is in no set).
 
 | Rule result | Policy effect |
 |---|---|

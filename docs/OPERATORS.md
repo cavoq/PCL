@@ -24,7 +24,7 @@ semantic constraints such as OIDs, regexes, and CIDRs.
 | `eq` | [value] | Returns true if target equals operand |
 | `neq` | [value] | Returns true if target does NOT equal operand; an absent target is not equal |
 | `in` | [value1, value2, ...] | Returns true if target is in the list |
-| `notIn` | [value1, value2, ...] | Returns true if target is NOT in the list |
+| `notIn` | [value1, value2, ...] | Returns true if target is NOT in the list; an absent target is in no list |
 | `contains` | [value, ...] | Target contains at least one specified value |
 | `matches` | [fieldPath] | Returns true if target equals the value at another field path |
 
