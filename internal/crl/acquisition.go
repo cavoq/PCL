@@ -236,10 +236,14 @@ func (session *FetchSession) FetchForChain(chain []*cert.Info, warnings io.Write
 			continue
 		}
 		if facts.FreshestCRL != nil {
-			freshestURLs = append(
-				freshestURLs,
-				x509ext.DistributionPointURIs(facts.FreshestCRL.Points)...,
+			urls, err := httpfetch.HTTPURLs(
+				x509ext.DistributionPointURIs(facts.FreshestCRL.Points),
+				"Freshest CRL",
 			)
+			if err != nil {
+				writeAcquisitionErrors(warnings, []error{err})
+			}
+			freshestURLs = append(freshestURLs, urls...)
 		}
 	}
 
@@ -286,6 +290,10 @@ func (session *FetchSession) fetchUnique(
 	return results, errs
 }
 
+// certificateDistributionPointURLs returns the HTTP(S) URLs of the
+// certificate's CRL Distribution Points and Freshest CRL extensions. Other
+// URLs, such as ldap://, are skipped; an extension without any HTTP(S) URL
+// yields one error.
 func certificateDistributionPointURLs(certificate *x509.Certificate) ([]string, []error) {
 	extensions := x509ext.NewExtensionIndex(certificate.Extensions)
 	var urls []string
@@ -300,15 +308,23 @@ func certificateDistributionPointURLs(certificate *x509.Certificate) ([]string, 
 			))
 			continue
 		}
-		urls = append(urls, found...)
-	}
-
-	// Preserve compatibility for manually constructed certificates that have
-	// typed CRL URLs but no raw CRLDistributionPoints extension.
-	if !extensions.Lookup(oid.CRLDistributionPoints).Present() {
-		urls = append(urls, certificate.CRLDistributionPoints...)
+		// Preserve compatibility for manually constructed certificates that
+		// have typed CRL URLs but no raw CRLDistributionPoints extension.
+		if identifier == oid.CRLDistributionPoints && !extensions.Lookup(identifier).Present() {
+			found = certificate.CRLDistributionPoints
+		}
+		supported, err := httpfetch.HTTPURLs(found, distributionPointKinds[identifier])
+		if err != nil {
+			errs = append(errs, err)
+		}
+		urls = append(urls, supported...)
 	}
 	return urls, errs
+}
+
+var distributionPointKinds = map[string]string{
+	oid.CRLDistributionPoints: "CRL Distribution Points",
+	oid.FreshestCRL:           "Freshest CRL",
 }
 
 func extensionDistributionPointURLs(

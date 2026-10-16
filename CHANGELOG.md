@@ -148,6 +148,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and chain climbing uses the first HTTP(S) URL instead of the first URL. A
   certificate with only non-HTTP CA Issuers URLs gets one warning, e.g.
   "only ldap:// CA Issuers URLs (...); LDAP retrieval is not supported".
+- CRL acquisition likewise skips non-HTTP CRL Distribution Points and
+  Freshest CRL URLs when the same extension has an HTTP(S) one, instead of
+  warning `unsupported CRL URL scheme "ldap"` per URL; an extension with
+  only non-HTTP URLs gets one warning naming them.
 - `--cert-url` acquires the chain of servers whose certificates Go's TLS
   stack rejects (untrusted root, expired, wrong name). Acquisition used to
   verify the chain against the system roots, so those servers could not be

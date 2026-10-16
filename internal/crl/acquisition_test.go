@@ -1,6 +1,7 @@
 package crl
 
 import (
+	"bytes"
 	"context"
 	cryptox509 "crypto/x509"
 	cryptopkix "crypto/x509/pkix"
@@ -202,6 +203,72 @@ func TestFetchSessionNeverFollowsFreshestOnDelta(t *testing.T) {
 	if trapHits.Load() != 0 {
 		t.Fatalf("followed forbidden Freshest CRL on delta %d times", trapHits.Load())
 	}
+}
+
+func TestFetchForChainSkipsLDAPWhenHTTPPresent(t *testing.T) {
+	deltaURL := testpki.Serve(t, makeAcquisitionCRL(t, 2, []cryptopkix.Extension{deltaCRLIndicator(t, 1)}))
+	baseURL := testpki.Serve(t, makeAcquisitionCRL(t, 1, []cryptopkix.Extension{
+		freshestCRL(t, "ldap://directory.example/cn=CA?deltaRevocationList", deltaURL),
+	}))
+	certificate := &x509.Certificate{Extensions: []pkix.Extension{{
+		Id:    zasn1.ObjectIdentifier{2, 5, 29, 31},
+		Value: distributionPointsURIs(t, "ldap://directory.example/cn=CA?certificateRevocationList", baseURL),
+	}}}
+
+	var warnings bytes.Buffer
+	results := NewFetchSession(FetchConfig{Timeout: time.Second}).FetchForChain(
+		[]*cert.Info{{Cert: certificate}},
+		&warnings,
+	)
+	if len(results) != 2 {
+		t.Fatalf("fetched %d CRLs, want base and delta", len(results))
+	}
+	if warnings.Len() != 0 {
+		t.Fatalf("warnings = %q, want none", warnings.String())
+	}
+}
+
+func TestFetchForChainWarnsOnceWithoutHTTP(t *testing.T) {
+	t.Run("certificate", func(t *testing.T) {
+		urls := []string{
+			"ldap://directory.example/cn=CA?certificateRevocationList",
+			"ldap://backup.example/cn=CA?certificateRevocationList",
+		}
+		certificate := &x509.Certificate{Extensions: []pkix.Extension{{
+			Id:    zasn1.ObjectIdentifier{2, 5, 29, 31},
+			Value: distributionPointsURIs(t, urls...),
+		}}}
+		retriever := &countingRetriever{}
+
+		var warnings bytes.Buffer
+		NewFetchSession(FetchConfig{Retriever: retriever}).FetchForChain(
+			[]*cert.Info{{Cert: certificate}},
+			&warnings,
+		)
+		want := "Warning: only ldap:// CRL Distribution Points URLs (" + strings.Join(urls, ", ") +
+			"); LDAP retrieval is not supported\n"
+		if warnings.String() != want {
+			t.Fatalf("warnings = %q, want %q", warnings.String(), want)
+		}
+		if retriever.calls.Load() != 0 {
+			t.Fatalf("retriever called %d times for LDAP URLs", retriever.calls.Load())
+		}
+	})
+
+	t.Run("fetched CRL", func(t *testing.T) {
+		ldapURL := "ldap://directory.example/cn=CA?deltaRevocationList"
+		baseURL := testpki.Serve(t, makeAcquisitionCRL(t, 1, []cryptopkix.Extension{freshestCRL(t, ldapURL)}))
+
+		var warnings bytes.Buffer
+		NewFetchSession(FetchConfig{Timeout: time.Second}).FetchForChain(
+			[]*cert.Info{{Cert: &x509.Certificate{CRLDistributionPoints: []string{baseURL}}}},
+			&warnings,
+		)
+		want := "Warning: only ldap:// Freshest CRL URLs (" + ldapURL + "); LDAP retrieval is not supported\n"
+		if warnings.String() != want {
+			t.Fatalf("warnings = %q, want %q", warnings.String(), want)
+		}
+	})
 }
 
 func TestCertificateDistributionPointURLsPreservesDuplicateError(t *testing.T) {

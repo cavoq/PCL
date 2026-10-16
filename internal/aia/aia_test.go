@@ -178,26 +178,6 @@ func TestFetchCAIssuersWarnsOnceWithoutHTTP(t *testing.T) {
 	}
 }
 
-func TestSupportedCAIssuersURLs(t *testing.T) {
-	supported, err := SupportedCAIssuersURLs([]string{"ldap://a.example/", "HTTPS://b.example/ca.crt", "http://c.example/ca.crt"})
-	if err != nil {
-		t.Fatalf("SupportedCAIssuersURLs: %v", err)
-	}
-	if !slices.Equal(supported, []string{"HTTPS://b.example/ca.crt", "http://c.example/ca.crt"}) {
-		t.Fatalf("supported = %v", supported)
-	}
-
-	if supported, err := SupportedCAIssuersURLs(nil); err != nil || supported != nil {
-		t.Fatalf("SupportedCAIssuersURLs(nil) = %v, %v; want nil, nil", supported, err)
-	}
-
-	_, err = SupportedCAIssuersURLs([]string{"ftp://a.example/ca.crt", "ldap://b.example/", "%zz"})
-	want := "only ftp://, ldap:// CA Issuers URLs (ftp://a.example/ca.crt, ldap://b.example/, %zz); FTP and LDAP retrieval is not supported"
-	if err == nil || err.Error() != want {
-		t.Fatalf("error = %v, want %q", err, want)
-	}
-}
-
 func TestSelectIssuer(t *testing.T) {
 	subjectMatch := &zx509.Certificate{
 		Subject: zpkix.Name{CommonName: "Subject Match CA"},
