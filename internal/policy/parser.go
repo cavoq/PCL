@@ -41,6 +41,11 @@ func Parse(data []byte) (Policy, error) {
 	if err := validatePolicy(p); err != nil {
 		return Policy{}, err
 	}
+	for i := range p.Rules {
+		if p.Rules[i].Severity == "" {
+			p.Rules[i].Severity = rule.DefaultSeverity(p.Rules[i].Requirement)
+		}
+	}
 	return p, nil
 }
 

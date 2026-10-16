@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/cavoq/PCL/internal/operator"
+	"github.com/cavoq/PCL/internal/rule"
 )
 
 func TestParse_Valid(t *testing.T) {
@@ -243,7 +244,19 @@ rules:
     target: certificate.version
     operator: present
 `,
-			wantMessage: "severity is required",
+			wantMessage: "severity or requirement is required",
+		},
+		{
+			name: "unsupported requirement",
+			policy: `
+id: test-policy
+rules:
+  - id: r1
+    target: certificate.version
+    operator: present
+    requirement: shall
+`,
+			wantMessage: `invalid requirement "shall"`,
 		},
 		{
 			name: "unsupported severity",
@@ -266,6 +279,33 @@ rules:
 				t.Fatalf("expected error containing %q, got %v", tt.wantMessage, err)
 			}
 		})
+	}
+}
+
+func TestParse_RequirementSuppliesDefaultSeverity(t *testing.T) {
+	p, err := Parse([]byte(`
+id: test-policy
+rules:
+  - {id: must, target: certificate.version, operator: present, requirement: must}
+  - {id: should, target: certificate.version, operator: present, requirement: should}
+  - {id: may, target: certificate.version, operator: present, requirement: may}
+  - {id: tightened, target: certificate.version, operator: present, requirement: should, severity: error}
+  - {id: unstated, target: certificate.version, operator: present, severity: warning}
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string][2]string{
+		"must":      {rule.RequirementMust, rule.SeverityError},
+		"should":    {rule.RequirementShould, rule.SeverityWarning},
+		"may":       {rule.RequirementMay, rule.SeverityInfo},
+		"tightened": {rule.RequirementShould, rule.SeverityError},
+		"unstated":  {"", rule.SeverityWarning},
+	}
+	for _, r := range p.Rules {
+		if got := [2]string{r.Requirement, r.Severity}; got != want[r.ID] {
+			t.Errorf("rule %s: requirement, severity = %v, want %v", r.ID, got, want[r.ID])
+		}
 	}
 }
 

@@ -134,6 +134,18 @@ metadata: {inputs: [" certificate"]}`},
 		{name: "metadata must be a mapping", policy: `
 id: example
 metadata: [certificate]`},
+		{name: "requirement without severity", valid: true, policy: `
+id: example
+rules:
+  - {id: r1, target: certificate.version, operator: present, requirement: should}`},
+		{name: "neither severity nor requirement", policy: `
+id: example
+rules:
+  - {id: r1, target: certificate.version, operator: present}`},
+		{name: "unknown requirement", policy: `
+id: example
+rules:
+  - {id: r1, target: certificate.version, operator: present, requirement: shall}`},
 		{name: "minimal", valid: true, policy: `
 id: example
 rules:

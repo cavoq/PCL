@@ -94,11 +94,19 @@ part of this format.
 | `target` | Yes | Dotted path in the node tree |
 | `operator` | Yes | Registered operator name |
 | `operands` | Depends on operator | Sequence, scalar, or supported structured mapping |
-| `severity` | Yes | `error`, `warning`, or `info` |
+| `requirement` | One of these two | RFC 2119 level of the source clause: `must` (MUST, SHALL), `should` (SHOULD, RECOMMENDED), or `may` (MAY, OPTIONAL) |
+| `severity` | One of these two | `error`, `warning`, or `info`; defaults from `requirement` to `error`, `warning`, or `info` |
 | `reference` | No | Requirement reference |
 | `message` | No | Human-readable failure message |
 | `certType` | No | Rule role filter; nonmatching roles skip |
 | `when` | No | Precondition with `target`, `operator`, and optional `operands` |
+
+State `requirement` for rules that implement a normative source, so a SHOULD
+does not read as a MUST: with only `requirement`, a failed SHOULD is a
+warning and leaves the policy verdict alone. An explicit `severity` overrides
+the default, for a profile that deliberately tightens a recommendation. Each
+rule result reports its `requirement`, and text output adds a REQUIREMENT
+column when any rule states one.
 
 Rule roles are `leaf`, `intermediate`, `root`, `ocspSigning`, `crl`, `ocsp`,
 and reserved `tst`, `sct`, `attrCert`. Omit `certType` to allow all roles.

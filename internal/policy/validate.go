@@ -54,6 +54,11 @@ var (
 		rule.SeverityWarning,
 		rule.SeverityInfo,
 	)
+	validRequirements = stringSet(
+		rule.RequirementMust,
+		rule.RequirementShould,
+		rule.RequirementMay,
+	)
 )
 
 func validatePolicy(p Policy) error {
@@ -160,10 +165,20 @@ func validateRule(index int, candidate rule.Rule, seenIDs map[string]struct{}) e
 	return nil
 }
 
+// validateSeverity checks the rule's severity and requirement level; the
+// severity may be omitted when the requirement level supplies it.
 func validateSeverity(candidate rule.Rule) error {
+	if candidate.Requirement != "" {
+		if _, ok := validRequirements[candidate.Requirement]; !ok {
+			return fmt.Errorf("rule %s: invalid requirement %q: use must, should or may", candidate.ID, candidate.Requirement)
+		}
+		if candidate.Severity == "" {
+			return nil
+		}
+	}
 	severity := strings.TrimSpace(candidate.Severity)
 	if severity == "" {
-		return fmt.Errorf("rule %s: severity is required", candidate.ID)
+		return fmt.Errorf("rule %s: severity or requirement is required", candidate.ID)
 	}
 	if err := rejectSurroundingWhitespace("rule "+candidate.ID+" severity", candidate.Severity); err != nil {
 		return err

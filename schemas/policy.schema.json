@@ -1788,6 +1788,18 @@
           }
         }
       ],
+      "anyOf": [
+        {
+          "required": [
+            "severity"
+          ]
+        },
+        {
+          "required": [
+            "requirement"
+          ]
+        }
+      ],
       "properties": {
         "certType": {
           "description": "Evaluate the rule only for these roles; other roles skip it.",
@@ -1920,7 +1932,17 @@
           "description": "Specification reference, for example RFC 5280 4.2.1.9.",
           "type": "string"
         },
+        "requirement": {
+          "description": "RFC 2119 requirement level of the checked source clause: must (MUST, SHALL), should (SHOULD, RECOMMENDED) or may (MAY, OPTIONAL).",
+          "enum": [
+            "may",
+            "must",
+            "should"
+          ],
+          "type": "string"
+        },
         "severity": {
+          "description": "Severity of a failure; defaults from requirement: must error, should warning, may info.",
           "enum": [
             "error",
             "info",
@@ -1940,8 +1962,7 @@
       "required": [
         "id",
         "target",
-        "operator",
-        "severity"
+        "operator"
       ],
       "type": "object"
     }

@@ -95,15 +95,28 @@ func ruleSchema(operatorName map[string]any, operandRules []any) map[string]any 
 	return map[string]any{
 		"type":                 "object",
 		"additionalProperties": false,
-		"required":             []any{"id", "target", "operator", "severity"},
+		"required":             []any{"id", "target", "operator"},
+		"anyOf": []any{
+			map[string]any{"required": []any{"severity"}},
+			map[string]any{"required": []any{"requirement"}},
+		},
 		"properties": map[string]any{
 			"id":        withSchemaDescription(trimmedString, "Rule identifier, unique within the policy."),
 			"reference": map[string]any{"type": "string", "description": "Specification reference, for example RFC 5280 4.2.1.9."},
 			"target":    withSchemaDescription(trimmedString, targetDescription),
 			"operator":  operatorName,
 			"operands":  map[string]any{"description": "Operator operands: a sequence, or one value."},
-			"severity":  map[string]any{"type": "string", "enum": setToAny(validSeverities)},
-			"message":   map[string]any{"type": "string", "description": "Message reported when the rule fails."},
+			"severity": map[string]any{
+				"type":        "string",
+				"enum":        setToAny(validSeverities),
+				"description": "Severity of a failure; defaults from requirement: must error, should warning, may info.",
+			},
+			"requirement": map[string]any{
+				"type":        "string",
+				"enum":        setToAny(validRequirements),
+				"description": "RFC 2119 requirement level of the checked source clause: must (MUST, SHALL), should (SHOULD, RECOMMENDED) or may (MAY, OPTIONAL).",
+			},
+			"message": map[string]any{"type": "string", "description": "Message reported when the rule fails."},
 			"certType": map[string]any{
 				"type":        "array",
 				"uniqueItems": true,

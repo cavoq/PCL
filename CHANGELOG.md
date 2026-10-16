@@ -23,6 +23,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   whether a valid alternative path replaced the constructed one. Text output
   prints them below the summary line; JSON and YAML add `validation_time`,
   `policies` and `chain` to `meta`.
+- Rules state the RFC 2119 requirement level of their source clause with
+  `requirement: must | should | may`. Without an explicit `severity` it
+  supplies the severity (error, warning, info), so a failed SHOULD no longer
+  has to fail the policy. Rule results report the level, and text output adds
+  a REQUIREMENT column when a rule states one.
 
 ## [6.0.0] - 2026-10-16
 

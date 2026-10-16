@@ -30,10 +30,11 @@ const (
 // names the deciding operator and whose message states what it observed and
 // required, or one rule.* finding naming why the rule was skipped.
 type Result struct {
-	RuleID    string            `json:"rule_id" yaml:"rule_id"`
-	Reference string            `json:"reference,omitempty" yaml:"reference,omitempty"`
-	Verdict   string            `json:"verdict" yaml:"verdict"`
-	Severity  string            `json:"severity" yaml:"severity"`
+	RuleID      string `json:"rule_id" yaml:"rule_id"`
+	Reference   string `json:"reference,omitempty" yaml:"reference,omitempty"`
+	Verdict     string `json:"verdict" yaml:"verdict"`
+	Severity    string `json:"severity" yaml:"severity"`
+	Requirement string `json:"requirement,omitempty" yaml:"requirement,omitempty"`
 	Message   string            `json:"message,omitempty" yaml:"message,omitempty"`
 	Findings  []finding.Finding `json:"findings,omitempty" yaml:"findings,omitempty"`
 }
@@ -141,11 +142,12 @@ func ruleFinding(code, verdict, message string) finding.Finding {
 
 func newResult(r Rule, verdict, message string) Result {
 	return Result{
-		RuleID:    r.ID,
-		Reference: r.Reference,
-		Verdict:   verdict,
-		Severity:  r.Severity,
-		Message:   message,
+		RuleID:      r.ID,
+		Reference:   r.Reference,
+		Verdict:     verdict,
+		Severity:    r.Severity,
+		Requirement: r.Requirement,
+		Message:     message,
 	}
 }
 

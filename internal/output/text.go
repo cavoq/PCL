@@ -298,24 +298,31 @@ func writeRulesTable(w io.Writer, colors palette, results []rule.Result, total i
 // the always-present RULE column. Empty optional columns are omitted.
 func rulesTableColumns(results []rule.Result) []tableColumn {
 	severity := tableColumn{header: "SEVERITY", value: func(rr rule.Result) string { return severityLabel(rr.Severity) }}
+	requirement := tableColumn{header: "REQUIREMENT", value: func(rr rule.Result) string { return strings.ToUpper(rr.Requirement) }}
 	ruleID := tableColumn{header: "RULE", value: func(rr rule.Result) string { return rr.RuleID }}
 	reference := tableColumn{header: "REFERENCE", value: func(rr rule.Result) string { return rr.Reference }}
 
 	showSeverity := false
+	showRequirement := false
 	showReference := false
 	ruleID.width = len(ruleID.header)
 	reference.width = len(reference.header)
 	for _, rr := range results {
 		showSeverity = showSeverity || rr.Severity != ""
+		showRequirement = showRequirement || rr.Requirement != ""
 		showReference = showReference || rr.Reference != ""
 		ruleID.width = max(ruleID.width, len(rr.RuleID))
 		reference.width = max(reference.width, len(rr.Reference))
 	}
 	severity.width = len(severity.header)
+	requirement.width = len(requirement.header)
 
-	columns := make([]tableColumn, 0, 3)
+	columns := make([]tableColumn, 0, 4)
 	if showSeverity {
 		columns = append(columns, severity)
+	}
+	if showRequirement {
+		columns = append(columns, requirement)
 	}
 	columns = append(columns, ruleID)
 	if showReference {

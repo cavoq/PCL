@@ -206,6 +206,29 @@ func TestWriteRulesTable_WithReference(t *testing.T) {
 	}
 }
 
+func TestWriteRulesTableShowsRequirementLevels(t *testing.T) {
+	results := []rule.Result{
+		{RuleID: "rule-1", Verdict: rule.VerdictFail, Severity: rule.SeverityWarning, Requirement: rule.RequirementShould},
+		{RuleID: "rule-2", Verdict: rule.VerdictPass, Severity: rule.SeverityError},
+	}
+	var buf bytes.Buffer
+	if err := writeRulesTable(&buf, palette(false), results, 2, false); err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(buf.String(), "\n")
+	if !strings.Contains(lines[1], "SEVERITY  REQUIREMENT  RULE") || !strings.Contains(lines[3], "WARN      SHOULD       rule-1") {
+		t.Errorf("table:\n%s", buf.String())
+	}
+
+	buf.Reset()
+	if err := writeRulesTable(&buf, palette(false), results[1:], 1, false); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(buf.String(), "REQUIREMENT") {
+		t.Errorf("rules without a requirement level must not get the column:\n%s", buf.String())
+	}
+}
+
 func TestWriteRulesTable_WithWarnings(t *testing.T) {
 	results := []rule.Result{
 		{RuleID: "rule-1", Verdict: rule.VerdictFail, Severity: "warning"},
