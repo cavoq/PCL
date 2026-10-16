@@ -1,0 +1,27 @@
+# Rules about a certificate's relation to its issuer skip explicit trust
+# anchors: run with `pcl test tests/policy-suites`.
+policy: ../../policies/RFC5280.yaml
+time: 2026-10-01
+
+tests:
+  - name: an intermediate trust anchor is not checked against its issuer
+    cert: ../certs/leaf.pem
+    trustAnchors: [../certs/intermediate.pem]
+    pathRevocation: none
+    expect:
+      - input: leaf
+        rules:
+          certification-path-valid: pass
+          signature-valid: pass
+      - input: intermediate
+        rules:
+          signature-valid: skip
+          aki-matches-ski: skip
+
+  - name: without trust anchors a chain top without its issuer fails
+    cert: ../certs/leaf.pem
+    issuers: [../certs/intermediate.pem]
+    expect:
+      - input: intermediate
+        rules:
+          signature-valid: fail

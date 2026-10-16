@@ -112,6 +112,12 @@ rules:
 
   - id: tls-cert-02-signature-valid
     reference: TR-03116-4 6.1.3
+    # Trust anchors are trusted as given (RFC 5280 6.1.1); their own issuer
+    # is not an input.
+    when:
+      target: certificate.trustAnchor
+      operator: neq
+      operands: [true]
     target: certificate
     operator: signatureValid
     certType: [leaf, intermediate, root]

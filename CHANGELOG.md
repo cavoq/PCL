@@ -44,6 +44,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   cause in `tests/limbo/known-gaps.yaml`.
 
 ### Fixed
+- A trust anchor that is not self-signed no longer fails `signature-valid`
+  because its own issuer is not supplied. Certificates project
+  `certificate.trustAnchor` when explicit trust anchors are given, and the
+  RFC 5280 `signature-valid` and `aki-matches-ski` and TR-03116
+  `tls-cert-02-signature-valid` rules skip trust anchors, which RFC 5280
+  6.1.1 takes as given. For a self-signed trust anchor these rules now skip
+  instead of passing; without `--trust-anchor` nothing changes.
 - The RFC 5280 policy no longer fails `leaf-not-ca` and
   `basic-constraints-critical-for-ca` for an end entity without a
   basicConstraints extension, where cA is false by default (RFC 5280

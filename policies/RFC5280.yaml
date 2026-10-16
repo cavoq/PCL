@@ -85,6 +85,12 @@ rules:
 
   - id: signature-valid
     reference: RFC5280 4.1.2.3
+    # Trust anchors are trusted as given (RFC 5280 6.1.1); their own issuer
+    # is not an input.
+    when:
+      target: certificate.trustAnchor
+      operator: neq
+      operands: [true]
     target: certificate
     operator: signatureValid
     severity: error
@@ -217,6 +223,12 @@ rules:
 
   - id: aki-matches-ski
     reference: RFC5280 4.2.1.1
+    # Trust anchors are trusted as given (RFC 5280 6.1.1); their own issuer
+    # is not an input.
+    when:
+      target: certificate.trustAnchor
+      operator: neq
+      operands: [true]
     target: certificate
     operator: akiMatchesSki
     severity: warning

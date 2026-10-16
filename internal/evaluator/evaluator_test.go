@@ -4,6 +4,7 @@ import (
 	cryptox509 "crypto/x509"
 	"math/big"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -66,6 +67,43 @@ func TestContextDefaults(t *testing.T) {
 	}
 	if evalCtx.OCSPs != nil {
 		t.Errorf("expected nil OCSPs in default context")
+	}
+}
+
+func TestChainSubjectsProjectTrustAnchor(t *testing.T) {
+	root := testpki.Issue(t, "Root", nil, testpki.CA(), testpki.Serial(1))
+	intermediate := testpki.Issue(t, "Intermediate", root, testpki.CA(), testpki.Serial(2))
+	leaf := testpki.Issue(t, "Leaf", intermediate, testpki.Serial(3))
+	info := func(certificate *testpki.Certificate) *cert.Info {
+		return &cert.Info{Cert: testpki.ParseZCrypto(t, certificate.DER)}
+	}
+	chain := []*cert.Info{info(leaf), info(intermediate)}
+
+	projected := func(anchors []*cert.Info) []any {
+		var values []any
+		for _, subject := range ChainSubjects(Context{
+			Registry:     operator.DefaultRegistry(),
+			Chain:        chain,
+			TrustAnchors: anchors,
+		}) {
+			if anchor, ok := subject.Tree.Resolve("trustAnchor"); ok {
+				values = append(values, anchor.Value)
+			} else {
+				values = append(values, nil)
+			}
+		}
+		return values
+	}
+
+	// The intermediate is a trust anchor although it is not self-signed.
+	if got := projected([]*cert.Info{info(intermediate)}); !reflect.DeepEqual(got, []any{false, true}) {
+		t.Fatalf("trustAnchor with the intermediate as anchor = %v, want [false true]", got)
+	}
+	if got := projected([]*cert.Info{info(root)}); !reflect.DeepEqual(got, []any{false, false}) {
+		t.Fatalf("trustAnchor with the root as anchor = %v, want [false false]", got)
+	}
+	if got := projected(nil); !reflect.DeepEqual(got, []any{nil, nil}) {
+		t.Fatalf("trustAnchor without anchors = %v, want absent", got)
 	}
 }
 

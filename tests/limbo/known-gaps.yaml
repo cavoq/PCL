@@ -40,21 +40,15 @@
     - bettertls::pathbuilding::tc59
 
 - reason: >-
-    A trust anchor that is not self-signed is linted as an intermediate, and
-    signature-valid fails because the anchor's own issuer is not supplied.
-    RFC 5280 6.1 takes trust anchor information as given.
-  cases:
-    - rfc5280::root-and-intermediate-swapped
-    - cve::cve-2024-0567
-
-- reason: >-
     RFC5280.yaml lints every certificate, trust anchors included, against
     issuance requirements that limbo does not treat as path validation
     failures: keyUsage present in a CA (4.2.1.3), nameConstraints critical
-    (4.2.1.10, which CA/B Forum relaxes) and a positive serial number
-    (4.1.2.2).
+    (4.2.1.10, which CA/B Forum relaxes), a positive serial number (4.1.2.2)
+    and authorityKeyIdentifier in a certificate that is not self-signed
+    (4.2.1.1).
   cases:
     - crl::issuer-no-keyusage-extension
+    - cve::cve-2024-0567
     - webpki::nc::permitted-dns-match-noncritical
     - online::fastly.com
 

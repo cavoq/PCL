@@ -299,6 +299,7 @@ ocsp.nonce.hexValue            # Nonce hex, when present
 | Path | Availability / meaning |
 |---|---|
 | `certificate.applicationPurpose` | Concrete `--purpose` input; absent when not supplied |
+| `certificate.trustAnchor` | Whether the certificate is one of the explicit `--trust-anchor` inputs; absent without them |
 | `certificate.pathValidation.valid` | Aggregate path decision with explicit trust anchors |
 | `certificate.pathValidation.anchored` | Whether the constructed path reaches an explicit anchor |
 | `certificate.pathValidation.findingCount` | Number of structured path findings |

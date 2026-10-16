@@ -4,6 +4,7 @@ package evaluator
 import (
 	"crypto/sha256"
 	"fmt"
+	"slices"
 	"sync"
 	"time"
 
@@ -134,6 +135,7 @@ func ChainSubjects(ctx Context) []Subject {
 		}
 		tree := certnode.BuildTree(c.Cert)
 		projectApplicationPurpose(tree, ctx.ApplicationPurpose)
+		projectTrustAnchor(tree, c, ctx.TrustAnchors)
 		if index == 0 && pathValidation != nil {
 			projectPathValidation(tree, *pathValidation)
 		}
@@ -487,6 +489,20 @@ func ocspStatusName(status ocsp.Status) string {
 	default:
 		return "not-applicable"
 	}
+}
+
+// projectTrustAnchor records whether a chain certificate is one of the
+// explicit trust anchors. Trust anchors are trusted as given (RFC 5280 6.1.1),
+// so rules about a certificate's relation to its issuer can exclude them. The
+// node is absent without explicit trust anchors.
+func projectTrustAnchor(tree *node.Node, info *cert.Info, anchors []*cert.Info) {
+	if tree == nil || len(anchors) == 0 {
+		return
+	}
+	anchor := slices.ContainsFunc(anchors, func(anchor *cert.Info) bool {
+		return anchor != nil && cert.SameCertificate(anchor.Cert, info.Cert)
+	})
+	tree.Children["trustAnchor"] = node.New("trustAnchor", anchor)
 }
 
 func projectApplicationPurpose(tree *node.Node, purpose string) {
