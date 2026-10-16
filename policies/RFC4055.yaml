@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/cavoq/PCL/master/schemas/policy.schema.json
 id: rfc4055
-version: 1.0
+version: "2.0"
 metadata:
   title: RSA algorithm identifiers
   standard: RFC 4055

@@ -5,7 +5,7 @@
     "policies": [
       {
         "id": "rfc5280",
-        "version": "1.0",
+        "version": "2.0",
         "title": "X.509 certificate, CRL, and certification-path checks",
         "standard": "RFC 5280",
         "edition": "2008",
