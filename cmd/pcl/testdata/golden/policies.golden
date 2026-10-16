@@ -1,6 +1,7 @@
-ID                  STANDARD                         TITLE
-local-profile                                        Supplemental local certificate profile
-rfc4055             RFC 4055                         RSA algorithm identifiers
-rfc5280             RFC 5280                         X.509 certificate, CRL, and certification-path checks
-rfc6960             RFC 6960; RFC 8954               OCSP evidence and response checks
-tr03116-tls-server  BSI TR-03116-TS; BSI TR-03116-4  BSI TLS server certificate profile
+ID                  STANDARD                              TITLE
+cabf-tls-br         CA/B Forum TLS Baseline Requirements  TLS subscriber certificate profile and algorithms
+local-profile                                             Supplemental local certificate profile
+rfc4055             RFC 4055                              RSA algorithm identifiers
+rfc5280             RFC 5280                              X.509 certificate, CRL, and certification-path checks
+rfc6960             RFC 6960; RFC 8954                    OCSP evidence and response checks
+tr03116-tls-server  BSI TR-03116-TS; BSI TR-03116-4       BSI TLS server certificate profile

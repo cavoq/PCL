@@ -53,6 +53,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   inconclusive rules like failures, so exit statuses do not change.
 
 ### Added
+- `cabf-tls-br` policy pack: the CA/B Forum TLS Baseline Requirements 2.3.1
+  Subscriber Certificate profile (validity limits by issuance date through
+  the 47-day era, AIA, policies, EKU, SAN names and reserved IPs, key usage,
+  CRL distribution points, DV/OV/IV subjects, common name) and the key,
+  algorithm and name-encoding requirements for every certificate. See
+  CABF-TLS-BR-COVERAGE.md.
 - `anyOf` operator: a rule passes when at least one of its conditions holds,
   for requirements with alternatives.
 - `multipleOf` operator, and a `dateDiff` option `inclusive` that counts the

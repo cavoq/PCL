@@ -6,9 +6,16 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/cavoq/PCL/internal/data"
 )
 
 func TestRunPolicyTestsExampleSuites(t *testing.T) {
+	// pcl test loads the Public Suffix List before running suites; the
+	// CA/B Forum suite needs it for Internal Names.
+	if err := data.DefaultLoader.LoadPSL(""); err != nil {
+		t.Fatal(err)
+	}
 	var out bytes.Buffer
 	summary, err := RunPolicyTests([]string{filepath.Join("..", "..", "tests", "policy-suites")}, &out)
 	if err != nil {

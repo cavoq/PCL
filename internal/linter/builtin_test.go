@@ -15,8 +15,8 @@ func TestBuiltinPoliciesParse(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(builtins) != 5 {
-		t.Fatalf("%d built-in policies, want 5", len(builtins))
+	if len(builtins) != 6 {
+		t.Fatalf("%d built-in policies, want 6", len(builtins))
 	}
 	for _, builtin := range builtins {
 		policies, err := loadPolicies([]string{BuiltinPolicyPrefix + builtin.ID}, operator.DefaultRegistry())
@@ -40,7 +40,7 @@ func TestLoadPoliciesResolvesBuiltinNames(t *testing.T) {
 		t.Errorf("unknown built-in error = %v", err)
 	}
 	if _, err := loadPolicies([]string{"no-such-pack"}, operator.DefaultRegistry()); err == nil ||
-		!strings.Contains(err.Error(), "built-in policies: local-profile, rfc4055") {
+		!strings.Contains(err.Error(), "built-in policies: cabf-tls-br, local-profile, rfc4055") {
 		t.Errorf("missing policy error = %v", err)
 	}
 

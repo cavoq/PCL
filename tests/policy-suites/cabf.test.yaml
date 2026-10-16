@@ -1,0 +1,74 @@
+policy: ../../policies/CABF-TLS-BR.yaml
+time: "2026-06-02T00:00:00Z"
+tests:
+  - name: cabf-conformant-chain
+    cert: ../vectors/cabf-conformant/leaf.pem
+    issuers: [../vectors/cabf-conformant/intermediate.pem, ../vectors/cabf-conformant/root.pem]
+    expect:
+      - input: leaf
+        verdict: pass
+        failed: []
+      - input: intermediate
+        verdict: pass
+        failed: []
+      - input: root
+        verdict: pass
+        failed: []
+  # 200 days counted through notAfter: the 200-day maximum holds, the
+  # 199-day recommendation does not.
+  - name: cabf-validity-200-days
+    cert: ../vectors/cabf-validity-200-days/leaf.pem
+    issuers: [../vectors/cabf-conformant/intermediate.pem]
+    expect:
+      - input: leaf
+        verdict: pass
+        failed: [br-subscriber-validity-max-199-days]
+        rules: {br-subscriber-validity-max-398-days: skip, br-subscriber-validity-max-100-days: skip}
+  - name: cabf-validity-over-200-days
+    cert: ../vectors/cabf-validity-over-200-days/leaf.pem
+    issuers: [../vectors/cabf-conformant/intermediate.pem]
+    expect:
+      - input: leaf
+        verdict: fail
+        failed: [br-subscriber-validity-max-199-days, br-subscriber-validity-max-200-days]
+  - name: cabf-bad-names
+    cert: ../vectors/cabf-bad-names/leaf.pem
+    issuers: [../vectors/cabf-conformant/intermediate.pem]
+    expect:
+      - input: leaf
+        verdict: fail
+        failed: [br-subscriber-dns-ldh-labels, br-subscriber-dns-no-internal-names,
+          br-subscriber-dns-no-reserved-ldh-labels, br-subscriber-dns-no-reverse-zone,
+          br-subscriber-dns-no-trailing-dot, br-subscriber-ip-not-reserved]
+  - name: cabf-bad-usages
+    cert: ../vectors/cabf-bad-usages/leaf.pem
+    issuers: [../vectors/cabf-conformant/intermediate.pem]
+    expect:
+      - input: leaf
+        verdict: fail
+        failed: [br-subscriber-certificate-policies-present, br-subscriber-ecc-key-usage,
+          br-subscriber-eku-only-tls, br-subscriber-eku-prohibited]
+  - name: cabf-ov-incomplete
+    cert: ../vectors/cabf-ov-incomplete/leaf.pem
+    issuers: [../vectors/cabf-conformant/intermediate.pem]
+    expect:
+      - input: leaf
+        verdict: fail
+        failed: [br-subscriber-common-name-from-san, br-subscriber-common-name-not-recommended,
+          br-subscriber-ov-locality-or-state, br-subscriber-ov-no-organizational-unit,
+          br-subscriber-ov-organization-present]
+  - name: cabf-rsa-2049
+    cert: ../vectors/cabf-rsa-2049/leaf.pem
+    issuers: [../vectors/cabf-conformant/intermediate.pem]
+    expect:
+      - input: leaf
+        verdict: fail
+        failed: [br-rsa-key-size-multiple-of-8]
+  # The same leaf later: the 398-day limit applies only before 2026-03-15.
+  - name: cabf-validity-limit-by-issuance-date
+    cert: ../vectors/cabf-conformant/leaf.pem
+    issuers: [../vectors/cabf-conformant/intermediate.pem]
+    time: "2026-09-01T00:00:00Z"
+    expect:
+      - input: leaf
+        rules: {br-subscriber-validity-max-398-days: skip, br-subscriber-validity-max-200-days: pass}

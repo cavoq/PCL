@@ -1,0 +1,1270 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/cavoq/PCL/master/schemas/policy.schema.json
+id: cabf-tls-br
+version: "2.3.1-1"
+metadata:
+  title: TLS subscriber certificate profile and algorithms
+  standard: CA/B Forum TLS Baseline Requirements
+  edition: "2.3.1 (2026-10-04)"
+  source: https://github.com/cabforum/servercert/blob/main/docs/BR.md
+  description: >-
+    Certificate-profile conformance for subscriber certificates (7.1.2.7),
+    and the algorithm, key and name-encoding requirements for every
+    certificate of the chain (6.1.5, 6.1.6, 7.1.3, 7.1.4). Combine with
+    rfc5280. CA operations, validation and audits are out of scope; see
+    CABF-TLS-BR-COVERAGE.md.
+  inputs: [certificate, issuers, psl]
+appliesTo: [cert]
+
+rules:
+
+  # -------------------------------------------------
+  # Public keys (6.1.5, 6.1.6, 7.1.3.1); every certificate of the chain
+  # -------------------------------------------------
+  - id: br-spki-algorithm-encoding
+    reference: CABF-BR 7.1.3.1
+    target: certificate.subjectPublicKeyInfo.algorithm.rawDER
+    operator: derEqualsHex
+    operands:
+      - "300d06092a864886f70d0101010500"  # rsaEncryption, NULL
+      - "301306072a8648ce3d020106082a8648ce3d030107"  # P-256
+      - "301006072a8648ce3d020106052b81040022"  # P-384
+      - "301006072a8648ce3d020106052b81040023"  # P-521
+    certType: [leaf, intermediate, root]
+    requirement: must
+    message: "The SubjectPublicKeyInfo AlgorithmIdentifier must be rsaEncryption with NULL, or id-ecPublicKey with P-256, P-384 or P-521"
+  - id: br-rsa-key-size
+    reference: CABF-BR 6.1.5
+    when:
+      target: certificate.subjectPublicKeyInfo.algorithm.oid
+      operator: eq
+      operands: ["1.2.840.113549.1.1.1"]
+    target: certificate.subjectPublicKeyInfo.publicKey.keySize
+    operator: gte
+    operands: [2048]
+    certType: [leaf, intermediate, root]
+    requirement: must
+    message: "RSA moduli must be at least 2048 bits"
+  - id: br-rsa-key-size-multiple-of-8
+    reference: CABF-BR 6.1.5
+    when:
+      target: certificate.subjectPublicKeyInfo.algorithm.oid
+      operator: eq
+      operands: ["1.2.840.113549.1.1.1"]
+    target: certificate.subjectPublicKeyInfo.publicKey.keySize
+    operator: multipleOf
+    operands: [8]
+    certType: [leaf, intermediate, root]
+    requirement: must
+    message: "RSA modulus sizes must be divisible by 8"
+  - id: br-rsa-exponent-odd
+    reference: CABF-BR 6.1.6
+    when:
+      target: certificate.subjectPublicKeyInfo.algorithm.oid
+      operator: eq
+      operands: ["1.2.840.113549.1.1.1"]
+    target: certificate.subjectPublicKeyInfo.publicKey.exponent
+    operator: odd
+    certType: [leaf, intermediate, root]
+    requirement: must
+    message: "The RSA public exponent must be odd"
+  - id: br-rsa-exponent-min
+    reference: CABF-BR 6.1.6
+    when:
+      target: certificate.subjectPublicKeyInfo.algorithm.oid
+      operator: eq
+      operands: ["1.2.840.113549.1.1.1"]
+    target: certificate.subjectPublicKeyInfo.publicKey.exponent
+    operator: gte
+    operands: [3]
+    certType: [leaf, intermediate, root]
+    requirement: must
+    message: "The RSA public exponent must be at least 3"
+  - id: br-rsa-exponent-range
+    reference: CABF-BR 6.1.6
+    when:
+      target: certificate.subjectPublicKeyInfo.algorithm.oid
+      operator: eq
+      operands: ["1.2.840.113549.1.1.1"]
+    target: certificate.subjectPublicKeyInfo.publicKey.exponent
+    operator: gte
+    operands: [65537]
+    certType: [leaf, intermediate, root]
+    requirement: should
+    message: "The RSA public exponent should be at least 2^16 + 1"
+
+  # -------------------------------------------------
+  # Signature algorithms (7.1.3.2); every certificate of the chain
+  # The outer signatureAlgorithm must equal this field (rfc5280 checks it).
+  # The SHA-1 exception for re-issued CA certificates ended 2026-09-15.
+  # -------------------------------------------------
+  - id: br-signature-algorithm-encoding
+    reference: CABF-BR 7.1.3.2
+    target: certificate.tbsSignatureAlgorithm.rawDER
+    operator: derEqualsHex
+    operands:
+      - "300d06092a864886f70d01010b0500"  # sha256WithRSAEncryption
+      - "300d06092a864886f70d01010c0500"  # sha384WithRSAEncryption
+      - "300d06092a864886f70d01010d0500"  # sha512WithRSAEncryption
+      - "304106092a864886f70d01010a3034a00f300d06096086480165030402010500a11c301a06092a864886f70d010108300d06096086480165030402010500a203020120"  # RSASSA-PSS SHA-256
+      - "304106092a864886f70d01010a3034a00f300d06096086480165030402020500a11c301a06092a864886f70d010108300d06096086480165030402020500a203020130"  # RSASSA-PSS SHA-384
+      - "304106092a864886f70d01010a3034a00f300d06096086480165030402030500a11c301a06092a864886f70d010108300d06096086480165030402030500a203020140"  # RSASSA-PSS SHA-512
+      - "300a06082a8648ce3d040302"  # ecdsa-with-SHA256
+      - "300a06082a8648ce3d040303"  # ecdsa-with-SHA384
+      - "300a06082a8648ce3d040304"  # ecdsa-with-SHA512
+    certType: [leaf, intermediate, root]
+    requirement: must
+    message: "The signature AlgorithmIdentifier must be one of the permitted encodings"
+
+  # -------------------------------------------------
+  # Name encoding (7.1.4); every certificate of the chain
+  # -------------------------------------------------
+  - id: br-name-one-attribute-per-rdn
+    reference: CABF-BR 7.1.4.1
+    when:
+      target: certificate.subject.rdns
+      operator: notEmpty
+    target: certificate.subject.rdns
+    operator: every
+    operands:
+      - {path: "", operator: eq, operands: [1]}
+    certType: [leaf, intermediate, root]
+    requirement: must
+    message: "Each RelativeDistinguishedName must contain exactly one AttributeTypeAndValue"
+  - id: br-name-no-duplicate-attributes
+    reference: CABF-BR 7.1.4.1
+    target: certificate.subject
+    operator: noDuplicateAttributes
+    certType: [leaf, intermediate, root]
+    requirement: must
+    message: "A Name must not repeat an attribute that is not explicitly allowed to repeat"
+  - id: br-subject-country-name-encoding
+    reference: CABF-BR 7.1.4.2
+    when:
+      target: certificate.subject.countryName
+      operator: present
+    target: certificate.subject.countryName
+    operator: every
+    operands:
+      - {path: encoding, operator: in, operands: [19]}
+    certType: [leaf, intermediate, root]
+    requirement: must
+    message: "countryName must use PrintableString"
+  - id: br-subject-country-name-length
+    reference: CABF-BR 7.1.4.2
+    when:
+      target: certificate.subject.countryName
+      operator: present
+    target: certificate.subject.countryName
+    operator: every
+    operands:
+      - {path: value, operator: maxLength, operands: [2]}
+    certType: [leaf, intermediate, root]
+    requirement: must
+    message: "countryName must not exceed 2 characters"
+  - id: br-subject-state-or-province-name-encoding
+    reference: CABF-BR 7.1.4.2
+    when:
+      target: certificate.subject.stateOrProvinceName
+      operator: present
+    target: certificate.subject.stateOrProvinceName
+    operator: every
+    operands:
+      - {path: encoding, operator: in, operands: [12, 19]}
+    certType: [leaf, intermediate, root]
+    requirement: must
+    message: "stateOrProvinceName must use UTF8String or PrintableString"
+  - id: br-subject-state-or-province-name-length
+    reference: CABF-BR 7.1.4.2
+    when:
+      target: certificate.subject.stateOrProvinceName
+      operator: present
+    target: certificate.subject.stateOrProvinceName
+    operator: every
+    operands:
+      - {path: value, operator: maxLength, operands: [128]}
+    certType: [leaf, intermediate, root]
+    requirement: must
+    message: "stateOrProvinceName must not exceed 128 characters"
+  - id: br-subject-locality-name-encoding
+    reference: CABF-BR 7.1.4.2
+    when:
+      target: certificate.subject.localityName
+      operator: present
+    target: certificate.subject.localityName
+    operator: every
+    operands:
+      - {path: encoding, operator: in, operands: [12, 19]}
+    certType: [leaf, intermediate, root]
+    requirement: must
+    message: "localityName must use UTF8String or PrintableString"
+  - id: br-subject-locality-name-length
+    reference: CABF-BR 7.1.4.2
+    when:
+      target: certificate.subject.localityName
+      operator: present
+    target: certificate.subject.localityName
+    operator: every
+    operands:
+      - {path: value, operator: maxLength, operands: [128]}
+    certType: [leaf, intermediate, root]
+    requirement: must
+    message: "localityName must not exceed 128 characters"
+  - id: br-subject-postal-code-encoding
+    reference: CABF-BR 7.1.4.2
+    when:
+      target: certificate.subject.postalCode
+      operator: present
+    target: certificate.subject.postalCode
+    operator: every
+    operands:
+      - {path: encoding, operator: in, operands: [12, 19]}
+    certType: [leaf, intermediate, root]
+    requirement: must
+    message: "postalCode must use UTF8String or PrintableString"
+  - id: br-subject-postal-code-length
+    reference: CABF-BR 7.1.4.2
+    when:
+      target: certificate.subject.postalCode
+      operator: present
+    target: certificate.subject.postalCode
+    operator: every
+    operands:
+      - {path: value, operator: maxLength, operands: [40]}
+    certType: [leaf, intermediate, root]
+    requirement: must
+    message: "postalCode must not exceed 40 characters"
+  - id: br-subject-street-address-encoding
+    reference: CABF-BR 7.1.4.2
+    when:
+      target: certificate.subject.streetAddress
+      operator: present
+    target: certificate.subject.streetAddress
+    operator: every
+    operands:
+      - {path: encoding, operator: in, operands: [12, 19]}
+    certType: [leaf, intermediate, root]
+    requirement: must
+    message: "streetAddress must use UTF8String or PrintableString"
+  - id: br-subject-street-address-length
+    reference: CABF-BR 7.1.4.2
+    when:
+      target: certificate.subject.streetAddress
+      operator: present
+    target: certificate.subject.streetAddress
+    operator: every
+    operands:
+      - {path: value, operator: maxLength, operands: [128]}
+    certType: [leaf, intermediate, root]
+    requirement: must
+    message: "streetAddress must not exceed 128 characters"
+  - id: br-subject-organization-name-encoding
+    reference: CABF-BR 7.1.4.2
+    when:
+      target: certificate.subject.organizationName
+      operator: present
+    target: certificate.subject.organizationName
+    operator: every
+    operands:
+      - {path: encoding, operator: in, operands: [12, 19]}
+    certType: [leaf, intermediate, root]
+    requirement: must
+    message: "organizationName must use UTF8String or PrintableString"
+  - id: br-subject-organization-name-length
+    reference: CABF-BR 7.1.4.2
+    when:
+      target: certificate.subject.organizationName
+      operator: present
+    target: certificate.subject.organizationName
+    operator: every
+    operands:
+      - {path: value, operator: maxLength, operands: [64]}
+    certType: [leaf, intermediate, root]
+    requirement: must
+    message: "organizationName must not exceed 64 characters"
+  - id: br-subject-surname-encoding
+    reference: CABF-BR 7.1.4.2
+    when:
+      target: certificate.subject.surname
+      operator: present
+    target: certificate.subject.surname
+    operator: every
+    operands:
+      - {path: encoding, operator: in, operands: [12, 19]}
+    certType: [leaf, intermediate, root]
+    requirement: must
+    message: "surname must use UTF8String or PrintableString"
+  - id: br-subject-surname-length
+    reference: CABF-BR 7.1.4.2
+    when:
+      target: certificate.subject.surname
+      operator: present
+    target: certificate.subject.surname
+    operator: every
+    operands:
+      - {path: value, operator: maxLength, operands: [64]}
+    certType: [leaf, intermediate, root]
+    requirement: must
+    message: "surname must not exceed 64 characters"
+  - id: br-subject-given-name-encoding
+    reference: CABF-BR 7.1.4.2
+    when:
+      target: certificate.subject.givenName
+      operator: present
+    target: certificate.subject.givenName
+    operator: every
+    operands:
+      - {path: encoding, operator: in, operands: [12, 19]}
+    certType: [leaf, intermediate, root]
+    requirement: must
+    message: "givenName must use UTF8String or PrintableString"
+  - id: br-subject-given-name-length
+    reference: CABF-BR 7.1.4.2
+    when:
+      target: certificate.subject.givenName
+      operator: present
+    target: certificate.subject.givenName
+    operator: every
+    operands:
+      - {path: value, operator: maxLength, operands: [64]}
+    certType: [leaf, intermediate, root]
+    requirement: must
+    message: "givenName must not exceed 64 characters"
+  - id: br-subject-organizational-unit-name-encoding
+    reference: CABF-BR 7.1.4.2
+    when:
+      target: certificate.subject.organizationalUnitName
+      operator: present
+    target: certificate.subject.organizationalUnitName
+    operator: every
+    operands:
+      - {path: encoding, operator: in, operands: [12, 19]}
+    certType: [leaf, intermediate, root]
+    requirement: must
+    message: "organizationalUnitName must use UTF8String or PrintableString"
+  - id: br-subject-organizational-unit-name-length
+    reference: CABF-BR 7.1.4.2
+    when:
+      target: certificate.subject.organizationalUnitName
+      operator: present
+    target: certificate.subject.organizationalUnitName
+    operator: every
+    operands:
+      - {path: value, operator: maxLength, operands: [64]}
+    certType: [leaf, intermediate, root]
+    requirement: must
+    message: "organizationalUnitName must not exceed 64 characters"
+  - id: br-subject-common-name-encoding
+    reference: CABF-BR 7.1.4.2
+    when:
+      target: certificate.subject.commonName
+      operator: present
+    target: certificate.subject.commonName
+    operator: every
+    operands:
+      - {path: encoding, operator: in, operands: [12, 19]}
+    certType: [leaf, intermediate, root]
+    requirement: must
+    message: "commonName must use UTF8String or PrintableString"
+  - id: br-subject-common-name-length
+    reference: CABF-BR 7.1.4.2
+    when:
+      target: certificate.subject.commonName
+      operator: present
+    target: certificate.subject.commonName
+    operator: every
+    operands:
+      - {path: value, operator: maxLength, operands: [64]}
+    certType: [leaf, intermediate, root]
+    requirement: must
+    message: "commonName must not exceed 64 characters"
+  - id: br-subject-domain-component-encoding
+    reference: CABF-BR 7.1.4.2
+    when:
+      target: certificate.subject.domainComponent
+      operator: present
+    target: certificate.subject.domainComponent
+    operator: every
+    operands:
+      - {path: encoding, operator: in, operands: [22]}
+    certType: [leaf, intermediate, root]
+    requirement: must
+    message: "domainComponent must use IA5String"
+  - id: br-subject-domain-component-length
+    reference: CABF-BR 7.1.4.2
+    when:
+      target: certificate.subject.domainComponent
+      operator: present
+    target: certificate.subject.domainComponent
+    operator: every
+    operands:
+      - {path: value, operator: maxLength, operands: [63]}
+    certType: [leaf, intermediate, root]
+    requirement: must
+    message: "domainComponent must not exceed 63 characters"
+  - id: br-subject-business-category-encoding
+    reference: CABF-BR 7.1.4.2
+    when:
+      target: certificate.subject.businessCategory
+      operator: present
+    target: certificate.subject.businessCategory
+    operator: every
+    operands:
+      - {path: encoding, operator: in, operands: [12, 19]}
+    certType: [leaf, intermediate, root]
+    requirement: must
+    message: "businessCategory must use UTF8String or PrintableString"
+  - id: br-subject-business-category-length
+    reference: CABF-BR 7.1.4.2
+    when:
+      target: certificate.subject.businessCategory
+      operator: present
+    target: certificate.subject.businessCategory
+    operator: every
+    operands:
+      - {path: value, operator: maxLength, operands: [128]}
+    certType: [leaf, intermediate, root]
+    requirement: must
+    message: "businessCategory must not exceed 128 characters"
+  - id: br-subject-jurisdiction-country-name-encoding
+    reference: CABF-BR 7.1.4.2
+    when:
+      target: certificate.subject.jurisdictionCountryName
+      operator: present
+    target: certificate.subject.jurisdictionCountryName
+    operator: every
+    operands:
+      - {path: encoding, operator: in, operands: [19]}
+    certType: [leaf, intermediate, root]
+    requirement: must
+    message: "jurisdictionCountryName must use PrintableString"
+  - id: br-subject-jurisdiction-country-name-length
+    reference: CABF-BR 7.1.4.2
+    when:
+      target: certificate.subject.jurisdictionCountryName
+      operator: present
+    target: certificate.subject.jurisdictionCountryName
+    operator: every
+    operands:
+      - {path: value, operator: maxLength, operands: [2]}
+    certType: [leaf, intermediate, root]
+    requirement: must
+    message: "jurisdictionCountryName must not exceed 2 characters"
+  - id: br-subject-jurisdiction-state-or-province-name-encoding
+    reference: CABF-BR 7.1.4.2
+    when:
+      target: certificate.subject.jurisdictionStateOrProvinceName
+      operator: present
+    target: certificate.subject.jurisdictionStateOrProvinceName
+    operator: every
+    operands:
+      - {path: encoding, operator: in, operands: [12, 19]}
+    certType: [leaf, intermediate, root]
+    requirement: must
+    message: "jurisdictionStateOrProvinceName must use UTF8String or PrintableString"
+  - id: br-subject-jurisdiction-state-or-province-name-length
+    reference: CABF-BR 7.1.4.2
+    when:
+      target: certificate.subject.jurisdictionStateOrProvinceName
+      operator: present
+    target: certificate.subject.jurisdictionStateOrProvinceName
+    operator: every
+    operands:
+      - {path: value, operator: maxLength, operands: [128]}
+    certType: [leaf, intermediate, root]
+    requirement: must
+    message: "jurisdictionStateOrProvinceName must not exceed 128 characters"
+  - id: br-subject-jurisdiction-locality-name-encoding
+    reference: CABF-BR 7.1.4.2
+    when:
+      target: certificate.subject.jurisdictionLocalityName
+      operator: present
+    target: certificate.subject.jurisdictionLocalityName
+    operator: every
+    operands:
+      - {path: encoding, operator: in, operands: [12, 19]}
+    certType: [leaf, intermediate, root]
+    requirement: must
+    message: "jurisdictionLocalityName must use UTF8String or PrintableString"
+  - id: br-subject-jurisdiction-locality-name-length
+    reference: CABF-BR 7.1.4.2
+    when:
+      target: certificate.subject.jurisdictionLocalityName
+      operator: present
+    target: certificate.subject.jurisdictionLocalityName
+    operator: every
+    operands:
+      - {path: value, operator: maxLength, operands: [128]}
+    certType: [leaf, intermediate, root]
+    requirement: must
+    message: "jurisdictionLocalityName must not exceed 128 characters"
+  - id: br-subject-serial-number-encoding
+    reference: CABF-BR 7.1.4.2
+    when:
+      target: certificate.subject.serialNumber
+      operator: present
+    target: certificate.subject.serialNumber
+    operator: every
+    operands:
+      - {path: encoding, operator: in, operands: [19]}
+    certType: [leaf, intermediate, root]
+    requirement: must
+    message: "serialNumber must use PrintableString"
+  - id: br-subject-serial-number-length
+    reference: CABF-BR 7.1.4.2
+    when:
+      target: certificate.subject.serialNumber
+      operator: present
+    target: certificate.subject.serialNumber
+    operator: every
+    operands:
+      - {path: value, operator: maxLength, operands: [64]}
+    certType: [leaf, intermediate, root]
+    requirement: must
+    message: "serialNumber must not exceed 64 characters"
+  - id: br-subject-organization-identifier-encoding
+    reference: CABF-BR 7.1.4.2
+    when:
+      target: certificate.subject.organizationIdentifier
+      operator: present
+    target: certificate.subject.organizationIdentifier
+    operator: every
+    operands:
+      - {path: encoding, operator: in, operands: [12, 19]}
+    certType: [leaf, intermediate, root]
+    requirement: must
+    message: "organizationIdentifier must use UTF8String or PrintableString"
+
+  # -------------------------------------------------
+  # Subscriber certificate validity period (6.3.2)
+  # The Validity Period includes notAfter (inclusive); limits apply by
+  # issuance date, for which notBefore stands in.
+  # -------------------------------------------------
+  - id: br-subscriber-validity-max-398-days
+    reference: CABF-BR 6.3.2
+    target: certificate.validity
+    operator: dateDiff
+    operands:
+      - {start: notBefore, end: notAfter, maxDays: 398, inclusive: true}
+    certType: [leaf]
+    requirement: must
+    effective: {basis: issuance, until: 2026-03-15}
+    message: "The Validity Period must not exceed 398 days"
+  - id: br-subscriber-validity-max-397-days
+    reference: CABF-BR 6.3.2
+    target: certificate.validity
+    operator: dateDiff
+    operands:
+      - {start: notBefore, end: notAfter, maxDays: 397, inclusive: true}
+    certType: [leaf]
+    requirement: should
+    effective: {basis: issuance, until: 2026-03-15}
+    message: "The Validity Period should not exceed 397 days"
+  - id: br-subscriber-validity-max-200-days
+    reference: CABF-BR 6.3.2
+    target: certificate.validity
+    operator: dateDiff
+    operands:
+      - {start: notBefore, end: notAfter, maxDays: 200, inclusive: true}
+    certType: [leaf]
+    requirement: must
+    effective: {basis: issuance, from: 2026-03-15, until: 2027-03-15}
+    message: "The Validity Period must not exceed 200 days"
+  - id: br-subscriber-validity-max-199-days
+    reference: CABF-BR 6.3.2
+    target: certificate.validity
+    operator: dateDiff
+    operands:
+      - {start: notBefore, end: notAfter, maxDays: 199, inclusive: true}
+    certType: [leaf]
+    requirement: should
+    effective: {basis: issuance, from: 2026-03-15, until: 2027-03-15}
+    message: "The Validity Period should not exceed 199 days"
+  - id: br-subscriber-validity-max-100-days
+    reference: CABF-BR 6.3.2
+    target: certificate.validity
+    operator: dateDiff
+    operands:
+      - {start: notBefore, end: notAfter, maxDays: 100, inclusive: true}
+    certType: [leaf]
+    requirement: must
+    effective: {basis: issuance, from: 2027-03-15, until: 2029-03-15}
+    message: "The Validity Period must not exceed 100 days"
+  - id: br-subscriber-validity-max-99-days
+    reference: CABF-BR 6.3.2
+    target: certificate.validity
+    operator: dateDiff
+    operands:
+      - {start: notBefore, end: notAfter, maxDays: 99, inclusive: true}
+    certType: [leaf]
+    requirement: should
+    effective: {basis: issuance, from: 2027-03-15, until: 2029-03-15}
+    message: "The Validity Period should not exceed 99 days"
+  - id: br-subscriber-validity-max-47-days
+    reference: CABF-BR 6.3.2
+    target: certificate.validity
+    operator: dateDiff
+    operands:
+      - {start: notBefore, end: notAfter, maxDays: 47, inclusive: true}
+    certType: [leaf]
+    requirement: must
+    effective: {basis: issuance, from: 2029-03-15}
+    message: "The Validity Period must not exceed 47 days"
+  - id: br-subscriber-validity-max-46-days
+    reference: CABF-BR 6.3.2
+    target: certificate.validity
+    operator: dateDiff
+    operands:
+      - {start: notBefore, end: notAfter, maxDays: 46, inclusive: true}
+    certType: [leaf]
+    requirement: should
+    effective: {basis: issuance, from: 2029-03-15}
+    message: "The Validity Period should not exceed 46 days"
+
+  # -------------------------------------------------
+  # Subscriber certificate fields (7.1.2.7)
+  # -------------------------------------------------
+  - id: br-subscriber-version-3
+    reference: CABF-BR 7.1.2.7
+    target: certificate.version
+    operator: eq
+    operands: [3]
+    certType: [leaf]
+    requirement: must
+    message: "Subscriber certificates must be v3"
+
+  # -------------------------------------------------
+  # Subscriber Authority Information Access (7.1.2.7.7)
+  # -------------------------------------------------
+  - id: br-subscriber-aia-present
+    reference: CABF-BR 7.1.2.7.6
+    target: certificate.extensions.authorityInfoAccess
+    operator: present
+    certType: [leaf]
+    requirement: should
+  - id: br-subscriber-aia-access-methods
+    reference: CABF-BR 7.1.2.7.7
+    when:
+      target: certificate.extensions.authorityInfoAccess
+      operator: present
+    target: certificate.extensions.authorityInfoAccess.accessDescriptions
+    operator: every
+    operands:
+      - {path: accessMethod, operator: in, operands: ["1.3.6.1.5.5.7.48.1", "1.3.6.1.5.5.7.48.2"]}
+    certType: [leaf]
+    requirement: must
+    message: "Only id-ad-ocsp and id-ad-caIssuers access methods are permitted"
+  - id: br-subscriber-aia-http-uri
+    reference: CABF-BR 7.1.2.7.7
+    when:
+      target: certificate.extensions.authorityInfoAccess
+      operator: present
+    target: certificate.extensions.authorityInfoAccess.accessDescriptions
+    operator: every
+    operands:
+      - {path: accessLocation.scheme, operator: eq, operands: [http]}
+    certType: [leaf]
+    requirement: must
+    message: "Each accessLocation must be an HTTP URL"
+  - id: br-subscriber-aia-ca-issuers
+    reference: CABF-BR 7.1.2.7.7
+    when:
+      target: certificate.extensions.authorityInfoAccess
+      operator: present
+    target: certificate.extensions.authorityInfoAccess.containsCaIssuers
+    operator: eq
+    operands: [true]
+    certType: [leaf]
+    requirement: should
+    message: "AIA should name the issuing CA certificate (id-ad-caIssuers)"
+
+  # -------------------------------------------------
+  # Subscriber Certificate Policies (7.1.2.7.9, 7.1.6.1)
+  # -------------------------------------------------
+  - id: br-subscriber-certificate-policies-present
+    reference: CABF-BR 7.1.2.7.6
+    target: certificate.extensions.certificatePolicies
+    operator: present
+    certType: [leaf]
+    requirement: must
+  - id: br-subscriber-certificate-policies-not-critical
+    reference: CABF-BR 7.1.2.7.6
+    when:
+      target: certificate.extensions.certificatePolicies
+      operator: present
+    target: certificate.extensions.certificatePolicies.critical
+    operator: eq
+    operands: [false]
+    certType: [leaf]
+    requirement: must
+  - id: br-subscriber-reserved-policy
+    reference: CABF-BR 7.1.2.7.9
+    when:
+      target: certificate.extensions.certificatePolicies
+      operator: present
+    target: certificate.extensions.certificatePolicies
+    operator: anyOf
+    operands:
+      - {path: dvPolicy, operator: present}
+      - {path: ovPolicy, operator: present}
+      - {path: ivPolicy, operator: present}
+      - {path: evPolicy, operator: present}
+    certType: [leaf]
+    requirement: must
+    message: "A Reserved Certificate Policy Identifier must be asserted"
+  - id: br-subscriber-no-any-policy
+    reference: CABF-BR 7.1.2.7.9
+    target: certificate.extensions.certificatePolicies.anyPolicy
+    operator: absent
+    certType: [leaf]
+    requirement: must
+    message: "anyPolicy must not be asserted"
+
+  # -------------------------------------------------
+  # Subscriber Extended Key Usage (7.1.2.7.10)
+  # -------------------------------------------------
+  - id: br-subscriber-eku-present
+    reference: CABF-BR 7.1.2.7.6
+    target: certificate.extensions.extKeyUsage
+    operator: present
+    certType: [leaf]
+    requirement: must
+  - id: br-subscriber-eku-not-critical
+    reference: CABF-BR 7.1.2.7.6
+    when:
+      target: certificate.extensions.extKeyUsage
+      operator: present
+    target: certificate.extensions.extKeyUsage.critical
+    operator: eq
+    operands: [false]
+    certType: [leaf]
+    requirement: must
+  - id: br-subscriber-eku-server-auth
+    reference: CABF-BR 7.1.2.7.10
+    when:
+      target: certificate.extensions.extKeyUsage
+      operator: present
+    target: certificate.extKeyUsage.serverAuth
+    operator: eq
+    operands: [true]
+    certType: [leaf]
+    requirement: must
+    message: "id-kp-serverAuth must be present"
+  - id: br-subscriber-eku-prohibited
+    reference: CABF-BR 7.1.2.7.10
+    when:
+      target: certificate.extensions.extKeyUsage
+      operator: present
+    target: certificate.extKeyUsage.usages
+    operator: every
+    operands:
+      - {path: oid, operator: notIn, operands: ["1.3.6.1.5.5.7.3.3", "1.3.6.1.5.5.7.3.4", "1.3.6.1.5.5.7.3.8", "1.3.6.1.5.5.7.3.9", "2.5.29.37.0", "1.3.6.1.4.1.11129.2.4.4"]}
+    certType: [leaf]
+    requirement: must
+    message: "codeSigning, emailProtection, timeStamping, OCSPSigning, anyExtendedKeyUsage and Precertificate Signing must not be present"
+  - id: br-subscriber-eku-only-tls
+    reference: CABF-BR 7.1.2.7.10
+    when:
+      target: certificate.extensions.extKeyUsage
+      operator: present
+    target: certificate.extKeyUsage.usages
+    operator: every
+    operands:
+      - {path: oid, operator: in, operands: ["1.3.6.1.5.5.7.3.1", "1.3.6.1.5.5.7.3.2"]}
+    certType: [leaf]
+    requirement: should
+    message: "Key purposes other than serverAuth and clientAuth are not recommended"
+
+  # -------------------------------------------------
+  # Subscriber Subject Alternative Name (7.1.2.7.12)
+  # -------------------------------------------------
+  - id: br-subscriber-san-present
+    reference: CABF-BR 7.1.2.7.12
+    target: certificate.extensions.subjectAltName
+    operator: present
+    certType: [leaf]
+    requirement: must
+  - id: br-subscriber-san-dns-or-ip
+    reference: CABF-BR 7.1.2.7.12
+    when:
+      target: certificate.extensions.subjectAltName
+      operator: present
+    target: certificate
+    operator: anyOf
+    operands:
+      - {path: subjectAltName.dNSName, operator: notEmpty}
+      - {path: subjectAltName.iPAddress, operator: notEmpty}
+    certType: [leaf]
+    requirement: must
+    message: "SAN must contain a dNSName or iPAddress"
+  - id: br-subscriber-san-name-types
+    reference: CABF-BR 7.1.2.7.12
+    when:
+      target: certificate.subjectAltName.entries
+      operator: present
+    target: certificate.subjectAltName.entries
+    operator: every
+    operands:
+      - {path: type, operator: in, operands: [dNSName, iPAddress]}
+    certType: [leaf]
+    requirement: must
+    message: "SAN must contain only dNSName and iPAddress names"
+  - id: br-subscriber-san-not-critical
+    reference: CABF-BR 7.1.2.7.12
+    when:
+      target: certificate.subject.rdns
+      operator: notEmpty
+    target: certificate.extensions.subjectAltName.critical
+    operator: eq
+    operands: [false]
+    certType: [leaf]
+    requirement: must
+    message: "SAN must not be critical when the subject is not empty"
+  - id: br-subscriber-dns-no-trailing-dot
+    reference: CABF-BR 7.1.2.7.12
+    when:
+      target: certificate.subjectAltName.dNSName
+      operator: present
+    target: certificate.subjectAltName.dNSName
+    operator: every
+    operands:
+      - {operator: notRegex, operands: ["\\.$"]}
+    certType: [leaf]
+    requirement: must
+    message: "dNSName must not include the root label"
+  - id: br-subscriber-dns-wildcard-leftmost
+    reference: CABF-BR 7.1.2.7.12
+    when:
+      target: certificate.subjectAltName.dNSName
+      operator: present
+    target: certificate.subjectAltName.dNSName
+    operator: every
+    operands:
+      - {operator: regex, operands: ["^(\\*\\.)?[^*]+$"]}
+    certType: [leaf]
+    requirement: must
+    message: "A wildcard must be a leftmost \"*.\" label of a Wildcard Domain Name"
+  - id: br-subscriber-dns-ldh-labels
+    reference: CABF-BR 7.1.2.7.12
+    when:
+      target: certificate.subjectAltName.dNSName
+      operator: present
+    target: certificate.subjectAltName.dNSName
+    operator: every
+    operands:
+      - {operator: regex, operands: ["^(\\*\\.)?([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?\\.)+[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?$"]}
+    certType: [leaf]
+    requirement: must
+    message: "dNSName must be a Fully-Qualified or Wildcard Domain Name of LDH labels"
+  - id: br-subscriber-dns-no-reserved-ldh-labels
+    reference: CABF-BR 7.1.2.7.12
+    when:
+      target: certificate.subjectAltName.dNSName
+      operator: present
+    target: certificate.subjectAltName.dNSName
+    operator: every
+    operands:
+      - {operator: notRegex, operands: ["(?i)(^|\\.)([a-wyz0-9-][a-z0-9-]|x[a-mo-z0-9-])--"]}
+    certType: [leaf]
+    requirement: must
+    message: "Labels with -- in the third and fourth positions must be P-Labels (xn--)"
+  - id: br-subscriber-dns-no-internal-names
+    reference: CABF-BR 7.1.2.7.12
+    when:
+      target: certificate.subjectAltName.dNSName
+      operator: present
+    target: certificate.subjectAltName.dNSName
+    operator: every
+    operands:
+      - {operator: tldRegistered}
+    certType: [leaf]
+    requirement: must
+    message: "dNSName must not be an Internal Name"
+  - id: br-subscriber-dns-no-reverse-zone
+    reference: CABF-BR 7.1.2.7.12
+    when:
+      target: certificate.subjectAltName.dNSName
+      operator: present
+    target: certificate.subjectAltName.dNSName
+    operator: every
+    operands:
+      - {operator: notRegex, operands: ["(?i)(^|\\.)(in-addr|ip6)\\.arpa$"]}
+    certType: [leaf]
+    requirement: must
+    effective: {basis: issuance, from: 2026-03-15}
+    message: "dNSName must not end in an IP Address Reverse Zone Suffix"
+  # Reserved IP Address: the IANA IPv4 and IPv6 Special-Purpose Address
+  # Registries (2001::/23 covers their 2001:: entries).
+  - id: br-subscriber-ip-not-reserved
+    reference: CABF-BR 7.1.2.7.12
+    when:
+      target: certificate.subjectAltName.iPAddress
+      operator: present
+    target: certificate.subjectAltName.iPAddress
+    operator: every
+    operands:
+      - {operator: componentNotInCIDR, operands: ["0.0.0.0/8", "10.0.0.0/8", "100.64.0.0/10", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/24", "192.0.2.0/24", "192.31.196.0/24", "192.52.193.0/24", "192.88.99.0/24", "192.168.0.0/16", "192.175.48.0/24", "198.18.0.0/15", "198.51.100.0/24", "203.0.113.0/24", "240.0.0.0/4", "255.255.255.255/32", "::/128", "::1/128", "::ffff:0:0/96", "64:ff9b::/96", "64:ff9b:1::/48", "100::/64", "100:0:0:1::/64", "2001::/23", "2001:db8::/32", "2002::/16", "2620:4f:8000::/48", "3fff::/20", "5f00::/16", "fc00::/7", "fe80::/10"]}
+    certType: [leaf]
+    requirement: must
+    message: "iPAddress must not be a Reserved IP Address"
+
+  # -------------------------------------------------
+  # Subscriber Key Usage (7.1.2.7.11)
+  # certificate.keyUsage is the bit set: digitalSignature 1, keyEncipherment 4,
+  # dataEncipherment 8, keyAgreement 16.
+  # -------------------------------------------------
+  - id: br-subscriber-key-usage-present
+    reference: CABF-BR 7.1.2.7.6
+    target: certificate.extensions.keyUsage
+    operator: present
+    certType: [leaf]
+    requirement: should
+  - id: br-subscriber-key-usage-critical
+    reference: CABF-BR 7.1.2.7.6
+    when:
+      target: certificate.extensions.keyUsage
+      operator: present
+    target: certificate.extensions.keyUsage.critical
+    operator: eq
+    operands: [true]
+    certType: [leaf]
+    requirement: must
+  - id: br-subscriber-rsa-key-usage
+    reference: CABF-BR 7.1.2.7.11
+    when:
+      target: certificate.subjectPublicKeyInfo.algorithm.oid
+      operator: eq
+      operands: ["1.2.840.113549.1.1.1"]
+    target: certificate
+    operator: anyOf
+    operands:
+      - {path: extensions.keyUsage, operator: absent}
+      - {path: keyUsage, operator: in, operands: [1, 4, 5, 8, 9, 12, 13]}
+    certType: [leaf]
+    requirement: must
+    message: "RSA keys permit only digitalSignature, keyEncipherment and dataEncipherment, at least one"
+  - id: br-subscriber-rsa-key-usage-digital-signature
+    reference: CABF-BR 7.1.2.7.11
+    when:
+      target: certificate.subjectPublicKeyInfo.algorithm.oid
+      operator: eq
+      operands: ["1.2.840.113549.1.1.1"]
+    target: certificate
+    operator: anyOf
+    operands:
+      - {path: extensions.keyUsage, operator: absent}
+      - {path: extensions.keyUsage.digitalSignature, operator: eq, operands: [true]}
+    certType: [leaf]
+    requirement: should
+  - id: br-subscriber-rsa-key-usage-no-data-encipherment
+    reference: CABF-BR 7.1.2.7.11
+    when:
+      target: certificate.subjectPublicKeyInfo.algorithm.oid
+      operator: eq
+      operands: ["1.2.840.113549.1.1.1"]
+    target: certificate
+    operator: anyOf
+    operands:
+      - {path: extensions.keyUsage, operator: absent}
+      - {path: extensions.keyUsage.dataEncipherment, operator: eq, operands: [false]}
+    certType: [leaf]
+    requirement: should
+  - id: br-subscriber-rsa-key-usage-not-both
+    reference: CABF-BR 7.1.2.7.11
+    when:
+      target: certificate.subjectPublicKeyInfo.algorithm.oid
+      operator: eq
+      operands: ["1.2.840.113549.1.1.1"]
+    target: certificate
+    operator: anyOf
+    operands:
+      - {path: extensions.keyUsage, operator: absent}
+      - {path: keyUsage, operator: notIn, operands: [5, 13]}
+    certType: [leaf]
+    requirement: should
+    message: "Asserting both digitalSignature and keyEncipherment is not recommended"
+  - id: br-subscriber-ecc-key-usage
+    reference: CABF-BR 7.1.2.7.11
+    when:
+      target: certificate.subjectPublicKeyInfo.algorithm.oid
+      operator: eq
+      operands: ["1.2.840.10045.2.1"]
+    target: certificate
+    operator: anyOf
+    operands:
+      - {path: extensions.keyUsage, operator: absent}
+      - {path: keyUsage, operator: in, operands: [1, 17]}
+    certType: [leaf]
+    requirement: must
+    message: "ECC keys must assert digitalSignature and may only add keyAgreement"
+  - id: br-subscriber-ecc-key-usage-no-key-agreement
+    reference: CABF-BR 7.1.2.7.11
+    when:
+      target: certificate.subjectPublicKeyInfo.algorithm.oid
+      operator: eq
+      operands: ["1.2.840.10045.2.1"]
+    target: certificate
+    operator: anyOf
+    operands:
+      - {path: extensions.keyUsage, operator: absent}
+      - {path: extensions.keyUsage.keyAgreement, operator: eq, operands: [false]}
+    certType: [leaf]
+    requirement: should
+
+  # -------------------------------------------------
+  # Other subscriber extensions (7.1.2.7.6, 7.1.2.7.8)
+  # -------------------------------------------------
+  - id: br-subscriber-no-name-constraints
+    reference: CABF-BR 7.1.2.7.6
+    target: certificate.extensions.nameConstraints
+    operator: absent
+    certType: [leaf]
+    requirement: must
+  - id: br-subscriber-basic-constraints-critical
+    reference: CABF-BR 7.1.2.7.6
+    when:
+      target: certificate.extensions.basicConstraints
+      operator: present
+    target: certificate.extensions.basicConstraints.critical
+    operator: eq
+    operands: [true]
+    certType: [leaf]
+    requirement: must
+  - id: br-subscriber-no-subject-key-identifier
+    reference: CABF-BR 7.1.2.7.6
+    target: certificate.extensions.subjectKeyIdentifier
+    operator: absent
+    certType: [leaf]
+    requirement: should
+    message: "subjectKeyIdentifier is not recommended in subscriber certificates"
+
+  # -------------------------------------------------
+  # CRL Distribution Points (7.1.2.11.2)
+  # Required unless the certificate is short-lived or names an OCSP responder:
+  # short-lived means at most 10 days before 2026-03-15, at most 7 days after.
+  # -------------------------------------------------
+  - id: br-subscriber-crl-distribution-points-required
+    reference: CABF-BR 7.1.2.11.2
+    target: certificate
+    operator: anyOf
+    operands:
+      - {path: extensions.cRLDistributionPoints, operator: present}
+      - {path: extensions.authorityInfoAccess.containsOCSP, operator: eq, operands: [true]}
+      - {path: validity, operator: dateDiff, operands: [{start: notBefore, end: notAfter, maxDays: 10, inclusive: true}]}
+    certType: [leaf]
+    requirement: must
+    effective: {basis: issuance, until: 2026-03-15}
+    message: "cRLDistributionPoints is required without OCSP information unless the certificate is short-lived (10 days)"
+  - id: br-subscriber-crl-distribution-points-required-from-2026-03-15
+    reference: CABF-BR 7.1.2.11.2
+    target: certificate
+    operator: anyOf
+    operands:
+      - {path: extensions.cRLDistributionPoints, operator: present}
+      - {path: extensions.authorityInfoAccess.containsOCSP, operator: eq, operands: [true]}
+      - {path: validity, operator: dateDiff, operands: [{start: notBefore, end: notAfter, maxDays: 7, inclusive: true}]}
+    certType: [leaf]
+    requirement: must
+    effective: {basis: issuance, from: 2026-03-15}
+    message: "cRLDistributionPoints is required without OCSP information unless the certificate is short-lived (7 days)"
+  - id: br-crl-distribution-points-full-name-only
+    reference: CABF-BR 7.1.2.11.2
+    when:
+      target: certificate.extensions.cRLDistributionPoints
+      operator: present
+    target: certificate.extensions.cRLDistributionPoints.distributionPoints
+    operator: every
+    operands:
+      - {path: hasFullName, operator: eq, operands: [true]}
+    certType: [leaf, intermediate, root]
+    requirement: must
+    message: "Each DistributionPoint must carry a fullName"
+  - id: br-crl-distribution-points-no-reasons
+    reference: CABF-BR 7.1.2.11.2
+    when:
+      target: certificate.extensions.cRLDistributionPoints
+      operator: present
+    target: certificate.extensions.cRLDistributionPoints.distributionPoints
+    operator: every
+    operands:
+      - {path: hasReasons, operator: eq, operands: [false]}
+    certType: [leaf, intermediate, root]
+    requirement: must
+  - id: br-crl-distribution-points-no-crl-issuer
+    reference: CABF-BR 7.1.2.11.2
+    when:
+      target: certificate.extensions.cRLDistributionPoints
+      operator: present
+    target: certificate.extensions.cRLDistributionPoints.distributionPoints
+    operator: every
+    operands:
+      - {path: hasCRLIssuer, operator: eq, operands: [false]}
+    certType: [leaf, intermediate, root]
+    requirement: must
+  - id: br-crl-distribution-points-http
+    reference: CABF-BR 7.1.2.11.2
+    when:
+      target: certificate.extensions.cRLDistributionPoints
+      operator: present
+    target: certificate.extensions.cRLDistributionPoints.distributionPoints
+    operator: every
+    operands:
+      - {path: "distributionPoint.fullName.generalNames.*.scheme", operator: eq, operands: [http]}
+    certType: [leaf, intermediate, root]
+    requirement: must
+    message: "CRL locations must be http URIs"
+
+  # -------------------------------------------------
+  # Subscriber subject (7.1.2.7.2-7.1.2.7.4, 7.1.4.3)
+  # The subject profile follows the asserted Reserved Certificate Policy
+  # Identifier. EV subjects follow the EV Guidelines and are not checked.
+  # -------------------------------------------------
+  - id: br-subscriber-dv-subject-attributes
+    reference: CABF-BR 7.1.2.7.2
+    when:
+      target: certificate.extensions.certificatePolicies.dvPolicy
+      operator: present
+    target: certificate.subject.rdns
+    operator: every
+    operands:
+      - {path: "attributes.*.oid", operator: in, operands: ["2.5.4.6", "2.5.4.3"]}
+    certType: [leaf]
+    requirement: must
+    message: "Domain Validated subjects may contain only countryName and commonName"
+  - id: br-subscriber-ov-country-present
+    reference: CABF-BR 7.1.2.7.4
+    when:
+      target: certificate.extensions.certificatePolicies.ovPolicy
+      operator: present
+    target: certificate.subject.countryName
+    operator: present
+    certType: [leaf]
+    requirement: must
+  - id: br-subscriber-ov-locality-or-state
+    reference: CABF-BR 7.1.2.7.4
+    when:
+      target: certificate.extensions.certificatePolicies.ovPolicy
+      operator: present
+    target: certificate.subject
+    operator: anyOf
+    operands:
+      - {path: stateOrProvinceName, operator: present}
+      - {path: localityName, operator: present}
+    certType: [leaf]
+    requirement: must
+    message: "stateOrProvinceName or localityName must be present"
+  - id: br-subscriber-ov-no-organizational-unit
+    reference: CABF-BR 7.1.2.7.4
+    when:
+      target: certificate.extensions.certificatePolicies.ovPolicy
+      operator: present
+    target: certificate.subject.organizationalUnitName
+    operator: absent
+    certType: [leaf]
+    requirement: must
+  - id: br-subscriber-ov-organization-present
+    reference: CABF-BR 7.1.2.7.4
+    when:
+      target: certificate.extensions.certificatePolicies.ovPolicy
+      operator: present
+    target: certificate.subject.organizationName
+    operator: present
+    certType: [leaf]
+    requirement: must
+  - id: br-subscriber-ov-no-given-name
+    reference: CABF-BR 7.1.2.7.4
+    when:
+      target: certificate.extensions.certificatePolicies.ovPolicy
+      operator: present
+    target: certificate.subject.givenName
+    operator: absent
+    certType: [leaf]
+    requirement: must
+  - id: br-subscriber-ov-no-surname
+    reference: CABF-BR 7.1.2.7.4
+    when:
+      target: certificate.extensions.certificatePolicies.ovPolicy
+      operator: present
+    target: certificate.subject.surname
+    operator: absent
+    certType: [leaf]
+    requirement: must
+  - id: br-subscriber-iv-country-present
+    reference: CABF-BR 7.1.2.7.3
+    when:
+      target: certificate.extensions.certificatePolicies.ivPolicy
+      operator: present
+    target: certificate.subject.countryName
+    operator: present
+    certType: [leaf]
+    requirement: must
+  - id: br-subscriber-iv-locality-or-state
+    reference: CABF-BR 7.1.2.7.3
+    when:
+      target: certificate.extensions.certificatePolicies.ivPolicy
+      operator: present
+    target: certificate.subject
+    operator: anyOf
+    operands:
+      - {path: stateOrProvinceName, operator: present}
+      - {path: localityName, operator: present}
+    certType: [leaf]
+    requirement: must
+    message: "stateOrProvinceName or localityName must be present"
+  - id: br-subscriber-iv-no-organizational-unit
+    reference: CABF-BR 7.1.2.7.3
+    when:
+      target: certificate.extensions.certificatePolicies.ivPolicy
+      operator: present
+    target: certificate.subject.organizationalUnitName
+    operator: absent
+    certType: [leaf]
+    requirement: must
+  - id: br-subscriber-iv-given-name-present
+    reference: CABF-BR 7.1.2.7.3
+    when:
+      target: certificate.extensions.certificatePolicies.ivPolicy
+      operator: present
+    target: certificate.subject.givenName
+    operator: present
+    certType: [leaf]
+    requirement: must
+  - id: br-subscriber-iv-surname-present
+    reference: CABF-BR 7.1.2.7.3
+    when:
+      target: certificate.extensions.certificatePolicies.ivPolicy
+      operator: present
+    target: certificate.subject.surname
+    operator: present
+    certType: [leaf]
+    requirement: must
+  - id: br-subscriber-subject-not-metadata
+    reference: CABF-BR 7.1.2.7.3, 7.1.2.7.4, 7.1.2.7.5
+    when:
+      target: certificate.subject.rdns
+      operator: notEmpty
+    target: certificate.subject.rdns
+    operator: every
+    operands:
+      - {path: "attributes.*.value", operator: notRegex, operands: ["^[ .-]*$"]}
+    certType: [leaf]
+    requirement: must
+    message: "Subject attributes must not contain only metadata such as \".\", \"-\" or spaces"
+  - id: br-subscriber-common-name-not-recommended
+    reference: CABF-BR 7.1.2.7.2, 7.1.2.7.3, 7.1.2.7.4
+    target: certificate.subject.commonName
+    operator: absent
+    certType: [leaf]
+    requirement: should
+    message: "commonName is not recommended"
+  - id: br-subscriber-common-name-from-san
+    reference: CABF-BR 7.1.4.3
+    when:
+      target: certificate.subject.commonName
+      operator: present
+    target: certificate.subject.commonName
+    operator: every
+    operands:
+      - {path: value, operator: matches, operands: ["certificate.subjectAltName.entries"]}
+    certType: [leaf]
+    requirement: must
+    message: "commonName must be one of the subjectAltName values"
