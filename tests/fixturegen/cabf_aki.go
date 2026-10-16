@@ -14,36 +14,14 @@ import (
 )
 
 // cabfAKIVectors exercise the authorityKeyIdentifier field profile of BR
-// 7.1.2.11.1 and 7.1.2.1.3 for certificates and CRLs. Like
-// cabfPolicyVectors they have their own issuer and can be regenerated alone.
+// 7.1.2.11.1 and 7.1.2.1.3 for certificates and CRLs.
 func cabfAKIVectors(w vectorWriter) error {
-	key, err := p256Key("cabf-aki/issuer")
+	group, err := newCABFGroup(w, "cabf-aki", 0x7a, "AKI")
 	if err != nil {
 		return err
 	}
-	issuerKeyID := []byte{0x7a, 0x00}
-	issuer, err := issueKey(key, nil, func(c *x509.Certificate) {
-		c.SerialNumber = big.NewInt(0x7a00)
-		c.Subject = pkix.Name{Country: []string{"DE"}, Organization: []string{"PCL Test"}, CommonName: "AKI Test Root"}
-		c.NotBefore, c.NotAfter = date(2020, 1, 1, 0, 0, 0), date(2035, 1, 1, 0, 0, 0)
-		ca(c, -1)
-		c.SubjectKeyId = issuerKeyID
-		c.AuthorityKeyId = c.SubjectKeyId
-	})
-	if err != nil {
-		return err
-	}
-	if err := w.certificate("cabf-aki", "issuer.pem", issuer.cert.Raw); err != nil {
-		return err
-	}
-	certKey, err := p256Key("cabf-aki/subject")
-	if err != nil {
-		return err
-	}
-	policiesDER, err := asn1.Marshal([]cabfPolicyInformation{{ID: asn1.ObjectIdentifier{2, 23, 140, 1, 2, 1}}})
-	if err != nil {
-		return err
-	}
+	issuer := group.issuer
+	issuerKeyID := issuer.cert.SubjectKeyId
 
 	// akiValue encodes AuthorityKeyIdentifier with the fields requested;
 	// authorityCertIssuer names the issuer as a directoryName.
@@ -83,17 +61,10 @@ func cabfAKIVectors(w vectorWriter) error {
 		{name: "intermediate-missing", role: "intermediate", omitAKI: true},
 		{name: "root-issuer-and-serial", role: "root"},
 	} {
-		c := &x509.Certificate{}
-		c.SerialNumber = new(big.Int).Lsh(big.NewInt(int64(0x7a10+index)), 64)
-		c.NotBefore = date(2026, 6, 1, 0, 0, 0)
-		if !vector.issuedAt.IsZero() {
-			c.NotBefore = vector.issuedAt
+		c, err := group.template(index, vector.role, vector.issuedAt, []cabfPolicyInformation{cabfDVPolicy})
+		if err != nil {
+			return err
 		}
-		c.NotAfter = c.NotBefore.Add(30 * 24 * time.Hour)
-		c.KeyUsage = x509.KeyUsageDigitalSignature
-		c.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}
-		c.ExtraExtensions = []pkix.Extension{{Id: asn1.ObjectIdentifier{2, 5, 29, 32}, Value: policiesDER}}
-		configureCABFPolicyRole(c, vector.role)
 		parent, signer := *issuer.cert, issuer.key
 		if vector.role == "root" {
 			// A root's AKI names itself; its serial and subject are known
@@ -108,7 +79,7 @@ func cabfAKIVectors(w vectorWriter) error {
 				element(0x80, c.SubjectKeyId),
 				element(0xa1, element(0xa4, subject))...),
 				element(0x82, c.SerialNumber.Bytes())...)), false))
-			parent, signer = *c, certKey
+			parent, signer = *c, group.subjectKey
 		} else if vector.aki != nil {
 			c.ExtraExtensions = append(c.ExtraExtensions, *vector.aki)
 		}
@@ -116,11 +87,7 @@ func cabfAKIVectors(w vectorWriter) error {
 			// Go derives the AKI from the parent's subjectKeyIdentifier.
 			parent.SubjectKeyId = nil
 		}
-		der, err := x509.CreateCertificate(rand.Reader, c, &parent, certKey.Public(), signer)
-		if err != nil {
-			return fmt.Errorf("%s: %w", vector.name, err)
-		}
-		if err := w.certificate("cabf-aki", vector.name+".pem", der); err != nil {
+		if err := group.write(vector.name+".pem", c, &parent, signer); err != nil {
 			return err
 		}
 	}

@@ -1,43 +1,16 @@
 package main
 
 import (
-	"crypto/rand"
 	"crypto/x509"
-	"crypto/x509/pkix"
 	"encoding/asn1"
-	"fmt"
-	"math/big"
 	"net"
 	"time"
 )
 
 // cabfProfileVectors are subordinate CA certificates for each BR 7.1.2
-// subordinate profile PCL infers, and for none. They have their own issuer
-// so the group can be regenerated alone.
+// subordinate profile PCL infers, and for none.
 func cabfProfileVectors(w vectorWriter) error {
-	key, err := p256Key("cabf-profiles/issuer")
-	if err != nil {
-		return err
-	}
-	issuer, err := issueKey(key, nil, func(c *x509.Certificate) {
-		c.SerialNumber = big.NewInt(0x7d00)
-		c.Subject = pkix.Name{Country: []string{"DE"}, Organization: []string{"PCL Test"}, CommonName: "Profile Test Root"}
-		c.NotBefore, c.NotAfter = date(2020, 1, 1, 0, 0, 0), date(2035, 1, 1, 0, 0, 0)
-		ca(c, -1)
-		c.SubjectKeyId = []byte{0x7d, 0x00}
-		c.AuthorityKeyId = c.SubjectKeyId
-	})
-	if err != nil {
-		return err
-	}
-	if err := w.certificate("cabf-profiles", "issuer.pem", issuer.cert.Raw); err != nil {
-		return err
-	}
-	certKey, err := p256Key("cabf-profiles/subject")
-	if err != nil {
-		return err
-	}
-	policiesDER, err := asn1.Marshal([]cabfPolicyInformation{{ID: asn1.ObjectIdentifier{2, 23, 140, 1, 2, 1}}})
+	group, err := newCABFGroup(w, "cabf-profiles", 0x7d, "Profile")
 	if err != nil {
 		return err
 	}
@@ -65,22 +38,13 @@ func cabfProfileVectors(w vectorWriter) error {
 			c.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageEmailProtection, x509.ExtKeyUsageOCSPSigning}
 		}},
 	} {
-		c := &x509.Certificate{}
-		c.SerialNumber = new(big.Int).Lsh(big.NewInt(int64(0x7d10+index)), 64)
-		c.NotBefore = date(2026, 6, 1, 0, 0, 0)
-		if !vector.issuedAt.IsZero() {
-			c.NotBefore = vector.issuedAt
+		c, err := group.template(index, "intermediate", vector.issuedAt, []cabfPolicyInformation{cabfDVPolicy})
+		if err != nil {
+			return err
 		}
 		c.NotAfter = c.NotBefore.AddDate(5, 0, 0)
-		c.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}
-		c.ExtraExtensions = []pkix.Extension{{Id: asn1.ObjectIdentifier{2, 5, 29, 32}, Value: policiesDER}}
-		configureCABFPolicyRole(c, "intermediate")
 		vector.configure(c)
-		der, err := x509.CreateCertificate(rand.Reader, c, issuer.cert, certKey.Public(), issuer.key)
-		if err != nil {
-			return fmt.Errorf("%s: %w", vector.file, err)
-		}
-		if err := w.certificate("cabf-profiles", vector.file, der); err != nil {
+		if err := group.write(vector.file, c, nil, nil); err != nil {
 			return err
 		}
 	}

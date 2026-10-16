@@ -1,52 +1,21 @@
 package main
 
 import (
-	"crypto/rand"
+	"crypto"
 	"crypto/x509"
-	"crypto/x509/pkix"
 	"encoding/asn1"
-	"fmt"
-	"math/big"
 	"time"
 )
 
-type cabfPolicyQualifier struct {
-	ID    asn1.ObjectIdentifier
-	Value asn1.RawValue
-}
-
-type cabfPolicyInformation struct {
-	ID         asn1.ObjectIdentifier
-	Qualifiers []cabfPolicyQualifier `asn1:"optional"`
-}
-
-// cabfPolicyVectors is independent of the other CABF chain so this group
-// can be regenerated without replacing unrelated certificates and keys.
+// cabfPolicyVectors exercise the certificatePolicies profile of subscriber,
+// CA, OCSP responder and root certificates.
 func cabfPolicyVectors(w vectorWriter) error {
-	key, err := p256Key("cabf-policies/issuer")
-	if err != nil {
-		return err
-	}
-	issuer, err := issueKey(key, nil, func(c *x509.Certificate) {
-		c.SerialNumber = big.NewInt(0x7500)
-		c.Subject = pkix.Name{Country: []string{"DE"}, Organization: []string{"PCL Test"}, CommonName: "Policy Test Root"}
-		c.NotBefore, c.NotAfter = date(2020, 1, 1, 0, 0, 0), date(2035, 1, 1, 0, 0, 0)
-		ca(c, -1)
-		c.SubjectKeyId = []byte{0x75, 0x00}
-		c.AuthorityKeyId = c.SubjectKeyId
-	})
-	if err != nil {
-		return err
-	}
-	if err := w.certificate("cabf-policies", "issuer.pem", issuer.cert.Raw); err != nil {
-		return err
-	}
-	certKey, err := p256Key("cabf-policies/subject")
+	group, err := newCABFGroup(w, "cabf-policies", 0x75, "Policy")
 	if err != nil {
 		return err
 	}
 
-	dv := cabfPolicyInformation{ID: asn1.ObjectIdentifier{2, 23, 140, 1, 2, 1}}
+	dv := cabfDVPolicy
 	ev := cabfPolicyInformation{ID: asn1.ObjectIdentifier{2, 23, 140, 1, 1}}
 	private := cabfPolicyInformation{ID: asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 55555, 2}}
 	anyPolicy := cabfPolicyInformation{ID: asn1.ObjectIdentifier{2, 5, 29, 32, 0}}
@@ -97,64 +66,20 @@ func cabfPolicyVectors(w vectorWriter) error {
 		{"before-cutover", "leaf", []cabfPolicyInformation{dv, ev}, cutover.Add(-time.Second)},
 		{"at-cutover", "leaf", []cabfPolicyInformation{dv, ev}, cutover},
 	} {
-		policiesDER, err := asn1.Marshal(vector.policies)
+		c, err := group.template(index, vector.role, vector.issuedAt, vector.policies)
 		if err != nil {
 			return err
 		}
-		c := &x509.Certificate{}
-		c.SerialNumber = new(big.Int).Lsh(big.NewInt(int64(0x7510+index)), 64)
-		c.NotBefore = date(2026, 6, 1, 0, 0, 0)
-		if !vector.issuedAt.IsZero() {
-			c.NotBefore = vector.issuedAt
-		}
-		c.NotAfter = c.NotBefore.Add(30 * 24 * time.Hour)
-		c.KeyUsage = x509.KeyUsageDigitalSignature
-		c.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}
-		c.ExtraExtensions = []pkix.Extension{{Id: asn1.ObjectIdentifier{2, 5, 29, 32}, Value: policiesDER}}
-		configureCABFPolicyRole(c, vector.role)
-		parent, signer := issuer.cert, issuer.key
+		var parent *x509.Certificate
+		var signer crypto.Signer
 		if vector.role == "root" {
-			parent, signer = c, certKey
+			parent, signer = c, group.subjectKey
 		}
 		// Do not round-trip through Go's parser: the duplicate-policy vector
 		// is intentionally rejected there but must reach PCL's own parser.
-		der, err := x509.CreateCertificate(rand.Reader, c, parent, certKey.Public(), signer)
-		if err != nil {
-			return fmt.Errorf("%s: %w", vector.name, err)
-		}
-		if err := w.certificate("cabf-policies", vector.name+".pem", der); err != nil {
+		if err := group.write(vector.name+".pem", c, parent, signer); err != nil {
 			return err
 		}
 	}
 	return nil
-}
-
-func configureCABFPolicyRole(c *x509.Certificate, role string) {
-	if role == "leaf" {
-		c.DNSNames = []string{"www.example.com"}
-		c.OCSPServer = []string{"http://ocsp.example.com"}
-		c.IssuingCertificateURL = []string{"http://ca.example.com/issuer.crt"}
-		return
-	}
-	c.Subject = pkix.Name{Country: []string{"DE"}, Organization: []string{"PCL Test"}, CommonName: "Policy Test Certificate"}
-	c.SubjectKeyId = []byte{0x75, 0x01}
-	if role == "ocspSigning" {
-		c.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageOCSPSigning}
-		c.ExtraExtensions = append(c.ExtraExtensions, pkix.Extension{
-			Id: asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 48, 1, 5}, Value: []byte{0x05, 0x00},
-		})
-		return
-	}
-	ca(c, -1)
-	if role == "root" {
-		c.NotAfter = c.NotBefore.AddDate(10, 0, 0)
-		c.AuthorityKeyId = c.SubjectKeyId
-		c.ExtKeyUsage = nil
-		return
-	}
-	c.CRLDistributionPoints = []string{"http://crl.example.com/root.crl"}
-	c.IssuingCertificateURL = []string{"http://ca.example.com/issuer.crt"}
-	if role == "nonTLS" {
-		c.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning}
-	}
 }
