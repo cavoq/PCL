@@ -1,5 +1,5 @@
 ID                  STANDARD                              TITLE
-cabf-tls-br         CA/B Forum TLS Baseline Requirements  TLS subscriber certificate profile and algorithms
+cabf-tls-br         CA/B Forum TLS Baseline Requirements  TLS certificate, CRL and OCSP profiles
 local-profile                                             Supplemental local certificate profile
 rfc4055             RFC 4055                              RSA algorithm identifiers
 rfc5280             RFC 5280                              X.509 certificate, CRL, and certification-path checks

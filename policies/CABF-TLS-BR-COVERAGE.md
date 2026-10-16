@@ -6,17 +6,27 @@
 
 Certificate-profile conformance against the Baseline Requirements for the
 Issuance and Management of Publicly-Trusted TLS Server Certificates, version
-2.3.1 (2026-10-04): the Subscriber Certificate profile (7.1.2.7) and the
-key, algorithm and name-encoding requirements that apply to every
-certificate of the chain. A certificate answers only questions about its
-contents; domain and identity validation (3.2), CA operations, audits,
-Certificate Transparency and CAA checking need evidence beyond the
-certificate and are out of scope.
+2.3.1 (2026-10-04): the Subscriber Certificate profile (7.1.2.7), partial
+root/subordinate CA and delegated OCSP responder profiles, and selected CRL
+and OCSP response requirements. Shared key, algorithm and name-encoding
+rules also apply to extracted OCSP signing certificates. This is an
+artifact-level lint pack, not a complete BR compliance assessment: domain
+and identity validation (3.2), CA operations, audits, Certificate
+Transparency and CAA checking need evidence beyond these inputs.
 
 Load the pack together with `rfc5280`: the Baseline Requirements apply
 RFC 5280 except where they say otherwise, and this pack states only what
-they add. Requirement levels follow the BR text: MUST and MUST NOT are
-errors, SHOULD, SHOULD NOT and NOT RECOMMENDED are warnings.
+they add. Use `rfc6960` for the underlying OCSP requirements. Requirement
+levels follow the BR text: MUST and MUST NOT are errors, SHOULD, SHOULD NOT
+and NOT RECOMMENDED are warnings. Combining packs does not override an RFC
+rule with a BR exception; see the conflicts below.
+
+CA and responder profile rules apply from 2023-09-15 by certificate
+notBefore, and the CRL profile additions from 2024-03-15 by thisUpdate.
+These cutoffs avoid retroactively imposing the new profiles; they do not
+implement every historical BR edition. Shared key, algorithm and name
+rules describe the current requirements, subject to the historical limits
+below.
 
 ## Requirement matrix
 
@@ -37,20 +47,34 @@ errors, SHOULD, SHOULD NOT and NOT RECOMMENDED are warnings.
 | CRL Distribution Points (7.1.2.11.2) | Covered | `br-subscriber-crl-distribution-points-required*` (short-lived 10 days, 7 days from 2026-03-15), `br-crl-distribution-points-*` | Conforming chain |
 | Subject by certificate type (7.1.2.7.2–7.1.2.7.4) | Covered for DV, OV, IV | `br-subscriber-dv-subject-attributes`, `br-subscriber-ov-*`, `br-subscriber-iv-*`, `br-subscriber-subject-not-metadata` | [CA/B suite](../tests/policy-suites/cabf.test.yaml) |
 | Common Name (7.1.4.3) | Partial | `br-subscriber-common-name-not-recommended`, `br-subscriber-common-name-from-san` | [CA/B suite](../tests/policy-suites/cabf.test.yaml) |
+| Common CA fields (7.1.2.10) | Partial | `br-ca-version-3`, `br-ca-key-usage-*`, `br-ca-aia-*`, `br-ca-name-constraints-critical` (SHOULD); required C/O/CN checked for roots only because cross-certificates may retain historical subjects | Conforming CA chain, bad subordinate and cross-subject vectors |
+| Root CA profile (7.1.2.1) | Partial | `br-root-validity` (2922–9132 days), `br-root-no-eku`, `br-root-no-organizational-unit`; recommended AKI, absence of policies, path length and CRLDP | Conforming and bad roots |
+| Subordinate CA profiles (7.1.2.2–7.1.2.6) | Partial | CRLDP presence, recommended AIA/EKU, EKU criticality, anyEKU alone; serverAuth selects shared TLS EKU/policy checks; no new Precertificate Signing CAs from 2026-03-15 | Bad subordinate, cross-subject and non-TLS private-policy vectors |
+| OCSP responder profile (7.1.2.8) | Partial | `br-ocsp-responder-*`: version, AKI presence, sole OCSPSigning EKU, nocheck presence/DER/criticality, KU, BC DER/criticality, no SAN/NC/CRLDP, AIA methods/URLs, required C/O/CN and extension recommendations | Conforming responder, bad responder and weak responder key |
+| CRL signature encoding (7.1.3.2) | Covered | `br-crl-signature-algorithm-encoding` | Conforming CRL |
+| CRL validity (7.2) | Partial | `br-crl-next-update-12-months`, `br-crl-subscriber-next-update-10-days` when IDP asserts onlyContainsUserCerts | Conforming CRL, 11-day subscriber CRL and 400-day root CRL |
+| CRL reasons and IDP (7.2.2) | Partial | Allowed reason codes, no indirect/attribute-certificate CRLs, named partitions, URI-only fullName, recommendation against reason partitions | Bad CRLs and an explicit unspecified reason requiring certificate context |
+| OCSP response profile (7.1.3.2, 7.3) | Partial | `br-ocsp-signature-algorithm-encoding`, `br-ocsp-no-reason-code-extension`, `br-ocsp-revocation-reason` | SHA-1 response, forbidden singleExtension and certificateHold vectors |
 
 ## Limits
 
 | Area | Limit |
 |---|---|
-| Other profiles | Root, cross-certified, technically constrained and TLS subordinate CA profiles (7.1.2.1–7.1.2.6, 7.1.2.10), OCSP responder certificates (7.1.2.8), Precertificates (7.1.2.9), the CRL profile (7.2) and the OCSP profile (7.3) are not checked yet; the algorithm, key and name-encoding rules apply to every certificate |
+| Subordinate profile selection | PCL's `intermediate` role does not identify cross-certification, affiliation or the selected constrained/unconstrained profile. EKU presence is checked at the common SHOULD level, not the MUST required for some profiles. Strict TLS-only naming, required C/O/CN, technical constraints and profile-specific EKU prohibitions need explicit profile context. An OU is therefore a warning, not a blanket failure. The pack does not prove eligibility for a cross-signing or affiliation exception |
+| Historical cross-certificates | Cross-certificates may retain compliant historical subject encodings. Shared current name-encoding checks do not implement that exception; findings require review against the original certificate and its issuance-era requirements |
+| Precertificates | The precertificate content/poison/SCT profile (7.1.2.9) is not implemented; only the Precertificate Signing CA EKU and issuance cutoff are checked |
 | Extended Validation | EV subjects follow the EV Guidelines, which this pack does not implement |
-| Issuance date | Certificates do not record issuance; notBefore stands in for it, which the BR bounds to 48 hours of signing |
+| Issuance date | Certificates do not record signing time; notBefore is a proxy. The CA profiles normally allow one day's backdating and the subscriber profile 48 hours. Cross-certificates may use an older certificate's notBefore, so a new cross-certificate can fall outside a profile's effective window |
 | Certificate Policies | Exactly one Reserved Certificate Policy Identifier, the recommended order, and the permitted policyQualifiers (CPS URI only) are not checked |
 | ECDSA signature hash | Matching the hash to the signing key's curve (7.1.3.2.2) needs the issuer's key and is not checked |
+| Historical signature exceptions | Shared current signature allowlists do not implement the SHA-1 exception for reissued CA certificates before 2026-09-15 |
 | Authority Key Identifier | authorityCertIssuer and authorityCertSerialNumber (7.1.2.11.1) are not projected |
 | Serial numbers | 64 bits of CSPRNG output and non-sequential issuance are not observable in one certificate |
 | Names | RDN order (7.1.4.2), byte-identical CA subject encodings across certificates (7.1.4.1), the IPv4/IPv6 text forms of a commonName, and Punycode validity of P-Labels are not checked |
 | Internal Names | Top-level domains come from the Public Suffix List ICANN section, embedded or loaded with `--psl-file` |
 | Reserved IP Addresses | The IANA special-purpose registries as of October 2026 |
 | SCT list | The content of the Signed Certificate Timestamp List (7.1.2.11.3) is not checked |
-| RFC 5280 | `rfc5280` recommends a subjectKeyIdentifier in end-entity certificates (4.2.1.2); the BR do not recommend it, so the two packs warn in opposite directions |
+| CRL profile | CRL version and time encodings are not projected. The 10-day limit cannot be selected reliably without subscriber scope; an IDP-less CRL only receives the 12-month check. The pack cannot establish missing IDP on an otherwise unmarked partition, CRL number progression, issuer-name byte identity, publication frequency, entry completeness or matching certificate/IDP URIs |
+| Revocation reasons | Revoked certificates and their issuance histories are not available per entry. Explicit unspecified (0) remains allowed because it is required in some CA entries; omission/presence requirements and legacy non-BR certificateHold exceptions need this context. Applying the pack to mixed BR/non-BR CRLs can flag legacy non-BR entries |
+| OCSP profile | Subscriber response validity bounds and the required explicit revocationReason for revoked CAs need the checked certificate's role and lossless field-presence information, not currently exposed to these rules. Refresh cadence and service availability require operational evidence |
+| RFC 5280 conflicts | `rfc5280` recommends SKI in end-entity certificates; the BR discourage it in subscribers, so the packs warn in opposite directions. RFC 5280 requires critical nameConstraints while the BR allow a noncritical extension for legacy clients; the RFC pack still reports an error for that BR exception |

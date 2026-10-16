@@ -4,7 +4,18 @@ tests:
   - name: cabf-conformant-chain
     cert: ../vectors/cabf-conformant/leaf.pem
     issuers: [../vectors/cabf-conformant/intermediate.pem, ../vectors/cabf-conformant/root.pem]
+    crl: ../vectors/cabf-conformant/intermediate.crl
+    ocsp: ../vectors/cabf-conformant/leaf.ocsp
     expect:
+      - input: crl
+        verdict: pass
+        failed: []
+      - input: ocsp
+        verdict: pass
+        failed: []
+      - input: ocspSigning
+        verdict: pass
+        failed: []
       - input: leaf
         verdict: pass
         failed: []
@@ -72,3 +83,134 @@ tests:
     expect:
       - input: leaf
         rules: {br-subscriber-validity-max-398-days: skip, br-subscriber-validity-max-200-days: pass}
+  - name: cabf-root-bad
+    cert: ../vectors/cabf-root-bad/root.pem
+    expect:
+      - input: root
+        verdict: fail
+        failed: [br-root-no-eku, br-root-no-organizational-unit, br-root-validity]
+  - name: cabf-subordinate-bad
+    cert: ../vectors/cabf-subordinate-bad/intermediate.pem
+    issuers: [../vectors/cabf-conformant/root.pem]
+    expect:
+      - input: intermediate
+        verdict: fail
+        failed: [br-ca-key-usage-bits, br-subordinate-crl-distribution-points,
+          br-subordinate-no-organizational-unit, br-subordinate-tls-certificate-policies,
+          br-subordinate-tls-eku, br-subordinate-tls-eku-only-tls, br-subordinate-policy-identifier]
+  - name: cabf-ocsp-bad-responder
+    cert: ../vectors/cabf-conformant/leaf.pem
+    issuers: [../vectors/cabf-conformant/intermediate.pem]
+    ocsp: ../vectors/cabf-ocsp-bad-responder/leaf.ocsp
+    expect:
+      - input: ocspSigning
+        verdict: fail
+        failed: [br-ocsp-responder-key-usage-bits, br-ocsp-responder-no-crl-distribution-points,
+          br-ocsp-responder-no-san, br-ocsp-responder-nocheck-present,
+          br-ocsp-responder-eku-count, br-ocsp-responder-eku-only-ocsp-signing,
+          br-ocsp-responder-basic-constraints-value, br-ocsp-responder-no-aia,
+          br-ocsp-responder-aia-access-methods]
+  - name: cabf-ocsp-shared-key-requirements
+    cert: ../vectors/cabf-conformant/leaf.pem
+    issuers: [../vectors/cabf-conformant/intermediate.pem]
+    ocsp: ../vectors/cabf-ocsp-weak-key/leaf.ocsp
+    expect:
+      - input: ocspSigning
+        verdict: fail
+        failed: [br-rsa-key-size]
+  - name: cabf-ocsp-no-reason-extension
+    cert: ../vectors/cabf-conformant/leaf.pem
+    issuers: [../vectors/cabf-conformant/intermediate.pem]
+    ocsp: ../vectors/cabf-ocsp-reason-extension/leaf.ocsp
+    expect:
+      - input: ocsp
+        verdict: fail
+        failed: [br-ocsp-no-reason-code-extension]
+  - name: cabf-ocsp-no-certificate-hold
+    cert: ../vectors/cabf-conformant/leaf.pem
+    issuers: [../vectors/cabf-conformant/intermediate.pem]
+    ocsp: ../vectors/cabf-ocsp-hold/leaf.ocsp
+    expect:
+      - input: ocsp
+        verdict: fail
+        failed: [br-ocsp-revocation-reason]
+  # Profile/affiliation evidence is not available; do not impose stricter
+  # TLS-only naming rules on a possible cross-certificate.
+  - name: cabf-cross-subject-is-not-a-tls-profile
+    cert: ../vectors/cabf-cross-subject/intermediate.pem
+    issuers: [../vectors/cabf-conformant/root.pem]
+    expect:
+      - input: intermediate
+        verdict: pass
+        failed: [br-subordinate-no-organizational-unit]
+        rules: {br-ca-country-present: skip}
+  - name: cabf-non-tls-private-policy
+    cert: ../vectors/cabf-non-tls-subordinate/intermediate.pem
+    issuers: [../vectors/cabf-conformant/root.pem]
+    expect:
+      - input: intermediate
+        verdict: pass
+        failed: []
+        rules: {br-subordinate-policy-identifier: skip}
+  - name: cabf-ocsp-sha1
+    cert: ../vectors/cabf-conformant/leaf.pem
+    issuers: [../vectors/cabf-conformant/intermediate.pem]
+    ocsp: ../vectors/cabf-ocsp-sha1/leaf.ocsp
+    expect:
+      - input: ocsp
+        verdict: fail
+        failed: [br-ocsp-signature-algorithm-encoding]
+  # An 11-day user-certificate CRL with a certificateHold entry.
+  - name: cabf-crl-subscriber-scope
+    cert: ../vectors/cabf-conformant/intermediate.pem
+    issuers: [../vectors/cabf-conformant/root.pem]
+    crl: ../vectors/cabf-crl-bad/intermediate.crl
+    expect:
+      - input: crl
+        verdict: fail
+        failed: [br-crl-reason-codes, br-crl-subscriber-next-update-10-days]
+  # A root CRL valid for 400 days.
+  - name: cabf-crl-over-12-months
+    cert: ../vectors/cabf-conformant/root.pem
+    crl: ../vectors/cabf-crl-bad/root.crl
+    expect:
+      - input: crl
+        verdict: fail
+        failed: [br-crl-next-update-12-months]
+  # CA profile rules apply to CA certificates issued from 2023-09-15.
+  - name: cabf-ca-profile-from-2023-09-15
+    cert: ../pkits/certs/GoodCACert.crt
+    expect:
+      - input: intermediate
+        rules: {br-subordinate-crl-distribution-points: skip, br-ca-country-present: skip}
+  - name: cabf-crl-partition-must-have-name
+    cert: ../vectors/cabf-conformant/intermediate.pem
+    crl: ../vectors/cabf-crl-bad/unnamed.crl
+    expect:
+      - input: crl
+        verdict: fail
+        failed: [br-crl-partitioned-idp-full-name]
+  - name: cabf-crl-no-attribute-certificates
+    cert: ../vectors/cabf-conformant/intermediate.pem
+    crl: ../vectors/cabf-crl-bad/attribute.crl
+    expect:
+      - input: crl
+        verdict: fail
+        failed: [br-crl-idp-no-attribute-certificates]
+  # Explicit unspecified is required for some CA entries. Without the
+  # revoked certificate, the pack must not reject it unconditionally.
+  - name: cabf-crl-unspecified-reason-needs-context
+    cert: ../vectors/crl-entry-reason-unspecified/issuer.pem
+    crl: ../vectors/crl-entry-reason-unspecified/list.pem
+    expect:
+      - input: crl
+        verdict: pass
+        failed: []
+  - name: cabf-crl-profile-from-2024-03-15
+    cert: ../pkits/certs/GoodCACert.crt
+    crl: ../pkits/crls/GoodCACRL.crl
+    expect:
+      - input: crl
+        verdict: not_applicable
+        failed: []
+        rules: {br-crl-signature-algorithm-encoding: skip, br-crl-next-update-12-months: skip}

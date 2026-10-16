@@ -57,8 +57,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Subscriber Certificate profile (validity limits by issuance date through
   the 47-day era, AIA, policies, EKU, SAN names and reserved IPs, key usage,
   CRL distribution points, DV/OV/IV subjects, common name) and the key,
-  algorithm and name-encoding requirements for every certificate. See
-  CABF-TLS-BR-COVERAGE.md.
+  algorithm and name-encoding requirements for every certificate, including
+  extracted OCSP signers. Version `2.3.1-2` adds partial root/subordinate CA
+  and OCSP responder profiles, CRL validity/reasons/IDP checks and OCSP
+  signature/reason checks, with dated profile applicability and regression
+  vectors. Cross-certification, affiliation and revocation-scope limits
+  remain explicit in CABF-TLS-BR-COVERAGE.md; this is not a complete BR audit.
 - `anyOf` operator: a rule passes when at least one of its conditions holds,
   for requirements with alternatives.
 - `multipleOf` operator, and a `dateDiff` option `inclusive` that counts the
