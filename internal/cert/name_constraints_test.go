@@ -352,3 +352,27 @@ func TestNameConstraintsValidUnsupportedFormsApplyOnlyToPresentNames(t *testing.
 		t.Fatal("registeredID constraint rejected a certificate without subjectAltName")
 	}
 }
+
+func TestNameConstraintsValidWildcardSANAgainstExcludedSubtree(t *testing.T) {
+	issuer := &Info{Cert: &x509.Certificate{
+		PermittedDNSNames: []x509.GeneralSubtreeString{{Data: "example.com"}},
+		ExcludedDNSNames:  []x509.GeneralSubtreeString{{Data: "bar.example.com"}},
+	}}
+	tests := []struct {
+		name string
+		want bool
+	}{
+		// A peer accepts *.example.com for the excluded bar.example.com.
+		{name: "*.example.com"},
+		{name: "*.BAR.example.com"},
+		{name: "*.foo.example.com", want: true},
+		{name: "foo.example.com", want: true},
+		{name: "*.other.com"},
+	}
+	for _, test := range tests {
+		leaf := &Info{Cert: &x509.Certificate{DNSNames: []string{test.name}}}
+		if got := NameConstraintsValid(leaf, []*Info{leaf, issuer}); got != test.want {
+			t.Errorf("NameConstraintsValid(SAN %q) = %v, want %v", test.name, got, test.want)
+		}
+	}
+}

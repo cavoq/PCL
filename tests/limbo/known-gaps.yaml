@@ -4,14 +4,6 @@
 # listed once, under the cause that keeps it from conforming longest.
 
 - reason: >-
-    A wildcard dNSName in the subjectAltName is checked against excluded
-    subtrees as a literal name, so `*.example.com` passes an excluded
-    `bar.example.com` that the wildcard covers.
-  cases:
-    - rfc5280::nc::nc-forbids-dnsname-wildcard-san
-    - cve::cve-2025-61727
-
-- reason: >-
     Name constraint processing has no work limit; limbo expects the quadratic
     2048 x 2048 constraint checks to be rejected as a denial of service.
   cases:

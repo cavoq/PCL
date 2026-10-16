@@ -44,6 +44,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   cause in `tests/limbo/known-gaps.yaml`.
 
 ### Fixed
+- A wildcard SAN dNSName such as `*.example.com` violates an excluded
+  dNSName subtree whose names it matches, such as `bar.example.com`
+  (CVE-2025-61727). It was compared as a literal name and passed.
 - A critical nameConstraints extension with an otherName, x400Address,
   ediPartyName or registeredID subtree is no longer rejected as
   unprocessed. As RFC 5280 4.2.1.10 requires, the path rejects only a

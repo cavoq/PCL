@@ -280,7 +280,8 @@ func checkDNSNames(names, permitted, excluded []string) bool {
 func matchesDNSConstraint(name string, permitted, excluded []string) bool {
 	name = strings.ToLower(name)
 	for _, constraint := range excluded {
-		if matchesDNS(name, strings.ToLower(constraint)) {
+		constraint = strings.ToLower(constraint)
+		if matchesDNS(name, constraint) || wildcardCoversDNSConstraint(name, constraint) {
 			return false
 		}
 	}
@@ -300,6 +301,20 @@ func matchesDNS(name, constraint string) bool {
 		return true
 	}
 	return name == constraint || strings.HasSuffix(name, "."+constraint)
+}
+
+// wildcardCoversDNSConstraint reports whether a wildcard dNSName such as
+// "*.example.com" matches a name in the subtree of constraint, here exactly
+// a one-label child such as "bar.example.com" (RFC 9525 6.3). An excluded
+// subtree rejects such a wildcard: a peer would accept it for an excluded
+// name (CVE-2025-61727).
+func wildcardCoversDNSConstraint(name, constraint string) bool {
+	suffix, wildcard := strings.CutPrefix(name, "*.")
+	if !wildcard {
+		return false
+	}
+	label, rest, found := strings.Cut(constraint, ".")
+	return found && label != "" && rest == suffix
 }
 
 // validDNSNameConstraint applies the dNSName subtree syntax that the strict
