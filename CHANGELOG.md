@@ -53,6 +53,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   inconclusive rules like failures, so exit statuses do not change.
 
 ### Added
+- CABF pack `2.3.1-3` checks subscriber `certificatePolicies` cardinality,
+  recommended identifier ordering, CA anyPolicy exclusivity, strict policy
+  DER and CPS-only qualifiers with HTTP(S) URLs. The new profile checks are
+  issuance-gated from 2023-09-15; cross-CA cardinality and affiliation still
+  require external context. A dedicated policy-content fixture suite covers
+  warning/error distinctions, malformed values and the effective-date boundary.
+- `oneOf` composes conditions with exactly-one semantics; `httpURL` checks
+  absolute ASCII HTTP(S) URL syntax without fetching the resource.
 - `cabf-tls-br` policy pack: the CA/B Forum TLS Baseline Requirements 2.3.1
   Subscriber Certificate profile (validity limits by issuance date through
   the 47-day era, AIA, policies, EKU, SAN names and reserved IPs, key usage,

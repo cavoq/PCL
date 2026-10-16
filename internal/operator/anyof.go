@@ -47,26 +47,34 @@ func (AnyOf) EvaluateWithRegistry(n *node.Node, ctx *EvaluationContext, operands
 		return false, err
 	}
 	for _, condition := range conditions {
-		target := n
-		if condition.path != "" {
-			resolution := n.Lookup(condition.path)
-			target = resolution.Node
-			if resolution.Partial {
-				target = nil
-			}
-			if target == nil && !registry.decidesAbsence(condition.operator) {
-				continue
-			}
-		}
-		ok, err := registry.evaluateValidated(condition.operator, target, ctx, condition.operands)
+		ok, err := evaluateAlternative(n, ctx, condition, registry)
 		if err != nil {
-			return false, fmt.Errorf("condition %s: %w", condition.invocationPath, err)
+			return false, err
 		}
 		if ok {
 			return true, nil
 		}
 	}
 	return false, nil
+}
+
+func evaluateAlternative(n *node.Node, ctx *EvaluationContext, condition everyOperands, registry *Registry) (bool, error) {
+	target := n
+	if condition.path != "" {
+		resolution := n.Lookup(condition.path)
+		target = resolution.Node
+		if resolution.Partial {
+			target = nil
+		}
+		if target == nil && !registry.decidesAbsence(condition.operator) {
+			return false, nil
+		}
+	}
+	ok, err := registry.evaluateValidated(condition.operator, target, ctx, condition.operands)
+	if err != nil {
+		return false, fmt.Errorf("condition %s: %w", condition.invocationPath, err)
+	}
+	return ok, nil
 }
 
 // OperandSchema describes the anyOf conditions.

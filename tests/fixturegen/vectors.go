@@ -47,6 +47,7 @@ func (f fixtures) vectors() error {
 		rfc4055Vectors,
 		tr03116Vectors,
 		cabfVectors,
+		cabfPolicyVectors,
 	} {
 		if err := vector(w); err != nil {
 			return err

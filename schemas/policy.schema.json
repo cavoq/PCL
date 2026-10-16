@@ -26,6 +26,7 @@
                   "crlValid",
                   "ekuClientAuth",
                   "ekuServerAuth",
+                  "httpURL",
                   "inhibitAnyPolicyDependenciesValid",
                   "isCritical",
                   "isEmpty",
@@ -507,6 +508,30 @@
             "properties": {
               "operator": {
                 "enum": [
+                  "oneOf"
+                ]
+              }
+            },
+            "required": [
+              "operator"
+            ]
+          },
+          "then": {
+            "properties": {
+              "operands": {
+                "$ref": "#/definitions/operands.oneOf"
+              }
+            },
+            "required": [
+              "operands"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "operator": {
+                "enum": [
                   "validityDays"
                 ]
               }
@@ -570,6 +595,7 @@
             "every",
             "gt",
             "gte",
+            "httpURL",
             "in",
             "inhibitAnyPolicyDependenciesValid",
             "isCritical",
@@ -607,6 +633,7 @@
             "odd",
             "onOrAfter",
             "onOrBefore",
+            "oneOf",
             "pathLenValid",
             "pathValid",
             "policyConstraintsDependenciesValid",
@@ -1405,6 +1432,32 @@
       ],
       "description": "A positive integer."
     },
+    "operands.oneOf": {
+      "description": "Conditions on the target; the rule passes when exactly one holds.",
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "operands": {
+            "description": "Operands of the condition's operator."
+          },
+          "operator": {
+            "description": "Operator of the condition.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "path": {
+            "description": "Path below the target; omit for the target itself.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "operator"
+        ],
+        "type": "object"
+      },
+      "minItems": 2,
+      "type": "array"
+    },
     "operands.validityDays": {
       "anyOf": [
         {
@@ -1449,6 +1502,7 @@
                   "crlValid",
                   "ekuClientAuth",
                   "ekuServerAuth",
+                  "httpURL",
                   "inhibitAnyPolicyDependenciesValid",
                   "isCritical",
                   "isEmpty",
@@ -1930,6 +1984,30 @@
             "properties": {
               "operator": {
                 "enum": [
+                  "oneOf"
+                ]
+              }
+            },
+            "required": [
+              "operator"
+            ]
+          },
+          "then": {
+            "properties": {
+              "operands": {
+                "$ref": "#/definitions/operands.oneOf"
+              }
+            },
+            "required": [
+              "operands"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "operator": {
+                "enum": [
                   "validityDays"
                 ]
               }
@@ -2072,6 +2150,7 @@
             "every",
             "gt",
             "gte",
+            "httpURL",
             "in",
             "inhibitAnyPolicyDependenciesValid",
             "isCritical",
@@ -2109,6 +2188,7 @@
             "odd",
             "onOrAfter",
             "onOrBefore",
+            "oneOf",
             "pathLenValid",
             "pathValid",
             "policyConstraintsDependenciesValid",

@@ -225,6 +225,30 @@ operators that decide absence, such as `absent`, can hold:
     - {path: nonRepudiation, operator: eq, operands: [true]}
 ```
 
+`oneOf` uses the same condition syntax as `anyOf`, but exactly one condition
+must hold. It counts successful conditions, not distinct nodes; overlapping
+or duplicate predicates can therefore make it fail. Missing paths follow
+the same absence-aware behavior as `anyOf`. For example:
+
+```yaml
+- id: exactly-one-certificate-type
+  target: certificate.extensions.certificatePolicies
+  operator: oneOf
+  operands:
+    - {path: dvPolicy, operator: present}
+    - {path: ovPolicy, operator: present}
+    - {path: ivPolicy, operator: present}
+    - {path: evPolicy, operator: present}
+```
+
+## HTTP URL syntax
+
+`httpURL` takes no operands and checks a scalar string for an absolute ASCII
+HTTP or HTTPS URL with a nonempty host. It rejects whitespace, invalid URL
+escapes, relative/opaque references and other schemes; schemes are
+case-insensitive. It does not fetch the URL, check availability, or verify
+that the resource belongs to the CA. Compose it with `every` for collections.
+
 ## Collection traversal
 
 `every` accepts a mapping with `path` (relative to each element, supports

@@ -24,6 +24,17 @@ var operandContractCases = []struct {
 		invalid:  [][]any{{true}},
 	},
 	{
+		name: "HTTP URL has no operands", operator: "httpURL",
+		valid: [][]any{nil}, invalid: [][]any{{"https"}},
+	},
+	{
+		name: "exactly one condition", operator: "oneOf",
+		valid: [][]any{{map[string]any{"operator": "present"}, map[string]any{"operator": "absent"}}},
+		invalid: [][]any{nil, {map[string]any{"operator": "present"}}, {"present", "absent"},
+			{map[string]any{"operator": "present"}, map[string]any{"operator": "present", "skipMissing": true}}},
+		semanticInvalid: [][]any{{map[string]any{"operator": "present"}, map[string]any{"operator": "eq"}}},
+	},
+	{
 		name:     "one arbitrary operand",
 		operator: "eq",
 		valid:    [][]any{{true}, {map[string]any{"key": "value"}}},

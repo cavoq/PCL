@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/cavoq/PCL/master/schemas/policy.schema.json
 id: cabf-tls-br
-version: "2.3.1-2"
+version: "2.3.1-3"
 metadata:
   title: TLS certificate, CRL and OCSP profiles
   standard: CA/B Forum TLS Baseline Requirements
@@ -711,6 +711,34 @@ rules:
     certType: [leaf]
     requirement: must
     message: "A Reserved Certificate Policy Identifier must be asserted"
+  - id: br-subscriber-reserved-policy-exactly-one
+    reference: CABF-BR 7.1.2.7.9
+    when:
+      target: certificate.extensions.certificatePolicies
+      operator: present
+    target: certificate.extensions.certificatePolicies
+    operator: oneOf
+    operands:
+      - {path: dvPolicy, operator: present}
+      - {path: ovPolicy, operator: present}
+      - {path: ivPolicy, operator: present}
+      - {path: evPolicy, operator: present}
+    certType: [leaf]
+    requirement: must
+    effective: {basis: issuance, from: 2023-09-15}
+    message: "Exactly one Reserved Certificate Policy Identifier must be asserted"
+  - id: br-subscriber-reserved-policy-first
+    reference: CABF-BR 7.1.2.7.9
+    when:
+      target: certificate.extensions.certificatePolicies.policyInformations
+      operator: present
+    target: certificate.extensions.certificatePolicies.policyInformations.0.policyIdentifier
+    operator: in
+    operands: ["2.23.140.1.1", "2.23.140.1.2.1", "2.23.140.1.2.2", "2.23.140.1.2.3"]
+    certType: [leaf]
+    requirement: should
+    effective: {basis: issuance, from: 2023-09-15}
+    message: "The Reserved Certificate Policy Identifier should be first"
   - id: br-subscriber-no-any-policy
     reference: CABF-BR 7.1.2.7.9
     target: certificate.extensions.certificatePolicies.anyPolicy
@@ -718,6 +746,95 @@ rules:
     certType: [leaf]
     requirement: must
     message: "anyPolicy must not be asserted"
+
+  # Qualifier restrictions are shared by all BR certificate profiles.
+  # Malformed DER must fail explicitly; it has no projected policy list.
+  - id: br-certificate-policies-well-formed
+    reference: CABF-BR 7.1.2.2.6, 7.1.2.3.2, 7.1.2.7.9, 7.1.2.8.8, 7.1.2.10.5
+    when:
+      target: certificate.extensions.certificatePolicies
+      operator: present
+    target: certificate.extensions.certificatePolicies.malformed
+    operator: absent
+    certType: [leaf, intermediate, root, ocspSigning]
+    requirement: must
+    effective: {basis: issuance, from: 2023-09-15}
+  - id: br-certificate-policies-qualifiers-not-recommended
+    reference: CABF-BR 7.1.2.2.6, 7.1.2.3.2, 7.1.2.7.9, 7.1.2.8.8, 7.1.2.10.5
+    when:
+      target: certificate.extensions.certificatePolicies.policyInformations
+      operator: present
+    target: certificate.extensions.certificatePolicies.policyInformations
+    operator: every
+    operands:
+      - {path: policyQualifiers, operator: absent, skipMissing: true}
+    certType: [leaf, intermediate, root, ocspSigning]
+    requirement: should
+    effective: {basis: issuance, from: 2023-09-15}
+    message: "Policy qualifiers are not recommended"
+  - id: br-certificate-policies-cps-only
+    reference: CABF-BR 7.1.2.2.6, 7.1.2.3.2, 7.1.2.7.9, 7.1.2.8.8, 7.1.2.10.5
+    when:
+      target: certificate.extensions.certificatePolicies.policyInformations
+      operator: present
+    target: certificate.extensions.certificatePolicies.policyInformations
+    operator: every
+    operands:
+      - path: policyQualifiers
+        skipMissing: true
+        operator: every
+        operands:
+          - {path: policyQualifierId, operator: eq, operands: ["1.3.6.1.5.5.7.2.1"]}
+    certType: [leaf, intermediate, root, ocspSigning]
+    requirement: must
+    effective: {basis: issuance, from: 2023-09-15}
+    message: "Only id-qt-cps policy qualifiers are permitted"
+  - id: br-certificate-policies-cps-http-url
+    reference: CABF-BR 7.1.2.2.6, 7.1.2.3.2, 7.1.2.7.9, 7.1.2.8.8, 7.1.2.10.5
+    when:
+      target: certificate.extensions.certificatePolicies.policyInformations
+      operator: present
+    target: certificate.extensions.certificatePolicies.policyInformations
+    operator: every
+    operands:
+      - path: policyQualifiers
+        skipMissing: true
+        operator: every
+        operands:
+          - {path: cpsURI, operator: httpURL, skipMissing: true}
+    certType: [leaf, intermediate, root, ocspSigning]
+    requirement: must
+    effective: {basis: issuance, from: 2023-09-15}
+    message: "CPS qualifiers must contain an absolute HTTP or HTTPS URL"
+  - id: br-ca-any-policy-alone
+    reference: CABF-BR 7.1.2.2.6, 7.1.2.3.2, 7.1.2.10.5
+    when:
+      target: certificate.extensions.certificatePolicies.anyPolicy
+      operator: present
+    target: certificate.extensions.certificatePolicies.policyInformations
+    operator: maxLength
+    operands: [1]
+    certType: [intermediate, root]
+    requirement: must
+    effective: {basis: issuance, from: 2023-09-15}
+    message: "When a CA asserts anyPolicy, it must be the only PolicyInformation"
+  # A TLS CA can be cross-certified and allowed multiple reserved policies.
+  # Do not apply the subscriber's exact-one rule to every intermediate.
+  - id: br-subordinate-reserved-policy-first
+    reference: CABF-BR 7.1.2.2.6, 7.1.2.10.5
+    when:
+      target: certificate.extKeyUsage.serverAuth
+      operator: eq
+      operands: [true]
+    target: certificate.extensions.certificatePolicies
+    operator: anyOf
+    operands:
+      - {path: anyPolicy, operator: present}
+      - {path: policyInformations.0.policyIdentifier, operator: in, operands: ["2.23.140.1.1", "2.23.140.1.2.1", "2.23.140.1.2.2", "2.23.140.1.2.3"]}
+    certType: [intermediate]
+    requirement: should
+    effective: {basis: issuance, from: 2023-09-15}
+    message: "A policy-restricted TLS subordinate should list a Reserved Certificate Policy Identifier first"
 
   # -------------------------------------------------
   # Subscriber Extended Key Usage (7.1.2.7.10)

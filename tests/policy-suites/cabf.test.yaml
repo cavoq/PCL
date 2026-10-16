@@ -97,7 +97,8 @@ tests:
         verdict: fail
         failed: [br-ca-key-usage-bits, br-subordinate-crl-distribution-points,
           br-subordinate-no-organizational-unit, br-subordinate-tls-certificate-policies,
-          br-subordinate-tls-eku, br-subordinate-tls-eku-only-tls, br-subordinate-policy-identifier]
+          br-subordinate-tls-eku, br-subordinate-tls-eku-only-tls, br-subordinate-policy-identifier,
+          br-subordinate-reserved-policy-first]
   - name: cabf-ocsp-bad-responder
     cert: ../vectors/cabf-conformant/leaf.pem
     issuers: [../vectors/cabf-conformant/intermediate.pem]

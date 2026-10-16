@@ -58,9 +58,11 @@ func TestAnyOfRejectsInvalidOperands(t *testing.T) {
 		"unknown operator": {[]any{valid, map[string]any{"operator": "nope"}}, "nope"},
 		"invalid operands": {[]any{valid, map[string]any{"operator": "eq"}}, "operands[1]"},
 	} {
-		err := registry.Validate("anyOf", test.operands)
-		if err == nil || !strings.Contains(err.Error(), test.want) {
-			t.Errorf("%s: error = %v, want %q", name, err, test.want)
+		for _, operator := range []string{"anyOf", "oneOf"} {
+			err := registry.Validate(operator, test.operands)
+			if err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Errorf("%s/%s: error = %v, want %q", operator, name, err, test.want)
+			}
 		}
 	}
 }

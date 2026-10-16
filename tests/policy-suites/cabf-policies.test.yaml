@@ -1,0 +1,133 @@
+policy: ../../policies/CABF-TLS-BR.yaml
+time: "2026-06-02T00:00:00Z"
+tests:
+  - name: one-reserved-plus-private-policy
+    cert: ../vectors/cabf-policies/subscriber-one-private.pem
+    issuers: [../vectors/cabf-policies/issuer.pem]
+    expect:
+      - {input: leaf, verdict: pass, failed: []}
+  - name: multiple-reserved-policies
+    cert: ../vectors/cabf-policies/subscriber-multiple.pem
+    expect:
+      - {input: leaf, verdict: fail, failed: [br-subscriber-reserved-policy-exactly-one]}
+  - name: private-policy-does-not-substitute-for-reserved
+    cert: ../vectors/cabf-policies/subscriber-none.pem
+    expect:
+      - input: leaf
+        verdict: fail
+        failed: [br-subscriber-reserved-policy, br-subscriber-reserved-policy-exactly-one, br-subscriber-reserved-policy-first]
+  - name: reserved-policy-order-is-a-recommendation
+    cert: ../vectors/cabf-policies/subscriber-private-first.pem
+    expect:
+      - {input: leaf, verdict: pass, failed: [br-subscriber-reserved-policy-first]}
+  - name: http-cps-is-allowed-but-not-recommended
+    cert: ../vectors/cabf-policies/cps-http.pem
+    expect:
+      - {input: leaf, verdict: pass, failed: [br-certificate-policies-qualifiers-not-recommended]}
+  - name: https-cps-in-second-policy
+    cert: ../vectors/cabf-policies/cps-https.pem
+    expect:
+      - {input: leaf, verdict: pass, failed: [br-certificate-policies-qualifiers-not-recommended]}
+  - name: user-notice-in-second-policy
+    cert: ../vectors/cabf-policies/qualifier-second-policy.pem
+    expect:
+      - {input: leaf, verdict: fail, failed: [br-certificate-policies-qualifiers-not-recommended, br-certificate-policies-cps-only]}
+  - name: second-qualifier-is-not-hidden-by-valid-cps
+    cert: ../vectors/cabf-policies/qualifier-second-value.pem
+    expect:
+      - {input: leaf, verdict: fail, failed: [br-certificate-policies-qualifiers-not-recommended, br-certificate-policies-cps-only]}
+  - name: unknown-qualifier
+    cert: ../vectors/cabf-policies/qualifier-unknown.pem
+    expect:
+      - {input: leaf, verdict: fail, failed: [br-certificate-policies-qualifiers-not-recommended, br-certificate-policies-cps-only]}
+  - name: cps-must-use-http-or-https
+    cert: ../vectors/cabf-policies/cps-ftp.pem
+    expect:
+      - {input: leaf, verdict: fail, failed: [br-certificate-policies-qualifiers-not-recommended, br-certificate-policies-cps-http-url]}
+  - name: scheme-alone-is-not-a-url
+    cert: ../vectors/cabf-policies/cps-no-host.pem
+    expect:
+      - {input: leaf, verdict: fail, failed: [br-certificate-policies-qualifiers-not-recommended, br-certificate-policies-cps-http-url]}
+  - name: cps-must-be-ia5string
+    cert: ../vectors/cabf-policies/cps-wrong-tag.pem
+    expect:
+      - input: leaf
+        verdict: fail
+        failed: [br-certificate-policies-well-formed, br-subscriber-reserved-policy, br-subscriber-reserved-policy-exactly-one]
+  - name: empty-policies-are-not-valid
+    cert: ../vectors/cabf-policies/empty.pem
+    expect:
+      - input: leaf
+        verdict: fail
+        failed: [br-certificate-policies-well-formed, br-subscriber-reserved-policy, br-subscriber-reserved-policy-exactly-one]
+  - name: duplicate-policy-identifiers-are-not-valid
+    cert: ../vectors/cabf-policies/duplicate.pem
+    expect:
+      - input: leaf
+        verdict: fail
+        failed: [br-certificate-policies-well-formed, br-subscriber-reserved-policy, br-subscriber-reserved-policy-exactly-one]
+  # Eligibility for the affiliation exception is outside the certificate.
+  - name: ca-any-policy-alone
+    cert: ../vectors/cabf-policies/ca-any-alone.pem
+    issuers: [../vectors/cabf-policies/issuer.pem]
+    expect:
+      - {input: intermediate, verdict: pass, failed: []}
+  - name: ca-any-policy-must-be-alone
+    cert: ../vectors/cabf-policies/ca-any-mixed.pem
+    expect:
+      - {input: intermediate, verdict: fail, failed: [br-ca-any-policy-alone]}
+  # A cross-certificate not directly issuing subscribers may have multiple
+  # reserved policies. Its profile cannot be inferred from the role alone.
+  - name: do-not-impose-subscriber-cardinality-on-cross-ca
+    cert: ../vectors/cabf-policies/ca-multiple.pem
+    expect:
+      - input: intermediate
+        verdict: pass
+        failed: []
+        rules: {br-subscriber-reserved-policy-exactly-one: skip}
+  - name: tls-ca-reserved-policy-order
+    cert: ../vectors/cabf-policies/ca-private-first.pem
+    expect:
+      - {input: intermediate, verdict: pass, failed: [br-subordinate-reserved-policy-first]}
+  - name: ca-cps-qualifier
+    cert: ../vectors/cabf-policies/ca-cps.pem
+    expect:
+      - {input: intermediate, verdict: pass, failed: [br-certificate-policies-qualifiers-not-recommended]}
+  - name: non-tls-ca-private-policy-needs-no-tls-identifier
+    cert: ../vectors/cabf-policies/non-tls-private.pem
+    expect:
+      - {input: intermediate, verdict: pass, failed: []}
+  - name: responder-cps-qualifier
+    cert: ../vectors/cabf-policies/responder-cps.pem
+    expect:
+      - input: ocspSigning
+        verdict: pass
+        failed: [br-ocsp-responder-no-certificate-policies, br-certificate-policies-qualifiers-not-recommended]
+  - name: responder-unknown-qualifier
+    cert: ../vectors/cabf-policies/responder-unknown.pem
+    expect:
+      - input: ocspSigning
+        verdict: fail
+        failed: [br-ocsp-responder-no-certificate-policies, br-certificate-policies-qualifiers-not-recommended, br-certificate-policies-cps-only]
+  - name: root-any-policy-must-be-alone
+    cert: ../vectors/cabf-policies/root-any-mixed.pem
+    expect:
+      - {input: root, verdict: fail, failed: [br-root-no-certificate-policies, br-ca-any-policy-alone]}
+  - name: new-profile-not-retroactive
+    cert: ../vectors/cabf-policies/before-cutover.pem
+    expect:
+      - input: leaf
+        verdict: pass
+        failed: []
+        rules: {br-subscriber-reserved-policy-exactly-one: skip, br-subscriber-reserved-policy-first: skip,
+          br-certificate-policies-well-formed: skip, br-certificate-policies-cps-only: skip,
+          br-certificate-policies-cps-http-url: skip, br-certificate-policies-qualifiers-not-recommended: skip}
+  - name: new-profile-applies-at-cutover
+    cert: ../vectors/cabf-policies/at-cutover.pem
+    expect:
+      - input: leaf
+        verdict: fail
+        failed: [br-subscriber-reserved-policy-exactly-one]
+        rules: {br-subscriber-reserved-policy-first: pass, br-certificate-policies-well-formed: pass,
+          br-certificate-policies-cps-only: pass, br-certificate-policies-cps-http-url: pass,
+          br-certificate-policies-qualifiers-not-recommended: pass}
