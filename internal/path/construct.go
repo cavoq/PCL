@@ -71,6 +71,81 @@ func Construct(targets, intermediates, trustAnchors []*cert.Info, maxDepth int) 
 	}, nil
 }
 
+// alternativeSearchBudget bounds the partial paths Candidates extends, and
+// alternativeLimit the anchored paths it returns. Tests lower them.
+var (
+	alternativeSearchBudget = 1 << 12
+	alternativeLimit        = 64
+)
+
+// Candidates returns anchored paths from target through intermediates to an
+// explicit trust anchor, best first in Construct's ranking, so a caller can
+// fall back to another path when the best one fails validation (RFC 4158).
+// Only issuers whose signature verifies are followed, since a path with an
+// invalid signature never validates, and no certificate repeats. The search
+// stops after a bounded amount of work and number of paths.
+func Candidates(target *cert.Info, intermediates, trustAnchors []*cert.Info, maxDepth int) []Construction {
+	if target == nil || target.Cert == nil {
+		return nil
+	}
+	pool := uniqueInfos(append(append([]*cert.Info(nil), intermediates...), trustAnchors...))
+	if maxDepth <= 0 {
+		maxDepth = len(pool) + 1
+	}
+	search := newPathSearch(pool, trustAnchors, maxDepth)
+	search.budget = alternativeSearchBudget
+
+	var found []constructedCandidate
+	var walk func(partial constructedCandidate)
+	walk = func(partial constructedCandidate) {
+		if len(found) >= alternativeLimit || len(partial.chain) >= search.maxDepth || search.budget == 0 {
+			return
+		}
+		search.budget--
+		current := partial.chain[len(partial.chain)-1]
+		for _, issuer := range search.issuerCandidates(current) {
+			if !issuer.signatureValid || containsCertificate(partial.chain, issuer.info) {
+				continue
+			}
+			extended := partial.extend(issuer)
+			if anchor := matchingTrustAnchor(issuer.info, search.trustAnchors); anchor != nil {
+				extended.anchor = anchor
+				found = append(found, extended)
+				if len(found) >= alternativeLimit {
+					return
+				}
+				continue
+			}
+			walk(extended)
+		}
+	}
+	initial := search.start(target)
+	if initial.anchor != nil {
+		found = append(found, initial)
+	} else {
+		walk(initial)
+	}
+
+	slices.SortFunc(found, func(left, right constructedCandidate) int {
+		switch {
+		case left.betterThan(right):
+			return -1
+		case right.betterThan(left):
+			return 1
+		}
+		return 0
+	})
+	constructions := make([]Construction, 0, len(found))
+	for _, candidate := range found {
+		constructions = append(constructions, Construction{
+			Chain:       candidate.chain,
+			Anchored:    true,
+			TrustAnchor: candidate.anchor,
+		})
+	}
+	return constructions
+}
+
 type constructedCandidate struct {
 	chain             []*cert.Info
 	fingerprints      [][sha256.Size]byte

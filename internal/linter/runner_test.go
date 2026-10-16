@@ -825,6 +825,74 @@ func TestRunProjectsExplicitPathValidation(t *testing.T) {
 	}
 }
 
+// When the best-ranked path fails validation, a lower-ranked valid path is
+// used for the path decision and for the certificates that are linted.
+func TestRunFallsBackToAValidAlternativePath(t *testing.T) {
+	root := testpki.Issue(t, "Root", nil, testpki.CA(), testpki.Serial(1))
+	other := testpki.Issue(t, "Other CA", root, testpki.CA(), testpki.Serial(2))
+	issuingKey := testpki.ECDSAKey(t)
+	// The shorter path runs through a CA whose name constraints exclude the
+	// leaf; the cross-certified CA under Other CA carries no constraints.
+	constrained := testpki.IssueWithKey(t, "Issuing CA", issuingKey, root, testpki.CA(), testpki.Serial(3),
+		testpki.Mutate(func(template *x509.Certificate) {
+			template.PermittedDNSDomainsCritical = true
+			template.PermittedDNSDomains = []string{"other.test"}
+		}))
+	crossCertified := testpki.IssueWithKey(t, "Issuing CA", issuingKey, other, testpki.CA(), testpki.Serial(4))
+	leaf := testpki.Issue(t, "Leaf", constrained, testpki.Serial(5), testpki.Mutate(func(template *x509.Certificate) {
+		template.DNSNames = []string{"www.example.test"}
+	}))
+
+	dir := t.TempDir()
+	policyPath := filepath.Join(dir, "path-policy.yaml")
+	policyYAML := `id: path-validation
+version: "1"
+rules:
+  - id: certification-path-valid
+    when:
+      target: certificate.pathValidation
+      operator: present
+    target: certificate
+    operator: pathValid
+    severity: error
+`
+	if err := os.WriteFile(policyPath, []byte(policyYAML), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var output bytes.Buffer
+	err := Run(Config{
+		PolicyPaths: []string{policyPath},
+		CertPath:    writePEMCert(t, dir, "leaf.pem", leaf.DER),
+		IssuerPaths: []string{
+			writePEMCert(t, dir, "constrained.pem", constrained.DER),
+			writePEMCert(t, dir, "cross.pem", crossCertified.DER),
+			writePEMCert(t, dir, "other.pem", other.DER),
+		},
+		TrustAnchorPaths: []string{writePEMCert(t, dir, "root.pem", root.DER)},
+		ValidationTime:   time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
+		PathRevocation:   "none",
+		OutputFmt:        "json",
+		Verbosity:        1,
+	}, &output)
+	if err != nil {
+		t.Fatalf("Run: %v\n%s", err, output.String())
+	}
+	var results []policy.Result
+	if err := json.Unmarshal(output.Bytes(), &results); err != nil {
+		t.Fatal(err)
+	}
+	var linted []string
+	for _, result := range results {
+		linted = append(linted, filepath.Base(result.CertPath))
+	}
+	if !slices.Equal(linted, []string{"leaf.pem", "cross.pem", "other.pem", "root.pem"}) {
+		t.Fatalf("linted %v, want the alternative path leaf, cross, other, root", linted)
+	}
+	if got := results[0].Results[0]; got.Verdict != rule.VerdictPass {
+		t.Fatalf("path decision = %#v, want pass", got)
+	}
+}
+
 // Finding the signer of a CRL or the issuer of a delegated OCSP responder may
 // download certificates from CA Issuers URLs, but only when chain climbing is
 // enabled. Without --auto-validate a run stays offline.

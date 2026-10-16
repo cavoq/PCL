@@ -303,6 +303,7 @@ func buildSubjects(
 		TrustAnchors:            inputs.trustAnchors,
 		PeerNames:               inputs.peerNames,
 		MaximumPathLength:       configuredMaximumPathLength(cfg),
+		PathSearchDepth:         cfg.MaxChainDepth,
 		PathRevocation:          cfg.PathRevocation,
 	}
 	subjects := evaluator.ChainSubjects(evalCtx)

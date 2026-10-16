@@ -44,6 +44,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   cause in `tests/limbo/known-gaps.yaml`.
 
 ### Fixed
+- When the best-ranked certification path fails validation, evaluation tries
+  up to 64 other anchored paths whose signatures verify, best-ranked first,
+  and uses the first valid one for the path decision and the linted chain
+  (RFC 4158). Previously a valid alternative, such as one avoiding a CA whose
+  name constraints exclude the target, was never tried.
 - The evaluation time is truncated to whole seconds, the granularity of
   certificate, CRL and OCSP times (RFC 5280 4.1.2.5), so a certificate stays
   valid through its entire notAfter second.

@@ -87,7 +87,9 @@ The best anchored path is found in polynomial time, verifying each issuer
 signature once; only the fallback search for an unanchored path is bounded by
 a work budget, and the CLI warns when it stops early.
 Validation separately checks it against explicit anchors and produces structured
-findings. The evaluator projects those findings onto the target certificate;
+findings. When that path fails, the evaluator validates other anchored,
+signature-valid paths from `path.Candidates` in rank order, within a work
+budget and at most 64 paths, and evaluates the first valid one instead. The evaluator projects those findings onto the target certificate;
 a policy rule decides whether to require a successful aggregate result.
 
 CRL and OCSP assessments are shared by path validation and profile operators.

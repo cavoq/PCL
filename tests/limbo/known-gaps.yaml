@@ -4,18 +4,6 @@
 # listed once, under the cause that keeps it from conforming longest.
 
 - reason: >-
-    Path construction ranks candidate paths structurally and validates only
-    the best one. When that path fails validation (name constraints, key
-    usage), a valid alternative path is not tried (RFC 4158 backtracking).
-  cases:
-    - bettertls::pathbuilding::tc50
-    - bettertls::pathbuilding::tc52
-    - bettertls::pathbuilding::tc53
-    - bettertls::pathbuilding::tc56
-    - bettertls::pathbuilding::tc58
-    - bettertls::pathbuilding::tc59
-
-- reason: >-
     RFC5280.yaml lints every certificate, trust anchors included, against
     issuance requirements that limbo does not treat as path validation
     failures: keyUsage present in a CA (4.2.1.3), nameConstraints critical

@@ -75,6 +75,11 @@ Result: the target's `certification-path-valid` rule reports an aggregate
 decision with structured findings. Path construction is deterministic and
 bounded; validation is separate from construction.
 
+When the best-ranked path fails validation, PCL tries other anchored paths
+whose signatures verify, best-ranked first and at most 64, and evaluates the
+first valid one: its certificates are the ones linted. Otherwise the best-ranked
+path and its failure are reported.
+
 Failure behavior: a missing anchor, invalid path, or insufficient required
 revocation evidence fails the path decision. PCL does not search every possible
 alternative path. Trust anchors are never downloaded or inferred.

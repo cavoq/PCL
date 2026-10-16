@@ -64,6 +64,9 @@ type Context struct {
 	// trust from a self-signed chain top.
 	TrustAnchors      []*cert.Info
 	MaximumPathLength *int
+	// PathSearchDepth bounds the certificates in an alternative path tried
+	// when the constructed chain fails validation; zero allows the pool size.
+	PathSearchDepth int
 	// PathRevocation is the path revocation mode; unset means
 	// pathpkg.DefaultRevocationMode.
 	PathRevocation pathpkg.RevocationMode
@@ -110,23 +113,13 @@ func ChainSubjects(ctx Context) []Subject {
 	now := evaluationTime(ctx.ValidationTime)
 	lists := revocationLists(ctx.CRLs)
 	allCRLIssuers := crlSignerPool(ctx)
-	ocspIssuers := cert.CertsFromInfos(ctx.Chain)
-	authorizer := ctx.CRLSignerAuthorizer
-	var pathAuthorizer *pathSignerAuthorizer
-	if authorizer == nil {
-		pathAuthorizer = newPathSignerAuthorizer(ctx, now)
-		authorizer = pathAuthorizer
+	evidence := newChainEvidence(ctx, now, lists, allCRLIssuers)
+	if evidence.path != nil && !evidence.path.Valid {
+		if chain, alternative, ok := validAlternativePath(ctx, now, lists, allCRLIssuers); ok {
+			ctx.Chain, evidence = chain, alternative
+		}
 	}
-	catalog := crl.NewCatalog(lists, crl.RevocationContext{
-		Now:             now,
-		Issuers:         allCRLIssuers,
-		UseDeltas:       true,
-		AuthorizeSigner: authorizer,
-	})
-	if pathAuthorizer != nil {
-		pathAuthorizer.catalog = catalog
-	}
-	pathValidation := validateCertificationPath(ctx, now, catalog, ocspIssuers)
+	catalog, ocspIssuers, pathValidation := evidence.catalog, evidence.ocspIssuers, evidence.path
 
 	var subjects []Subject
 	for index, c := range ctx.Chain {
@@ -404,6 +397,67 @@ func (authorizer *pathSignerAuthorizer) signerAnchored(signer *x509.Certificate)
 	authorizer.anchoredSigners[key] = anchored
 	authorizer.anchoredSignersMu.Unlock()
 	return anchored
+}
+
+// chainEvidence is the revocation catalog and path decision for one chain.
+type chainEvidence struct {
+	catalog     *crl.Catalog
+	ocspIssuers []*x509.Certificate
+	path        *pathpkg.Result
+}
+
+func newChainEvidence(ctx Context, now time.Time, lists []*x509.RevocationList, crlIssuers []*x509.Certificate) chainEvidence {
+	authorizer := ctx.CRLSignerAuthorizer
+	var pathAuthorizer *pathSignerAuthorizer
+	if authorizer == nil {
+		pathAuthorizer = newPathSignerAuthorizer(ctx, now)
+		authorizer = pathAuthorizer
+	}
+	catalog := crl.NewCatalog(lists, crl.RevocationContext{
+		Now:             now,
+		Issuers:         crlIssuers,
+		UseDeltas:       true,
+		AuthorizeSigner: authorizer,
+	})
+	if pathAuthorizer != nil {
+		pathAuthorizer.catalog = catalog
+	}
+	ocspIssuers := cert.CertsFromInfos(ctx.Chain)
+	return chainEvidence{
+		catalog:     catalog,
+		ocspIssuers: ocspIssuers,
+		path:        validateCertificationPath(ctx, now, catalog, ocspIssuers),
+	}
+}
+
+// validAlternativePath returns the first other anchored path from the chain's
+// target that passes validation, in the path ranking, with its evidence. The
+// constructed chain is the best-ranked path; when it fails validation, a
+// lower-ranked one may still be valid (RFC 4158).
+func validAlternativePath(
+	ctx Context,
+	now time.Time,
+	lists []*x509.RevocationList,
+	crlIssuers []*x509.Certificate,
+) ([]*cert.Info, chainEvidence, bool) {
+	for _, candidate := range pathpkg.Candidates(ctx.Chain[0], ctx.Certificates, ctx.TrustAnchors, ctx.PathSearchDepth) {
+		if sameChain(candidate.Chain, ctx.Chain) {
+			continue
+		}
+		alternative := ctx
+		alternative.Chain = candidate.Chain
+		evidence := newChainEvidence(alternative, now, lists, crlIssuers)
+		if evidence.path != nil && evidence.path.Valid {
+			return candidate.Chain, evidence, true
+		}
+	}
+	return nil, chainEvidence{}, false
+}
+
+func sameChain(left, right []*cert.Info) bool {
+	return slices.EqualFunc(left, right, func(a, b *cert.Info) bool {
+		return a != nil && b != nil && cert.SameCertificate(a.Cert, b.Cert)
+	})
 }
 
 func validateCertificationPath(
