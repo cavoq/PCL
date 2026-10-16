@@ -4,13 +4,6 @@
 # listed once, under the cause that keeps it from conforming longest.
 
 - reason: >-
-    Name constraint processing has no work limit; limbo expects the quadratic
-    2048 x 2048 constraint checks to be rejected as a denial of service.
-  cases:
-    - pathological::nc-dos-1
-    - pathological::nc-dos-2
-
-- reason: >-
     Path construction ranks candidate paths structurally and validates only
     the best one. When that path fails validation (name constraints, key
     usage), a valid alternative path is not tried (RFC 4158 backtracking).

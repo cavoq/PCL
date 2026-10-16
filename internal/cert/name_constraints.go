@@ -75,6 +75,15 @@ func NameConstraintsValid(current *Info, chain []*Info) bool {
 		emailAddresses = append([]string(nil), certificate.Subject.EmailAddress...)
 	}
 	directoryNames := certificateDirectoryNames(certificate)
+	names := len(certificate.DNSNames) + len(emailAddresses) + len(certificate.URIs) +
+		len(certificate.IPAddresses) + len(directoryNames)
+	constraints := excluded.count()
+	for _, permitted := range permittedSets {
+		constraints += permitted.count()
+	}
+	if names*constraints > maxNameConstraintComparisons {
+		return false
+	}
 	if !checkDNSNames(certificate.DNSNames, nil, excluded.dns) ||
 		!checkEmails(emailAddresses, nil, excluded.emails) ||
 		!checkURIs(certificate.URIs, nil, excluded.uris) ||
@@ -95,6 +104,12 @@ func NameConstraintsValid(current *Info, chain []*Info) bool {
 	return true
 }
 
+// maxNameConstraintComparisons bounds the name-to-subtree comparisons for one
+// certificate. Real hierarchies stay orders of magnitude below it; a
+// certificate beyond it is rejected rather than checked, because the
+// quadratic work is a denial-of-service vector.
+const maxNameConstraintComparisons = 250000
+
 type nameConstraints struct {
 	// unsupportedForms are the GeneralName tags of subtrees whose names are
 	// not compared.
@@ -105,6 +120,11 @@ type nameConstraints struct {
 	ips              []net.IPNet
 	// directoryNames are DER-encoded Names of directoryName subtrees.
 	directoryNames [][]byte
+}
+
+func (constraints nameConstraints) count() int {
+	return len(constraints.unsupportedForms) + len(constraints.dns) + len(constraints.emails) +
+		len(constraints.uris) + len(constraints.ips) + len(constraints.directoryNames)
 }
 
 func (constraints nameConstraints) empty() bool {

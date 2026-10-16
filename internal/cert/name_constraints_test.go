@@ -1,6 +1,7 @@
 package cert
 
 import (
+	"fmt"
 	"net"
 	"testing"
 
@@ -374,5 +375,32 @@ func TestNameConstraintsValidWildcardSANAgainstExcludedSubtree(t *testing.T) {
 		if got := NameConstraintsValid(leaf, []*Info{leaf, issuer}); got != test.want {
 			t.Errorf("NameConstraintsValid(SAN %q) = %v, want %v", test.name, got, test.want)
 		}
+	}
+}
+
+func TestNameConstraintsValidRejectsExcessiveComparisons(t *testing.T) {
+	subtrees := func(count int) []x509.GeneralSubtreeString {
+		var constraints []x509.GeneralSubtreeString
+		for index := range count {
+			constraints = append(constraints, x509.GeneralSubtreeString{Data: fmt.Sprintf("n%d.example.test", index)})
+		}
+		return constraints
+	}
+	names := func(count int) []string {
+		var values []string
+		for index := range count {
+			values = append(values, fmt.Sprintf("www.n%d.example.test", index%10))
+		}
+		return values
+	}
+	issuer := &Info{Cert: &x509.Certificate{PermittedDNSNames: subtrees(500)}}
+
+	within := &Info{Cert: &x509.Certificate{DNSNames: names(500)}}
+	if !NameConstraintsValid(within, []*Info{within, issuer}) {
+		t.Fatal("500 names against 500 constraints were rejected")
+	}
+	beyond := &Info{Cert: &x509.Certificate{DNSNames: names(501)}}
+	if NameConstraintsValid(beyond, []*Info{beyond, issuer}) {
+		t.Fatal("501 names against 500 constraints exceeded the work bound but passed")
 	}
 }
