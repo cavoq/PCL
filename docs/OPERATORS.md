@@ -137,7 +137,7 @@ stale, unauthenticated, from an unauthorized signer, or Unknown still fails.
 | Operator | Operands | Description |
 |----------|----------|-------------|
 | `every` | [{path, operator, operands, skipMissing}] | Iterates array elements and checks each |
-| `anyOf` | [{path?, operator, operands?}, ...] (two or more) | True when at least one condition holds on the target; a condition whose path does not resolve does not hold |
+| `anyOf` | [{path?, operator, operands?}, ...] (two or more) | True when at least one condition holds on the target; a condition whose path does not resolve holds only for `absent`, `neq` and other operators that decide absence |
 
 ## Path Validation Operators
 
@@ -210,8 +210,10 @@ stale, unauthenticated, from an unauthorized signer, or Unknown still fails.
 ## Alternatives
 
 `anyOf` states requirements with alternatives, such as a key usage that
-must contain one of two bits. Each condition has an optional `path` below
-the target, an `operator` and its `operands`:
+must contain one of two bits, or an extension that is either absent or
+restricted. Each condition has an optional `path` below the target, an
+`operator` and its `operands`; on a path that does not resolve, only
+operators that decide absence, such as `absent`, can hold:
 
 ```yaml
 - id: pss-end-entity-key-usage

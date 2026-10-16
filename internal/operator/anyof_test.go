@@ -25,6 +25,7 @@ func TestAnyOf(t *testing.T) {
 		{"one condition holds", keyUsage, []any{bit("digitalSignature"), bit("nonRepudiation")}, true},
 		{"no condition holds", keyUsage, []any{bit("digitalSignature"), bit("keyCertSign")}, false},
 		{"a missing path does not hold", keyUsage, []any{bit("keyCertSign"), bit("cRLSign")}, false},
+		{"absent decides a missing path", keyUsage, []any{bit("keyCertSign"), map[string]any{"path": "cRLSign", "operator": "absent"}}, true},
 		{"the target itself", node.New("value", 3), []any{
 			map[string]any{"operator": "eq", "operands": []any{2}},
 			map[string]any{"operator": "gte", "operands": []any{3}},

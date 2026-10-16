@@ -9,7 +9,8 @@ import (
 // AnyOf is true when at least one of its conditions holds on the target.
 // Each operand is a condition in the object form of every: a path below the
 // target (empty for the target itself), an operator and its operands. A
-// condition whose path does not resolve does not hold.
+// condition whose path does not resolve holds only for operators that decide
+// absence, such as absent, as for a rule target.
 //
 //	target: certificate.extensions.keyUsage
 //	operator: anyOf
@@ -49,10 +50,13 @@ func (AnyOf) EvaluateWithRegistry(n *node.Node, ctx *EvaluationContext, operands
 		target := n
 		if condition.path != "" {
 			resolution := n.Lookup(condition.path)
-			if resolution.Node == nil || resolution.Partial {
+			target = resolution.Node
+			if resolution.Partial {
+				target = nil
+			}
+			if target == nil && !registry.decidesAbsence(condition.operator) {
 				continue
 			}
-			target = resolution.Node
 		}
 		ok, err := registry.evaluateValidated(condition.operator, target, ctx, condition.operands)
 		if err != nil {
@@ -79,6 +83,17 @@ func (AnyOf) OperandSchema() map[string]any {
 	}
 	return withDescription(map[string]any{"type": "array", "items": condition, "minItems": 2},
 		"Conditions on the target; the rule passes when at least one holds.")
+}
+
+// decidesAbsence reports whether the named operator decides an absent
+// target itself.
+func (r *Registry) decidesAbsence(name string) bool {
+	op, err := r.Get(name)
+	if err != nil {
+		return false
+	}
+	_, ok := op.(MissingTargetAware)
+	return ok
 }
 
 func parseAnyOfOperands(operands []any) ([]everyOperands, error) {
