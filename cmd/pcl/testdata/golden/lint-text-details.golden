@@ -1,0 +1,377 @@
+[Summary] Checked: <time> | Certs: 5 | Rules: 705 | PASS: 167, FAIL: 0, SKIP: 538, WARN: 0
+
+========================================================================
+[File] Policy: rfc5280 | Cert: leaf | File: ../../tests/pkits/certs/ValidCertificatePathTest1EE.crt | Verdict: PASS | PASS: 42, FAIL: 0, SKIP: 99, WARN: 0
+------------------------------------------------------------------------
+  VERDICT  SEVERITY  RULE                                     REFERENCE                        
+  -------  --------  ---------------------------------------  ---------------------------------
+  PASS     ERROR     tbs-certificate-metadata-well-formed     RFC5280 4.1.2                    
+                     └─ actual: absent; expected: absent
+  PASS     ERROR     version-v3-when-extensions               RFC5280 4.1.2.1                  
+                     └─ actual: 3; expected: 3
+  PASS     ERROR     serial-number-present                    RFC5280 4.1.2.2                  
+                     └─ actual: present; expected: present
+  PASS     ERROR     serial-number-positive                   RFC5280 4.1.2.2                  
+                     └─ check passed: positive
+  PASS     ERROR     serial-number-length                     RFC5280 4.1.2.2                  
+                     └─ check passed: maxLength; criteria: [20]
+  PASS     ERROR     signature-algorithm-matches-tbs          RFC5280 4.1.2.3                  
+                     └─ check passed: signatureAlgorithmMatchesTBS
+  PASS     ERROR     signature-valid                          RFC5280 4.1.2.3                  
+                     └─ check passed: signatureValid
+  PASS     ERROR     certification-path-valid                 RFC5280 6, 7                     
+                     └─ 16 findings passed
+  PASS     ERROR     issuer-name-well-formed                  RFC5280 4.1.2.4                  
+                     └─ actual: absent; expected: absent
+  PASS     ERROR     subject-name-well-formed                 RFC5280 4.1.2.6                  
+                     └─ actual: absent; expected: absent
+  PASS     ERROR     issuer-not-empty                         RFC5280 4.1.2.4                  
+                     └─ check passed: notEmpty
+  PASS     ERROR     not-expired                              RFC5280 4.1.2.5                  
+                     └─ actual: 2030-12-31T08:30:00Z; earliest allowed: 2020-01-01T00:00:00Z
+  PASS     ERROR     not-yet-valid                            RFC5280 4.1.2.5                  
+                     └─ actual: 2010-01-01T08:30:00Z; latest allowed: 2020-01-01T00:00:00Z
+  PASS     ERROR     validity-order-correct                   RFC5280 4.1.2.5                  
+                     └─ check passed: validityOrderCorrect
+  PASS     ERROR     issuer-unique-id-absent                  RFC5280 4.1.2.8                  
+                     └─ actual: absent; expected: absent
+  PASS     ERROR     subject-unique-id-absent                 RFC5280 4.1.2.8                  
+                     └─ actual: absent; expected: absent
+  PASS     ERROR     no-unknown-critical-extensions           RFC5280 4.1.2.9, 6               
+                     └─ check passed: noUnknownCriticalExtensions
+  PASS     ERROR     authority-key-identifier-present         RFC5280 4.2.1.1                  
+                     └─ actual: present; expected: present
+  PASS     ERROR     aki-not-critical                         RFC5280 4.2.1.1                  
+                     └─ actual: false; expected: false
+  PASS     WARN      aki-matches-ski                          RFC5280 4.2.1.1                  
+                     └─ check passed: akiMatchesSki
+  PASS     ERROR     ski-not-critical                         RFC5280 4.2.1.2                  
+                     └─ actual: false; expected: false
+  PASS     ERROR     key-usage-well-formed                    RFC5280 4.2.1.3                  
+                     └─ actual: absent; expected: absent
+  PASS     ERROR     key-usage-dependencies-valid             RFC5280 4.2.1.3                  
+                     └─ check passed: keyUsageDependenciesValid
+  PASS     ERROR     key-usage-has-at-least-one-bit           RFC5280 4.2.1.3                  
+                     └─ check passed: positive
+  PASS     ERROR     leaf-key-usage-valid                     RFC5280 4.2.1.3                  
+                     └─ actual: false; expected: false
+  PASS     ERROR     certificate-policies-well-formed         RFC5280 4.2.1.4                  
+                     └─ actual: absent; expected: absent
+  PASS     ERROR     leaf-not-ca                              RFC5280 4.2.1.9                  
+                     └─ actual: absent; disallowed: true
+  PASS     ERROR     name-constraints-valid                   RFC5280 4.2.1.10                 
+                     └─ check passed: nameConstraintsValid
+  PASS     ERROR     cert-revocation-status-known             RFC5280 6.3                      
+                     └─ actual: good; disallowed: unknown
+  PASS     ERROR     cert-not-revoked                         RFC5280 6.3                      
+                     └─ actual: good; disallowed: revoked
+  PASS     ERROR     subject-cn-max-length                    RFC5280 Appendix A.1             
+                     └─ check passed: every; criteria: [{"operands":[64],"operator":"maxLength","path":"value"}]
+  PASS     ERROR     subject-org-max-length                   RFC5280 Appendix A.1             
+                     └─ check passed: every; criteria: [{"operands":[64],"operator":"maxLength","path":"value"}]
+  PASS     ERROR     subject-country-length                   RFC5280 Appendix A.1 + ISO 3166-1
+                     └─ check passed: every; criteria: [{"operands":[2],"operator":"maxLength","path":"value"}]
+  PASS     ERROR     subject-country-min-length               RFC5280 Appendix A.1 + ISO 3166-1
+                     └─ check passed: every; criteria: [{"operands":[2],"operator":"minLength","path":"value"}]
+  PASS     ERROR     validity-notbefore-utctime-through-2049  RFC5280 4.1.2.5                  
+                     └─ actual: 23; expected: 23
+  PASS     ERROR     validity-notafter-utctime-through-2049   RFC5280 4.1.2.5                  
+                     └─ actual: 23; expected: 23
+  PASS     ERROR     validity-utctime-has-seconds             RFC5280 4.1.2.5.1                
+                     └─ actual: true; expected: true
+  PASS     ERROR     validity-utctime-has-seconds-notafter    RFC5280 4.1.2.5.1                
+                     └─ actual: true; expected: true
+  PASS     ERROR     validity-utctime-has-zulu-notbefore      RFC5280 4.1.2.5.1                
+                     └─ actual: true; expected: true
+  PASS     ERROR     validity-utctime-has-zulu-notafter       RFC5280 4.1.2.5.1                
+                     └─ actual: true; expected: true
+  PASS     WARN      subject-country-printable-string         RFC5280 Appendix A.1             
+                     └─ check passed: every; criteria: [{"operands":[19],"operator":"eq","path":"encoding"}]
+  PASS     WARN      subject-cn-valid-encoding                RFC5280 Appendix A.1             
+                     └─ check passed: every; criteria: [{"operands":[12,19,20,28,30],"operator":"in","path":"encoding"}]
+
+========================================================================
+[File] Policy: rfc5280 | Cert: intermediate | File: ../../tests/pkits/certs/GoodCACert.crt | Verdict: PASS | PASS: 49, FAIL: 0, SKIP: 92, WARN: 0
+------------------------------------------------------------------------
+  VERDICT  SEVERITY  RULE                                     REFERENCE                        
+  -------  --------  ---------------------------------------  ---------------------------------
+  PASS     ERROR     tbs-certificate-metadata-well-formed     RFC5280 4.1.2                    
+                     └─ actual: absent; expected: absent
+  PASS     ERROR     version-v3-when-extensions               RFC5280 4.1.2.1                  
+                     └─ actual: 3; expected: 3
+  PASS     ERROR     serial-number-present                    RFC5280 4.1.2.2                  
+                     └─ actual: present; expected: present
+  PASS     ERROR     serial-number-positive                   RFC5280 4.1.2.2                  
+                     └─ check passed: positive
+  PASS     ERROR     serial-number-length                     RFC5280 4.1.2.2                  
+                     └─ check passed: maxLength; criteria: [20]
+  PASS     ERROR     signature-algorithm-matches-tbs          RFC5280 4.1.2.3                  
+                     └─ check passed: signatureAlgorithmMatchesTBS
+  PASS     ERROR     signature-valid                          RFC5280 4.1.2.3                  
+                     └─ check passed: signatureValid
+  PASS     ERROR     issuer-name-well-formed                  RFC5280 4.1.2.4                  
+                     └─ actual: absent; expected: absent
+  PASS     ERROR     subject-name-well-formed                 RFC5280 4.1.2.6                  
+                     └─ actual: absent; expected: absent
+  PASS     ERROR     issuer-not-empty                         RFC5280 4.1.2.4                  
+                     └─ check passed: notEmpty
+  PASS     ERROR     subject-not-empty-for-ca                 RFC5280 4.1.2.6                  
+                     └─ check passed: notEmpty
+  PASS     ERROR     not-expired                              RFC5280 4.1.2.5                  
+                     └─ actual: 2030-12-31T08:30:00Z; earliest allowed: 2020-01-01T00:00:00Z
+  PASS     ERROR     not-yet-valid                            RFC5280 4.1.2.5                  
+                     └─ actual: 2010-01-01T08:30:00Z; latest allowed: 2020-01-01T00:00:00Z
+  PASS     ERROR     validity-order-correct                   RFC5280 4.1.2.5                  
+                     └─ check passed: validityOrderCorrect
+  PASS     ERROR     issuer-unique-id-absent                  RFC5280 4.1.2.8                  
+                     └─ actual: absent; expected: absent
+  PASS     ERROR     subject-unique-id-absent                 RFC5280 4.1.2.8                  
+                     └─ actual: absent; expected: absent
+  PASS     ERROR     no-unknown-critical-extensions           RFC5280 4.1.2.9, 6               
+                     └─ check passed: noUnknownCriticalExtensions
+  PASS     ERROR     authority-key-identifier-present         RFC5280 4.2.1.1                  
+                     └─ actual: present; expected: present
+  PASS     ERROR     aki-not-critical                         RFC5280 4.2.1.1                  
+                     └─ actual: false; expected: false
+  PASS     WARN      aki-matches-ski                          RFC5280 4.2.1.1                  
+                     └─ check passed: akiMatchesSki
+  PASS     ERROR     subject-key-identifier-present           RFC5280 4.2.1.2                  
+                     └─ actual: present; expected: present
+  PASS     ERROR     ski-not-critical                         RFC5280 4.2.1.2                  
+                     └─ actual: false; expected: false
+  PASS     ERROR     key-usage-well-formed                    RFC5280 4.2.1.3                  
+                     └─ actual: absent; expected: absent
+  PASS     ERROR     key-usage-dependencies-valid             RFC5280 4.2.1.3                  
+                     └─ check passed: keyUsageDependenciesValid
+  PASS     ERROR     key-usage-present                        RFC5280 4.2.1.3                  
+                     └─ actual: present; expected: present
+  PASS     ERROR     key-usage-has-at-least-one-bit           RFC5280 4.2.1.3                  
+                     └─ check passed: positive
+  PASS     WARN      key-usage-critical-for-ca                RFC5280 4.2.1.3                  
+                     └─ actual: true; expected: true
+  PASS     ERROR     ca-key-cert-sign                         RFC5280 4.2.1.3                  
+                     └─ actual: true; expected: true
+  PASS     ERROR     certificate-policies-well-formed         RFC5280 4.2.1.4                  
+                     └─ actual: absent; expected: absent
+  PASS     ERROR     basic-constraints-well-formed            RFC5280 4.2.1.9                  
+                     └─ actual: absent; expected: absent
+  PASS     ERROR     basic-constraints-dependencies-valid     RFC5280 4.2.1.9                  
+                     └─ check passed: basicConstraintsDependenciesValid
+  PASS     ERROR     basic-constraints-present                RFC5280 4.2.1.9                  
+                     └─ actual: present; expected: present
+  PASS     ERROR     basic-constraints-critical-for-ca        RFC5280 4.2.1.9                  
+                     └─ actual: true; expected: true
+  PASS     ERROR     ca-basic-constraints                     RFC5280 4.2.1.9                  
+                     └─ actual: true; expected: true
+  PASS     ERROR     ca-path-len-valid                        RFC5280 4.2.1.9                  
+                     └─ check passed: pathLenValid
+  PASS     ERROR     name-constraints-valid                   RFC5280 4.2.1.10                 
+                     └─ check passed: nameConstraintsValid
+  PASS     ERROR     cert-revocation-status-known             RFC5280 6.3                      
+                     └─ actual: good; disallowed: unknown
+  PASS     ERROR     cert-not-revoked                         RFC5280 6.3                      
+                     └─ actual: good; disallowed: revoked
+  PASS     ERROR     subject-cn-max-length                    RFC5280 Appendix A.1             
+                     └─ check passed: every; criteria: [{"operands":[64],"operator":"maxLength","path":"value"}]
+  PASS     ERROR     subject-org-max-length                   RFC5280 Appendix A.1             
+                     └─ check passed: every; criteria: [{"operands":[64],"operator":"maxLength","path":"value"}]
+  PASS     ERROR     subject-country-length                   RFC5280 Appendix A.1 + ISO 3166-1
+                     └─ check passed: every; criteria: [{"operands":[2],"operator":"maxLength","path":"value"}]
+  PASS     ERROR     subject-country-min-length               RFC5280 Appendix A.1 + ISO 3166-1
+                     └─ check passed: every; criteria: [{"operands":[2],"operator":"minLength","path":"value"}]
+  PASS     ERROR     validity-notbefore-utctime-through-2049  RFC5280 4.1.2.5                  
+                     └─ actual: 23; expected: 23
+  PASS     ERROR     validity-notafter-utctime-through-2049   RFC5280 4.1.2.5                  
+                     └─ actual: 23; expected: 23
+  PASS     ERROR     validity-utctime-has-seconds             RFC5280 4.1.2.5.1                
+                     └─ actual: true; expected: true
+  PASS     ERROR     validity-utctime-has-seconds-notafter    RFC5280 4.1.2.5.1                
+                     └─ actual: true; expected: true
+  PASS     ERROR     validity-utctime-has-zulu-notbefore      RFC5280 4.1.2.5.1                
+                     └─ actual: true; expected: true
+  PASS     ERROR     validity-utctime-has-zulu-notafter       RFC5280 4.1.2.5.1                
+                     └─ actual: true; expected: true
+  PASS     WARN      subject-country-printable-string         RFC5280 Appendix A.1             
+                     └─ check passed: every; criteria: [{"operands":[19],"operator":"eq","path":"encoding"}]
+
+========================================================================
+[File] Policy: rfc5280 | Cert: root | File: ../../tests/pkits/certs/TrustAnchorRootCertificate.crt | Verdict: PASS | PASS: 40, FAIL: 0, SKIP: 101, WARN: 0
+------------------------------------------------------------------------
+  VERDICT  SEVERITY  RULE                                     REFERENCE         
+  -------  --------  ---------------------------------------  ------------------
+  PASS     ERROR     tbs-certificate-metadata-well-formed     RFC5280 4.1.2     
+                     └─ actual: absent; expected: absent
+  PASS     ERROR     version-v3-when-extensions               RFC5280 4.1.2.1   
+                     └─ actual: 3; expected: 3
+  PASS     ERROR     serial-number-present                    RFC5280 4.1.2.2   
+                     └─ actual: present; expected: present
+  PASS     ERROR     serial-number-positive                   RFC5280 4.1.2.2   
+                     └─ check passed: positive
+  PASS     ERROR     serial-number-length                     RFC5280 4.1.2.2   
+                     └─ check passed: maxLength; criteria: [20]
+  PASS     ERROR     signature-algorithm-matches-tbs          RFC5280 4.1.2.3   
+                     └─ check passed: signatureAlgorithmMatchesTBS
+  PASS     ERROR     issuer-name-well-formed                  RFC5280 4.1.2.4   
+                     └─ actual: absent; expected: absent
+  PASS     ERROR     subject-name-well-formed                 RFC5280 4.1.2.6   
+                     └─ actual: absent; expected: absent
+  PASS     ERROR     issuer-not-empty                         RFC5280 4.1.2.4   
+                     └─ check passed: notEmpty
+  PASS     ERROR     subject-not-empty-for-ca                 RFC5280 4.1.2.6   
+                     └─ check passed: notEmpty
+  PASS     ERROR     issuer-matches-subject-for-root          RFC5280 6         
+                     └─ check passed: issuedBy
+  PASS     ERROR     not-expired                              RFC5280 4.1.2.5   
+                     └─ actual: 2030-12-31T08:30:00Z; earliest allowed: 2020-01-01T00:00:00Z
+  PASS     ERROR     not-yet-valid                            RFC5280 4.1.2.5   
+                     └─ actual: 2010-01-01T08:30:00Z; latest allowed: 2020-01-01T00:00:00Z
+  PASS     ERROR     validity-order-correct                   RFC5280 4.1.2.5   
+                     └─ check passed: validityOrderCorrect
+  PASS     ERROR     issuer-unique-id-absent                  RFC5280 4.1.2.8   
+                     └─ actual: absent; expected: absent
+  PASS     ERROR     subject-unique-id-absent                 RFC5280 4.1.2.8   
+                     └─ actual: absent; expected: absent
+  PASS     ERROR     no-unknown-critical-extensions           RFC5280 4.1.2.9, 6
+                     └─ check passed: noUnknownCriticalExtensions
+  PASS     ERROR     subject-key-identifier-present           RFC5280 4.2.1.2   
+                     └─ actual: present; expected: present
+  PASS     ERROR     ski-not-critical                         RFC5280 4.2.1.2   
+                     └─ actual: false; expected: false
+  PASS     ERROR     key-usage-well-formed                    RFC5280 4.2.1.3   
+                     └─ actual: absent; expected: absent
+  PASS     ERROR     key-usage-dependencies-valid             RFC5280 4.2.1.3   
+                     └─ check passed: keyUsageDependenciesValid
+  PASS     ERROR     key-usage-present                        RFC5280 4.2.1.3   
+                     └─ actual: present; expected: present
+  PASS     ERROR     key-usage-has-at-least-one-bit           RFC5280 4.2.1.3   
+                     └─ check passed: positive
+  PASS     WARN      key-usage-critical-for-ca                RFC5280 4.2.1.3   
+                     └─ actual: true; expected: true
+  PASS     ERROR     ca-key-cert-sign                         RFC5280 4.2.1.3   
+                     └─ actual: true; expected: true
+  PASS     ERROR     basic-constraints-well-formed            RFC5280 4.2.1.9   
+                     └─ actual: absent; expected: absent
+  PASS     ERROR     basic-constraints-dependencies-valid     RFC5280 4.2.1.9   
+                     └─ check passed: basicConstraintsDependenciesValid
+  PASS     ERROR     basic-constraints-present                RFC5280 4.2.1.9   
+                     └─ actual: present; expected: present
+  PASS     ERROR     basic-constraints-critical-for-ca        RFC5280 4.2.1.9   
+                     └─ actual: true; expected: true
+  PASS     ERROR     ca-basic-constraints                     RFC5280 4.2.1.9   
+                     └─ actual: true; expected: true
+  PASS     ERROR     ca-path-len-valid                        RFC5280 4.2.1.9   
+                     └─ check passed: pathLenValid
+  PASS     ERROR     name-constraints-valid                   RFC5280 4.2.1.10  
+                     └─ check passed: nameConstraintsValid
+  PASS     ERROR     cert-revocation-status-known             RFC5280 6.3       
+                     └─ actual: good; disallowed: unknown
+  PASS     ERROR     cert-not-revoked                         RFC5280 6.3       
+                     └─ actual: good; disallowed: revoked
+  PASS     ERROR     validity-notbefore-utctime-through-2049  RFC5280 4.1.2.5   
+                     └─ actual: 23; expected: 23
+  PASS     ERROR     validity-notafter-utctime-through-2049   RFC5280 4.1.2.5   
+                     └─ actual: 23; expected: 23
+  PASS     ERROR     validity-utctime-has-seconds             RFC5280 4.1.2.5.1 
+                     └─ actual: true; expected: true
+  PASS     ERROR     validity-utctime-has-seconds-notafter    RFC5280 4.1.2.5.1 
+                     └─ actual: true; expected: true
+  PASS     ERROR     validity-utctime-has-zulu-notbefore      RFC5280 4.1.2.5.1 
+                     └─ actual: true; expected: true
+  PASS     ERROR     validity-utctime-has-zulu-notafter       RFC5280 4.1.2.5.1 
+                     └─ actual: true; expected: true
+
+========================================================================
+[File] Policy: rfc5280 | Cert: crl | File: testdata/pkits-crls/GoodCACRL.crl | Verdict: PASS | PASS: 18, FAIL: 0, SKIP: 123, WARN: 0
+------------------------------------------------------------------------
+  VERDICT  SEVERITY  RULE                                      REFERENCE               
+  -------  --------  ----------------------------------------  ------------------------
+  PASS     ERROR     crl-issuer-name-well-formed               RFC5280 5.1.2.3         
+                     └─ actual: absent; expected: absent
+  PASS     ERROR     crl-valid                                 RFC5280 5.1             
+                     └─ check passed: crlValid
+  PASS     ERROR     crl-next-update-present                   RFC5280 5.1.2.5         
+                     └─ actual: present; expected: present
+  PASS     ERROR     crl-signed-by                             RFC5280 5.1             
+                     └─ check passed: crlSignedBy
+  PASS     ERROR     crl-signature-algorithm-matches-tbs       RFC5280 5.1.1.2, 5.1.2.2
+                     └─ check passed: signatureAlgorithmMatchesTBS
+  PASS     ERROR     crl-aki-not-critical                      RFC5280 5.2             
+                     └─ actual: false; expected: false
+  PASS     ERROR     crl-aki-well-formed                       RFC5280 5.2.1           
+                     └─ actual: absent; expected: absent
+  PASS     ERROR     crl-authority-key-identifier-present      RFC5280 5.2.1           
+                     └─ actual: present; expected: present
+  PASS     ERROR     crl-number-not-critical                   RFC5280 5.2             
+                     └─ actual: false; expected: false
+  PASS     ERROR     crl-number-well-formed                    RFC5280 5.2.3           
+                     └─ actual: absent; expected: absent
+  PASS     ERROR     crl-number-present                        RFC5280 5.2.3           
+                     └─ actual: present; expected: present
+  PASS     ERROR     crl-no-unknown-critical-extensions        RFC5280 5.2, 5.3        
+                     └─ check passed: noUnknownCriticalExtensions
+  PASS     ERROR     crl-entry-reason-valid                    RFC5280 5.3.1           
+                     └─ check passed: every; criteria:
+                        [{"check":"absent","path":"extensions.2.5.29.21.malformed","skipMissing":true}]
+  PASS     ERROR     crl-entry-reason-not-critical             RFC5280 5.3.1           
+                     └─ check passed: every; criteria:
+                        [{"check":"eq","path":"extensions.2.5.29.21.critical","skipMissing":true,"values":[false]}]
+  PASS     ERROR     crl-entry-invalidity-date-well-formed     RFC5280 5.3.2           
+                     └─ check passed: every; criteria:
+                        [{"check":"absent","path":"extensions.2.5.29.24.malformed","skipMissing":true}]
+  PASS     ERROR     crl-entry-invalidity-date-not-critical    RFC5280 5.3.2           
+                     └─ check passed: every; criteria:
+                        [{"check":"eq","path":"extensions.2.5.29.24.critical","skipMissing":true,"values":[false]}]
+  PASS     ERROR     crl-entry-certificate-issuer-well-formed  RFC5280 5.3.3           
+                     └─ check passed: every; criteria:
+                        [{"check":"absent","path":"extensions.2.5.29.29.malformed","skipMissing":true}]
+  PASS     ERROR     crl-entry-certificate-issuer-critical     RFC5280 5.3.3           
+                     └─ check passed: every; criteria:
+                        [{"check":"eq","path":"extensions.2.5.29.29.critical","skipMissing":true,"values":[true]}]
+
+========================================================================
+[File] Policy: rfc5280 | Cert: crl | File: testdata/pkits-crls/TrustAnchorRootCRL.crl | Verdict: PASS | PASS: 18, FAIL: 0, SKIP: 123, WARN: 0
+------------------------------------------------------------------------
+  VERDICT  SEVERITY  RULE                                      REFERENCE               
+  -------  --------  ----------------------------------------  ------------------------
+  PASS     ERROR     crl-issuer-name-well-formed               RFC5280 5.1.2.3         
+                     └─ actual: absent; expected: absent
+  PASS     ERROR     crl-valid                                 RFC5280 5.1             
+                     └─ check passed: crlValid
+  PASS     ERROR     crl-next-update-present                   RFC5280 5.1.2.5         
+                     └─ actual: present; expected: present
+  PASS     ERROR     crl-signed-by                             RFC5280 5.1             
+                     └─ check passed: crlSignedBy
+  PASS     ERROR     crl-signature-algorithm-matches-tbs       RFC5280 5.1.1.2, 5.1.2.2
+                     └─ check passed: signatureAlgorithmMatchesTBS
+  PASS     ERROR     crl-aki-not-critical                      RFC5280 5.2             
+                     └─ actual: false; expected: false
+  PASS     ERROR     crl-aki-well-formed                       RFC5280 5.2.1           
+                     └─ actual: absent; expected: absent
+  PASS     ERROR     crl-authority-key-identifier-present      RFC5280 5.2.1           
+                     └─ actual: present; expected: present
+  PASS     ERROR     crl-number-not-critical                   RFC5280 5.2             
+                     └─ actual: false; expected: false
+  PASS     ERROR     crl-number-well-formed                    RFC5280 5.2.3           
+                     └─ actual: absent; expected: absent
+  PASS     ERROR     crl-number-present                        RFC5280 5.2.3           
+                     └─ actual: present; expected: present
+  PASS     ERROR     crl-no-unknown-critical-extensions        RFC5280 5.2, 5.3        
+                     └─ check passed: noUnknownCriticalExtensions
+  PASS     ERROR     crl-entry-reason-valid                    RFC5280 5.3.1           
+                     └─ check passed: every; criteria:
+                        [{"check":"absent","path":"extensions.2.5.29.21.malformed","skipMissing":true}]
+  PASS     ERROR     crl-entry-reason-not-critical             RFC5280 5.3.1           
+                     └─ check passed: every; criteria:
+                        [{"check":"eq","path":"extensions.2.5.29.21.critical","skipMissing":true,"values":[false]}]
+  PASS     ERROR     crl-entry-invalidity-date-well-formed     RFC5280 5.3.2           
+                     └─ check passed: every; criteria:
+                        [{"check":"absent","path":"extensions.2.5.29.24.malformed","skipMissing":true}]
+  PASS     ERROR     crl-entry-invalidity-date-not-critical    RFC5280 5.3.2           
+                     └─ check passed: every; criteria:
+                        [{"check":"eq","path":"extensions.2.5.29.24.critical","skipMissing":true,"values":[false]}]
+  PASS     ERROR     crl-entry-certificate-issuer-well-formed  RFC5280 5.3.3           
+                     └─ check passed: every; criteria:
+                        [{"check":"absent","path":"extensions.2.5.29.29.malformed","skipMissing":true}]
+  PASS     ERROR     crl-entry-certificate-issuer-critical     RFC5280 5.3.3           
+                     └─ check passed: every; criteria:
+                        [{"check":"eq","path":"extensions.2.5.29.29.critical","skipMissing":true,"values":[true]}]

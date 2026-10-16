@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A Public Suffix List snapshot is embedded and used when neither
   `--psl-file` nor the data directory provides a list, so PSL and TLD rules
   work offline; `pcl update-data` still fetches a newer list.
+- CLI golden tests over the vendored PKITS data pin the text, JSON and YAML
+  output, `inspect`, `policies` and `test`, with the built-in policies and
+  the embedded Public Suffix List; `make golden` accepts an intended change.
 - A Makefile as the development entry point (`make check`, `cover`, `limbo`,
   `fuzz`, `lint`, `schema`, ...); CI runs the same targets. It replaces the
   limbo, fuzz and Let's Encrypt fixture scripts, pins golangci-lint and

@@ -1,0 +1,11 @@
+[Summary] Checked: <time> | Certs: 1 | Rules: 2 | PASS: 2, FAIL: 0, SKIP: 0, WARN: 0
+
+========================================================================
+[File] Policy: psl-probe | Cert: leaf | File: testdata/psl-leaf.pem | Verdict: PASS | PASS: 2, FAIL: 0, SKIP: 0, WARN: 0
+------------------------------------------------------------------------
+  VERDICT  SEVERITY  RULE                  
+  -------  --------  ----------------------
+  PASS     ERROR     san-tld-not-registered
+                     └─ check passed: every; criteria: [{"operator":"componentTLDNotRegistered"}]
+  PASS     ERROR     san-not-public-suffix 
+                     └─ check passed: isNotPublicSuffix

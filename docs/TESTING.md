@@ -101,8 +101,15 @@ The Makefile is the entry point; CI runs the same targets.
 | `make fuzz FUZZTIME=30s` | Every fuzz target for the given time |
 | `make lint` / `make vuln` | golangci-lint and govulncheck at pinned versions |
 | `make schema` | Regenerates `schemas/policy.schema.json` |
+| `make golden` | Rewrites the CLI golden files after an intended output change |
 | `make fixtures` | Regenerates the certificate, CRL and OCSP fixtures with `tests/fixturegen` |
 | `make psl-snapshot` | Refreshes the Public Suffix List snapshot embedded in the binary |
+
+The golden tests in `cmd/pcl/golden_test.go` run the CLI on the vendored
+PKITS data with the built-in policies, the embedded Public Suffix List and a
+fixed evaluation time, and compare text, JSON and YAML output, `inspect`,
+`policies` and `test` with `cmd/pcl/testdata/golden`. An intended output
+change is accepted with `make golden` and a reviewed diff.
 
 Changes to policy fields or operator contracts must also regenerate
 `schemas/policy.schema.json` with `make schema`. The policy tests

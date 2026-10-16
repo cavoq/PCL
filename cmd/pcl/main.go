@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"text/tabwriter"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -20,6 +21,10 @@ import (
 )
 
 var version = "5.2.0"
+
+// evaluationTime fixes the evaluation time of lint and inspect runs when set;
+// the golden tests use it, the CLI always evaluates at the current time.
+var evaluationTime time.Time
 
 func newRootCmd(opts *linter.Config) *cobra.Command {
 	var dataOpts dataOptions
@@ -36,6 +41,7 @@ func newRootCmd(opts *linter.Config) *cobra.Command {
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			opts.Diagnostics = cmd.ErrOrStderr()
 			opts.Color = colorOutput(cmd.OutOrStdout())
+			opts.ValidationTime = evaluationTime
 			markCertificatePolicyInputsConfigured(cmd.Flags(), opts)
 			markPathInputsConfigured(cmd.Flags(), opts)
 			if err := dataOpts.load(opts.Diagnostics); err != nil {
@@ -217,6 +223,7 @@ as a lint run. Every path shown can be used as a rule target.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			opts.Diagnostics = cmd.ErrOrStderr()
+			opts.ValidationTime = evaluationTime
 			if err := dataOpts.load(opts.Diagnostics); err != nil {
 				return err
 			}
@@ -333,18 +340,21 @@ func newUpdateDataCmd() *cobra.Command {
 	return cmd
 }
 
-func main() {
-	httpfetch.UserAgent = "pcl/" + version
-	var opts linter.Config
-
-	root := newRootCmd(&opts)
+// newApp returns the pcl command with its subcommands.
+func newApp(opts *linter.Config) *cobra.Command {
+	root := newRootCmd(opts)
 	root.AddCommand(newInspectCmd())
 	root.AddCommand(newPoliciesCmd())
 	root.AddCommand(newSchemaCmd())
 	root.AddCommand(newTestCmd())
 	root.AddCommand(newUpdateDataCmd())
+	return root
+}
 
-	if err := root.Execute(); err != nil {
+func main() {
+	httpfetch.UserAgent = "pcl/" + version
+	var opts linter.Config
+	if err := newApp(&opts).Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, "Error:", err)
 		os.Exit(1)
 	}

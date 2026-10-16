@@ -13,7 +13,7 @@ LETSENCRYPT_CRL := internal/crl/testdata/letsencrypt
 LETSENCRYPT_CERT := internal/cert/testdata/letsencrypt
 
 .PHONY: all build test race cover integration limbo limbo-fetch fuzz lint vuln tidy-check \
-	schema schema-check check fixtures letsencrypt-fixtures psl-snapshot clean
+	schema schema-check check golden fixtures letsencrypt-fixtures psl-snapshot clean
 
 all: check
 
@@ -75,6 +75,10 @@ schema-check:
 
 # The checks to run before pushing.
 check: tidy-check schema-check lint race
+
+# Rewrites the CLI golden files in cmd/pcl/testdata/golden; review the diff.
+golden:
+	$(GO) test ./cmd/pcl -run '^TestGolden$$' -update
 
 # Regenerates the certificate, CRL and OCSP fixtures in tests/certs,
 # tests/crls and tests/ocsps with new keys.

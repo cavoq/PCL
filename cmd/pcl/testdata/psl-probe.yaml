@@ -1,0 +1,15 @@
+# Public Suffix List probe for the golden tests: both rules fail without a
+# loaded list, so they pass only with the embedded snapshot.
+id: psl-probe
+version: "1"
+rules:
+  - id: san-tld-not-registered
+    target: certificate.subjectAltName.dNSName
+    operator: every
+    operands:
+      - operator: componentTLDNotRegistered
+    severity: error
+  - id: san-not-public-suffix
+    target: certificate.subjectAltName.dNSName.0
+    operator: isNotPublicSuffix
+    severity: error

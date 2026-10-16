@@ -1,0 +1,1651 @@
+meta:
+  checked_at: <time>
+  total_certs: 5
+  total_rules: 705
+  passed_rules: 167
+  failed_rules: 0
+  skipped_rules: 538
+results:
+  - policy_id: rfc5280
+    cert_type: leaf
+    cert_path: ../../tests/pkits/certs/ValidCertificatePathTest1EE.crt
+    source: local
+    rules:
+      - rule_id: tbs-certificate-metadata-well-formed
+        reference: RFC5280 4.1.2
+        verdict: pass
+        severity: error
+        findings:
+          - code: absent
+            status: pass
+            certificate_index: -1
+            message: 'actual: absent; expected: absent'
+      - rule_id: version-v3-when-extensions
+        reference: RFC5280 4.1.2.1
+        verdict: pass
+        severity: error
+        findings:
+          - code: eq
+            status: pass
+            certificate_index: -1
+            message: 'actual: 3; expected: 3'
+      - rule_id: serial-number-present
+        reference: RFC5280 4.1.2.2
+        verdict: pass
+        severity: error
+        findings:
+          - code: present
+            status: pass
+            certificate_index: -1
+            message: 'actual: present; expected: present'
+      - rule_id: serial-number-positive
+        reference: RFC5280 4.1.2.2
+        verdict: pass
+        severity: error
+        findings:
+          - code: positive
+            status: pass
+            certificate_index: -1
+            message: 'check passed: positive'
+      - rule_id: serial-number-length
+        reference: RFC5280 4.1.2.2
+        verdict: pass
+        severity: error
+        findings:
+          - code: maxLength
+            status: pass
+            certificate_index: -1
+            message: 'check passed: maxLength; criteria: [20]'
+      - rule_id: signature-algorithm-matches-tbs
+        reference: RFC5280 4.1.2.3
+        verdict: pass
+        severity: error
+        findings:
+          - code: signatureAlgorithmMatchesTBS
+            status: pass
+            certificate_index: -1
+            message: 'check passed: signatureAlgorithmMatchesTBS'
+      - rule_id: signature-valid
+        reference: RFC5280 4.1.2.3
+        verdict: pass
+        severity: error
+        findings:
+          - code: signatureValid
+            status: pass
+            certificate_index: -1
+            message: 'check passed: signatureValid'
+      - rule_id: certification-path-valid
+        reference: RFC5280 6, 7
+        verdict: pass
+        severity: error
+        findings:
+          - code: path.trust-anchor
+            reference: RFC5280 6.1.1
+            status: pass
+            certificate_index: -1
+            message: the path terminates at an explicit trust anchor
+            details:
+              subject: CN=Trust Anchor, O=Test Certificates 2011, C=US
+          - code: path.validity
+            reference: RFC5280 6.1.3(a)(2)
+            status: pass
+            certificate_index: 0
+            certificate_subject: CN=Valid EE Certificate Test1, O=Test Certificates 2011, C=US
+            message: certificate is valid at the validation time
+            details:
+              validationTime: 2020-01-01T00:00:00Z
+          - code: path.critical-extensions
+            reference: RFC5280 6.1.3(a)(4), 6.1.4
+            status: pass
+            certificate_index: 0
+            certificate_subject: CN=Valid EE Certificate Test1, O=Test Certificates 2011, C=US
+            message: all critical certificate extensions are processed
+          - code: path.issuer-name
+            reference: RFC5280 6.1.3(a)(4), 7.1
+            status: pass
+            certificate_index: 0
+            certificate_subject: CN=Valid EE Certificate Test1, O=Test Certificates 2011, C=US
+            message: issuer name matches the issuer certificate subject
+          - code: path.signature
+            reference: RFC5280 6.1.3(a)(1)
+            status: pass
+            certificate_index: 0
+            certificate_subject: CN=Valid EE Certificate Test1, O=Test Certificates 2011, C=US
+            message: certificate signature is valid
+          - code: path.revocation
+            reference: RFC5280 6.3
+            status: pass
+            certificate_index: 0
+            certificate_subject: CN=Valid EE Certificate Test1, O=Test Certificates 2011, C=US
+            message: revocation evidence establishes that the certificate is good
+            details:
+              assessment: CRL=good, OCSP=not-applicable
+              status: good
+          - code: path.validity
+            reference: RFC5280 6.1.3(a)(2)
+            status: pass
+            certificate_index: 1
+            certificate_subject: CN=Good CA, O=Test Certificates 2011, C=US
+            message: certificate is valid at the validation time
+            details:
+              validationTime: 2020-01-01T00:00:00Z
+          - code: path.critical-extensions
+            reference: RFC5280 6.1.3(a)(4), 6.1.4
+            status: pass
+            certificate_index: 1
+            certificate_subject: CN=Good CA, O=Test Certificates 2011, C=US
+            message: all critical certificate extensions are processed
+          - code: path.issuer-name
+            reference: RFC5280 6.1.3(a)(4), 7.1
+            status: pass
+            certificate_index: 1
+            certificate_subject: CN=Good CA, O=Test Certificates 2011, C=US
+            message: issuer name matches the issuer certificate subject
+          - code: path.signature
+            reference: RFC5280 6.1.3(a)(1)
+            status: pass
+            certificate_index: 1
+            certificate_subject: CN=Good CA, O=Test Certificates 2011, C=US
+            message: certificate signature is valid
+          - code: path.revocation
+            reference: RFC5280 6.3
+            status: pass
+            certificate_index: 1
+            certificate_subject: CN=Good CA, O=Test Certificates 2011, C=US
+            message: revocation evidence establishes that the certificate is good
+            details:
+              assessment: CRL=good, OCSP=not-applicable
+              status: good
+          - code: path.ca-authorized
+            reference: RFC5280 6.1.4(k),(n)
+            status: pass
+            certificate_index: 1
+            certificate_subject: CN=Good CA, O=Test Certificates 2011, C=US
+            message: issuer is authorized to sign certificates
+          - code: path.path-length
+            reference: RFC5280 6.1.4(l),(m)
+            status: pass
+            certificate_index: 1
+            certificate_subject: CN=Good CA, O=Test Certificates 2011, C=US
+            message: path length constraints are satisfied
+          - code: path.name-constraints
+            reference: RFC5280 6.1.3(b),(c), 6.1.4(g)
+            status: pass
+            certificate_index: 0
+            certificate_subject: CN=Valid EE Certificate Test1, O=Test Certificates 2011, C=US
+            message: name constraints are satisfied
+          - code: path.name-constraints
+            reference: RFC5280 6.1.3(b),(c), 6.1.4(g)
+            status: pass
+            certificate_index: 1
+            certificate_subject: CN=Good CA, O=Test Certificates 2011, C=US
+            message: name constraints are satisfied
+          - code: path.certificate-policies
+            reference: RFC5280 6.1.3-6.1.5
+            status: pass
+            certificate_index: -1
+            message: certificate policy processing succeeded
+            details:
+              initialPolicySet:
+                - 2.5.29.32.0
+      - rule_id: issuer-name-well-formed
+        reference: RFC5280 4.1.2.4
+        verdict: pass
+        severity: error
+        findings:
+          - code: absent
+            status: pass
+            certificate_index: -1
+            message: 'actual: absent; expected: absent'
+      - rule_id: subject-name-well-formed
+        reference: RFC5280 4.1.2.6
+        verdict: pass
+        severity: error
+        findings:
+          - code: absent
+            status: pass
+            certificate_index: -1
+            message: 'actual: absent; expected: absent'
+      - rule_id: issuer-not-empty
+        reference: RFC5280 4.1.2.4
+        verdict: pass
+        severity: error
+        findings:
+          - code: notEmpty
+            status: pass
+            certificate_index: -1
+            message: 'check passed: notEmpty'
+      - rule_id: not-expired
+        reference: RFC5280 4.1.2.5
+        verdict: pass
+        severity: error
+        findings:
+          - code: onOrAfter
+            status: pass
+            certificate_index: -1
+            message: 'actual: 2030-12-31T08:30:00Z; earliest allowed: 2020-01-01T00:00:00Z'
+      - rule_id: not-yet-valid
+        reference: RFC5280 4.1.2.5
+        verdict: pass
+        severity: error
+        findings:
+          - code: onOrBefore
+            status: pass
+            certificate_index: -1
+            message: 'actual: 2010-01-01T08:30:00Z; latest allowed: 2020-01-01T00:00:00Z'
+      - rule_id: validity-order-correct
+        reference: RFC5280 4.1.2.5
+        verdict: pass
+        severity: error
+        findings:
+          - code: validityOrderCorrect
+            status: pass
+            certificate_index: -1
+            message: 'check passed: validityOrderCorrect'
+      - rule_id: issuer-unique-id-absent
+        reference: RFC5280 4.1.2.8
+        verdict: pass
+        severity: error
+        findings:
+          - code: absent
+            status: pass
+            certificate_index: -1
+            message: 'actual: absent; expected: absent'
+      - rule_id: subject-unique-id-absent
+        reference: RFC5280 4.1.2.8
+        verdict: pass
+        severity: error
+        findings:
+          - code: absent
+            status: pass
+            certificate_index: -1
+            message: 'actual: absent; expected: absent'
+      - rule_id: no-unknown-critical-extensions
+        reference: RFC5280 4.1.2.9, 6
+        verdict: pass
+        severity: error
+        findings:
+          - code: noUnknownCriticalExtensions
+            status: pass
+            certificate_index: -1
+            message: 'check passed: noUnknownCriticalExtensions'
+      - rule_id: authority-key-identifier-present
+        reference: RFC5280 4.2.1.1
+        verdict: pass
+        severity: error
+        findings:
+          - code: present
+            status: pass
+            certificate_index: -1
+            message: 'actual: present; expected: present'
+      - rule_id: aki-not-critical
+        reference: RFC5280 4.2.1.1
+        verdict: pass
+        severity: error
+        findings:
+          - code: eq
+            status: pass
+            certificate_index: -1
+            message: 'actual: false; expected: false'
+      - rule_id: aki-matches-ski
+        reference: RFC5280 4.2.1.1
+        verdict: pass
+        severity: warning
+        findings:
+          - code: akiMatchesSki
+            status: pass
+            certificate_index: -1
+            message: 'check passed: akiMatchesSki'
+      - rule_id: ski-not-critical
+        reference: RFC5280 4.2.1.2
+        verdict: pass
+        severity: error
+        findings:
+          - code: eq
+            status: pass
+            certificate_index: -1
+            message: 'actual: false; expected: false'
+      - rule_id: key-usage-well-formed
+        reference: RFC5280 4.2.1.3
+        verdict: pass
+        severity: error
+        findings:
+          - code: absent
+            status: pass
+            certificate_index: -1
+            message: 'actual: absent; expected: absent'
+      - rule_id: key-usage-dependencies-valid
+        reference: RFC5280 4.2.1.3
+        verdict: pass
+        severity: error
+        findings:
+          - code: keyUsageDependenciesValid
+            status: pass
+            certificate_index: -1
+            message: 'check passed: keyUsageDependenciesValid'
+      - rule_id: key-usage-has-at-least-one-bit
+        reference: RFC5280 4.2.1.3
+        verdict: pass
+        severity: error
+        findings:
+          - code: positive
+            status: pass
+            certificate_index: -1
+            message: 'check passed: positive'
+      - rule_id: leaf-key-usage-valid
+        reference: RFC5280 4.2.1.3
+        verdict: pass
+        severity: error
+        findings:
+          - code: eq
+            status: pass
+            certificate_index: -1
+            message: 'actual: false; expected: false'
+      - rule_id: certificate-policies-well-formed
+        reference: RFC5280 4.2.1.4
+        verdict: pass
+        severity: error
+        findings:
+          - code: absent
+            status: pass
+            certificate_index: -1
+            message: 'actual: absent; expected: absent'
+      - rule_id: leaf-not-ca
+        reference: RFC5280 4.2.1.9
+        verdict: pass
+        severity: error
+        findings:
+          - code: neq
+            status: pass
+            certificate_index: -1
+            message: 'actual: absent; disallowed: true'
+      - rule_id: name-constraints-valid
+        reference: RFC5280 4.2.1.10
+        verdict: pass
+        severity: error
+        findings:
+          - code: nameConstraintsValid
+            status: pass
+            certificate_index: -1
+            message: 'check passed: nameConstraintsValid'
+      - rule_id: cert-revocation-status-known
+        reference: RFC5280 6.3
+        verdict: pass
+        severity: error
+        findings:
+          - code: neq
+            status: pass
+            certificate_index: -1
+            message: 'actual: good; disallowed: unknown'
+      - rule_id: cert-not-revoked
+        reference: RFC5280 6.3
+        verdict: pass
+        severity: error
+        findings:
+          - code: neq
+            status: pass
+            certificate_index: -1
+            message: 'actual: good; disallowed: revoked'
+      - rule_id: subject-cn-max-length
+        reference: RFC5280 Appendix A.1
+        verdict: pass
+        severity: error
+        findings:
+          - code: every
+            status: pass
+            certificate_index: -1
+            message: 'check passed: every; criteria: [{"operands":[64],"operator":"maxLength","path":"value"}]'
+      - rule_id: subject-org-max-length
+        reference: RFC5280 Appendix A.1
+        verdict: pass
+        severity: error
+        findings:
+          - code: every
+            status: pass
+            certificate_index: -1
+            message: 'check passed: every; criteria: [{"operands":[64],"operator":"maxLength","path":"value"}]'
+      - rule_id: subject-country-length
+        reference: RFC5280 Appendix A.1 + ISO 3166-1
+        verdict: pass
+        severity: error
+        findings:
+          - code: every
+            status: pass
+            certificate_index: -1
+            message: 'check passed: every; criteria: [{"operands":[2],"operator":"maxLength","path":"value"}]'
+      - rule_id: subject-country-min-length
+        reference: RFC5280 Appendix A.1 + ISO 3166-1
+        verdict: pass
+        severity: error
+        findings:
+          - code: every
+            status: pass
+            certificate_index: -1
+            message: 'check passed: every; criteria: [{"operands":[2],"operator":"minLength","path":"value"}]'
+      - rule_id: validity-notbefore-utctime-through-2049
+        reference: RFC5280 4.1.2.5
+        verdict: pass
+        severity: error
+        findings:
+          - code: eq
+            status: pass
+            certificate_index: -1
+            message: 'actual: 23; expected: 23'
+      - rule_id: validity-notafter-utctime-through-2049
+        reference: RFC5280 4.1.2.5
+        verdict: pass
+        severity: error
+        findings:
+          - code: eq
+            status: pass
+            certificate_index: -1
+            message: 'actual: 23; expected: 23'
+      - rule_id: validity-utctime-has-seconds
+        reference: RFC5280 4.1.2.5.1
+        verdict: pass
+        severity: error
+        findings:
+          - code: eq
+            status: pass
+            certificate_index: -1
+            message: 'actual: true; expected: true'
+      - rule_id: validity-utctime-has-seconds-notafter
+        reference: RFC5280 4.1.2.5.1
+        verdict: pass
+        severity: error
+        findings:
+          - code: eq
+            status: pass
+            certificate_index: -1
+            message: 'actual: true; expected: true'
+      - rule_id: validity-utctime-has-zulu-notbefore
+        reference: RFC5280 4.1.2.5.1
+        verdict: pass
+        severity: error
+        findings:
+          - code: eq
+            status: pass
+            certificate_index: -1
+            message: 'actual: true; expected: true'
+      - rule_id: validity-utctime-has-zulu-notafter
+        reference: RFC5280 4.1.2.5.1
+        verdict: pass
+        severity: error
+        findings:
+          - code: eq
+            status: pass
+            certificate_index: -1
+            message: 'actual: true; expected: true'
+      - rule_id: subject-country-printable-string
+        reference: RFC5280 Appendix A.1
+        verdict: pass
+        severity: warning
+        findings:
+          - code: every
+            status: pass
+            certificate_index: -1
+            message: 'check passed: every; criteria: [{"operands":[19],"operator":"eq","path":"encoding"}]'
+      - rule_id: subject-cn-valid-encoding
+        reference: RFC5280 Appendix A.1
+        verdict: pass
+        severity: warning
+        findings:
+          - code: every
+            status: pass
+            certificate_index: -1
+            message: 'check passed: every; criteria: [{"operands":[12,19,20,28,30],"operator":"in","path":"encoding"}]'
+    verdict: pass
+    checked_at: <time>
+  - policy_id: rfc5280
+    cert_type: intermediate
+    cert_path: ../../tests/pkits/certs/GoodCACert.crt
+    source: local
+    rules:
+      - rule_id: tbs-certificate-metadata-well-formed
+        reference: RFC5280 4.1.2
+        verdict: pass
+        severity: error
+        findings:
+          - code: absent
+            status: pass
+            certificate_index: -1
+            message: 'actual: absent; expected: absent'
+      - rule_id: version-v3-when-extensions
+        reference: RFC5280 4.1.2.1
+        verdict: pass
+        severity: error
+        findings:
+          - code: eq
+            status: pass
+            certificate_index: -1
+            message: 'actual: 3; expected: 3'
+      - rule_id: serial-number-present
+        reference: RFC5280 4.1.2.2
+        verdict: pass
+        severity: error
+        findings:
+          - code: present
+            status: pass
+            certificate_index: -1
+            message: 'actual: present; expected: present'
+      - rule_id: serial-number-positive
+        reference: RFC5280 4.1.2.2
+        verdict: pass
+        severity: error
+        findings:
+          - code: positive
+            status: pass
+            certificate_index: -1
+            message: 'check passed: positive'
+      - rule_id: serial-number-length
+        reference: RFC5280 4.1.2.2
+        verdict: pass
+        severity: error
+        findings:
+          - code: maxLength
+            status: pass
+            certificate_index: -1
+            message: 'check passed: maxLength; criteria: [20]'
+      - rule_id: signature-algorithm-matches-tbs
+        reference: RFC5280 4.1.2.3
+        verdict: pass
+        severity: error
+        findings:
+          - code: signatureAlgorithmMatchesTBS
+            status: pass
+            certificate_index: -1
+            message: 'check passed: signatureAlgorithmMatchesTBS'
+      - rule_id: signature-valid
+        reference: RFC5280 4.1.2.3
+        verdict: pass
+        severity: error
+        findings:
+          - code: signatureValid
+            status: pass
+            certificate_index: -1
+            message: 'check passed: signatureValid'
+      - rule_id: issuer-name-well-formed
+        reference: RFC5280 4.1.2.4
+        verdict: pass
+        severity: error
+        findings:
+          - code: absent
+            status: pass
+            certificate_index: -1
+            message: 'actual: absent; expected: absent'
+      - rule_id: subject-name-well-formed
+        reference: RFC5280 4.1.2.6
+        verdict: pass
+        severity: error
+        findings:
+          - code: absent
+            status: pass
+            certificate_index: -1
+            message: 'actual: absent; expected: absent'
+      - rule_id: issuer-not-empty
+        reference: RFC5280 4.1.2.4
+        verdict: pass
+        severity: error
+        findings:
+          - code: notEmpty
+            status: pass
+            certificate_index: -1
+            message: 'check passed: notEmpty'
+      - rule_id: subject-not-empty-for-ca
+        reference: RFC5280 4.1.2.6
+        verdict: pass
+        severity: error
+        findings:
+          - code: notEmpty
+            status: pass
+            certificate_index: -1
+            message: 'check passed: notEmpty'
+      - rule_id: not-expired
+        reference: RFC5280 4.1.2.5
+        verdict: pass
+        severity: error
+        findings:
+          - code: onOrAfter
+            status: pass
+            certificate_index: -1
+            message: 'actual: 2030-12-31T08:30:00Z; earliest allowed: 2020-01-01T00:00:00Z'
+      - rule_id: not-yet-valid
+        reference: RFC5280 4.1.2.5
+        verdict: pass
+        severity: error
+        findings:
+          - code: onOrBefore
+            status: pass
+            certificate_index: -1
+            message: 'actual: 2010-01-01T08:30:00Z; latest allowed: 2020-01-01T00:00:00Z'
+      - rule_id: validity-order-correct
+        reference: RFC5280 4.1.2.5
+        verdict: pass
+        severity: error
+        findings:
+          - code: validityOrderCorrect
+            status: pass
+            certificate_index: -1
+            message: 'check passed: validityOrderCorrect'
+      - rule_id: issuer-unique-id-absent
+        reference: RFC5280 4.1.2.8
+        verdict: pass
+        severity: error
+        findings:
+          - code: absent
+            status: pass
+            certificate_index: -1
+            message: 'actual: absent; expected: absent'
+      - rule_id: subject-unique-id-absent
+        reference: RFC5280 4.1.2.8
+        verdict: pass
+        severity: error
+        findings:
+          - code: absent
+            status: pass
+            certificate_index: -1
+            message: 'actual: absent; expected: absent'
+      - rule_id: no-unknown-critical-extensions
+        reference: RFC5280 4.1.2.9, 6
+        verdict: pass
+        severity: error
+        findings:
+          - code: noUnknownCriticalExtensions
+            status: pass
+            certificate_index: -1
+            message: 'check passed: noUnknownCriticalExtensions'
+      - rule_id: authority-key-identifier-present
+        reference: RFC5280 4.2.1.1
+        verdict: pass
+        severity: error
+        findings:
+          - code: present
+            status: pass
+            certificate_index: -1
+            message: 'actual: present; expected: present'
+      - rule_id: aki-not-critical
+        reference: RFC5280 4.2.1.1
+        verdict: pass
+        severity: error
+        findings:
+          - code: eq
+            status: pass
+            certificate_index: -1
+            message: 'actual: false; expected: false'
+      - rule_id: aki-matches-ski
+        reference: RFC5280 4.2.1.1
+        verdict: pass
+        severity: warning
+        findings:
+          - code: akiMatchesSki
+            status: pass
+            certificate_index: -1
+            message: 'check passed: akiMatchesSki'
+      - rule_id: subject-key-identifier-present
+        reference: RFC5280 4.2.1.2
+        verdict: pass
+        severity: error
+        findings:
+          - code: present
+            status: pass
+            certificate_index: -1
+            message: 'actual: present; expected: present'
+      - rule_id: ski-not-critical
+        reference: RFC5280 4.2.1.2
+        verdict: pass
+        severity: error
+        findings:
+          - code: eq
+            status: pass
+            certificate_index: -1
+            message: 'actual: false; expected: false'
+      - rule_id: key-usage-well-formed
+        reference: RFC5280 4.2.1.3
+        verdict: pass
+        severity: error
+        findings:
+          - code: absent
+            status: pass
+            certificate_index: -1
+            message: 'actual: absent; expected: absent'
+      - rule_id: key-usage-dependencies-valid
+        reference: RFC5280 4.2.1.3
+        verdict: pass
+        severity: error
+        findings:
+          - code: keyUsageDependenciesValid
+            status: pass
+            certificate_index: -1
+            message: 'check passed: keyUsageDependenciesValid'
+      - rule_id: key-usage-present
+        reference: RFC5280 4.2.1.3
+        verdict: pass
+        severity: error
+        findings:
+          - code: present
+            status: pass
+            certificate_index: -1
+            message: 'actual: present; expected: present'
+      - rule_id: key-usage-has-at-least-one-bit
+        reference: RFC5280 4.2.1.3
+        verdict: pass
+        severity: error
+        findings:
+          - code: positive
+            status: pass
+            certificate_index: -1
+            message: 'check passed: positive'
+      - rule_id: key-usage-critical-for-ca
+        reference: RFC5280 4.2.1.3
+        verdict: pass
+        severity: warning
+        findings:
+          - code: eq
+            status: pass
+            certificate_index: -1
+            message: 'actual: true; expected: true'
+      - rule_id: ca-key-cert-sign
+        reference: RFC5280 4.2.1.3
+        verdict: pass
+        severity: error
+        findings:
+          - code: eq
+            status: pass
+            certificate_index: -1
+            message: 'actual: true; expected: true'
+      - rule_id: certificate-policies-well-formed
+        reference: RFC5280 4.2.1.4
+        verdict: pass
+        severity: error
+        findings:
+          - code: absent
+            status: pass
+            certificate_index: -1
+            message: 'actual: absent; expected: absent'
+      - rule_id: basic-constraints-well-formed
+        reference: RFC5280 4.2.1.9
+        verdict: pass
+        severity: error
+        findings:
+          - code: absent
+            status: pass
+            certificate_index: -1
+            message: 'actual: absent; expected: absent'
+      - rule_id: basic-constraints-dependencies-valid
+        reference: RFC5280 4.2.1.9
+        verdict: pass
+        severity: error
+        findings:
+          - code: basicConstraintsDependenciesValid
+            status: pass
+            certificate_index: -1
+            message: 'check passed: basicConstraintsDependenciesValid'
+      - rule_id: basic-constraints-present
+        reference: RFC5280 4.2.1.9
+        verdict: pass
+        severity: error
+        findings:
+          - code: present
+            status: pass
+            certificate_index: -1
+            message: 'actual: present; expected: present'
+      - rule_id: basic-constraints-critical-for-ca
+        reference: RFC5280 4.2.1.9
+        verdict: pass
+        severity: error
+        findings:
+          - code: eq
+            status: pass
+            certificate_index: -1
+            message: 'actual: true; expected: true'
+      - rule_id: ca-basic-constraints
+        reference: RFC5280 4.2.1.9
+        verdict: pass
+        severity: error
+        findings:
+          - code: eq
+            status: pass
+            certificate_index: -1
+            message: 'actual: true; expected: true'
+      - rule_id: ca-path-len-valid
+        reference: RFC5280 4.2.1.9
+        verdict: pass
+        severity: error
+        findings:
+          - code: pathLenValid
+            status: pass
+            certificate_index: -1
+            message: 'check passed: pathLenValid'
+      - rule_id: name-constraints-valid
+        reference: RFC5280 4.2.1.10
+        verdict: pass
+        severity: error
+        findings:
+          - code: nameConstraintsValid
+            status: pass
+            certificate_index: -1
+            message: 'check passed: nameConstraintsValid'
+      - rule_id: cert-revocation-status-known
+        reference: RFC5280 6.3
+        verdict: pass
+        severity: error
+        findings:
+          - code: neq
+            status: pass
+            certificate_index: -1
+            message: 'actual: good; disallowed: unknown'
+      - rule_id: cert-not-revoked
+        reference: RFC5280 6.3
+        verdict: pass
+        severity: error
+        findings:
+          - code: neq
+            status: pass
+            certificate_index: -1
+            message: 'actual: good; disallowed: revoked'
+      - rule_id: subject-cn-max-length
+        reference: RFC5280 Appendix A.1
+        verdict: pass
+        severity: error
+        findings:
+          - code: every
+            status: pass
+            certificate_index: -1
+            message: 'check passed: every; criteria: [{"operands":[64],"operator":"maxLength","path":"value"}]'
+      - rule_id: subject-org-max-length
+        reference: RFC5280 Appendix A.1
+        verdict: pass
+        severity: error
+        findings:
+          - code: every
+            status: pass
+            certificate_index: -1
+            message: 'check passed: every; criteria: [{"operands":[64],"operator":"maxLength","path":"value"}]'
+      - rule_id: subject-country-length
+        reference: RFC5280 Appendix A.1 + ISO 3166-1
+        verdict: pass
+        severity: error
+        findings:
+          - code: every
+            status: pass
+            certificate_index: -1
+            message: 'check passed: every; criteria: [{"operands":[2],"operator":"maxLength","path":"value"}]'
+      - rule_id: subject-country-min-length
+        reference: RFC5280 Appendix A.1 + ISO 3166-1
+        verdict: pass
+        severity: error
+        findings:
+          - code: every
+            status: pass
+            certificate_index: -1
+            message: 'check passed: every; criteria: [{"operands":[2],"operator":"minLength","path":"value"}]'
+      - rule_id: validity-notbefore-utctime-through-2049
+        reference: RFC5280 4.1.2.5
+        verdict: pass
+        severity: error
+        findings:
+          - code: eq
+            status: pass
+            certificate_index: -1
+            message: 'actual: 23; expected: 23'
+      - rule_id: validity-notafter-utctime-through-2049
+        reference: RFC5280 4.1.2.5
+        verdict: pass
+        severity: error
+        findings:
+          - code: eq
+            status: pass
+            certificate_index: -1
+            message: 'actual: 23; expected: 23'
+      - rule_id: validity-utctime-has-seconds
+        reference: RFC5280 4.1.2.5.1
+        verdict: pass
+        severity: error
+        findings:
+          - code: eq
+            status: pass
+            certificate_index: -1
+            message: 'actual: true; expected: true'
+      - rule_id: validity-utctime-has-seconds-notafter
+        reference: RFC5280 4.1.2.5.1
+        verdict: pass
+        severity: error
+        findings:
+          - code: eq
+            status: pass
+            certificate_index: -1
+            message: 'actual: true; expected: true'
+      - rule_id: validity-utctime-has-zulu-notbefore
+        reference: RFC5280 4.1.2.5.1
+        verdict: pass
+        severity: error
+        findings:
+          - code: eq
+            status: pass
+            certificate_index: -1
+            message: 'actual: true; expected: true'
+      - rule_id: validity-utctime-has-zulu-notafter
+        reference: RFC5280 4.1.2.5.1
+        verdict: pass
+        severity: error
+        findings:
+          - code: eq
+            status: pass
+            certificate_index: -1
+            message: 'actual: true; expected: true'
+      - rule_id: subject-country-printable-string
+        reference: RFC5280 Appendix A.1
+        verdict: pass
+        severity: warning
+        findings:
+          - code: every
+            status: pass
+            certificate_index: -1
+            message: 'check passed: every; criteria: [{"operands":[19],"operator":"eq","path":"encoding"}]'
+    verdict: pass
+    checked_at: <time>
+  - policy_id: rfc5280
+    cert_type: root
+    cert_path: ../../tests/pkits/certs/TrustAnchorRootCertificate.crt
+    source: local
+    rules:
+      - rule_id: tbs-certificate-metadata-well-formed
+        reference: RFC5280 4.1.2
+        verdict: pass
+        severity: error
+        findings:
+          - code: absent
+            status: pass
+            certificate_index: -1
+            message: 'actual: absent; expected: absent'
+      - rule_id: version-v3-when-extensions
+        reference: RFC5280 4.1.2.1
+        verdict: pass
+        severity: error
+        findings:
+          - code: eq
+            status: pass
+            certificate_index: -1
+            message: 'actual: 3; expected: 3'
+      - rule_id: serial-number-present
+        reference: RFC5280 4.1.2.2
+        verdict: pass
+        severity: error
+        findings:
+          - code: present
+            status: pass
+            certificate_index: -1
+            message: 'actual: present; expected: present'
+      - rule_id: serial-number-positive
+        reference: RFC5280 4.1.2.2
+        verdict: pass
+        severity: error
+        findings:
+          - code: positive
+            status: pass
+            certificate_index: -1
+            message: 'check passed: positive'
+      - rule_id: serial-number-length
+        reference: RFC5280 4.1.2.2
+        verdict: pass
+        severity: error
+        findings:
+          - code: maxLength
+            status: pass
+            certificate_index: -1
+            message: 'check passed: maxLength; criteria: [20]'
+      - rule_id: signature-algorithm-matches-tbs
+        reference: RFC5280 4.1.2.3
+        verdict: pass
+        severity: error
+        findings:
+          - code: signatureAlgorithmMatchesTBS
+            status: pass
+            certificate_index: -1
+            message: 'check passed: signatureAlgorithmMatchesTBS'
+      - rule_id: issuer-name-well-formed
+        reference: RFC5280 4.1.2.4
+        verdict: pass
+        severity: error
+        findings:
+          - code: absent
+            status: pass
+            certificate_index: -1
+            message: 'actual: absent; expected: absent'
+      - rule_id: subject-name-well-formed
+        reference: RFC5280 4.1.2.6
+        verdict: pass
+        severity: error
+        findings:
+          - code: absent
+            status: pass
+            certificate_index: -1
+            message: 'actual: absent; expected: absent'
+      - rule_id: issuer-not-empty
+        reference: RFC5280 4.1.2.4
+        verdict: pass
+        severity: error
+        findings:
+          - code: notEmpty
+            status: pass
+            certificate_index: -1
+            message: 'check passed: notEmpty'
+      - rule_id: subject-not-empty-for-ca
+        reference: RFC5280 4.1.2.6
+        verdict: pass
+        severity: error
+        findings:
+          - code: notEmpty
+            status: pass
+            certificate_index: -1
+            message: 'check passed: notEmpty'
+      - rule_id: issuer-matches-subject-for-root
+        reference: RFC5280 6
+        verdict: pass
+        severity: error
+        findings:
+          - code: issuedBy
+            status: pass
+            certificate_index: -1
+            message: 'check passed: issuedBy'
+      - rule_id: not-expired
+        reference: RFC5280 4.1.2.5
+        verdict: pass
+        severity: error
+        findings:
+          - code: onOrAfter
+            status: pass
+            certificate_index: -1
+            message: 'actual: 2030-12-31T08:30:00Z; earliest allowed: 2020-01-01T00:00:00Z'
+      - rule_id: not-yet-valid
+        reference: RFC5280 4.1.2.5
+        verdict: pass
+        severity: error
+        findings:
+          - code: onOrBefore
+            status: pass
+            certificate_index: -1
+            message: 'actual: 2010-01-01T08:30:00Z; latest allowed: 2020-01-01T00:00:00Z'
+      - rule_id: validity-order-correct
+        reference: RFC5280 4.1.2.5
+        verdict: pass
+        severity: error
+        findings:
+          - code: validityOrderCorrect
+            status: pass
+            certificate_index: -1
+            message: 'check passed: validityOrderCorrect'
+      - rule_id: issuer-unique-id-absent
+        reference: RFC5280 4.1.2.8
+        verdict: pass
+        severity: error
+        findings:
+          - code: absent
+            status: pass
+            certificate_index: -1
+            message: 'actual: absent; expected: absent'
+      - rule_id: subject-unique-id-absent
+        reference: RFC5280 4.1.2.8
+        verdict: pass
+        severity: error
+        findings:
+          - code: absent
+            status: pass
+            certificate_index: -1
+            message: 'actual: absent; expected: absent'
+      - rule_id: no-unknown-critical-extensions
+        reference: RFC5280 4.1.2.9, 6
+        verdict: pass
+        severity: error
+        findings:
+          - code: noUnknownCriticalExtensions
+            status: pass
+            certificate_index: -1
+            message: 'check passed: noUnknownCriticalExtensions'
+      - rule_id: subject-key-identifier-present
+        reference: RFC5280 4.2.1.2
+        verdict: pass
+        severity: error
+        findings:
+          - code: present
+            status: pass
+            certificate_index: -1
+            message: 'actual: present; expected: present'
+      - rule_id: ski-not-critical
+        reference: RFC5280 4.2.1.2
+        verdict: pass
+        severity: error
+        findings:
+          - code: eq
+            status: pass
+            certificate_index: -1
+            message: 'actual: false; expected: false'
+      - rule_id: key-usage-well-formed
+        reference: RFC5280 4.2.1.3
+        verdict: pass
+        severity: error
+        findings:
+          - code: absent
+            status: pass
+            certificate_index: -1
+            message: 'actual: absent; expected: absent'
+      - rule_id: key-usage-dependencies-valid
+        reference: RFC5280 4.2.1.3
+        verdict: pass
+        severity: error
+        findings:
+          - code: keyUsageDependenciesValid
+            status: pass
+            certificate_index: -1
+            message: 'check passed: keyUsageDependenciesValid'
+      - rule_id: key-usage-present
+        reference: RFC5280 4.2.1.3
+        verdict: pass
+        severity: error
+        findings:
+          - code: present
+            status: pass
+            certificate_index: -1
+            message: 'actual: present; expected: present'
+      - rule_id: key-usage-has-at-least-one-bit
+        reference: RFC5280 4.2.1.3
+        verdict: pass
+        severity: error
+        findings:
+          - code: positive
+            status: pass
+            certificate_index: -1
+            message: 'check passed: positive'
+      - rule_id: key-usage-critical-for-ca
+        reference: RFC5280 4.2.1.3
+        verdict: pass
+        severity: warning
+        findings:
+          - code: eq
+            status: pass
+            certificate_index: -1
+            message: 'actual: true; expected: true'
+      - rule_id: ca-key-cert-sign
+        reference: RFC5280 4.2.1.3
+        verdict: pass
+        severity: error
+        findings:
+          - code: eq
+            status: pass
+            certificate_index: -1
+            message: 'actual: true; expected: true'
+      - rule_id: basic-constraints-well-formed
+        reference: RFC5280 4.2.1.9
+        verdict: pass
+        severity: error
+        findings:
+          - code: absent
+            status: pass
+            certificate_index: -1
+            message: 'actual: absent; expected: absent'
+      - rule_id: basic-constraints-dependencies-valid
+        reference: RFC5280 4.2.1.9
+        verdict: pass
+        severity: error
+        findings:
+          - code: basicConstraintsDependenciesValid
+            status: pass
+            certificate_index: -1
+            message: 'check passed: basicConstraintsDependenciesValid'
+      - rule_id: basic-constraints-present
+        reference: RFC5280 4.2.1.9
+        verdict: pass
+        severity: error
+        findings:
+          - code: present
+            status: pass
+            certificate_index: -1
+            message: 'actual: present; expected: present'
+      - rule_id: basic-constraints-critical-for-ca
+        reference: RFC5280 4.2.1.9
+        verdict: pass
+        severity: error
+        findings:
+          - code: eq
+            status: pass
+            certificate_index: -1
+            message: 'actual: true; expected: true'
+      - rule_id: ca-basic-constraints
+        reference: RFC5280 4.2.1.9
+        verdict: pass
+        severity: error
+        findings:
+          - code: eq
+            status: pass
+            certificate_index: -1
+            message: 'actual: true; expected: true'
+      - rule_id: ca-path-len-valid
+        reference: RFC5280 4.2.1.9
+        verdict: pass
+        severity: error
+        findings:
+          - code: pathLenValid
+            status: pass
+            certificate_index: -1
+            message: 'check passed: pathLenValid'
+      - rule_id: name-constraints-valid
+        reference: RFC5280 4.2.1.10
+        verdict: pass
+        severity: error
+        findings:
+          - code: nameConstraintsValid
+            status: pass
+            certificate_index: -1
+            message: 'check passed: nameConstraintsValid'
+      - rule_id: cert-revocation-status-known
+        reference: RFC5280 6.3
+        verdict: pass
+        severity: error
+        findings:
+          - code: neq
+            status: pass
+            certificate_index: -1
+            message: 'actual: good; disallowed: unknown'
+      - rule_id: cert-not-revoked
+        reference: RFC5280 6.3
+        verdict: pass
+        severity: error
+        findings:
+          - code: neq
+            status: pass
+            certificate_index: -1
+            message: 'actual: good; disallowed: revoked'
+      - rule_id: validity-notbefore-utctime-through-2049
+        reference: RFC5280 4.1.2.5
+        verdict: pass
+        severity: error
+        findings:
+          - code: eq
+            status: pass
+            certificate_index: -1
+            message: 'actual: 23; expected: 23'
+      - rule_id: validity-notafter-utctime-through-2049
+        reference: RFC5280 4.1.2.5
+        verdict: pass
+        severity: error
+        findings:
+          - code: eq
+            status: pass
+            certificate_index: -1
+            message: 'actual: 23; expected: 23'
+      - rule_id: validity-utctime-has-seconds
+        reference: RFC5280 4.1.2.5.1
+        verdict: pass
+        severity: error
+        findings:
+          - code: eq
+            status: pass
+            certificate_index: -1
+            message: 'actual: true; expected: true'
+      - rule_id: validity-utctime-has-seconds-notafter
+        reference: RFC5280 4.1.2.5.1
+        verdict: pass
+        severity: error
+        findings:
+          - code: eq
+            status: pass
+            certificate_index: -1
+            message: 'actual: true; expected: true'
+      - rule_id: validity-utctime-has-zulu-notbefore
+        reference: RFC5280 4.1.2.5.1
+        verdict: pass
+        severity: error
+        findings:
+          - code: eq
+            status: pass
+            certificate_index: -1
+            message: 'actual: true; expected: true'
+      - rule_id: validity-utctime-has-zulu-notafter
+        reference: RFC5280 4.1.2.5.1
+        verdict: pass
+        severity: error
+        findings:
+          - code: eq
+            status: pass
+            certificate_index: -1
+            message: 'actual: true; expected: true'
+    verdict: pass
+    checked_at: <time>
+  - policy_id: rfc5280
+    cert_type: crl
+    cert_path: testdata/pkits-crls/GoodCACRL.crl
+    source: local
+    rules:
+      - rule_id: crl-issuer-name-well-formed
+        reference: RFC5280 5.1.2.3
+        verdict: pass
+        severity: error
+        findings:
+          - code: absent
+            status: pass
+            certificate_index: -1
+            message: 'actual: absent; expected: absent'
+      - rule_id: crl-valid
+        reference: RFC5280 5.1
+        verdict: pass
+        severity: error
+        findings:
+          - code: crlValid
+            status: pass
+            certificate_index: -1
+            message: 'check passed: crlValid'
+      - rule_id: crl-next-update-present
+        reference: RFC5280 5.1.2.5
+        verdict: pass
+        severity: error
+        findings:
+          - code: present
+            status: pass
+            certificate_index: -1
+            message: 'actual: present; expected: present'
+      - rule_id: crl-signed-by
+        reference: RFC5280 5.1
+        verdict: pass
+        severity: error
+        findings:
+          - code: crlSignedBy
+            status: pass
+            certificate_index: -1
+            message: 'check passed: crlSignedBy'
+      - rule_id: crl-signature-algorithm-matches-tbs
+        reference: RFC5280 5.1.1.2, 5.1.2.2
+        verdict: pass
+        severity: error
+        findings:
+          - code: signatureAlgorithmMatchesTBS
+            status: pass
+            certificate_index: -1
+            message: 'check passed: signatureAlgorithmMatchesTBS'
+      - rule_id: crl-aki-not-critical
+        reference: RFC5280 5.2
+        verdict: pass
+        severity: error
+        findings:
+          - code: eq
+            status: pass
+            certificate_index: -1
+            message: 'actual: false; expected: false'
+      - rule_id: crl-aki-well-formed
+        reference: RFC5280 5.2.1
+        verdict: pass
+        severity: error
+        findings:
+          - code: absent
+            status: pass
+            certificate_index: -1
+            message: 'actual: absent; expected: absent'
+      - rule_id: crl-authority-key-identifier-present
+        reference: RFC5280 5.2.1
+        verdict: pass
+        severity: error
+        findings:
+          - code: present
+            status: pass
+            certificate_index: -1
+            message: 'actual: present; expected: present'
+      - rule_id: crl-number-not-critical
+        reference: RFC5280 5.2
+        verdict: pass
+        severity: error
+        findings:
+          - code: eq
+            status: pass
+            certificate_index: -1
+            message: 'actual: false; expected: false'
+      - rule_id: crl-number-well-formed
+        reference: RFC5280 5.2.3
+        verdict: pass
+        severity: error
+        findings:
+          - code: absent
+            status: pass
+            certificate_index: -1
+            message: 'actual: absent; expected: absent'
+      - rule_id: crl-number-present
+        reference: RFC5280 5.2.3
+        verdict: pass
+        severity: error
+        findings:
+          - code: present
+            status: pass
+            certificate_index: -1
+            message: 'actual: present; expected: present'
+      - rule_id: crl-no-unknown-critical-extensions
+        reference: RFC5280 5.2, 5.3
+        verdict: pass
+        severity: error
+        findings:
+          - code: noUnknownCriticalExtensions
+            status: pass
+            certificate_index: -1
+            message: 'check passed: noUnknownCriticalExtensions'
+      - rule_id: crl-entry-reason-valid
+        reference: RFC5280 5.3.1
+        verdict: pass
+        severity: error
+        findings:
+          - code: every
+            status: pass
+            certificate_index: -1
+            message: 'check passed: every; criteria: [{"check":"absent","path":"extensions.2.5.29.21.malformed","skipMissing":true}]'
+      - rule_id: crl-entry-reason-not-critical
+        reference: RFC5280 5.3.1
+        verdict: pass
+        severity: error
+        findings:
+          - code: every
+            status: pass
+            certificate_index: -1
+            message: 'check passed: every; criteria: [{"check":"eq","path":"extensions.2.5.29.21.critical","skipMissing":true,"values":[false]}]'
+      - rule_id: crl-entry-invalidity-date-well-formed
+        reference: RFC5280 5.3.2
+        verdict: pass
+        severity: error
+        findings:
+          - code: every
+            status: pass
+            certificate_index: -1
+            message: 'check passed: every; criteria: [{"check":"absent","path":"extensions.2.5.29.24.malformed","skipMissing":true}]'
+      - rule_id: crl-entry-invalidity-date-not-critical
+        reference: RFC5280 5.3.2
+        verdict: pass
+        severity: error
+        findings:
+          - code: every
+            status: pass
+            certificate_index: -1
+            message: 'check passed: every; criteria: [{"check":"eq","path":"extensions.2.5.29.24.critical","skipMissing":true,"values":[false]}]'
+      - rule_id: crl-entry-certificate-issuer-well-formed
+        reference: RFC5280 5.3.3
+        verdict: pass
+        severity: error
+        findings:
+          - code: every
+            status: pass
+            certificate_index: -1
+            message: 'check passed: every; criteria: [{"check":"absent","path":"extensions.2.5.29.29.malformed","skipMissing":true}]'
+      - rule_id: crl-entry-certificate-issuer-critical
+        reference: RFC5280 5.3.3
+        verdict: pass
+        severity: error
+        findings:
+          - code: every
+            status: pass
+            certificate_index: -1
+            message: 'check passed: every; criteria: [{"check":"eq","path":"extensions.2.5.29.29.critical","skipMissing":true,"values":[true]}]'
+    verdict: pass
+    checked_at: <time>
+  - policy_id: rfc5280
+    cert_type: crl
+    cert_path: testdata/pkits-crls/TrustAnchorRootCRL.crl
+    source: local
+    rules:
+      - rule_id: crl-issuer-name-well-formed
+        reference: RFC5280 5.1.2.3
+        verdict: pass
+        severity: error
+        findings:
+          - code: absent
+            status: pass
+            certificate_index: -1
+            message: 'actual: absent; expected: absent'
+      - rule_id: crl-valid
+        reference: RFC5280 5.1
+        verdict: pass
+        severity: error
+        findings:
+          - code: crlValid
+            status: pass
+            certificate_index: -1
+            message: 'check passed: crlValid'
+      - rule_id: crl-next-update-present
+        reference: RFC5280 5.1.2.5
+        verdict: pass
+        severity: error
+        findings:
+          - code: present
+            status: pass
+            certificate_index: -1
+            message: 'actual: present; expected: present'
+      - rule_id: crl-signed-by
+        reference: RFC5280 5.1
+        verdict: pass
+        severity: error
+        findings:
+          - code: crlSignedBy
+            status: pass
+            certificate_index: -1
+            message: 'check passed: crlSignedBy'
+      - rule_id: crl-signature-algorithm-matches-tbs
+        reference: RFC5280 5.1.1.2, 5.1.2.2
+        verdict: pass
+        severity: error
+        findings:
+          - code: signatureAlgorithmMatchesTBS
+            status: pass
+            certificate_index: -1
+            message: 'check passed: signatureAlgorithmMatchesTBS'
+      - rule_id: crl-aki-not-critical
+        reference: RFC5280 5.2
+        verdict: pass
+        severity: error
+        findings:
+          - code: eq
+            status: pass
+            certificate_index: -1
+            message: 'actual: false; expected: false'
+      - rule_id: crl-aki-well-formed
+        reference: RFC5280 5.2.1
+        verdict: pass
+        severity: error
+        findings:
+          - code: absent
+            status: pass
+            certificate_index: -1
+            message: 'actual: absent; expected: absent'
+      - rule_id: crl-authority-key-identifier-present
+        reference: RFC5280 5.2.1
+        verdict: pass
+        severity: error
+        findings:
+          - code: present
+            status: pass
+            certificate_index: -1
+            message: 'actual: present; expected: present'
+      - rule_id: crl-number-not-critical
+        reference: RFC5280 5.2
+        verdict: pass
+        severity: error
+        findings:
+          - code: eq
+            status: pass
+            certificate_index: -1
+            message: 'actual: false; expected: false'
+      - rule_id: crl-number-well-formed
+        reference: RFC5280 5.2.3
+        verdict: pass
+        severity: error
+        findings:
+          - code: absent
+            status: pass
+            certificate_index: -1
+            message: 'actual: absent; expected: absent'
+      - rule_id: crl-number-present
+        reference: RFC5280 5.2.3
+        verdict: pass
+        severity: error
+        findings:
+          - code: present
+            status: pass
+            certificate_index: -1
+            message: 'actual: present; expected: present'
+      - rule_id: crl-no-unknown-critical-extensions
+        reference: RFC5280 5.2, 5.3
+        verdict: pass
+        severity: error
+        findings:
+          - code: noUnknownCriticalExtensions
+            status: pass
+            certificate_index: -1
+            message: 'check passed: noUnknownCriticalExtensions'
+      - rule_id: crl-entry-reason-valid
+        reference: RFC5280 5.3.1
+        verdict: pass
+        severity: error
+        findings:
+          - code: every
+            status: pass
+            certificate_index: -1
+            message: 'check passed: every; criteria: [{"check":"absent","path":"extensions.2.5.29.21.malformed","skipMissing":true}]'
+      - rule_id: crl-entry-reason-not-critical
+        reference: RFC5280 5.3.1
+        verdict: pass
+        severity: error
+        findings:
+          - code: every
+            status: pass
+            certificate_index: -1
+            message: 'check passed: every; criteria: [{"check":"eq","path":"extensions.2.5.29.21.critical","skipMissing":true,"values":[false]}]'
+      - rule_id: crl-entry-invalidity-date-well-formed
+        reference: RFC5280 5.3.2
+        verdict: pass
+        severity: error
+        findings:
+          - code: every
+            status: pass
+            certificate_index: -1
+            message: 'check passed: every; criteria: [{"check":"absent","path":"extensions.2.5.29.24.malformed","skipMissing":true}]'
+      - rule_id: crl-entry-invalidity-date-not-critical
+        reference: RFC5280 5.3.2
+        verdict: pass
+        severity: error
+        findings:
+          - code: every
+            status: pass
+            certificate_index: -1
+            message: 'check passed: every; criteria: [{"check":"eq","path":"extensions.2.5.29.24.critical","skipMissing":true,"values":[false]}]'
+      - rule_id: crl-entry-certificate-issuer-well-formed
+        reference: RFC5280 5.3.3
+        verdict: pass
+        severity: error
+        findings:
+          - code: every
+            status: pass
+            certificate_index: -1
+            message: 'check passed: every; criteria: [{"check":"absent","path":"extensions.2.5.29.29.malformed","skipMissing":true}]'
+      - rule_id: crl-entry-certificate-issuer-critical
+        reference: RFC5280 5.3.3
+        verdict: pass
+        severity: error
+        findings:
+          - code: every
+            status: pass
+            certificate_index: -1
+            message: 'check passed: every; criteria: [{"check":"eq","path":"extensions.2.5.29.29.critical","skipMissing":true,"values":[true]}]'
+    verdict: pass
+    checked_at: <time>

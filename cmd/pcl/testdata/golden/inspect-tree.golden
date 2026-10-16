@@ -1,0 +1,489 @@
+# certificate (leaf) ../../tests/pkits/certs/ValidCertificatePathTest1EE.crt [local]
+certificate
+├── authorityKeyIdentifier: 580184241bbc2b52944a3da510721451f5af3ac9
+├── extensions
+│   ├── 2.5.29.14
+│   │   ├── critical: false
+│   │   ├── name: subjectKeyIdentifier
+│   │   ├── oid: 2.5.29.14
+│   │   └── value: 0414a83c099d67f6d847baa2d0fc18725688406d9595
+│   ├── 2.5.29.15
+│   │   ├── bitLength: 4
+│   │   ├── cRLSign: false
+│   │   ├── contentCommitment: true
+│   │   ├── critical: true
+│   │   ├── dataEncipherment: true
+│   │   ├── decipherOnly: false
+│   │   ├── digitalSignature: true
+│   │   ├── encipherOnly: false
+│   │   ├── keyAgreement: false
+│   │   ├── keyCertSign: false
+│   │   ├── keyEncipherment: true
+│   │   ├── name: keyUsage
+│   │   ├── nonRepudiation: true
+│   │   ├── oid: 2.5.29.15
+│   │   ├── raw: 030204f0
+│   │   ├── rawValue: f0
+│   │   ├── unusedBits: 4
+│   │   └── value: 030204f0
+│   ├── 2.5.29.32
+│   │   ├── 0
+│   │   │   └── policyIdentifier: 2.16.840.1.101.3.2.1.48.1
+│   │   ├── critical: false
+│   │   ├── name: certificatePolicies
+│   │   ├── oid: 2.5.29.32
+│   │   ├── policyInformations
+│   │   │   └── 0
+│   │   │       └── policyIdentifier: 2.16.840.1.101.3.2.1.48.1
+│   │   ├── raw: 300e300c060a60864801650302013001
+│   │   └── value: 300e300c060a60864801650302013001
+│   ├── 2.5.29.35
+│   │   ├── critical: false
+│   │   ├── name: authorityKeyIdentifier
+│   │   ├── oid: 2.5.29.35
+│   │   └── value: 30168014580184241bbc2b52944a3da510721451f5af3ac9
+│   ├── 2.5.29.35
+│   │   ├── critical: false
+│   │   ├── name: authorityKeyIdentifier
+│   │   ├── oid: 2.5.29.35
+│   │   └── value: 30168014580184241bbc2b52944a3da510721451f5af3ac9
+│   ├── 2.5.29.32
+│   │   ├── 0
+│   │   │   └── policyIdentifier: 2.16.840.1.101.3.2.1.48.1
+│   │   ├── critical: false
+│   │   ├── name: certificatePolicies
+│   │   ├── oid: 2.5.29.32
+│   │   ├── policyInformations
+│   │   │   └── 0
+│   │   │       └── policyIdentifier: 2.16.840.1.101.3.2.1.48.1
+│   │   ├── raw: 300e300c060a60864801650302013001
+│   │   └── value: 300e300c060a60864801650302013001
+│   ├── 2.5.29.15
+│   │   ├── bitLength: 4
+│   │   ├── cRLSign: false
+│   │   ├── contentCommitment: true
+│   │   ├── critical: true
+│   │   ├── dataEncipherment: true
+│   │   ├── decipherOnly: false
+│   │   ├── digitalSignature: true
+│   │   ├── encipherOnly: false
+│   │   ├── keyAgreement: false
+│   │   ├── keyCertSign: false
+│   │   ├── keyEncipherment: true
+│   │   ├── name: keyUsage
+│   │   ├── nonRepudiation: true
+│   │   ├── oid: 2.5.29.15
+│   │   ├── raw: 030204f0
+│   │   ├── rawValue: f0
+│   │   ├── unusedBits: 4
+│   │   └── value: 030204f0
+│   └── 2.5.29.14
+│       ├── critical: false
+│       ├── name: subjectKeyIdentifier
+│       ├── oid: 2.5.29.14
+│       └── value: 0414a83c099d67f6d847baa2d0fc18725688406d9595
+├── issuer: CN=Good CA, O=Test Certificates 2011, C=US
+│   ├── organizationName: Test Certificates 2011
+│   │   ├── 0: Test Certificates 2011
+│   │   │   ├── encoding: 19
+│   │   │   ├── encodingName: printableString
+│   │   │   ├── name: organizationName
+│   │   │   ├── oid: 2.5.4.10
+│   │   │   ├── raw: 301d060355040a131654657374204365727469666963617465732032303131
+│   │   │   ├── rawValue: 54657374204365727469666963617465732032303131
+│   │   │   ├── tag: 19
+│   │   │   └── value: Test Certificates 2011
+│   │   └── oid: 2.5.4.10
+│   ├── commonName: Good CA
+│   │   ├── 0: Good CA
+│   │   │   ├── encoding: 19
+│   │   │   ├── encodingName: printableString
+│   │   │   ├── name: commonName
+│   │   │   ├── oid: 2.5.4.3
+│   │   │   ├── raw: 300e06035504031307476f6f64204341
+│   │   │   ├── rawValue: 476f6f64204341
+│   │   │   ├── tag: 19
+│   │   │   └── value: Good CA
+│   │   └── oid: 2.5.4.3
+│   ├── countryName: US
+│   │   ├── 0: US
+│   │   │   ├── encoding: 19
+│   │   │   ├── encodingName: printableString
+│   │   │   ├── name: countryName
+│   │   │   ├── oid: 2.5.4.6
+│   │   │   ├── raw: 3009060355040613025553
+│   │   │   ├── rawValue: 5553
+│   │   │   ├── tag: 19
+│   │   │   └── value: US
+│   │   └── oid: 2.5.4.6
+│   ├── attributes
+│   │   ├── organizationName: Test Certificates 2011
+│   │   │   ├── 0: Test Certificates 2011
+│   │   │   │   ├── encoding: 19
+│   │   │   │   ├── encodingName: printableString
+│   │   │   │   ├── name: organizationName
+│   │   │   │   ├── oid: 2.5.4.10
+│   │   │   │   ├── raw: 301d060355040a131654657374204365727469666963617465732032303131
+│   │   │   │   ├── rawValue: 54657374204365727469666963617465732032303131
+│   │   │   │   ├── tag: 19
+│   │   │   │   └── value: Test Certificates 2011
+│   │   │   └── oid: 2.5.4.10
+│   │   ├── commonName: Good CA
+│   │   │   ├── 0: Good CA
+│   │   │   │   ├── encoding: 19
+│   │   │   │   ├── encodingName: printableString
+│   │   │   │   ├── name: commonName
+│   │   │   │   ├── oid: 2.5.4.3
+│   │   │   │   ├── raw: 300e06035504031307476f6f64204341
+│   │   │   │   ├── rawValue: 476f6f64204341
+│   │   │   │   ├── tag: 19
+│   │   │   │   └── value: Good CA
+│   │   │   └── oid: 2.5.4.3
+│   │   ├── countryName: US
+│   │   │   ├── 0: US
+│   │   │   │   ├── encoding: 19
+│   │   │   │   ├── encodingName: printableString
+│   │   │   │   ├── name: countryName
+│   │   │   │   ├── oid: 2.5.4.6
+│   │   │   │   ├── raw: 3009060355040613025553
+│   │   │   │   ├── rawValue: 5553
+│   │   │   │   ├── tag: 19
+│   │   │   │   └── value: US
+│   │   │   └── oid: 2.5.4.6
+│   │   ├── commonName: Good CA
+│   │   │   ├── 0: Good CA
+│   │   │   │   ├── encoding: 19
+│   │   │   │   ├── encodingName: printableString
+│   │   │   │   ├── name: commonName
+│   │   │   │   ├── oid: 2.5.4.3
+│   │   │   │   ├── raw: 300e06035504031307476f6f64204341
+│   │   │   │   ├── rawValue: 476f6f64204341
+│   │   │   │   ├── tag: 19
+│   │   │   │   └── value: Good CA
+│   │   │   └── oid: 2.5.4.3
+│   │   ├── countryName: US
+│   │   │   ├── 0: US
+│   │   │   │   ├── encoding: 19
+│   │   │   │   ├── encodingName: printableString
+│   │   │   │   ├── name: countryName
+│   │   │   │   ├── oid: 2.5.4.6
+│   │   │   │   ├── raw: 3009060355040613025553
+│   │   │   │   ├── rawValue: 5553
+│   │   │   │   ├── tag: 19
+│   │   │   │   └── value: US
+│   │   │   └── oid: 2.5.4.6
+│   │   └── organizationName: Test Certificates 2011
+│   │       ├── 0: Test Certificates 2011
+│   │       │   ├── encoding: 19
+│   │       │   ├── encodingName: printableString
+│   │       │   ├── name: organizationName
+│   │       │   ├── oid: 2.5.4.10
+│   │       │   ├── raw: 301d060355040a131654657374204365727469666963617465732032303131
+│   │       │   ├── rawValue: 54657374204365727469666963617465732032303131
+│   │       │   ├── tag: 19
+│   │       │   └── value: Test Certificates 2011
+│   │       └── oid: 2.5.4.10
+│   ├── commonName: Good CA
+│   │   ├── 0: Good CA
+│   │   │   ├── encoding: 19
+│   │   │   ├── encodingName: printableString
+│   │   │   ├── name: commonName
+│   │   │   ├── oid: 2.5.4.3
+│   │   │   ├── raw: 300e06035504031307476f6f64204341
+│   │   │   ├── rawValue: 476f6f64204341
+│   │   │   ├── tag: 19
+│   │   │   └── value: Good CA
+│   │   └── oid: 2.5.4.3
+│   ├── countryName: US
+│   │   ├── 0: US
+│   │   │   ├── encoding: 19
+│   │   │   ├── encodingName: printableString
+│   │   │   ├── name: countryName
+│   │   │   ├── oid: 2.5.4.6
+│   │   │   ├── raw: 3009060355040613025553
+│   │   │   ├── rawValue: 5553
+│   │   │   ├── tag: 19
+│   │   │   └── value: US
+│   │   └── oid: 2.5.4.6
+│   ├── organizationName: Test Certificates 2011
+│   │   ├── 0: Test Certificates 2011
+│   │   │   ├── encoding: 19
+│   │   │   ├── encodingName: printableString
+│   │   │   ├── name: organizationName
+│   │   │   ├── oid: 2.5.4.10
+│   │   │   ├── raw: 301d060355040a131654657374204365727469666963617465732032303131
+│   │   │   ├── rawValue: 54657374204365727469666963617465732032303131
+│   │   │   ├── tag: 19
+│   │   │   └── value: Test Certificates 2011
+│   │   └── oid: 2.5.4.10
+│   ├── raw: 3040310b3009060355040613025553311f301d060355040a1316546573742043… (66 bytes)
+│   └── rdns
+│       ├── 0: 1
+│       │   ├── attributes
+│       │   │   └── 0: US
+│       │   │       ├── encoding: 19
+│       │   │       ├── encodingName: printableString
+│       │   │       ├── name: countryName
+│       │   │       ├── oid: 2.5.4.6
+│       │   │       ├── raw: 3009060355040613025553
+│       │   │       ├── rawValue: 5553
+│       │   │       ├── tag: 19
+│       │   │       └── value: US
+│       │   └── raw: 310b3009060355040613025553
+│       ├── 1: 1
+│       │   ├── attributes
+│       │   │   └── 0: Test Certificates 2011
+│       │   │       ├── encoding: 19
+│       │   │       ├── encodingName: printableString
+│       │   │       ├── name: organizationName
+│       │   │       ├── oid: 2.5.4.10
+│       │   │       ├── raw: 301d060355040a131654657374204365727469666963617465732032303131
+│       │   │       ├── rawValue: 54657374204365727469666963617465732032303131
+│       │   │       ├── tag: 19
+│       │   │       └── value: Test Certificates 2011
+│       │   └── raw: 311f301d060355040a1316546573742043657274696669636174657320323031… (33 bytes)
+│       └── 2: 1
+│           ├── attributes
+│           │   └── 0: Good CA
+│           │       ├── encoding: 19
+│           │       ├── encodingName: printableString
+│           │       ├── name: commonName
+│           │       ├── oid: 2.5.4.3
+│           │       ├── raw: 300e06035504031307476f6f64204341
+│           │       ├── rawValue: 476f6f64204341
+│           │       ├── tag: 19
+│           │       └── value: Good CA
+│           └── raw: 3110300e06035504031307476f6f64204341
+├── keyUsage: 15
+│   ├── bitLength: 4
+│   ├── cRLSign: false
+│   ├── contentCommitment: true
+│   ├── dataEncipherment: true
+│   ├── decipherOnly: false
+│   ├── digitalSignature: true
+│   ├── encipherOnly: false
+│   ├── keyAgreement: false
+│   ├── keyCertSign: false
+│   ├── keyEncipherment: true
+│   ├── nonRepudiation: true
+│   ├── raw: 030204f0
+│   ├── rawValue: f0
+│   └── unusedBits: 4
+├── serialNumber: 01
+│   ├── length: 1
+│   ├── raw: 020101
+│   └── value: 1
+├── signatureAlgorithm
+│   ├── algorithm: SHA256-RSA
+│   ├── oid: 1.2.840.113549.1.1.11
+│   ├── parameters
+│   │   └── null: true
+│   └── rawDER: 300d06092a864886f70d01010b0500
+├── signatureValue: 1e5ad90faf62a5b952bcbcec0c61881301aa0a0f0d47a39ea9b2171bf8a3d92c… (256 bytes)
+├── subject: CN=Valid EE Certificate Test1, O=Test Certificates 2011, C=US
+│   ├── organizationName: Test Certificates 2011
+│   │   ├── 0: Test Certificates 2011
+│   │   │   ├── encoding: 19
+│   │   │   ├── encodingName: printableString
+│   │   │   ├── name: organizationName
+│   │   │   ├── oid: 2.5.4.10
+│   │   │   ├── raw: 301d060355040a131654657374204365727469666963617465732032303131
+│   │   │   ├── rawValue: 54657374204365727469666963617465732032303131
+│   │   │   ├── tag: 19
+│   │   │   └── value: Test Certificates 2011
+│   │   └── oid: 2.5.4.10
+│   ├── commonName: Valid EE Certificate Test1
+│   │   ├── 0: Valid EE Certificate Test1
+│   │   │   ├── encoding: 19
+│   │   │   ├── encodingName: printableString
+│   │   │   ├── name: commonName
+│   │   │   ├── oid: 2.5.4.3
+│   │   │   ├── raw: 30210603550403131a56616c6964204545204365727469666963617465205465… (35 bytes)
+│   │   │   ├── rawValue: 56616c6964204545204365727469666963617465205465737431
+│   │   │   ├── tag: 19
+│   │   │   └── value: Valid EE Certificate Test1
+│   │   └── oid: 2.5.4.3
+│   ├── countryName: US
+│   │   ├── 0: US
+│   │   │   ├── encoding: 19
+│   │   │   ├── encodingName: printableString
+│   │   │   ├── name: countryName
+│   │   │   ├── oid: 2.5.4.6
+│   │   │   ├── raw: 3009060355040613025553
+│   │   │   ├── rawValue: 5553
+│   │   │   ├── tag: 19
+│   │   │   └── value: US
+│   │   └── oid: 2.5.4.6
+│   ├── attributes
+│   │   ├── organizationName: Test Certificates 2011
+│   │   │   ├── 0: Test Certificates 2011
+│   │   │   │   ├── encoding: 19
+│   │   │   │   ├── encodingName: printableString
+│   │   │   │   ├── name: organizationName
+│   │   │   │   ├── oid: 2.5.4.10
+│   │   │   │   ├── raw: 301d060355040a131654657374204365727469666963617465732032303131
+│   │   │   │   ├── rawValue: 54657374204365727469666963617465732032303131
+│   │   │   │   ├── tag: 19
+│   │   │   │   └── value: Test Certificates 2011
+│   │   │   └── oid: 2.5.4.10
+│   │   ├── commonName: Valid EE Certificate Test1
+│   │   │   ├── 0: Valid EE Certificate Test1
+│   │   │   │   ├── encoding: 19
+│   │   │   │   ├── encodingName: printableString
+│   │   │   │   ├── name: commonName
+│   │   │   │   ├── oid: 2.5.4.3
+│   │   │   │   ├── raw: 30210603550403131a56616c6964204545204365727469666963617465205465… (35 bytes)
+│   │   │   │   ├── rawValue: 56616c6964204545204365727469666963617465205465737431
+│   │   │   │   ├── tag: 19
+│   │   │   │   └── value: Valid EE Certificate Test1
+│   │   │   └── oid: 2.5.4.3
+│   │   ├── countryName: US
+│   │   │   ├── 0: US
+│   │   │   │   ├── encoding: 19
+│   │   │   │   ├── encodingName: printableString
+│   │   │   │   ├── name: countryName
+│   │   │   │   ├── oid: 2.5.4.6
+│   │   │   │   ├── raw: 3009060355040613025553
+│   │   │   │   ├── rawValue: 5553
+│   │   │   │   ├── tag: 19
+│   │   │   │   └── value: US
+│   │   │   └── oid: 2.5.4.6
+│   │   ├── commonName: Valid EE Certificate Test1
+│   │   │   ├── 0: Valid EE Certificate Test1
+│   │   │   │   ├── encoding: 19
+│   │   │   │   ├── encodingName: printableString
+│   │   │   │   ├── name: commonName
+│   │   │   │   ├── oid: 2.5.4.3
+│   │   │   │   ├── raw: 30210603550403131a56616c6964204545204365727469666963617465205465… (35 bytes)
+│   │   │   │   ├── rawValue: 56616c6964204545204365727469666963617465205465737431
+│   │   │   │   ├── tag: 19
+│   │   │   │   └── value: Valid EE Certificate Test1
+│   │   │   └── oid: 2.5.4.3
+│   │   ├── countryName: US
+│   │   │   ├── 0: US
+│   │   │   │   ├── encoding: 19
+│   │   │   │   ├── encodingName: printableString
+│   │   │   │   ├── name: countryName
+│   │   │   │   ├── oid: 2.5.4.6
+│   │   │   │   ├── raw: 3009060355040613025553
+│   │   │   │   ├── rawValue: 5553
+│   │   │   │   ├── tag: 19
+│   │   │   │   └── value: US
+│   │   │   └── oid: 2.5.4.6
+│   │   └── organizationName: Test Certificates 2011
+│   │       ├── 0: Test Certificates 2011
+│   │       │   ├── encoding: 19
+│   │       │   ├── encodingName: printableString
+│   │       │   ├── name: organizationName
+│   │       │   ├── oid: 2.5.4.10
+│   │       │   ├── raw: 301d060355040a131654657374204365727469666963617465732032303131
+│   │       │   ├── rawValue: 54657374204365727469666963617465732032303131
+│   │       │   ├── tag: 19
+│   │       │   └── value: Test Certificates 2011
+│   │       └── oid: 2.5.4.10
+│   ├── commonName: Valid EE Certificate Test1
+│   │   ├── 0: Valid EE Certificate Test1
+│   │   │   ├── encoding: 19
+│   │   │   ├── encodingName: printableString
+│   │   │   ├── name: commonName
+│   │   │   ├── oid: 2.5.4.3
+│   │   │   ├── raw: 30210603550403131a56616c6964204545204365727469666963617465205465… (35 bytes)
+│   │   │   ├── rawValue: 56616c6964204545204365727469666963617465205465737431
+│   │   │   ├── tag: 19
+│   │   │   └── value: Valid EE Certificate Test1
+│   │   └── oid: 2.5.4.3
+│   ├── countryName: US
+│   │   ├── 0: US
+│   │   │   ├── encoding: 19
+│   │   │   ├── encodingName: printableString
+│   │   │   ├── name: countryName
+│   │   │   ├── oid: 2.5.4.6
+│   │   │   ├── raw: 3009060355040613025553
+│   │   │   ├── rawValue: 5553
+│   │   │   ├── tag: 19
+│   │   │   └── value: US
+│   │   └── oid: 2.5.4.6
+│   ├── organizationName: Test Certificates 2011
+│   │   ├── 0: Test Certificates 2011
+│   │   │   ├── encoding: 19
+│   │   │   ├── encodingName: printableString
+│   │   │   ├── name: organizationName
+│   │   │   ├── oid: 2.5.4.10
+│   │   │   ├── raw: 301d060355040a131654657374204365727469666963617465732032303131
+│   │   │   ├── rawValue: 54657374204365727469666963617465732032303131
+│   │   │   ├── tag: 19
+│   │   │   └── value: Test Certificates 2011
+│   │   └── oid: 2.5.4.10
+│   ├── raw: 3053310b3009060355040613025553311f301d060355040a1316546573742043… (85 bytes)
+│   └── rdns
+│       ├── 0: 1
+│       │   ├── attributes
+│       │   │   └── 0: US
+│       │   │       ├── encoding: 19
+│       │   │       ├── encodingName: printableString
+│       │   │       ├── name: countryName
+│       │   │       ├── oid: 2.5.4.6
+│       │   │       ├── raw: 3009060355040613025553
+│       │   │       ├── rawValue: 5553
+│       │   │       ├── tag: 19
+│       │   │       └── value: US
+│       │   └── raw: 310b3009060355040613025553
+│       ├── 1: 1
+│       │   ├── attributes
+│       │   │   └── 0: Test Certificates 2011
+│       │   │       ├── encoding: 19
+│       │   │       ├── encodingName: printableString
+│       │   │       ├── name: organizationName
+│       │   │       ├── oid: 2.5.4.10
+│       │   │       ├── raw: 301d060355040a131654657374204365727469666963617465732032303131
+│       │   │       ├── rawValue: 54657374204365727469666963617465732032303131
+│       │   │       ├── tag: 19
+│       │   │       └── value: Test Certificates 2011
+│       │   └── raw: 311f301d060355040a1316546573742043657274696669636174657320323031… (33 bytes)
+│       └── 2: 1
+│           ├── attributes
+│           │   └── 0: Valid EE Certificate Test1
+│           │       ├── encoding: 19
+│           │       ├── encodingName: printableString
+│           │       ├── name: commonName
+│           │       ├── oid: 2.5.4.3
+│           │       ├── raw: 30210603550403131a56616c6964204545204365727469666963617465205465… (35 bytes)
+│           │       ├── rawValue: 56616c6964204545204365727469666963617465205465737431
+│           │       ├── tag: 19
+│           │       └── value: Valid EE Certificate Test1
+│           └── raw: 312330210603550403131a56616c696420454520436572746966696361746520… (37 bytes)
+├── subjectKeyIdentifier: a83c099d67f6d847baa2d0fc18725688406d9595
+├── subjectPublicKeyInfo
+│   ├── algorithm
+│   │   ├── algorithm: RSA
+│   │   ├── oid: 1.2.840.113549.1.1.1
+│   │   ├── parameters
+│   │   │   └── null: true
+│   │   └── rawDER: 300d06092a864886f70d0101010500
+│   └── publicKey
+│       ├── exponent: 65537
+│       └── keySize: 2048
+├── tbsCertificate
+│   └── raw: 30820261a003020102020101300d06092a864886f70d01010b05003040310b30… (613 bytes)
+├── tbsSignatureAlgorithm
+│   ├── algorithm: SHA256-RSA
+│   ├── oid: 1.2.840.113549.1.1.11
+│   ├── parameters
+│   │   └── null: true
+│   └── rawDER: 300d06092a864886f70d01010b0500
+├── validity
+│   ├── notAfter: 2030-12-31T08:30:00Z
+│   │   ├── encoding: 23
+│   │   ├── hasFraction: false
+│   │   ├── hasSeconds: true
+│   │   ├── hasZulu: true
+│   │   ├── raw: 170d3330313233313038333030305a
+│   │   └── rawValue: 301231083000Z
+│   └── notBefore: 2010-01-01T08:30:00Z
+│       ├── encoding: 23
+│       ├── hasFraction: false
+│       ├── hasSeconds: true
+│       ├── hasZulu: true
+│       ├── raw: 170d3130303130313038333030305a
+│       └── rawValue: 100101083000Z
+└── version: 3

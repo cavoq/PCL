@@ -1,0 +1,5 @@
+PASS  ../../tests/policy-suites/path.test.yaml  leaf presents the requested peer name
+PASS  ../../tests/policy-suites/path.test.yaml  leaf does not present another peer name
+PASS  ../../tests/policy-suites/path.test.yaml  peer names require trust anchors
+
+3 passed, 0 failed

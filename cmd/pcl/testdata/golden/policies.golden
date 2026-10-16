@@ -1,0 +1,6 @@
+ID                  STANDARD                         TITLE
+local-profile                                        Supplemental local certificate profile
+rfc4055             RFC 4055                         RSA algorithm identifiers
+rfc5280             RFC 5280                         X.509 certificate, CRL, and certification-path checks
+rfc6960             RFC 6960                         OCSP evidence validation
+tr03116-tls-server  BSI TR-03116-TS; BSI TR-03116-4  BSI TLS server certificate profile
