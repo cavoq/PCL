@@ -1,4 +1,4 @@
-[Summary] Checked: <time> | Validation time: 2020-01-01T00:00:00Z | Certs: 4 | Rules: 76 | PASS: 23, FAIL: 11, SKIP: 40, WARN: 0, INCONCLUSIVE: 2
+[Summary] Checked: <time> | Validation time: 2020-01-01T00:00:00Z | Certs: 4 | Rules: 80 | PASS: 23, FAIL: 11, SKIP: 44, WARN: 0, INCONCLUSIVE: 2
 [Policy] local-profile 1.0
 [Policy] tr03116-tls-server 2025 | BSI TR-03116-TS; BSI TR-03116-4 | TS v1.1 (2023); Part 4 (2025)
 [Chain] 2 certificate(s), no trust anchor supplied
@@ -6,7 +6,7 @@
   intermediate  CN=Good CA, O=Test Certificates 2011, C=US
 
 ========================================================================
-[File] Policy: local-profile | Cert: leaf | File: ../../tests/pkits/certs/ValidCertificatePathTest1EE.crt | Verdict: N/A | PASS: 0, FAIL: 0, SKIP: 6, WARN: 0
+[File] Policy: local-profile | Cert: leaf | File: ../../tests/pkits/certs/ValidCertificatePathTest1EE.crt | Verdict: N/A | PASS: 0, FAIL: 0, SKIP: 8, WARN: 0
 ------------------------------------------------------------------------
   (no rules to display with current verbosity)
 
@@ -34,7 +34,7 @@
   PASS          ERROR     tls-cert-12-not-expired                    TR-03116-TS 6.1.1 TLS_CERT_12; TR-03116-4 6.1.3         
 
 ========================================================================
-[File] Policy: local-profile | Cert: intermediate | File: ../../tests/pkits/certs/GoodCACert.crt | Verdict: N/A | PASS: 0, FAIL: 0, SKIP: 6, WARN: 0
+[File] Policy: local-profile | Cert: intermediate | File: ../../tests/pkits/certs/GoodCACert.crt | Verdict: N/A | PASS: 0, FAIL: 0, SKIP: 8, WARN: 0
 ------------------------------------------------------------------------
   (no rules to display with current verbosity)
 

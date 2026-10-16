@@ -19,7 +19,7 @@ rules:
       - path: value
         operator: maxLength
         operands: [128]
-    severity: error
+    requirement: must
     message: "businessCategory must not exceed 128 characters"
     certType: [leaf, intermediate]
 
@@ -34,7 +34,7 @@ rules:
     operands:
       - operator: notRegex
         operands: ["^\\*"]
-    severity: warning
+    requirement: should
     message: "Local profile discourages wildcard IAN dNSName values"
     certType: [leaf, intermediate]
 
@@ -49,7 +49,7 @@ rules:
     operands:
       - operator: regex
         operands: ["^https?://"]
-    severity: warning
+    requirement: should
     message: "IAN URI should use HTTP or HTTPS scheme"
     certType: [leaf, intermediate]
 
@@ -63,7 +63,7 @@ rules:
     operator: every
     operands:
       - operator: tldRegistered
-    severity: warning
+    requirement: should
     message: "IAN dNSName should not contain internal names with unregistered TLDs"
     certType: [leaf, intermediate]
 
@@ -78,7 +78,7 @@ rules:
     operands:
       - operator: regex
         operands: ["^https?://"]
-    severity: warning
+    requirement: should
     message: "SAN URI should use HTTP or HTTPS scheme"
     certType: [leaf]
 
@@ -93,6 +93,38 @@ rules:
     operands:
       - operator: maxLength
         operands: [1024]
-    severity: warning
+    requirement: should
     message: "SAN URI should not exceed 1024 characters"
+    certType: [leaf]
+
+  # The legacy subject emailAddress has no syntax requirement in RFC 5280;
+  # new certificates carry mailboxes in rfc822Name (4.1.2.6).
+  - id: subject-email-format
+    reference: LOCAL-PROFILE
+    when:
+      target: certificate.subject.emailAddress
+      operator: present
+    target: certificate.subject.emailAddress
+    operator: every
+    operands:
+      - path: value
+        operator: regex
+        operands: ["^[^@]+@[^@]+$"]
+    requirement: should
+    message: "subject emailAddress should be valid RFC 822 format"
+    certType: [leaf, intermediate]
+
+  # RFC 5280 does not restrict URI fragments.
+  - id: san-uri-no-fragment
+    reference: LOCAL-PROFILE
+    when:
+      target: certificate.subjectAltName.uniformResourceIdentifier
+      operator: present
+    target: certificate.subjectAltName.uniformResourceIdentifier
+    operator: every
+    operands:
+      - operator: notRegex
+        operands: ["#"]
+    requirement: should
+    message: "SAN URI should not contain fragment identifier"
     certType: [leaf]

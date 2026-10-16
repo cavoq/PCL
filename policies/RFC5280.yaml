@@ -20,7 +20,7 @@ rules:
     target: certificate.tbsCertificate.malformed
     operator: absent
     certType: [leaf, intermediate, root]
-    severity: error
+    requirement: must
 
   # Version MUST be 3 when extensions are present
   - id: version-v3-when-extensions
@@ -31,7 +31,7 @@ rules:
     target: certificate.version
     operator: eq
     operands: [3]
-    severity: error
+    requirement: must
 
   # Version MUST be v2 or v3 when a UniqueIdentifier is present.
   - id: version-v2-when-unique-id
@@ -42,7 +42,7 @@ rules:
     target: certificate.version
     operator: gte
     operands: [2]
-    severity: error
+    requirement: must
 
   - id: version-v2-when-subject-unique-id
     reference: RFC5280 4.1.2.1
@@ -52,19 +52,19 @@ rules:
     target: certificate.version
     operator: gte
     operands: [2]
-    severity: error
+    requirement: must
 
   - id: serial-number-present
     reference: RFC5280 4.1.2.2
     target: certificate.serialNumber
     operator: present
-    severity: error
+    requirement: must
 
   - id: serial-number-positive
     reference: RFC5280 4.1.2.2
     target: certificate.serialNumber.value
     operator: positive
-    severity: error
+    requirement: must
 
   # Serial-number uniqueness is an issuance-database property. It cannot be
   # established from one certification path and is intentionally not claimed
@@ -75,13 +75,13 @@ rules:
     target: certificate.serialNumber
     operator: maxLength
     operands: [20]
-    severity: error
+    requirement: must
 
   - id: signature-algorithm-matches-tbs
     reference: RFC5280 4.1.2.3
     target: certificate
     operator: signatureAlgorithmMatchesTBS
-    severity: error
+    requirement: must
 
   - id: signature-valid
     reference: RFC5280 4.1.2.3
@@ -93,7 +93,7 @@ rules:
       operands: [true]
     target: certificate
     operator: signatureValid
-    severity: error
+    requirement: must
 
   # The dedicated Section 6/7 path engine is activated only when the caller
   # supplies one or more explicit --trust-anchor inputs. Profile-only runs
@@ -105,7 +105,7 @@ rules:
       operator: present
     target: certificate
     operator: pathValid
-    severity: error
+    requirement: must
 
 
   # -------------------------------------------------
@@ -117,35 +117,27 @@ rules:
     target: certificate.issuer.malformed
     operator: absent
     certType: [leaf, intermediate, root]
-    severity: error
+    requirement: must
 
   - id: subject-name-well-formed
     reference: RFC5280 4.1.2.6
     target: certificate.subject.malformed
     operator: absent
     certType: [leaf, intermediate, root]
-    severity: error
+    requirement: must
 
   - id: issuer-not-empty
     reference: RFC5280 4.1.2.4
     target: certificate.issuer
     operator: notEmpty
-    severity: error
+    requirement: must
 
   - id: subject-not-empty-for-ca
     reference: RFC5280 4.1.2.6
     target: certificate.subject
     operator: notEmpty
     certType: [root, intermediate]
-    severity: error
-
-  - id: issuer-matches-subject-for-root
-    reference: RFC5280 6
-    target: certificate
-    operator: issuedBy
-    certType: [root]
-    severity: error
-
+    requirement: must
 
   # -------------------------------------------------
   # Validity (Section 4.1.2.5)
@@ -155,19 +147,19 @@ rules:
     reference: RFC5280 4.1.2.5
     target: certificate.validity.notAfter
     operator: onOrAfter
-    severity: error
+    requirement: must
 
   - id: not-yet-valid
     reference: RFC5280 4.1.2.5
     target: certificate.validity.notBefore
     operator: onOrBefore
-    severity: error
+    requirement: must
 
   - id: validity-order-correct
     reference: RFC5280 4.1.2.5
     target: certificate
     operator: validityOrderCorrect
-    severity: error
+    requirement: must
 
 
   # -------------------------------------------------
@@ -179,14 +171,14 @@ rules:
     target: certificate.issuerUniqueID
     operator: absent
     certType: [leaf, intermediate, root]
-    severity: error
+    requirement: must
 
   - id: subject-unique-id-absent
     reference: RFC5280 4.1.2.8
     target: certificate.subjectUniqueID
     operator: absent
     certType: [leaf, intermediate, root]
-    severity: error
+    requirement: must
 
 
   # -------------------------------------------------
@@ -197,7 +189,7 @@ rules:
     reference: RFC5280 4.1.2.9, 6
     target: certificate
     operator: noUnknownCriticalExtensions
-    severity: error
+    requirement: must
 
 
   # -------------------------------------------------
@@ -209,7 +201,7 @@ rules:
     target: certificate.authorityKeyIdentifier
     operator: present
     certType: [leaf, intermediate]
-    severity: error
+    requirement: must
 
   - id: aki-not-critical
     reference: RFC5280 4.2.1.1
@@ -219,10 +211,10 @@ rules:
     target: certificate.extensions.authorityKeyIdentifier.critical
     operator: eq
     operands: [false]
-    severity: error
+    requirement: must
 
   - id: aki-matches-ski
-    reference: RFC5280 4.2.1.1
+    reference: RFC5280 4.2.1.1, 4.2.1.2
     # Trust anchors are trusted as given (RFC 5280 6.1.1); their own issuer
     # is not an input.
     when:
@@ -231,7 +223,7 @@ rules:
       operands: [true]
     target: certificate
     operator: akiMatchesSki
-    severity: warning
+    requirement: must
 
 
   # -------------------------------------------------
@@ -243,7 +235,14 @@ rules:
     target: certificate.subjectKeyIdentifier
     operator: present
     certType: [root, intermediate]
-    severity: error
+    requirement: must
+
+  - id: subject-key-identifier-present-leaf
+    reference: RFC5280 4.2.1.2
+    target: certificate.subjectKeyIdentifier
+    operator: present
+    certType: [leaf]
+    requirement: should
 
   - id: ski-not-critical
     reference: RFC5280 4.2.1.2
@@ -253,7 +252,7 @@ rules:
     target: certificate.extensions.subjectKeyIdentifier.critical
     operator: eq
     operands: [false]
-    severity: error
+    requirement: must
 
 
   # -------------------------------------------------
@@ -267,7 +266,7 @@ rules:
       operator: present
     target: certificate.extensions.keyUsage.malformed
     operator: absent
-    severity: error
+    requirement: must
 
   - id: key-usage-dependencies-valid
     reference: RFC5280 4.2.1.3
@@ -276,14 +275,14 @@ rules:
       operator: present
     target: certificate
     operator: keyUsageDependenciesValid
-    severity: error
+    requirement: must
 
   - id: key-usage-present
     reference: RFC5280 4.2.1.3
     target: certificate.extensions.keyUsage
     operator: present
     certType: [root, intermediate]
-    severity: error
+    requirement: must
 
   - id: key-usage-has-at-least-one-bit
     reference: RFC5280 4.2.1.3
@@ -292,7 +291,7 @@ rules:
       operator: present
     target: certificate.keyUsage
     operator: positive
-    severity: error
+    requirement: must
 
   - id: key-usage-critical-for-ca
     reference: RFC5280 4.2.1.3
@@ -303,7 +302,7 @@ rules:
     operator: eq
     operands: [true]
     certType: [root, intermediate]
-    severity: warning
+    requirement: should
 
   - id: ca-key-cert-sign
     reference: RFC5280 4.2.1.3
@@ -314,7 +313,7 @@ rules:
     operator: eq
     operands: [true]
     certType: [root, intermediate]
-    severity: error
+    requirement: must
 
   - id: leaf-key-usage-valid
     reference: RFC5280 4.2.1.3
@@ -325,7 +324,7 @@ rules:
     operator: eq
     operands: [false]
     certType: [leaf]
-    severity: error
+    requirement: must
 
 
   # -------------------------------------------------
@@ -339,7 +338,7 @@ rules:
       operator: present
     target: certificate.extensions.certificatePolicies.malformed
     operator: absent
-    severity: error
+    requirement: must
 
 
   # -------------------------------------------------
@@ -353,7 +352,7 @@ rules:
       operator: present
     target: certificate.extensions.policyMappings.malformed
     operator: absent
-    severity: error
+    requirement: must
 
   - id: policy-mappings-dependencies-valid
     reference: RFC5280 4.2.1.5
@@ -362,7 +361,7 @@ rules:
       operator: present
     target: certificate
     operator: policyMappingsDependenciesValid
-    severity: error
+    requirement: must
 
   - id: policy-mappings-issuer-policies-present
     reference: RFC5280 4.2.1.5
@@ -371,7 +370,7 @@ rules:
       operator: present
     target: certificate
     operator: policyMappingsIssuerPoliciesPresent
-    severity: warning
+    requirement: should
 
   - id: policy-mappings-critical
     reference: RFC5280 4.2.1.5
@@ -381,7 +380,7 @@ rules:
     target: certificate.extensions.2.5.29.33.critical
     operator: eq
     operands: [true]
-    severity: warning
+    requirement: should
 
 
   # -------------------------------------------------
@@ -395,7 +394,7 @@ rules:
       operator: present
     target: certificate.subjectAltName.malformed
     operator: absent
-    severity: error
+    requirement: must
 
   - id: san-required-if-empty-subject
     reference: RFC5280 4.2.1.6
@@ -405,7 +404,7 @@ rules:
     target: certificate.subjectAltName
     operator: present
     certType: [leaf]
-    severity: error
+    requirement: must
 
   - id: san-critical-if-subject-empty
     reference: RFC5280 4.2.1.6
@@ -415,7 +414,7 @@ rules:
     target: certificate.extensions.subjectAltName.critical
     operator: eq
     operands: [true]
-    severity: error
+    requirement: must
 
 
   # -------------------------------------------------
@@ -429,7 +428,7 @@ rules:
       operator: present
     target: certificate.issuerAltName.malformed
     operator: absent
-    severity: error
+    requirement: must
 
   - id: ian-not-critical
     reference: RFC5280 4.2.1.7
@@ -439,7 +438,7 @@ rules:
     target: certificate.extensions.2.5.29.18.critical
     operator: eq
     operands: [false]
-    severity: warning
+    requirement: should
 
 
   # -------------------------------------------------
@@ -454,7 +453,7 @@ rules:
     target: certificate.extensions.2.5.29.9.critical
     operator: eq
     operands: [false]
-    severity: error
+    requirement: must
 
 
   # -------------------------------------------------
@@ -468,7 +467,7 @@ rules:
       operator: present
     target: certificate.extensions.basicConstraints.malformed
     operator: absent
-    severity: error
+    requirement: must
 
   - id: basic-constraints-dependencies-valid
     reference: RFC5280 4.2.1.9
@@ -477,14 +476,14 @@ rules:
       operator: present
     target: certificate
     operator: basicConstraintsDependenciesValid
-    severity: error
+    requirement: must
 
   - id: basic-constraints-present
     reference: RFC5280 4.2.1.9
     target: certificate.basicConstraints
     operator: present
     certType: [root, intermediate]
-    severity: error
+    requirement: must
 
   - id: basic-constraints-critical-for-ca
     reference: RFC5280 4.2.1.9
@@ -495,7 +494,7 @@ rules:
     target: certificate.extensions.basicConstraints.critical
     operator: eq
     operands: [true]
-    severity: error
+    requirement: must
 
   - id: ca-basic-constraints
     reference: RFC5280 4.2.1.9
@@ -503,7 +502,7 @@ rules:
     operator: eq
     operands: [true]
     certType: [root, intermediate]
-    severity: error
+    requirement: must
 
   - id: leaf-not-ca
     reference: RFC5280 4.2.1.9
@@ -511,14 +510,14 @@ rules:
     operator: neq
     operands: [true]
     certType: [leaf]
-    severity: error
+    requirement: must
 
   - id: ca-path-len-valid
     reference: RFC5280 4.2.1.9
     target: certificate
     operator: pathLenValid
     certType: [root, intermediate]
-    severity: error
+    requirement: must
 
 
   # -------------------------------------------------
@@ -532,7 +531,7 @@ rules:
       operator: present
     target: certificate.extensions.nameConstraints.malformed
     operator: absent
-    severity: error
+    requirement: must
 
   - id: name-constraints-dependencies-valid
     reference: RFC5280 4.2.1.10
@@ -541,7 +540,7 @@ rules:
       operator: present
     target: certificate
     operator: nameConstraintsDependenciesValid
-    severity: error
+    requirement: must
 
   - id: name-constraints-distances-valid
     reference: RFC5280 4.2.1.10
@@ -550,7 +549,7 @@ rules:
       operator: present
     target: certificate
     operator: nameConstraintsDistancesValid
-    severity: error
+    requirement: must
 
   - id: name-constraints-critical
     reference: RFC5280 4.2.1.10
@@ -560,13 +559,13 @@ rules:
     target: certificate.extensions.nameConstraints.critical
     operator: eq
     operands: [true]
-    severity: error
+    requirement: must
 
   - id: name-constraints-valid
     reference: RFC5280 4.2.1.10
     target: certificate
     operator: nameConstraintsValid
-    severity: error
+    requirement: must
 
 
   # -------------------------------------------------
@@ -592,7 +591,7 @@ rules:
       operator: present
     target: certificate.extensions.policyConstraints.malformed
     operator: absent
-    severity: error
+    requirement: must
 
   - id: policy-constraints-dependencies-valid
     reference: RFC5280 4.2.1.11
@@ -601,7 +600,7 @@ rules:
       operator: present
     target: certificate
     operator: policyConstraintsDependenciesValid
-    severity: error
+    requirement: must
 
   - id: policy-constraints-critical
     reference: RFC5280 4.2.1.11
@@ -611,7 +610,7 @@ rules:
     target: certificate.extensions.2.5.29.36.critical
     operator: eq
     operands: [true]
-    severity: error
+    requirement: must
 
 
   # -------------------------------------------------
@@ -625,7 +624,7 @@ rules:
       operator: present
     target: certificate.extensions.extKeyUsage.malformed
     operator: absent
-    severity: error
+    requirement: must
 
   - id: extended-key-usage-allows-application-purpose
     reference: RFC5280 4.2.1.12
@@ -634,7 +633,7 @@ rules:
       operator: present
     target: certificate
     operator: applicationPurposeValid
-    severity: error
+    requirement: must
 
   - id: any-extended-key-usage-not-critical
     reference: RFC5280 4.2.1.12
@@ -643,7 +642,7 @@ rules:
       operator: present
     target: certificate
     operator: anyExtendedKeyUsageNotCritical
-    severity: warning
+    requirement: should
 
 
   # -------------------------------------------------
@@ -657,7 +656,7 @@ rules:
       operator: present
     target: certificate.extensions.cRLDistributionPoints.malformed
     operator: absent
-    severity: error
+    requirement: must
 
   - id: crl-distribution-points-dependencies-valid
     reference: RFC5280 4.2.1.13
@@ -666,7 +665,7 @@ rules:
       operator: present
     target: certificate
     operator: crlDistributionPointsDependenciesValid
-    severity: error
+    requirement: must
 
   - id: crl-distribution-points-not-critical
     reference: RFC5280 4.2.1.13
@@ -676,7 +675,7 @@ rules:
     target: certificate.extensions.cRLDistributionPoints.critical
     operator: eq
     operands: [false]
-    severity: warning
+    requirement: should
 
 
   # -------------------------------------------------
@@ -690,7 +689,7 @@ rules:
       operator: present
     target: certificate.extensions.inhibitAnyPolicy.malformed
     operator: absent
-    severity: error
+    requirement: must
 
   - id: inhibit-any-policy-dependencies-valid
     reference: RFC5280 4.2.1.14
@@ -699,7 +698,7 @@ rules:
       operator: present
     target: certificate
     operator: inhibitAnyPolicyDependenciesValid
-    severity: error
+    requirement: must
 
   - id: inhibit-any-policy-critical
     reference: RFC5280 4.2.1.14
@@ -709,7 +708,7 @@ rules:
     target: certificate.extensions.2.5.29.54.critical
     operator: eq
     operands: [true]
-    severity: error
+    requirement: must
 
 
   # -------------------------------------------------
@@ -723,7 +722,7 @@ rules:
       operator: present
     target: certificate.extensions.2.5.29.46.malformed
     operator: absent
-    severity: error
+    requirement: must
 
   - id: freshest-crl-not-critical
     reference: RFC5280 4.2.1.15
@@ -733,7 +732,7 @@ rules:
     target: certificate.extensions.2.5.29.46.critical
     operator: eq
     operands: [false]
-    severity: error
+    requirement: must
 
 
   # -------------------------------------------------
@@ -748,7 +747,7 @@ rules:
     target: certificate.extensions.1.3.6.1.5.5.7.1.1.critical
     operator: eq
     operands: [false]
-    severity: error
+    requirement: must
 
   # CA Issuers MUST be DER or BER encoded (PEM is not RFC compliant)
   # RFC 5280 4.2.2.1: "If the information is available via HTTP or FTP, then the
@@ -762,7 +761,7 @@ rules:
     target: certificate.downloadFormat
     operator: neq
     operands: ["PEM"]
-    severity: warning
+    requirement: must
 
 
   # -------------------------------------------------
@@ -777,7 +776,7 @@ rules:
     target: certificate.extensions.1.3.6.1.5.5.7.1.11.critical
     operator: eq
     operands: [false]
-    severity: error
+    requirement: must
 
 
   # -------------------------------------------------
@@ -791,7 +790,7 @@ rules:
       operator: present
     target: crl.issuer.malformed
     operator: absent
-    severity: error
+    requirement: must
 
   - id: crl-valid
     reference: RFC5280 5.1
@@ -800,7 +799,7 @@ rules:
       operator: present
     target: crl
     operator: crlValid
-    severity: error
+    requirement: must
 
   - id: crl-next-update-present
     reference: RFC5280 5.1.2.5
@@ -809,7 +808,7 @@ rules:
       operator: present
     target: crl.nextUpdate
     operator: present
-    severity: error
+    requirement: must
 
   - id: crl-signed-by
     reference: RFC5280 5.1
@@ -818,7 +817,7 @@ rules:
       operator: present
     target: crl
     operator: crlSignedBy
-    severity: error
+    requirement: must
 
   - id: crl-signature-algorithm-matches-tbs
     reference: RFC5280 5.1.1.2, 5.1.2.2
@@ -827,27 +826,16 @@ rules:
       operator: present
     target: crl
     operator: signatureAlgorithmMatchesTBS
-    severity: error
-
-  - id: cert-revocation-status-known
-    reference: RFC5280 6.3
-    when:
-      target: certificate.revocation
-      operator: present
-    target: certificate.revocation.status
-    operator: neq
-    operands: [unknown]
-    severity: error
+    requirement: must
 
   - id: cert-not-revoked
     reference: RFC5280 6.3
     when:
       target: certificate.revocation
       operator: present
-    target: certificate.revocation.status
-    operator: neq
-    operands: [revoked]
-    severity: error
+    target: certificate
+    operator: notRevoked
+    requirement: must
 
   - id: crl-aki-not-critical
     reference: RFC5280 5.2
@@ -857,7 +845,7 @@ rules:
     target: crl.extensions.2.5.29.35.critical
     operator: eq
     operands: [false]
-    severity: error
+    requirement: must
 
   - id: crl-aki-well-formed
     reference: RFC5280 5.2.1
@@ -866,7 +854,7 @@ rules:
       operator: present
     target: crl.extensions.2.5.29.35.malformed
     operator: absent
-    severity: error
+    requirement: must
 
   - id: crl-authority-key-identifier-present
     reference: RFC5280 5.2.1
@@ -875,7 +863,7 @@ rules:
       operator: present
     target: crl.authorityKeyIdentifier
     operator: present
-    severity: error
+    requirement: must
 
   - id: crl-number-not-critical
     reference: RFC5280 5.2
@@ -885,7 +873,7 @@ rules:
     target: crl.extensions.2.5.29.20.critical
     operator: eq
     operands: [false]
-    severity: error
+    requirement: must
 
   - id: crl-number-well-formed
     reference: RFC5280 5.2.3
@@ -894,7 +882,7 @@ rules:
       operator: present
     target: crl.extensions.2.5.29.20.malformed
     operator: absent
-    severity: error
+    requirement: must
 
   - id: crl-number-present
     reference: RFC5280 5.2.3
@@ -903,7 +891,7 @@ rules:
       operator: present
     target: crl.crlNumber
     operator: present
-    severity: error
+    requirement: must
 
   - id: crl-delta-indicator-critical
     reference: RFC5280 5.2
@@ -913,7 +901,7 @@ rules:
     target: crl.extensions.2.5.29.27.critical
     operator: eq
     operands: [true]
-    severity: error
+    requirement: must
 
   - id: crl-delta-indicator-well-formed
     reference: RFC5280 5.2.4
@@ -922,7 +910,7 @@ rules:
       operator: present
     target: crl.extensions.2.5.29.27.malformed
     operator: absent
-    severity: error
+    requirement: must
 
   - id: crl-idp-critical
     reference: RFC5280 5.2
@@ -932,7 +920,7 @@ rules:
     target: crl.extensions.2.5.29.28.critical
     operator: eq
     operands: [true]
-    severity: error
+    requirement: must
 
   - id: crl-idp-well-formed
     reference: RFC5280 5.2.5
@@ -941,7 +929,7 @@ rules:
       operator: present
     target: crl.extensions.2.5.29.28.malformed
     operator: absent
-    severity: error
+    requirement: must
 
   - id: crl-idp-excludes-attribute-certificates
     reference: RFC5280 5.2.5
@@ -951,7 +939,7 @@ rules:
     target: crl.issuingDistributionPoint.onlyContainsAttributeCerts
     operator: eq
     operands: [false]
-    severity: error
+    requirement: must
 
   - id: crl-freshest-well-formed
     reference: RFC5280 5.2.6
@@ -960,7 +948,7 @@ rules:
       operator: present
     target: crl.extensions.2.5.29.46.malformed
     operator: absent
-    severity: error
+    requirement: must
 
   - id: crl-freshest-not-critical
     reference: RFC5280 5.2.6
@@ -970,7 +958,7 @@ rules:
     target: crl.extensions.2.5.29.46.critical
     operator: eq
     operands: [false]
-    severity: error
+    requirement: must
 
   - id: crl-delta-omits-freshest
     reference: RFC5280 5.2.6
@@ -979,14 +967,14 @@ rules:
       operator: present
     target: crl.freshestCRL
     operator: absent
-    severity: error
+    requirement: must
 
   # No unknown critical CRL extensions (RFC 5280 5.2)
   - id: crl-no-unknown-critical-extensions
     reference: RFC5280 5.2, 5.3
     target: crl
     operator: noUnknownCriticalExtensions
-    severity: error
+    requirement: must
 
   # -------------------------------------------------
   # CRL Entry Extensions (Section 5.3)
@@ -1005,7 +993,7 @@ rules:
       - path: extensions.2.5.29.21.malformed
         check: absent
         skipMissing: true
-    severity: error
+    requirement: must
 
   - id: crl-entry-reason-not-critical
     reference: RFC5280 5.3.1
@@ -1019,7 +1007,22 @@ rules:
         check: eq
         values: [false]
         skipMissing: true
-    severity: error
+    requirement: must
+
+  - id: crl-entry-reason-not-unspecified
+    reference: RFC5280 5.3.1
+    when:
+      target: crl.revokedCertificates
+      operator: present
+    target: crl.revokedCertificates
+    operator: every
+    operands:
+      - path: extensions.2.5.29.21.value
+        operator: neq
+        operands: [0]
+        skipMissing: true
+    requirement: should
+    message: "Omit reasonCode instead of using unspecified (0)"
 
   - id: crl-entry-invalidity-date-well-formed
     reference: RFC5280 5.3.2
@@ -1032,7 +1035,7 @@ rules:
       - path: extensions.2.5.29.24.malformed
         check: absent
         skipMissing: true
-    severity: error
+    requirement: must
 
   - id: crl-entry-invalidity-date-not-critical
     reference: RFC5280 5.3.2
@@ -1046,7 +1049,7 @@ rules:
         check: eq
         values: [false]
         skipMissing: true
-    severity: error
+    requirement: must
 
   - id: crl-entry-certificate-issuer-well-formed
     reference: RFC5280 5.3.3
@@ -1059,7 +1062,7 @@ rules:
       - path: extensions.2.5.29.29.malformed
         check: absent
         skipMissing: true
-    severity: error
+    requirement: must
 
   - id: crl-entry-certificate-issuer-critical
     reference: RFC5280 5.3.3
@@ -1073,7 +1076,7 @@ rules:
         check: eq
         values: [true]
         skipMissing: true
-    severity: error
+    requirement: must
 
   # -------------------------------------------------
   # Subject DN Field Length Limits (RFC 5280 Appendix A)
@@ -1091,7 +1094,7 @@ rules:
       - path: value
         operator: maxLength
         operands: [64]
-    severity: error
+    requirement: must
     message: "commonName must not exceed 64 characters"
     certType: [leaf, intermediate]
 
@@ -1107,7 +1110,7 @@ rules:
       - path: value
         operator: maxLength
         operands: [64]
-    severity: error
+    requirement: must
     message: "organizationName must not exceed 64 characters"
     certType: [leaf, intermediate]
 
@@ -1123,7 +1126,7 @@ rules:
       - path: value
         operator: maxLength
         operands: [64]
-    severity: error
+    requirement: must
     message: "organizationalUnitName must not exceed 64 characters"
     certType: [leaf, intermediate]
 
@@ -1139,7 +1142,7 @@ rules:
       - path: value
         operator: maxLength
         operands: [128]
-    severity: error
+    requirement: must
     message: "localityName must not exceed 128 characters"
     certType: [leaf, intermediate]
 
@@ -1155,7 +1158,7 @@ rules:
       - path: value
         operator: maxLength
         operands: [128]
-    severity: error
+    requirement: must
     message: "stateOrProvinceName must not exceed 128 characters"
     certType: [leaf, intermediate]
 
@@ -1171,7 +1174,7 @@ rules:
       - path: value
         operator: maxLength
         operands: [2]
-    severity: error
+    requirement: must
     message: "countryName must be exactly 2 characters (ISO 3166-1)"
     certType: [leaf, intermediate]
 
@@ -1186,7 +1189,7 @@ rules:
       - path: value
         operator: minLength
         operands: [2]
-    severity: error
+    requirement: must
     message: "countryName must be exactly 2 characters (ISO 3166-1)"
     certType: [leaf, intermediate]
 
@@ -1202,7 +1205,7 @@ rules:
       - path: value
         operator: maxLength
         operands: [64]
-    severity: error
+    requirement: must
     message: "subject serialNumber must not exceed 64 characters"
     certType: [leaf, intermediate]
 
@@ -1218,7 +1221,7 @@ rules:
       - path: value
         operator: maxLength
         operands: [32768]
-    severity: error
+    requirement: must
     message: "givenName must not exceed 32768 characters"
     certType: [leaf, intermediate]
 
@@ -1234,7 +1237,7 @@ rules:
       - path: value
         operator: maxLength
         operands: [32768]
-    severity: error
+    requirement: must
     message: "surname must not exceed 32768 characters"
     certType: [leaf, intermediate]
 
@@ -1250,29 +1253,14 @@ rules:
       - path: value
         operator: maxLength
         operands: [255]
-    severity: error
+    requirement: must
     message: "subject emailAddress must not exceed 255 characters"
     certType: [leaf, intermediate]
 
-  # emailAddress format validation (RFC 822)
-  - id: subject-email-format
-    reference: RFC5280 + RFC 822
-    when:
-      target: certificate.subject.emailAddress
-      operator: present
-    target: certificate.subject.emailAddress
-    operator: every
-    operands:
-      - path: value
-        operator: regex
-        operands: ["^[^@]+@[^@]+$"]
-    severity: warning
-    message: "subject emailAddress should be valid RFC 822 format"
-    certType: [leaf, intermediate]
-
-  # SAN rfc822Name format validation (RFC 822)
+  # rfc822Name holds a Mailbox (RFC 5280 4.2.1.6, RFC 2821 4.1.2); the check is
+  # a shape check, not full mailbox parsing.
   - id: san-rfc822-name-format
-    reference: RFC5280 4.2.1.6 + RFC 822
+    reference: RFC5280 4.2.1.6
     when:
       target: certificate.subjectAltName.rfc822Name
       operator: present
@@ -1281,13 +1269,14 @@ rules:
     operands:
       - operator: regex
         operands: ["^[^@]+@[^@]+$"]
-    severity: error
-    message: "SAN rfc822Name must be valid RFC 822 email format"
+    requirement: must
+    message: "SAN rfc822Name must be a mailbox"
     certType: [leaf]
 
-  # IAN rfc822Name format validation (RFC 822)
+  # Issuer alternative names are encoded as subject alternative names
+  # (RFC 5280 4.2.1.7).
   - id: ian-rfc822-name-format
-    reference: RFC5280 4.2.1.7 + RFC 822
+    reference: RFC5280 4.2.1.7, 4.2.1.6
     when:
       target: certificate.issuerAltName.rfc822Name
       operator: present
@@ -1296,47 +1285,26 @@ rules:
     operands:
       - operator: regex
         operands: ["^[^@]+@[^@]+$"]
-    severity: warning
-    message: "IAN rfc822Name should be valid RFC 822 email format"
-    certType: [leaf, intermediate]
+    requirement: must
+    message: "IAN rfc822Name must be a mailbox"
 
-  # IAN dNSName must be valid DNS label format (RFC 5280 + RFC 9549)
   - id: ian-dns-valid-label
-    reference: RFC5280 4.2.1.7 + RFC 9549
+    reference: RFC5280 4.2.1.7, 4.2.1.6
     when:
       target: certificate.issuerAltName.dNSName
       operator: present
     target: certificate.issuerAltName.dNSName
     operator: every
     operands:
-      - operator: componentRegex
-        operands: ["^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?$"]
-    severity: warning
-    message: "IAN dNSName components must be valid DNS labels"
-    certType: [leaf, intermediate]
+      - operator: regex
+        operands: ["^(\\*\\.)?([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?\\.)*[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?$"]
+    requirement: must
+    message: "IAN dNSName must be in the preferred name syntax"
 
-  # ==================================================
-  # URI Validation (RFC 5280 4.2.1.6)
-  # ==================================================
-
-  # SAN URI must not contain fragment identifier
-  - id: san-uri-no-fragment
-    reference: RFC5280 4.2.1.6
-    when:
-      target: certificate.subjectAltName.uniformResourceIdentifier
-      operator: present
-    target: certificate.subjectAltName.uniformResourceIdentifier
-    operator: every
-    operands:
-      - operator: notRegex
-        operands: ["#"]
-    severity: warning
-    message: "SAN URI should not contain fragment identifier"
-    certType: [leaf]
-
-  # domainComponent max 63 characters per label (DNS label limit)
+  # A domainComponent holds one DNS label after ToASCII, which limits it to 63
+  # characters (RFC 5280 7.3, RFC 3490 4.1).
   - id: subject-dc-label-max-length
-    reference: RFC5280 + RFC 5890
+    reference: RFC5280 7.3; RFC 3490 4.1
     when:
       target: certificate.subject.domainComponent
       operator: present
@@ -1346,7 +1314,7 @@ rules:
       - path: value
         operator: maxLength
         operands: [63]
-    severity: error
+    requirement: must
     message: "Each domainComponent label must not exceed 63 characters"
     certType: [leaf, intermediate]
 
@@ -1365,7 +1333,7 @@ rules:
     target: certificate.validity.notBefore.encoding
     operator: eq
     operands: [23]
-    severity: error
+    requirement: must
     certType: [leaf, intermediate, root]
 
   - id: validity-notbefore-generalizedtime-from-2050
@@ -1377,7 +1345,7 @@ rules:
     target: certificate.validity.notBefore.encoding
     operator: eq
     operands: [24]
-    severity: error
+    requirement: must
     certType: [leaf, intermediate, root]
 
   - id: validity-notafter-utctime-through-2049
@@ -1389,7 +1357,7 @@ rules:
     target: certificate.validity.notAfter.encoding
     operator: eq
     operands: [23]
-    severity: error
+    requirement: must
     certType: [leaf, intermediate, root]
 
   - id: validity-notafter-generalizedtime-from-2050
@@ -1401,7 +1369,7 @@ rules:
     target: certificate.validity.notAfter.encoding
     operator: eq
     operands: [24]
-    severity: error
+    requirement: must
     certType: [leaf, intermediate, root]
 
   # UTCTime format: YYMMDDHHMMSSZ per RFC 5280 4.1.2.5.1
@@ -1415,7 +1383,7 @@ rules:
     target: certificate.validity.notBefore.hasSeconds
     operator: eq
     operands: [true]
-    severity: error
+    requirement: must
     message: "UTCTime MUST include seconds per RFC 5280 4.1.2.5.1"
     certType: [leaf, intermediate, root]
 
@@ -1428,7 +1396,7 @@ rules:
     target: certificate.validity.notAfter.hasSeconds
     operator: eq
     operands: [true]
-    severity: error
+    requirement: must
     message: "UTCTime MUST include seconds per RFC 5280 4.1.2.5.1"
     certType: [leaf, intermediate, root]
 
@@ -1442,7 +1410,7 @@ rules:
     target: certificate.validity.notBefore.hasZulu
     operator: eq
     operands: [true]
-    severity: error
+    requirement: must
     message: "UTCTime MUST end with 'Z' (Zulu indicator) per RFC 5280 4.1.2.5.1"
     certType: [leaf, intermediate, root]
 
@@ -1455,7 +1423,7 @@ rules:
     target: certificate.validity.notAfter.hasZulu
     operator: eq
     operands: [true]
-    severity: error
+    requirement: must
     message: "UTCTime MUST end with 'Z' (Zulu indicator) per RFC 5280 4.1.2.5.1"
     certType: [leaf, intermediate, root]
 
@@ -1469,7 +1437,7 @@ rules:
     target: certificate.validity.notBefore.hasSeconds
     operator: eq
     operands: [true]
-    severity: error
+    requirement: must
     message: "GeneralizedTime MUST include seconds per RFC 5280 4.1.2.5.2"
     certType: [leaf, intermediate, root]
 
@@ -1482,7 +1450,7 @@ rules:
     target: certificate.validity.notAfter.hasSeconds
     operator: eq
     operands: [true]
-    severity: error
+    requirement: must
     message: "GeneralizedTime MUST include seconds per RFC 5280 4.1.2.5.2"
     certType: [leaf, intermediate, root]
 
@@ -1495,7 +1463,7 @@ rules:
     target: certificate.validity.notBefore.hasZulu
     operator: eq
     operands: [true]
-    severity: error
+    requirement: must
     message: "GeneralizedTime MUST end with 'Z' per RFC 5280 4.1.2.5.2"
     certType: [leaf, intermediate, root]
 
@@ -1508,7 +1476,7 @@ rules:
     target: certificate.validity.notAfter.hasZulu
     operator: eq
     operands: [true]
-    severity: error
+    requirement: must
     message: "GeneralizedTime MUST end with 'Z' per RFC 5280 4.1.2.5.2"
     certType: [leaf, intermediate, root]
 
@@ -1522,7 +1490,7 @@ rules:
     target: certificate.validity.notBefore.hasFraction
     operator: eq
     operands: [false]
-    severity: error
+    requirement: must
     message: "GeneralizedTime MUST NOT include fractional seconds per RFC 5280"
     certType: [leaf, intermediate, root]
 
@@ -1535,7 +1503,7 @@ rules:
     target: certificate.validity.notAfter.hasFraction
     operator: eq
     operands: [false]
-    severity: error
+    requirement: must
     message: "GeneralizedTime MUST NOT include fractional seconds per RFC 5280"
     certType: [leaf, intermediate, root]
 
@@ -1555,14 +1523,14 @@ rules:
       - path: encoding
         operator: eq
         operands: [19]
-    severity: warning
+    requirement: must
     message: "countryName must use PrintableString encoding"
     certType: [leaf, intermediate]
 
   # Common name uses DirectoryString: UTF8String, PrintableString, TeletexString,
   # UniversalString, or BMPString (RFC 5280 Appendix A.1)
   - id: subject-cn-valid-encoding
-    reference: RFC5280 Appendix A.1
+    reference: RFC5280 4.1.2.4, 4.1.2.6
     when:
       target: certificate.subject.commonName
       operator: present
@@ -1571,14 +1539,73 @@ rules:
     operands:
       - path: encoding
         operator: in
-        operands: [12, 19, 20, 28, 30]
-    severity: warning
-    message: "commonName should use a DirectoryString ASN.1 type"
+        operands: [12, 19]
+    requirement: must
+    message: "commonName must use PrintableString or UTF8String"
     certType: [leaf]
 
-  # OrganizationName, stateOrProvinceName, and localityName are DirectoryString
-  # values. Their actual ASN.1 tags are preserved, but this policy currently has
-  # no dedicated tag rule for those attributes.
+  # Other DirectoryString attributes of an end-entity subject. CA subjects may
+  # keep the encoding of the issuer field of the certificates they issue
+  # (4.1.2.4 exception a), so these target leaves.
+  - id: subject-organization-valid-encoding
+    reference: RFC5280 4.1.2.4, 4.1.2.6
+    when:
+      target: certificate.subject.organizationName
+      operator: present
+    target: certificate.subject.organizationName
+    operator: every
+    operands:
+      - path: encoding
+        operator: in
+        operands: [12, 19]
+    requirement: must
+    message: "organizationName must use PrintableString or UTF8String"
+    certType: [leaf]
+
+  - id: subject-ou-valid-encoding
+    reference: RFC5280 4.1.2.4, 4.1.2.6
+    when:
+      target: certificate.subject.organizationalUnitName
+      operator: present
+    target: certificate.subject.organizationalUnitName
+    operator: every
+    operands:
+      - path: encoding
+        operator: in
+        operands: [12, 19]
+    requirement: must
+    message: "organizationalUnitName must use PrintableString or UTF8String"
+    certType: [leaf]
+
+  - id: subject-locality-valid-encoding
+    reference: RFC5280 4.1.2.4, 4.1.2.6
+    when:
+      target: certificate.subject.localityName
+      operator: present
+    target: certificate.subject.localityName
+    operator: every
+    operands:
+      - path: encoding
+        operator: in
+        operands: [12, 19]
+    requirement: must
+    message: "localityName must use PrintableString or UTF8String"
+    certType: [leaf]
+
+  - id: subject-state-valid-encoding
+    reference: RFC5280 4.1.2.4, 4.1.2.6
+    when:
+      target: certificate.subject.stateOrProvinceName
+      operator: present
+    target: certificate.subject.stateOrProvinceName
+    operator: every
+    operands:
+      - path: encoding
+        operator: in
+        operands: [12, 19]
+    requirement: must
+    message: "stateOrProvinceName must use PrintableString or UTF8String"
+    certType: [leaf]
 
   # DNS names in SAN must be IA5String (ASCII)
   - id: san-dnsname-valid-ia5string
@@ -1590,7 +1617,7 @@ rules:
     operator: every
     operands:
       - operator: validIA5String
-    severity: error
+    requirement: must
     message: "DNS names in SAN must use IA5String encoding (ASCII only)"
     certType: [leaf]
 
@@ -1611,7 +1638,7 @@ rules:
     operands:
       - operator: regex
         operands: ["^(\\*\\.)?([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?\\.)*[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?$"]
-    severity: error
+    requirement: must
     message: "SAN dNSName must be in the preferred name syntax"
 
   # URIs in SAN must be IA5String (ASCII)
@@ -1624,7 +1651,7 @@ rules:
     operator: every
     operands:
       - operator: validIA5String
-    severity: error
+    requirement: must
     message: "URIs in SAN must use IA5String encoding (ASCII only)"
     certType: [leaf]
 
@@ -1638,7 +1665,7 @@ rules:
     operator: every
     operands:
       - operator: validIA5String
-    severity: error
+    requirement: must
     message: "Email addresses in SAN must use IA5String encoding (ASCII only)"
     certType: [leaf]
 
@@ -1653,7 +1680,7 @@ rules:
     operator: every
     operands:
       - operator: validIA5String
-    severity: error
+    requirement: must
     message: "DNS names in IAN must use IA5String encoding (ASCII only)"
 
   - id: ian-uri-valid-ia5string
@@ -1665,7 +1692,7 @@ rules:
     operator: every
     operands:
       - operator: validIA5String
-    severity: error
+    requirement: must
     message: "URIs in IAN must use IA5String encoding (ASCII only)"
 
   - id: ian-email-valid-ia5string
@@ -1677,5 +1704,5 @@ rules:
     operator: every
     operands:
       - operator: validIA5String
-    severity: error
+    requirement: must
     message: "Email addresses in IAN must use IA5String encoding (ASCII only)"

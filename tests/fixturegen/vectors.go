@@ -42,6 +42,8 @@ func (f fixtures) vectors() error {
 		vectorCertificateDNProjectedAttributes,
 		vectorCertificateCountryNameUtf8string,
 		vectorCertificateDNNoncanonicalOrder,
+		vectorCertificateOrganizationTeletexString,
+		vectorCRLEntryReasonUnspecified,
 	} {
 		if err := vector(w); err != nil {
 			return err
@@ -362,6 +364,49 @@ func vectorCertificateCountryNameUtf8string(w vectorWriter) error {
 	return w.withSubject("certificate-country-name-utf8string", rawName(
 		nameAttribute{countryName, asn1.TagUTF8String, "DE"},
 	))
+}
+
+// vectorCertificateOrganizationTeletexString is an end entity whose
+// organizationName is a TeletexString, which RFC 5280 4.1.2.4 does not allow
+// a conforming CA to use for end-entity subjects.
+func vectorCertificateOrganizationTeletexString(w vectorWriter) error {
+	return w.withSubject("certificate-organization-teletexstring", rawName(
+		nameAttribute{organization, asn1.TagT61String, "Teletex Org"},
+		nameAttribute{commonName, asn1.TagUTF8String, "teletex organization"},
+	))
+}
+
+// vectorCRLEntryReasonUnspecified lists a certificate with the reasonCode
+// unspecified (0), which RFC 5280 5.3.1 says should be omitted instead. Go
+// refuses to encode a zero reason code, so the entry is issued with
+// keyCompromise (1), patched to 0 and signed again.
+func vectorCRLEntryReasonUnspecified(w vectorWriter) error {
+	issuer, err := vectorCA(nil)
+	if err != nil {
+		return err
+	}
+	list, err := revocationList(issuer, &x509.RevocationList{
+		ThisUpdate: date(2026, 7, 18, 11, 0, 0),
+		NextUpdate: date(2026, 7, 19, 11, 0, 0),
+		RevokedCertificateEntries: []x509.RevocationListEntry{{
+			SerialNumber:   big.NewInt(42),
+			RevocationTime: date(2026, 7, 18, 10, 0, 0),
+			ReasonCode:     1,
+		}},
+	})
+	if err != nil {
+		return err
+	}
+	keyCompromise := []byte{0x06, 0x03, 0x55, 0x1d, 0x15, 0x04, 0x03, 0x0a, 0x01, 0x01}
+	if bytes.Count(list, keyCompromise) != 1 {
+		return fmt.Errorf("crl-entry-reason-unspecified: reasonCode extension not found once")
+	}
+	unspecified := append(bytes.Clone(keyCompromise[:len(keyCompromise)-1]), 0x00)
+	if list, err = resign(bytes.Replace(list, keyCompromise, unspecified, 1), issuer.key); err != nil {
+		return err
+	}
+	return firstError(w.certificate("crl-entry-reason-unspecified", "issuer.pem", issuer.cert.Raw),
+		w.crl("crl-entry-reason-unspecified", list))
 }
 
 func vectorCertificateDNNoncanonicalOrder(w vectorWriter) error {

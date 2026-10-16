@@ -46,13 +46,12 @@ as RFC 5280 coverage.
 | Explicit-trust certification-path decision (conditional on `--trust-anchor`) | Covered | `certification-path-valid` |
 | Encoded certificate Names | Covered | `issuer-name-well-formed`, `subject-name-well-formed` |
 | Required certificate Names | Covered | `issuer-not-empty`, `subject-not-empty-for-ca` |
-| Root self-issuance heuristic | Partial | `issuer-matches-subject-for-root` |
 | Certificate validity | Covered | `not-expired`, `not-yet-valid`, `validity-order-correct` |
 | UniqueIdentifier profile | Covered | `issuer-unique-id-absent`, `subject-unique-id-absent` |
 | Certificate critical-extension processing | Partial | `no-unknown-critical-extensions` |
 | AKI profile | Covered | `authority-key-identifier-present`, `aki-not-critical` |
 | AKI/SKI relationship in the supplied chain | Partial | `aki-matches-ski` |
-| SKI profile | Covered | `subject-key-identifier-present`, `ski-not-critical` |
+| SKI profile | Covered | `subject-key-identifier-present`, `subject-key-identifier-present-leaf`, `ski-not-critical` |
 | Key Usage syntax and profile semantics | Covered | `key-usage-well-formed`, `key-usage-dependencies-valid`, `key-usage-present`, `key-usage-has-at-least-one-bit`, `key-usage-critical-for-ca`, `ca-key-cert-sign`, `leaf-key-usage-valid` |
 | Certificate Policies structure | Covered | `certificate-policies-well-formed` |
 | Policy Mappings profile semantics | Covered | `policy-mappings-well-formed`, `policy-mappings-dependencies-valid`, `policy-mappings-issuer-policies-present`, `policy-mappings-critical` |
@@ -73,20 +72,20 @@ as RFC 5280 coverage.
 | SIA criticality | Covered | `sia-not-critical` |
 | Encoded CRL issuer Name | Covered | `crl-issuer-name-well-formed` |
 | CRL window, required nextUpdate, signature, and algorithms | Covered | `crl-valid`, `crl-next-update-present`, `crl-signed-by`, `crl-signature-algorithm-matches-tbs` |
-| Certificate revocation conclusion | Partial | `cert-revocation-status-known`, `cert-not-revoked` |
+| Certificate revocation conclusion | Partial | `cert-not-revoked` |
 | CRL AKI and CRL Number profile | Covered | `crl-aki-well-formed`, `crl-aki-not-critical`, `crl-authority-key-identifier-present`, `crl-number-well-formed`, `crl-number-not-critical`, `crl-number-present` |
 | Delta CRL and IDP structure/profile | Covered | `crl-delta-indicator-well-formed`, `crl-delta-indicator-critical`, `crl-idp-well-formed`, `crl-idp-critical`, `crl-idp-excludes-attribute-certificates` |
 | CRL Freshest structure/profile | Covered | `crl-freshest-well-formed`, `crl-freshest-not-critical`, `crl-delta-omits-freshest` |
 | CRL critical-extension processing | Covered | `crl-no-unknown-critical-extensions` |
-| CRL-entry extension structure/criticality | Covered | `crl-entry-reason-valid`, `crl-entry-reason-not-critical`, `crl-entry-invalidity-date-well-formed`, `crl-entry-invalidity-date-not-critical`, `crl-entry-certificate-issuer-well-formed`, `crl-entry-certificate-issuer-critical` |
+| CRL-entry extension structure/criticality | Covered | `crl-entry-reason-valid`, `crl-entry-reason-not-critical`, `crl-entry-reason-not-unspecified`, `crl-entry-invalidity-date-well-formed`, `crl-entry-invalidity-date-not-critical`, `crl-entry-certificate-issuer-well-formed`, `crl-entry-certificate-issuer-critical` |
 | Appendix A subject lengths | Partial | `subject-cn-max-length`, `subject-org-max-length`, `subject-ou-max-length`, `subject-locality-max-length`, `subject-state-max-length`, `subject-country-length`, `subject-country-min-length`, `subject-serial-number-max-length`, `subject-givenname-max-length`, `subject-surname-max-length` |
-| Subject email syntax | Partial | `subject-email-max-length`, `subject-email-format` |
+| Subject email length | Covered | `subject-email-max-length` |
 | GeneralName mailbox shape | Partial | `san-rfc822-name-format`, `ian-rfc822-name-format` |
-| Supplemental DNS/URI checks | Partial | `ian-dns-valid-label`, `san-uri-no-fragment`, `subject-dc-label-max-length` |
+| IAN dNSName syntax and domainComponent label length | Covered | `ian-dns-valid-label`, `subject-dc-label-max-length` |
 | Validity encoding choice | Covered | `validity-notbefore-utctime-through-2049`, `validity-notbefore-generalizedtime-from-2050`, `validity-notafter-utctime-through-2049`, `validity-notafter-generalizedtime-from-2050` |
 | UTCTime wire requirements | Covered | `validity-utctime-has-seconds`, `validity-utctime-has-seconds-notafter`, `validity-utctime-has-zulu-notbefore`, `validity-utctime-has-zulu-notafter` |
 | GeneralizedTime wire requirements | Covered | `validity-generalizedtime-has-seconds-notbefore`, `validity-generalizedtime-has-seconds-notafter`, `validity-generalizedtime-has-zulu-notbefore`, `validity-generalizedtime-has-zulu-notafter`, `validity-generalizedtime-no-fraction`, `validity-generalizedtime-no-fraction-notafter` |
-| Subject attribute encoding | Partial | `subject-country-printable-string`, `subject-cn-valid-encoding` |
+| Subject attribute encoding | Partial | `subject-country-printable-string`, `subject-cn-valid-encoding`, `subject-organization-valid-encoding`, `subject-ou-valid-encoding`, `subject-locality-valid-encoding`, `subject-state-valid-encoding` |
 | Leaf SAN IA5 repertoire | Partial | `san-dnsname-valid-ia5string`, `san-uri-valid-ia5string`, `san-email-valid-ia5string` |
 | SAN dNSName preferred name syntax | Covered | `san-dnsname-preferred-syntax` |
 | IAN IA5 repertoire | Covered | `ian-dnsname-valid-ia5string`, `ian-uri-valid-ia5string`, `ian-email-valid-ia5string` |
@@ -142,15 +141,39 @@ as RFC 5280 coverage.
 | Internationalized names | No complete Section 7 preparation claim beyond supported encoded DN, DNS, email, URI and IP forms |
 | CA-wide uniqueness | A path cannot prove serial-number uniqueness across a CA issuance database |
 | Version preference | The SHOULD preference for v1 when only basic fields exist is not enforced |
-| Attribute bounds | Appendix A length checks mostly target leaf/intermediate subjects; country encoding is a warning, and commonName encoding targets leaves |
-| SAN / IAN syntax | SAN repertoire and mailbox checks target leaves; mailbox shape is not full RFC 822 parsing. IAN mailbox/DNS-label checks have leaf/intermediate and warning limits |
+| Attribute bounds | Appendix A length and country checks target leaf/intermediate subjects; the PrintableString/UTF8String DirectoryString rule targets leaves, since a CA subject may keep the encoding of its issued certificates' issuer field (4.1.2.4 a) |
+| SAN / IAN syntax | SAN repertoire and mailbox checks target leaves; mailbox shape is not full RFC 2821 Mailbox parsing |
 | CA profile roles | Root/intermediate profile rules assume certificate-signing roles for Key Usage requirements |
 | Download format | `ca-issuers-der-format` checks observed format, not every normative transport requirement |
 | Purpose | Private EKUs fail closed with end-entity Key Usage present; wildcard purposes are rejected |
 | Other standards | RFC 6960 evidence checks, RFC 9549 DNS checks, PSL, CA/B Forum and local size/profile rules are not RFC 5280 coverage |
 | Parser credit | A known OID or successful library parse alone is not evidence of full semantic processing |
+| CRL entries | removeFromCRL (8) outside delta CRLs is not checked: the rule needs both "not a delta CRL" and "entries present", and a rule takes one condition |
+| CRL encodings | CRL version and thisUpdate/nextUpdate time encodings are not projected, so 5.1.2.1 and 5.1.2.4 encoding rules are absent |
 
 Revocation follows the selected `--path-revocation` mode; separate profile
 rules remain active. CRL signers must reach the same explicit trust set when
 anchors are supplied. See [runtime inputs](../docs/QUICKSTART.md) and
 [node contracts](../docs/NODE_MODEL.md) for operational and representation details.
+
+## Requirement levels
+
+Every rule states the RFC 2119 level of its clause (`requirement:`), and its
+severity follows from it: `must` is an error, `should` a warning. Eight
+rules implement SHOULD clauses: `key-usage-critical-for-ca`,
+`policy-mappings-issuer-policies-present`, `policy-mappings-critical`,
+`ian-not-critical`, `any-extended-key-usage-not-critical`,
+`crl-distribution-points-not-critical`, `subject-key-identifier-present-leaf`
+and `crl-entry-reason-not-unspecified`; every other rule implements a MUST.
+
+Audit of 2026-10-16 against the RFC text:
+
+| Change | Clause |
+|---|---|
+| `aki-matches-ski`, `ca-issuers-der-format`, `subject-country-printable-string`, `ian-rfc822-name-format`, `ian-dns-valid-label` were warnings for MUST clauses; now errors | 4.2.1.2 (SKI MUST equal issued AKI), 4.2.2.1 (DER or certs-only CMS), Appendix A `X520countryName ::= PrintableString`, 4.2.1.7 (IAN encoded as SAN) |
+| `subject-cn-valid-encoding` accepted every DirectoryString type and was a warning; end-entity DirectoryString values must be PrintableString or UTF8String, now also checked for O, OU, L and ST | 4.1.2.4, 4.1.2.6 |
+| `ian-dns-valid-label` used a label-only pattern; it now applies the SAN preferred-name-syntax pattern, to every role | 4.2.1.7, 4.2.1.6 |
+| `cert-revocation-status-known` failed an undetermined status; merged into `cert-not-revoked`, which is inconclusive without an applicable CRL | 6.3.3 (UNDETERMINED) |
+| `issuer-matches-subject-for-root` removed: a root is self-issued by definition, so it could not fail | — |
+| `subject-email-format` and `san-uri-no-fragment` moved to the local profile: RFC 5280 states neither | 4.1.2.6, 4.2.1.6 |
+| Added `subject-key-identifier-present-leaf` (SHOULD) and `crl-entry-reason-not-unspecified` (SHOULD) | 4.2.1.2, 5.3.1 |

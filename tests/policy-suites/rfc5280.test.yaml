@@ -36,12 +36,14 @@ tests:
         failed: [cert-not-revoked]
       - input: intermediate
         policy: rfc5280
-        verdict: fail
-        failed: [cert-revocation-status-known]
+        verdict: inconclusive
+        failed: []
+        rules: {cert-not-revoked: inconclusive}
       - input: root
         policy: rfc5280
-        verdict: fail
-        failed: [cert-revocation-status-known]
+        verdict: inconclusive
+        failed: []
+        rules: {cert-not-revoked: inconclusive}
       - input: crl
         policy: rfc5280
         verdict: pass
@@ -121,7 +123,6 @@ tests:
         policy: rfc5280
         rules:
           subject-dc-label-max-length: fail
-          subject-email-format: fail
           subject-givenname-max-length: pass
           subject-surname-max-length: pass
   - name: rfc5280-dn-second-common-name
@@ -211,17 +212,14 @@ tests:
         policy: rfc5280
         rules:
           cert-not-revoked: fail
-          cert-revocation-status-known: pass
       - input: root
         policy: rfc5280
         rules:
           cert-not-revoked: pass
-          cert-revocation-status-known: pass
       - input: crl
         policy: rfc5280
         rules:
           cert-not-revoked: skip
-          cert-revocation-status-known: skip
   - name: rfc5280-san-malformed
     cert: ../vectors/certificate-empty-general-names/certificate.pem
     expect:
@@ -275,3 +273,20 @@ tests:
           issuer-unique-id-absent: fail
           tbs-certificate-metadata-well-formed: pass
           version-v2-when-unique-id: pass
+  - name: rfc5280-organization-teletexstring
+    cert: ../vectors/certificate-organization-teletexstring/certificate.pem
+    expect:
+      - input: leaf
+        policy: rfc5280
+        rules:
+          subject-organization-valid-encoding: fail
+          subject-cn-valid-encoding: pass
+  - name: rfc5280-crl-entry-reason-unspecified
+    cert: ../vectors/crl-entry-reason-unspecified/issuer.pem
+    crl: ../vectors/crl-entry-reason-unspecified/list.pem
+    time: "2026-07-18T12:00:00Z"
+    expect:
+      - input: crl
+        policy: rfc5280
+        verdict: pass
+        failed: [crl-entry-reason-not-unspecified]

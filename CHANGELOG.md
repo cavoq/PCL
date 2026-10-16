@@ -8,6 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Breaking changes
+- The RFC 5280 pack was audited against the RFC text and states each rule's
+  requirement level. Five rules that implement MUST clauses were warnings
+  and are now errors (`aki-matches-ski`, `ca-issuers-der-format`,
+  `subject-country-printable-string`, `ian-rfc822-name-format`,
+  `ian-dns-valid-label`); end-entity DirectoryString values must be
+  PrintableString or UTF8String (`subject-cn-valid-encoding` and new rules
+  for O, OU, L and ST); `cert-revocation-status-known` is merged into
+  `cert-not-revoked`, which is inconclusive without an applicable CRL;
+  `issuer-matches-subject-for-root`, which could not fail, is removed; and
+  `subject-email-format` and `san-uri-no-fragment`, which RFC 5280 does not
+  state, moved to the local profile. New SHOULD rules:
+  `subject-key-identifier-present-leaf`, `crl-entry-reason-not-unspecified`.
+  See RFC5280-COVERAGE.md.
 - A policy that skipped every rule for an input has the verdict
   `not_applicable` (`N/A` in text) instead of `pass`: it decided nothing, so
   it must not read as compliance. Policy test suites accept
