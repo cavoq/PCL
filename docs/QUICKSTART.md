@@ -154,8 +154,11 @@ pcl --policy tr03116-tls-server \
   --cert-url https://example.test --cert-url-save-dir downloads/ --auto-validate
 ```
 
-TLS acquisition verifies the requested hostname. It does not establish that
-all service names declared by an application have been tested.
+TLS acquisition does not verify the presented chain, so servers with
+untrusted, expired or misnamed certificates can be linted. Trust and naming
+are decided by PCL itself: `--trust-anchor` selects path validation and
+`--peer-name` checks the expected hostname. Acquisition does not establish
+that all service names declared by an application have been tested.
 
 ## Inspect rule targets
 

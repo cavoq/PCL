@@ -42,6 +42,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a REQUIREMENT column when a rule states one.
 
 ### Fixed
+- `--cert-url` acquires the chain of servers whose certificates Go's TLS
+  stack rejects (untrusted root, expired, wrong name). Acquisition used to
+  verify the chain against the system roots, so those servers could not be
+  linted; trust and names are decided by `--trust-anchor` and `--peer-name`.
 - OCSP responses signed with RSASSA-PSS are verified: x/crypto/ocsp does
   not know the algorithm, so their signatures never verified, and a response
   that embedded its delegated responder certificate could not be loaded at

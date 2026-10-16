@@ -157,6 +157,11 @@ func writePEMCert(path string, cert *tls.Certificate) error {
 	return nil
 }
 
+// fetchTLSChain returns the certificates a TLS server presents for host. It
+// does not verify them: acquisition only collects the chain, and PCL's path
+// validation and policies decide whether it is acceptable. Verifying here
+// would make every server with an untrusted, expired or misnamed certificate
+// impossible to lint.
 func fetchTLSChain(host, port string, timeout time.Duration) ([]*tls.Certificate, error) {
 	if host == "" {
 		return nil, fmt.Errorf("missing host in URL")
@@ -164,8 +169,9 @@ func fetchTLSChain(host, port string, timeout time.Duration) ([]*tls.Certificate
 	addr := net.JoinHostPort(host, port)
 	dialer := &net.Dialer{Timeout: timeout}
 	tlsConfig := &tls.Config{
-		ServerName: host,
-		MinVersion: tls.VersionTLS12,
+		ServerName:         host,
+		MinVersion:         tls.VersionTLS12,
+		InsecureSkipVerify: true, // #nosec G402 -- the chain is collected for linting, not trusted
 	}
 
 	conn, err := tls.DialWithDialer(dialer, "tcp", addr, tlsConfig)
