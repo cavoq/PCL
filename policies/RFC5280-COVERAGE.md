@@ -22,7 +22,7 @@ profile context is checked. Coverage does not imply universal RFC completeness.
 | Critical extensions and duplicate OIDs | Partial | Location-specific processed registry; unsupported critical semantics fail closed | Signed object | [Vectors](../tests/vector_coverage_test.go), [registry tests](../internal/oid/processed_extensions_test.go) |
 | DN attributes, mailbox syntax, IA5 repertoire (Appendix A) | Partial | Per-occurrence rules; role/severity limits below | Encoded Names / GeneralNames | [Integration cases](../tests/cases) |
 | Trust termination, signatures, validity, CA and path length (§6) | Covered | Explicit path domain; anchor is excluded from ordinary certificate processing | Target, issuer candidates, explicit anchors, time | [Path tests](../internal/path/validate_test.go), [PKITS](../tests/pkits_test.go) |
-| Name constraints and name chaining (§6–7) | Partial across all RFC forms | DNS, email, URI, IP, directoryName; shared encoded-DN comparison | Constructed path | [Name constraints](../internal/cert/name_constraints_test.go), [DN matching](../internal/x509asn1/name_match_test.go) |
+| Name constraints and name chaining (§6–7) | Partial across all RFC forms | DNS, email, URI, IP, directoryName; dNSName subtrees must be empty or in the preferred name syntax; shared encoded-DN comparison | Constructed path | [Name constraints](../internal/cert/name_constraints_test.go), [DN matching](../internal/x509asn1/name_match_test.go) |
 | Certificate-policy processing (§6.1) | Covered | Policy tree, mappings, counters and independent initial inputs | Path and optional initial policy inputs | [Policy processing](../internal/operator/policy_test.go), [PKITS](../tests/pkits_test.go) |
 | Application purpose | Covered for supported mappings | EKU across chain plus end-entity Key Usage | Concrete purpose and chain | [Purpose tests](../internal/cert/purpose_test.go) |
 | CRL profile and entries (§5) | Covered for active checks | Strict AKI, number, delta, IDP, Freshest and entry decoding | CRL DER, signer candidates | [Extension tests](../internal/x509ext/crl_extensions_test.go) |
@@ -88,6 +88,7 @@ as RFC 5280 coverage.
 | GeneralizedTime wire requirements | Covered | `validity-generalizedtime-has-seconds-notbefore`, `validity-generalizedtime-has-seconds-notafter`, `validity-generalizedtime-has-zulu-notbefore`, `validity-generalizedtime-has-zulu-notafter`, `validity-generalizedtime-no-fraction`, `validity-generalizedtime-no-fraction-notafter` |
 | Subject attribute encoding | Partial | `subject-country-printable-string`, `subject-cn-valid-encoding` |
 | Leaf SAN IA5 repertoire | Partial | `san-dnsname-valid-ia5string`, `san-uri-valid-ia5string`, `san-email-valid-ia5string` |
+| SAN dNSName preferred name syntax | Covered | `san-dnsname-preferred-syntax` |
 | IAN IA5 repertoire | Covered | `ian-dnsname-valid-ia5string`, `ian-uri-valid-ia5string`, `ian-email-valid-ia5string` |
 
 ## Executable evidence

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"slices"
+	"strings"
 
 	"github.com/cavoq/PCL/internal/x509asn1"
 	"golang.org/x/crypto/cryptobyte"
@@ -107,7 +108,45 @@ func ReadGeneralName(input *cryptobyte.String) (GeneralName, error) {
 // ReadNameConstraintGeneralName decodes a GeneralName used as a subtree base,
 // where iPAddress carries an address-and-mask pair.
 func ReadNameConstraintGeneralName(input *cryptobyte.String) (GeneralName, error) {
-	return readGeneralNameWithIPLengths(input, 8, 32)
+	name, err := readGeneralNameWithIPLengths(input, 8, 32)
+	if err != nil {
+		return GeneralName{}, err
+	}
+	if name.Tag == 2 && !ValidDNSNameConstraint(string(name.RawValue)) {
+		return GeneralName{}, fmt.Errorf("dNSName constraint %q is not in the preferred name syntax", name.RawValue)
+	}
+	return name, nil
+}
+
+// ValidDNSNameConstraint reports whether a dNSName subtree is empty, which
+// covers every name, or a domain name in the preferred name syntax (RFC 5280
+// 4.2.1.10). Unlike URI and rfc822Name constraints, a dNSName constraint has
+// no leading-period form: "host.example.com" already covers every name
+// below it.
+func ValidDNSNameConstraint(constraint string) bool {
+	return constraint == "" || PreferredNameSyntax(constraint)
+}
+
+// PreferredNameSyntax reports whether name is a domain name in the preferred
+// name syntax of RFC 1034 3.5 as modified by RFC 1123 2.1: dot-separated
+// labels of letters, digits and interior hyphens, each at most 63 octets,
+// at most 253 octets in total and without a trailing dot.
+func PreferredNameSyntax(name string) bool {
+	if name == "" || len(name) > 253 {
+		return false
+	}
+	for _, label := range strings.Split(name, ".") {
+		if len(label) == 0 || len(label) > 63 || label[0] == '-' || label[len(label)-1] == '-' {
+			return false
+		}
+		for _, character := range label {
+			if (character < 'a' || character > 'z') && (character < 'A' || character > 'Z') &&
+				(character < '0' || character > '9') && character != '-' {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 func readGeneralNameWithIPLengths(input *cryptobyte.String, ipLengths ...int) (GeneralName, error) {

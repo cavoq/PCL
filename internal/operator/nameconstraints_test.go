@@ -69,11 +69,11 @@ func TestNameConstraintsValidChains(t *testing.T) {
 		{"no constraints pass", &x509.Certificate{DNSNames: []string{"example.com"}},
 			[]*x509.Certificate{{}}, true},
 		{"DNS within permitted passes", &x509.Certificate{DNSNames: []string{"foo.example.com"}},
-			[]*x509.Certificate{{PermittedDNSNames: subtrees(".example.com")}}, true},
+			[]*x509.Certificate{{PermittedDNSNames: subtrees("example.com")}}, true},
 		{"DNS outside permitted fails", &x509.Certificate{DNSNames: []string{"foo.other.com"}},
-			[]*x509.Certificate{{PermittedDNSNames: subtrees(".example.com")}}, false},
+			[]*x509.Certificate{{PermittedDNSNames: subtrees("example.com")}}, false},
 		{"DNS in excluded fails", &x509.Certificate{DNSNames: []string{"foo.bad.com"}},
-			[]*x509.Certificate{{ExcludedDNSNames: subtrees(".bad.com")}}, false},
+			[]*x509.Certificate{{ExcludedDNSNames: subtrees("bad.com")}}, false},
 		{"email within permitted passes", emailLeaf("user@example.com"),
 			[]*x509.Certificate{{PermittedEmailAddresses: subtrees("example.com")}}, true},
 		{"email outside permitted fails", emailLeaf("user@other.com"),
@@ -87,13 +87,13 @@ func TestNameConstraintsValidChains(t *testing.T) {
 		{"URI within permitted passes", &x509.Certificate{URIs: []string{"https://foo.example.com/path"}},
 			[]*x509.Certificate{{PermittedURIs: subtrees(".example.com")}}, true},
 		{"multiple CA constraints pass", &x509.Certificate{DNSNames: []string{"foo.example.com"}},
-			[]*x509.Certificate{{PermittedDNSNames: subtrees(".example.com")}, {ExcludedDNSNames: subtrees(".bad.com")}}, true},
+			[]*x509.Certificate{{PermittedDNSNames: subtrees("example.com")}, {ExcludedDNSNames: subtrees("bad.com")}}, true},
 		// A name within the intermediate's permitted set but not the root's
 		// fails; under union semantics it would pass.
 		{"name outside the root's permitted set fails", &x509.Certificate{DNSNames: []string{"foo.other.com"}},
-			[]*x509.Certificate{{PermittedDNSNames: subtrees(".other.com")}, {PermittedDNSNames: subtrees(".example.com")}}, false},
+			[]*x509.Certificate{{PermittedDNSNames: subtrees("other.com")}, {PermittedDNSNames: subtrees("example.com")}}, false},
 		{"name within both permitted sets passes", &x509.Certificate{DNSNames: []string{"foo.sub.example.com"}},
-			[]*x509.Certificate{{PermittedDNSNames: subtrees(".sub.example.com")}, {PermittedDNSNames: subtrees(".example.com")}}, true},
+			[]*x509.Certificate{{PermittedDNSNames: subtrees("sub.example.com")}, {PermittedDNSNames: subtrees("example.com")}}, true},
 	}
 
 	for _, tt := range tests {

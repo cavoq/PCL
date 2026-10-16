@@ -135,7 +135,7 @@ These operators take no operands.
 
 | Operator | Operands | Description |
 |----------|----------|-------------|
-| `nameConstraintsValid` | None | Applies DNS, email, URI, IP and directoryName constraints across the supplied chain; directory names are compared by the RFC 5280 Section 7.1 rules |
+| `nameConstraintsValid` | None | Applies DNS, email, URI, IP and directoryName constraints across the supplied chain; directory names are compared by the RFC 5280 Section 7.1 rules. A dNSName subtree other than an empty one or a preferred-syntax domain name (for example `.example.com`) is malformed and fails |
 | `certificatePolicyValid` | [oid, ...] or none | RFC 5280 6.1 policy processing (mappings, requireExplicitPolicy, inhibitPolicyMapping, inhibitAnyPolicy) from the trust anchor to the certificate. The `--initial-*` inputs take precedence when supplied. Otherwise operands preserve the legacy initial-policy-set plus explicit-policy behavior, and no operands select RFC defaults. The self-signed chain top is the trust anchor and is not processed. The explicit path engine also performs policy processing; no standalone `RFC5280.yaml` rule invokes this adapter |
 
 ## Component Operators (Multi-Valued Fields)

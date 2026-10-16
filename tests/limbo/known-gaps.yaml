@@ -4,15 +4,6 @@
 # listed once, under the cause that keeps it from conforming longest.
 
 - reason: >-
-    DNS name syntax (RFC 5280 4.2.1.6 and 4.2.1.10, preferred name syntax) is
-    not validated, so a malformed dNSName in a subjectAltName or a name
-    constraint is accepted.
-  cases:
-    - rfc5280::nc::invalid-dnsname-leading-period
-    - rfc5280::nc::nc-permits-invalid-dns-san
-    - rfc5280::san::underscore-dns
-
-- reason: >-
     A wildcard dNSName in the subjectAltName is checked against excluded
     subtrees as a literal name, so `*.example.com` passes an excluded
     `bar.example.com` that the wildcard covers.

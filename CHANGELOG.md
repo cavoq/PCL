@@ -44,6 +44,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   cause in `tests/limbo/known-gaps.yaml`.
 
 ### Fixed
+- A dNSName name constraint must be empty or a domain name in the preferred
+  name syntax (RFC 5280 4.2.1.10). An OpenSSL-style leading-period form such
+  as `.example.com`, a trailing dot, a wildcard or an underscore makes the
+  nameConstraints extension malformed: `name-constraints-well-formed` fails
+  and the path decision rejects certificates below it. Previously a leading
+  period was read as "subdomains only". The NC test fixtures now permit
+  `example.test`.
+- The RFC 5280 policy checks that SAN dNSNames are in the preferred name
+  syntax (`san-dnsname-preferred-syntax`, RFC 5280 4.2.1.6). A wildcard is
+  accepted only as the complete leftmost label.
 - A trust anchor that is not self-signed no longer fails `signature-valid`
   because its own issuer is not supplied. Certificates project
   `certificate.trustAnchor` when explicit trust anchors are given, and the

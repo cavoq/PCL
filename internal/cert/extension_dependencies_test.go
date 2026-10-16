@@ -547,7 +547,7 @@ func nameConstraintsForTest(minimum, maximum *int) []byte {
 		builder.AddASN1(cryptobyte_asn1.Tag(0).ContextSpecific().Constructed(), func(builder *cryptobyte.Builder) {
 			builder.AddASN1(cryptobyte_asn1.SEQUENCE, func(builder *cryptobyte.Builder) {
 				builder.AddASN1(cryptobyte_asn1.Tag(2).ContextSpecific(), func(builder *cryptobyte.Builder) {
-					builder.AddBytes([]byte(".example.test"))
+					builder.AddBytes([]byte("example.test"))
 				})
 				if minimum != nil {
 					builder.AddASN1(cryptobyte_asn1.Tag(0).ContextSpecific(), func(builder *cryptobyte.Builder) {

@@ -184,6 +184,9 @@ func extractNameConstraints(certificate *x509.Certificate) (nameConstraints, nam
 
 	permitted := nameConstraints{directoryNames: permittedDirectoryNames}
 	for _, value := range certificate.PermittedDNSNames {
+		if !validDNSNameConstraint(value.Data) {
+			return nameConstraints{}, nameConstraints{}, false
+		}
 		permitted.dns = append(permitted.dns, value.Data)
 	}
 	for _, value := range certificate.PermittedEmailAddresses {
@@ -198,6 +201,9 @@ func extractNameConstraints(certificate *x509.Certificate) (nameConstraints, nam
 
 	excluded := nameConstraints{directoryNames: excludedDirectoryNames}
 	for _, value := range certificate.ExcludedDNSNames {
+		if !validDNSNameConstraint(value.Data) {
+			return nameConstraints{}, nameConstraints{}, false
+		}
 		excluded.dns = append(excluded.dns, value.Data)
 	}
 	for _, value := range certificate.ExcludedEmailAddresses {
@@ -243,10 +249,13 @@ func matchesDNS(name, constraint string) bool {
 	if constraint == "" {
 		return true
 	}
-	if strings.HasPrefix(constraint, ".") {
-		return strings.HasSuffix(name, constraint)
-	}
 	return name == constraint || strings.HasSuffix(name, "."+constraint)
+}
+
+// validDNSNameConstraint applies the dNSName subtree syntax that the strict
+// Name Constraints decoder enforces to the typed constraint fields.
+func validDNSNameConstraint(constraint string) bool {
+	return x509ext.ValidDNSNameConstraint(constraint)
 }
 
 func checkEmails(emails, permitted, excluded []string) bool {

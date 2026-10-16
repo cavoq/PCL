@@ -15,7 +15,7 @@ func TestNameConstraintsValidSupportedNameForms(t *testing.T) {
 		t.Fatal(err)
 	}
 	issuer := &x509.Certificate{
-		PermittedDNSNames:       []x509.GeneralSubtreeString{{Data: ".example.test"}},
+		PermittedDNSNames:       []x509.GeneralSubtreeString{{Data: "example.test"}},
 		PermittedEmailAddresses: []x509.GeneralSubtreeString{{Data: "example.test"}},
 		PermittedURIs:           []x509.GeneralSubtreeString{{Data: ".example.test"}},
 		PermittedIPAddresses:    []x509.GeneralSubtreeIP{{Data: *permittedNetwork}},
@@ -76,11 +76,11 @@ func TestNameConstraintsValidSupportedNameForms(t *testing.T) {
 func TestNameConstraintsValidIntersectsPermittedAndUnionsExcluded(t *testing.T) {
 	leaf := &Info{Cert: &x509.Certificate{DNSNames: []string{"www.sub.example.test"}}}
 	intermediate := &Info{Cert: &x509.Certificate{
-		PermittedDNSNames: []x509.GeneralSubtreeString{{Data: ".sub.example.test"}},
+		PermittedDNSNames: []x509.GeneralSubtreeString{{Data: "sub.example.test"}},
 	}}
 	root := &Info{Cert: &x509.Certificate{
-		PermittedDNSNames: []x509.GeneralSubtreeString{{Data: ".example.test"}},
-		ExcludedDNSNames:  []x509.GeneralSubtreeString{{Data: ".blocked.example.test"}},
+		PermittedDNSNames: []x509.GeneralSubtreeString{{Data: "example.test"}},
+		ExcludedDNSNames:  []x509.GeneralSubtreeString{{Data: "blocked.example.test"}},
 	}}
 	chain := []*Info{leaf, intermediate, root}
 	if !NameConstraintsValid(leaf, chain) {
@@ -118,14 +118,14 @@ func TestNameConstraintsValidConstrainsSubjectEmailWhenSANAbsent(t *testing.T) {
 
 func TestNameConstraintsValidSelfIssuedExemption(t *testing.T) {
 	root := &Info{Cert: &x509.Certificate{
-		PermittedDNSNames: []x509.GeneralSubtreeString{{Data: ".example.test"}},
+		PermittedDNSNames: []x509.GeneralSubtreeString{{Data: "example.test"}},
 	}}
 	rollover := &Info{Cert: &x509.Certificate{
 		Subject:  pkix.Name{CommonName: "rollover"},
 		Issuer:   pkix.Name{CommonName: "rollover"},
 		DNSNames: []string{"outside.other.test"},
 		PermittedDNSNames: []x509.GeneralSubtreeString{
-			{Data: ".example.test"},
+			{Data: "example.test"},
 		},
 	}}
 	leaf := &Info{Cert: &x509.Certificate{DNSNames: []string{"www.example.test"}}}
@@ -178,7 +178,7 @@ func TestNameConstraintsValidRejectsDuplicateExtensionsRegardlessOfOrder(t *test
 		leaf := &Info{Cert: &x509.Certificate{DNSNames: []string{"www.example.test"}}}
 		issuer := &Info{Cert: &x509.Certificate{
 			Extensions:        extensions,
-			PermittedDNSNames: []x509.GeneralSubtreeString{{Data: ".example.test"}},
+			PermittedDNSNames: []x509.GeneralSubtreeString{{Data: "example.test"}},
 		}}
 		if NameConstraintsValid(leaf, []*Info{leaf, issuer}) {
 			t.Fatalf("extension order %d accepted duplicate issuer NameConstraints", index)
@@ -207,7 +207,7 @@ func TestNameConstraintsValidRejectsMalformedUniqueExtension(t *testing.T) {
 			Critical: true,
 			Value:    []byte{0x30, 0x00},
 		}},
-		PermittedDNSNames: []x509.GeneralSubtreeString{{Data: ".example.test"}},
+		PermittedDNSNames: []x509.GeneralSubtreeString{{Data: "example.test"}},
 	}}
 	if NameConstraintsValid(leaf, []*Info{leaf, issuer}) {
 		t.Fatal("malformed Name Constraints passed using typed fallback facts")
@@ -220,14 +220,36 @@ func TestMatchesDNSConstraintBoundary(t *testing.T) {
 		constraint string
 		want       bool
 	}{
-		{name: "example.test", constraint: ".example.test"},
-		{name: "www.example.test", constraint: ".example.test", want: true},
 		{name: "example.test", constraint: "example.test", want: true},
 		{name: "www.example.test", constraint: "example.test", want: true},
+		{name: "badexample.test", constraint: "example.test"},
+		{name: "www.example.test", constraint: "", want: true},
 	}
 	for _, test := range tests {
 		if got := matchesDNS(test.name, test.constraint); got != test.want {
 			t.Errorf("matchesDNS(%q, %q) = %v, want %v", test.name, test.constraint, got, test.want)
+		}
+	}
+}
+
+func TestNameConstraintsValidRejectsMalformedDNSNameConstraints(t *testing.T) {
+	for _, constraint := range []string{
+		".example.test", "example.test.", "*.example.test", "under_score.example.test",
+		"-example.test", "example..test",
+	} {
+		leaf := &Info{Cert: &x509.Certificate{DNSNames: []string{"www.example.test"}}}
+		for _, issuer := range []*x509.Certificate{
+			{PermittedDNSNames: []x509.GeneralSubtreeString{{Data: constraint}}},
+			{ExcludedDNSNames: []x509.GeneralSubtreeString{{Data: constraint}}},
+		} {
+			if NameConstraintsValid(leaf, []*Info{leaf, {Cert: issuer}}) {
+				t.Errorf("dNSName constraint %q was accepted", constraint)
+			}
+		}
+	}
+	for _, constraint := range []string{"", "example.test", "Example.TEST", "xn--bcher-kva.example", "localhost"} {
+		if !validDNSNameConstraint(constraint) {
+			t.Errorf("validDNSNameConstraint(%q) = false, want true", constraint)
 		}
 	}
 }

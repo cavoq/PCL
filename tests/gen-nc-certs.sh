@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
 # Generate nameConstraints test chain:
-#   nc-root.pem        — Root CA with nameConstraints permitting .example.test
+#   nc-root.pem        — Root CA with nameConstraints permitting example.test
 #   nc-intermediate.pem — Intermediate signed by nc-root
 #   nc-good-leaf.pem   — Leaf SAN nc-good.example.test (satisfies constraint)
 #   nc-bad-leaf.pem    — Leaf SAN nc-bad.example.com  (violates constraint)
 set -euo pipefail
+
+# Fixed validity windows keep the fixtures inside the policy-suite times.
+NOT_BEFORE="20260508211221Z"
 
 OUT_DIR="certs"
 mkdir -p "$OUT_DIR"
@@ -31,7 +34,7 @@ subjectKeyIdentifier    = hash
 nameConstraints         = critical, @nc_permitted
 
 [ nc_permitted ]
-permitted;DNS.1 = .example.test
+permitted;DNS.1 = example.test
 
 [ v3_nc_inter ]
 basicConstraints        = critical, CA:TRUE
@@ -58,7 +61,8 @@ EOCONF
 
 echo "Generating nc-root..."
 openssl genpkey -algorithm RSA -out "$TMPDIR/nc-root.key" -pkeyopt rsa_keygen_bits:2048 2>/dev/null
-openssl req -config "$CONF" -new -x509 -days 3650 -sha256 \
+openssl req -config "$CONF" -new -x509 -sha256 \
+    -not_before "$NOT_BEFORE" -not_after 20360505211221Z \
     -subj "/CN=NC Test Root CA" \
     -key "$TMPDIR/nc-root.key" -out "$OUT_DIR/nc-root.pem" \
     -extensions v3_nc_root
@@ -72,7 +76,7 @@ openssl x509 -req \
     -in "$TMPDIR/nc-inter.csr" \
     -CA "$OUT_DIR/nc-root.pem" -CAkey "$TMPDIR/nc-root.key" \
     -CAcreateserial -out "$OUT_DIR/nc-intermediate.pem" \
-    -days 1825 -sha256 \
+    -not_before "$NOT_BEFORE" -not_after 20310507211221Z -sha256 \
     -extfile "$CONF" -extensions v3_nc_inter
 
 echo "Generating nc-good-leaf..."
@@ -84,7 +88,7 @@ openssl x509 -req \
     -in "$TMPDIR/nc-good.csr" \
     -CA "$OUT_DIR/nc-intermediate.pem" -CAkey "$TMPDIR/nc-inter.key" \
     -CAcreateserial -out "$OUT_DIR/nc-good-leaf.pem" \
-    -days 825 -sha256 \
+    -not_before "$NOT_BEFORE" -not_after 20280810211221Z -sha256 \
     -extfile "$CONF" -extensions v3_nc_leaf
 
 echo "Generating nc-bad-leaf..."
@@ -96,7 +100,7 @@ openssl x509 -req \
     -in "$TMPDIR/nc-bad.csr" \
     -CA "$OUT_DIR/nc-intermediate.pem" -CAkey "$TMPDIR/nc-inter.key" \
     -CAcreateserial -out "$OUT_DIR/nc-bad-leaf.pem" \
-    -days 825 -sha256 \
+    -not_before "$NOT_BEFORE" -not_after 20280810211221Z -sha256 \
     -extfile "$CONF" -extensions v3_nc_bad_leaf
 
 echo "Done. Certificates:"
