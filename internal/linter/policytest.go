@@ -59,6 +59,7 @@ type policyTestCase struct {
 	CertificatePolicyInputs *policyTestCertificateInput `yaml:"certificatePolicyInputs,omitempty"`
 	MaximumPathLength       *int                        `yaml:"maximumPathLength,omitempty"`
 	PathRevocation          string                      `yaml:"pathRevocation,omitempty"`
+	AssumeProfiles          []string                    `yaml:"assumeProfiles,omitempty"`
 	Time                    string                      `yaml:"time,omitempty"`
 	Error                   string                      `yaml:"error,omitempty"`
 	Expect                  []policyExpectation         `yaml:"expect,omitempty"`
@@ -89,9 +90,12 @@ func (inputs *policyTestCertificateInput) operatorInputs() operator.CertificateP
 // (crl, ocsp) and optionally by policy id. Failed, when set, lists exactly
 // the rules that fail for the input; an empty list expects that none fails.
 type policyExpectation struct {
-	Input   string            `yaml:"input"`
-	Policy  string            `yaml:"policy,omitempty"`
-	Verdict string            `yaml:"verdict,omitempty"`
+	Input   string `yaml:"input"`
+	Policy  string `yaml:"policy,omitempty"`
+	Verdict string `yaml:"verdict,omitempty"`
+	// Profile is the expected profile, with " (assumed)" when assumed;
+	// "none" expects no profile.
+	Profile string            `yaml:"profile,omitempty"`
 	Rules   map[string]string `yaml:"rules,omitempty"`
 	Failed  *[]string         `yaml:"failed,omitempty"`
 }
@@ -226,8 +230,8 @@ func validateExpectation(expectation policyExpectation) error {
 	if expectation.Input == "" {
 		return errors.New("expect: input is required")
 	}
-	if expectation.Verdict == "" && len(expectation.Rules) == 0 && expectation.Failed == nil {
-		return fmt.Errorf("expect %s: verdict, rules or failed is required", expectation.Input)
+	if expectation.Verdict == "" && len(expectation.Rules) == 0 && expectation.Failed == nil && expectation.Profile == "" {
+		return fmt.Errorf("expect %s: verdict, profile, rules or failed is required", expectation.Input)
 	}
 	switch expectation.Verdict {
 	case "", rule.VerdictPass, rule.VerdictFail, rule.VerdictInconclusive, policy.VerdictNotApplicable:
@@ -295,6 +299,7 @@ func lintPolicyTestCase(
 		CertificatePolicyInputs: testCase.CertificatePolicyInputs.operatorInputs(),
 		ValidationTime:          evaluationTime,
 		PathRevocation:          pathpkg.RevocationMode(testCase.PathRevocation),
+		AssumedProfiles:         testCase.AssumeProfiles,
 	}
 	if testCase.MaximumPathLength != nil {
 		cfg.MaximumPathLength = *testCase.MaximumPathLength
@@ -311,7 +316,11 @@ func lintPolicyTestCase(
 	if err != nil {
 		return nil, err
 	}
-	return evaluator.Evaluate(buildSubjects(cfg, inputs, policies, registry), registry), nil
+	subjects := buildSubjects(cfg, inputs, policies, registry)
+	if err := assumeProfiles(cfg, subjects, policies, io.Discard); err != nil {
+		return nil, err
+	}
+	return evaluator.Evaluate(subjects, registry), nil
 }
 
 // parsePolicyTestTime returns the case time, else the suite time, as
@@ -356,6 +365,15 @@ func checkExpectation(expectation policyExpectation, results []policy.Result) []
 		}
 	}
 
+	if expectation.Profile != "" {
+		for _, result := range matched {
+			if got := describeProfile(result); got != expectation.Profile {
+				failures = append(failures, fmt.Sprintf("%s: policy %s profile %s, want %s",
+					label, result.PolicyID, got, expectation.Profile))
+			}
+		}
+	}
+
 	ruleIDs := make([]string, 0, len(expectation.Rules))
 	for ruleID := range expectation.Rules {
 		ruleIDs = append(ruleIDs, ruleID)
@@ -372,6 +390,18 @@ func checkExpectation(expectation policyExpectation, results []policy.Result) []
 		}
 	}
 	return failures
+}
+
+// describeProfile renders a result's profile as expectations state it.
+func describeProfile(result policy.Result) string {
+	switch result.ProfileBasis {
+	case "":
+		return "none"
+	case policy.ProfileAssumed:
+		return result.Profile + " (assumed)"
+	default:
+		return result.Profile
+	}
 }
 
 // failedRuleIDs returns the sorted IDs of the rules that fail in results.

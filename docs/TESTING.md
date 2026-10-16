@@ -48,6 +48,7 @@ tests:
 | `maximumPathLength`, `pathRevocation` | Explicit path-validation controls |
 | `peerNames` | Reference identities the target must present (`--peer-name`) |
 | `certificatePolicyInputs` | Initial RFC 5280 policy-processing parameters |
+| `assumeProfiles` | Assumed [profiles](POLICY_FORMAT.md#profiles), as for `--assume-profile` |
 | `expect` | Expected policy and/or rule verdicts |
 | `error` | Expected run-error substring, instead of verdict expectations |
 
@@ -56,7 +57,9 @@ An expectation selects `input` (`leaf`, `intermediate`, `root`, `ocspSigning`,
 result (`pass`, `fail`, `inconclusive` or `not_applicable`); `rules` checks
 named rule verdicts (`pass`, `fail`, `skip` or `inconclusive`); `failed` lists exactly the rules
 that fail, `[]` for none, so a new failing rule is caught while new passing or
-skipped rules are not. At least one of them is required.
+skipped rules are not. `profile` checks the profile the input was evaluated
+under: its ID, the ID followed by ` (assumed)`, or `none`. At least one of
+them is required.
 
 Additional case inputs:
 

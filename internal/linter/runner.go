@@ -49,6 +49,9 @@ func Run(cfg Config, w io.Writer) error {
 	}
 	cfg.ValidationTime = validationTime(cfg)
 	subjects := buildSubjects(cfg, inputs, policies, reg)
+	if err := assumeProfiles(cfg, subjects, policies, diagnostics); err != nil {
+		return err
+	}
 	results := evaluator.Evaluate(subjects, reg)
 	if len(results) == 0 {
 		return fmt.Errorf("no loaded policy applies to the supplied input")
@@ -268,6 +271,22 @@ func buildCertificateChain(
 		}
 	}
 	return chain, allCerts, nil
+}
+
+// assumeProfiles applies cfg.AssumedProfiles to subjects and warns on w
+// about each assumption that selected no input.
+func assumeProfiles(cfg Config, subjects []evaluator.Subject, policies []policy.Policy, w io.Writer) error {
+	if len(cfg.AssumedProfiles) == 0 {
+		return nil
+	}
+	assumptions, err := policy.ParseProfileAssumptions(cfg.AssumedProfiles, policies)
+	if err != nil {
+		return err
+	}
+	for _, unmatched := range evaluator.AssumeProfiles(subjects, assumptions) {
+		_, _ = fmt.Fprintf(w, "Warning: assumed profile %s selects no evaluated input of its role\n", unmatched)
+	}
+	return nil
 }
 
 // buildSubjects returns every evaluated input in output order: the chain,

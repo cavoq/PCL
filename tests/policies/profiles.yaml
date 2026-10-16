@@ -1,0 +1,21 @@
+id: integration-profiles
+version: "1"
+
+# A CA is evaluated as tls-ca when it asserts serverAuth, as cross-certified
+# only when assumed, and as any-ca otherwise.
+profiles:
+  - id: subscriber
+    role: leaf
+  - id: cross-certified
+    role: intermediate
+    assumeOnly: true
+  - id: tls-ca
+    role: intermediate
+    when: {target: certificate.extKeyUsage.serverAuth, operator: eq, operands: [true]}
+  - id: any-ca
+    role: intermediate
+rules:
+  - {id: version-3, target: certificate.version, operator: eq, operands: [3], severity: error}
+  - {id: subscriber-san, target: certificate.subjectAltName, operator: present, severity: error, profile: [subscriber]}
+  - {id: tls-ca-eku, target: certificate.extKeyUsage, operator: present, severity: error, profile: [tls-ca]}
+  - {id: cross-certified-only, target: certificate.version, operator: eq, operands: [3], severity: error, profile: [cross-certified]}

@@ -48,6 +48,8 @@ func newRootCmd(opts *linter.Config) *cobra.Command {
 
 	root.Flags().StringSliceVar(&opts.PolicyPaths, "policy", nil,
 		"Policy YAML file or directory, or a built-in policy id such as rfc5280 (repeatable; see pcl policies)")
+	root.Flags().StringSliceVar(&opts.AssumedProfiles, "assume-profile", nil,
+		"Evaluate inputs under a policy profile they cannot show, such as a cross-certified CA: PROFILE for every input of its role, or PROFILE=SHA256-PREFIX for one certificate or CRL (repeatable)")
 	addInputFlags(root.Flags(), opts)
 	addCertificatePolicyFlags(root.Flags(), opts)
 	addPathValidationFlags(root.Flags(), opts)

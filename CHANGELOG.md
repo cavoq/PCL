@@ -69,6 +69,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the first profile of its role whose condition holds, or one the user
   assumed; rules and groups state the profiles they apply to, and results
   report the profile and whether it was inferred or assumed.
+  `--assume-profile PROFILE[=SHA256-PREFIX]` (suite `assumeProfiles`)
+  selects a profile the input cannot show, such as a cross-certified CA,
+  for every input of its role or for one certificate or CRL.
 - `when` takes compound conditions: `allOf`, `anyOf` and `not`, nested. The
   `allOf` operator is the conjunction counterpart of `anyOf` and `oneOf`.
 - `wildcardNotPublicSuffix` checks that a wildcard does not cover a public

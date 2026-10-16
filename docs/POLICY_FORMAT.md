@@ -186,7 +186,7 @@ rules:
 | `title`, `reference` | The source's name and section for the profile |
 | `role` | Required input role: `leaf`, `intermediate`, `root`, `ocspSigning`, `crl` or `ocsp` |
 | `when` | Condition the input must meet; omit it for the fallback profile of a role |
-| `assumeOnly` | Never inferred: selected only when the user assumes it, for facts the input cannot show |
+| `assumeOnly` | Never inferred: selected only when the user assumes it (`--assume-profile`, suite `assumeProfiles`), for facts the input cannot show |
 
 Each input is evaluated under at most one profile per policy. A profile of
 its role that the user assumed comes first; otherwise the first profile of

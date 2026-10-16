@@ -1,0 +1,35 @@
+# Fingerprints are SHA-256 prefixes of the cabf-conformant fixtures; update
+# them when those fixtures are regenerated.
+policy: ../policies/profiles.yaml
+time: "2026-06-02T00:00:00Z"
+tests:
+  - name: profiles-are-inferred
+    cert: ../vectors/cabf-conformant/leaf.pem
+    issuers: [../vectors/cabf-conformant/intermediate.pem, ../vectors/cabf-conformant/root.pem]
+    expect:
+      - {input: leaf, profile: subscriber, rules: {subscriber-san: pass, tls-ca-eku: skip}}
+      - {input: intermediate, profile: tls-ca, rules: {tls-ca-eku: pass, cross-certified-only: skip, subscriber-san: skip}}
+      - {input: root, profile: none, rules: {version-3: pass, tls-ca-eku: skip}}
+  - name: assumed-for-every-input-of-the-role
+    cert: ../vectors/cabf-conformant/leaf.pem
+    issuers: [../vectors/cabf-conformant/intermediate.pem, ../vectors/cabf-conformant/root.pem]
+    assumeProfiles: [cross-certified]
+    expect:
+      - {input: leaf, profile: subscriber}
+      - {input: intermediate, profile: cross-certified (assumed), rules: {cross-certified-only: pass, tls-ca-eku: skip}}
+  - name: assumed-by-fingerprint
+    cert: ../vectors/cabf-conformant/leaf.pem
+    issuers: [../vectors/cabf-conformant/intermediate.pem, ../vectors/cabf-conformant/root.pem]
+    assumeProfiles: ["cross-certified=13:e4:c1:38:b8:43:32:33"]
+    expect:
+      - {input: intermediate, profile: cross-certified (assumed)}
+  - name: fingerprint-of-another-role-selects-nothing
+    cert: ../vectors/cabf-conformant/leaf.pem
+    issuers: [../vectors/cabf-conformant/intermediate.pem, ../vectors/cabf-conformant/root.pem]
+    assumeProfiles: [cross-certified=edc8fffb]
+    expect:
+      - {input: intermediate, profile: tls-ca}
+  - name: unknown-profile
+    cert: ../vectors/cabf-conformant/leaf.pem
+    assumeProfiles: [cross-certifed]
+    error: is not declared by a selected policy

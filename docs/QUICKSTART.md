@@ -95,6 +95,23 @@ alternative path. Trust anchors are never downloaded or inferred.
 The revocation mode controls the path decision. Separately selected CRL/OCSP
 policy rules still apply. CRL signer paths must reach the same explicit trust set.
 
+## Assume a profile
+
+Some requirements depend on facts a certificate cannot show, such as whether
+a CA certificate is a cross-certificate. A policy marks such
+[profiles](POLICY_FORMAT.md#profiles) `assumeOnly`, and you state them:
+
+```bash
+pcl --cert leaf.pem --issuer chain/ --policy cabf-tls-br \
+  --assume-profile cross-certified-subordinate=13e4c138
+```
+
+`PROFILE` applies to every input of the profile's role; `PROFILE=PREFIX`
+only to the certificate or CRL whose SHA-256 fingerprint starts with the
+prefix (8 to 64 hex digits, colons allowed; JSON output lists each chain
+certificate's `sha256`). An assumption that selects no input is reported as a
+warning. Results show the profile and whether it was inferred or assumed.
+
 ## Acquire evidence automatically
 
 Purpose: retrieve missing issuers, CRLs, and OCSP responses before evaluation.

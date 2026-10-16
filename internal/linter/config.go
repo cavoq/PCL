@@ -49,6 +49,11 @@ type Config struct {
 	// friendly name (for example, "serverAuth") or a dotted object identifier.
 	ApplicationPurpose string
 
+	// AssumedProfiles are policy profiles the inputs cannot show, as
+	// PROFILE (every input of the profile's role) or PROFILE=SHA256-PREFIX
+	// (the certificate or CRL with that fingerprint).
+	AssumedProfiles []string
+
 	// PeerNames are the DNS names, IP addresses or email addresses the
 	// target certificate must present in its subjectAltName. Path validation
 	// checks them, so they require trust anchors.

@@ -321,3 +321,17 @@ func TestRootCommandDefaultsToDomainRevocationMode(t *testing.T) {
 		t.Fatalf("--path-revocation defaults to %q, want %q", config.PathRevocation, pathpkg.DefaultRevocationMode)
 	}
 }
+
+func TestRootCommandAcceptsProfileAssumptions(t *testing.T) {
+	var config linter.Config
+	command := newRootCmd(&config)
+	if err := command.ParseFlags([]string{
+		"--assume-profile", "cross-certified-subordinate=ab12cd34",
+		"--assume-profile", "subscriber",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(config.AssumedProfiles, []string{"cross-certified-subordinate=ab12cd34", "subscriber"}) {
+		t.Fatalf("assumed profiles = %v", config.AssumedProfiles)
+	}
+}
