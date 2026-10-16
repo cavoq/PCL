@@ -2,12 +2,12 @@ package path
 
 import (
 	stdx509 "crypto/x509"
-	"path/filepath"
 	"reflect"
 	"testing"
 	"time"
 
 	"github.com/cavoq/PCL/internal/cert"
+	"github.com/cavoq/PCL/internal/testfiles"
 	"github.com/cavoq/PCL/internal/testpki"
 	"github.com/zmap/zcrypto/dsa"
 	"github.com/zmap/zcrypto/x509"
@@ -219,7 +219,7 @@ func TestConstructAndValidateDoNotResolveDSAParameters(t *testing.T) {
 		"DSACACert.crt",
 		"TrustAnchorRootCertificate.crt",
 	} {
-		infos, err := cert.LoadCertificates(filepath.Join("..", "..", "tests", "pkits", "certs", file), nil)
+		infos, err := cert.LoadCertificates(testfiles.PKITSCerts(file), nil)
 		if err != nil {
 			t.Fatal(err)
 		}

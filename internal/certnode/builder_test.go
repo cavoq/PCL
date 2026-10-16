@@ -11,12 +11,12 @@ import (
 	"errors"
 	"math/big"
 	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/cavoq/PCL/internal/cert"
 	"github.com/cavoq/PCL/internal/node"
+	"github.com/cavoq/PCL/internal/testfiles"
 	"github.com/cavoq/PCL/internal/testpki"
 	"github.com/zmap/zcrypto/dsa"
 	zasn1 "github.com/zmap/zcrypto/encoding/asn1"
@@ -365,7 +365,7 @@ func TestBuilder_SubjectPublicKeyInfo_DSA(t *testing.T) {
 func TestBuilder_SubjectPublicKeyInfo_ParsedDSA(t *testing.T) {
 	load := func(file string) *cert.Info {
 		t.Helper()
-		infos, err := cert.LoadCertificates(filepath.Join("..", "..", "tests", "pkits", "certs", file), nil)
+		infos, err := cert.LoadCertificates(testfiles.PKITSCerts(file), nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -680,7 +680,7 @@ func TestBuilder_DecodedExtensionsHaveCanonicalPathsOnly(t *testing.T) {
 }
 
 func TestBuilder_AIAStructure(t *testing.T) {
-	data, err := os.ReadFile("../../tests/certs/leaf.pem")
+	data, err := os.ReadFile(testfiles.Certs("leaf.pem"))
 	if err != nil {
 		t.Fatalf("failed to read cert: %v", err)
 	}
@@ -783,7 +783,7 @@ func TestBuilderDuplicateExtensionsPreserveFirstParsedInstance(t *testing.T) {
 }
 
 func TestBuilder_CRLDPStructure(t *testing.T) {
-	data, err := os.ReadFile("../../tests/certs/leaf.pem")
+	data, err := os.ReadFile(testfiles.Certs("leaf.pem"))
 	if err != nil {
 		t.Fatalf("failed to read cert: %v", err)
 	}
@@ -916,7 +916,7 @@ func parsePEMCertificate(data []byte) (*x509.Certificate, error) {
 func loadTestCert(t *testing.T, name string) []byte {
 	t.Helper()
 
-	path := filepath.Join("..", "cert", "testdata", name)
+	path := testfiles.CertTestdata(name)
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("failed to read test cert %s: %v", name, err)

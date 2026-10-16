@@ -4,8 +4,9 @@ import (
 	"encoding/pem"
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
+
+	"github.com/cavoq/PCL/internal/testfiles"
 )
 
 // SeedFiles returns the contents of the repository files matching patterns,
@@ -13,15 +14,9 @@ import (
 // with PEM blocks contributes each block's DER instead of its text.
 func SeedFiles(t testing.TB, patterns ...string) [][]byte {
 	t.Helper()
-	_, here, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("locate repository root")
-	}
-	root := filepath.Join(filepath.Dir(here), "..", "..")
-
 	var seeds [][]byte
 	for _, pattern := range patterns {
-		files, err := filepath.Glob(filepath.Join(root, pattern))
+		files, err := filepath.Glob(testfiles.Path(pattern))
 		if err != nil {
 			t.Fatalf("seed pattern %s: %v", pattern, err)
 		}

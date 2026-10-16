@@ -2,12 +2,12 @@ package cert
 
 import (
 	"math/big"
-	"path/filepath"
 	"testing"
 
 	"github.com/zmap/zcrypto/dsa"
 
 	"github.com/cavoq/PCL/internal/certparse"
+	"github.com/cavoq/PCL/internal/testfiles"
 )
 
 // loadDSAInheritancePath loads PKITS Test5 target-first: the EE and its CA
@@ -114,7 +114,7 @@ func sameDSAParameters(a, b dsa.Parameters) bool {
 
 func loadPKITSCertificates(t *testing.T, file string) []*Info {
 	t.Helper()
-	certificates, err := LoadCertificates(filepath.Join("..", "..", "tests", "pkits", "certs", file), nil)
+	certificates, err := LoadCertificates(testfiles.PKITSCerts(file), nil)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -2,7 +2,6 @@ package tests
 
 import (
 	"io"
-	"path/filepath"
 	"testing"
 
 	zasn1 "github.com/zmap/zcrypto/encoding/asn1"
@@ -12,6 +11,7 @@ import (
 	"github.com/cavoq/PCL/internal/cert"
 	"github.com/cavoq/PCL/internal/certnode"
 	"github.com/cavoq/PCL/internal/operator"
+	"github.com/cavoq/PCL/internal/testfiles"
 	"github.com/cavoq/PCL/internal/x509ext"
 )
 
@@ -20,7 +20,7 @@ import (
 // accept and reject the same certificates.
 func TestCriticalExtensionDecisionsAgree(t *testing.T) {
 	var certificates []*x509.Certificate
-	for _, dir := range []string{filepath.Join("pkits", "certs"), "certs"} {
+	for _, dir := range []string{testfiles.PKITSCerts(), testfiles.Certs()} {
 		infos, err := cert.LoadCertificates(dir, io.Discard)
 		if err != nil {
 			t.Fatalf("load %s: %v", dir, err)

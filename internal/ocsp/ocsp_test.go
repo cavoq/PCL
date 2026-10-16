@@ -12,6 +12,7 @@ import (
 	xocsp "golang.org/x/crypto/ocsp"
 
 	"github.com/cavoq/PCL/internal/source"
+	"github.com/cavoq/PCL/internal/testfiles"
 	"github.com/cavoq/PCL/internal/testpki"
 )
 
@@ -127,7 +128,7 @@ func TestInfoFromDownloadedResponse(t *testing.T) {
 
 func TestGetOCSPs_ReportsSkippedFiles(t *testing.T) {
 	dir := t.TempDir()
-	valid, err := os.ReadFile(filepath.Join("..", "..", "tests", "ocsps", "good-leaf.ocsp"))
+	valid, err := os.ReadFile(testfiles.OCSPs("good-leaf.ocsp"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -175,7 +176,7 @@ func TestResponderCertificate(t *testing.T) {
 }
 
 func TestResponderCertificateAcceptsCompatibilityCertificates(t *testing.T) {
-	der, err := os.ReadFile(filepath.Join("..", "..", "tests", "pkits", "certs", "ValiddistributionPointTest4EE.crt"))
+	der, err := os.ReadFile(testfiles.PKITSCerts("ValiddistributionPointTest4EE.crt"))
 	if err != nil {
 		t.Fatal(err)
 	}

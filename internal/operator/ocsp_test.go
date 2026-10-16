@@ -2,7 +2,6 @@ package operator
 
 import (
 	"errors"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -10,6 +9,7 @@ import (
 
 	"github.com/cavoq/PCL/internal/cert"
 	"github.com/cavoq/PCL/internal/ocsp"
+	"github.com/cavoq/PCL/internal/testfiles"
 )
 
 func TestOCSPOperatorNames(t *testing.T) {
@@ -163,8 +163,8 @@ func assertOCSPOperatorsLackEvidence(t *testing.T, ctx *EvaluationContext) {
 func loadOCSPOperatorContext(t *testing.T, responseFile string, afterNextUpdate bool) *EvaluationContext {
 	t.Helper()
 
-	leaf := loadSingleCertificate(t, filepath.Join("..", "..", "tests", "certs", "ocsp-leaf.pem"))
-	issuer := loadSingleCertificate(t, filepath.Join("..", "..", "tests", "certs", "ocsp-intermediate.pem"))
+	leaf := loadSingleCertificate(t, testfiles.Certs("ocsp-leaf.pem"))
+	issuer := loadSingleCertificate(t, testfiles.Certs("ocsp-intermediate.pem"))
 	ctx := &EvaluationContext{
 		Cert:  leaf,
 		Chain: []*cert.Info{leaf, issuer},
@@ -174,7 +174,7 @@ func loadOCSPOperatorContext(t *testing.T, responseFile string, afterNextUpdate 
 		return ctx
 	}
 
-	responses, err := ocsp.GetOCSPs(filepath.Join("..", "..", "tests", "ocsps", responseFile), nil)
+	responses, err := ocsp.GetOCSPs(testfiles.OCSPs(responseFile), nil)
 	if err != nil {
 		t.Fatalf("load OCSP response %s: %v", responseFile, err)
 	}

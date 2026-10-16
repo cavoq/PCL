@@ -7,11 +7,13 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cavoq/PCL/internal/testfiles"
+
 	"gopkg.in/yaml.v3"
 )
 
 func inspectTestConfig() Config {
-	certDir := filepath.Join("..", "..", "tests", "certs")
+	certDir := testfiles.Certs()
 	return Config{
 		CertPath:    filepath.Join(certDir, "leaf.pem"),
 		IssuerPaths: []string{certDir},
@@ -38,7 +40,7 @@ func TestInspectPrintsTreePerChainCertificate(t *testing.T) {
 
 func TestInspectPathsAreRuleTargets(t *testing.T) {
 	cfg := inspectTestConfig()
-	cfg.CRLPath = filepath.Join("..", "..", "tests", "crls", "revoked-leaf.crl")
+	cfg.CRLPath = testfiles.CRLs("revoked-leaf.crl")
 	cfg.ApplicationPurpose = "serverAuth"
 
 	var out bytes.Buffer
@@ -60,7 +62,7 @@ func TestInspectPathsAreRuleTargets(t *testing.T) {
 }
 
 func TestInspectJSONDocument(t *testing.T) {
-	cfg := Config{OCSPPath: filepath.Join("..", "..", "tests", "ocsps", "good-leaf.ocsp"), OutputFmt: "json"}
+	cfg := Config{OCSPPath: testfiles.OCSPs("good-leaf.ocsp"), OutputFmt: "json"}
 
 	var out bytes.Buffer
 	if err := Inspect(cfg, InspectOptions{Paths: true}, &out); err != nil {

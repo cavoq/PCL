@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/cavoq/PCL/internal/data"
+	"github.com/cavoq/PCL/internal/testfiles"
 )
 
 func TestRunPolicyTestsExampleSuites(t *testing.T) {
@@ -17,7 +18,7 @@ func TestRunPolicyTestsExampleSuites(t *testing.T) {
 		t.Fatal(err)
 	}
 	var out bytes.Buffer
-	summary, err := RunPolicyTests([]string{filepath.Join("..", "..", "tests", "policy-suites")}, &out)
+	summary, err := RunPolicyTests([]string{testfiles.PolicySuites()}, &out)
 	if err != nil {
 		t.Fatalf("RunPolicyTests: %v\n%s", err, out.String())
 	}
@@ -28,12 +29,8 @@ func TestRunPolicyTestsExampleSuites(t *testing.T) {
 
 func writePolicySuite(t *testing.T, body string) string {
 	t.Helper()
-	root, err := filepath.Abs(filepath.Join("..", ".."))
-	if err != nil {
-		t.Fatal(err)
-	}
 	path := filepath.Join(t.TempDir(), "case.test.yaml")
-	if err := os.WriteFile(path, []byte(strings.ReplaceAll(body, "$ROOT", root)), 0o600); err != nil {
+	if err := os.WriteFile(path, []byte(strings.ReplaceAll(body, "$ROOT", testfiles.Root())), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	return path

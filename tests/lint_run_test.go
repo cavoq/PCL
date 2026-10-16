@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/cavoq/PCL/internal/linter"
+	"github.com/cavoq/PCL/internal/testfiles"
 )
 
 // Output and errors of the lint command that policy suites cannot express.
@@ -20,8 +21,8 @@ func TestLintRun(t *testing.T) {
 		{
 			name: "text output",
 			cfg: linter.Config{
-				PolicyPaths:    []string{"policies/leaf-keycertsign-fails.yaml"},
-				CertPath:       "certs",
+				PolicyPaths:    []string{testfiles.Policies("leaf-keycertsign-fails.yaml")},
+				CertPath:       testfiles.Certs(),
 				ValidationTime: time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC),
 				OutputFmt:      "text",
 				ShowMeta:       true,
@@ -34,9 +35,9 @@ func TestLintRun(t *testing.T) {
 		{
 			name: "yaml output",
 			cfg: linter.Config{
-				PolicyPaths:    []string{"../policies/RFC5280.yaml"},
-				CertPath:       "certs/leaf.pem",
-				IssuerPaths:    []string{"certs/intermediate.pem", "certs/root.pem"},
+				PolicyPaths:    []string{testfiles.PolicyPacks("RFC5280.yaml")},
+				CertPath:       testfiles.Certs("leaf.pem"),
+				IssuerPaths:    []string{testfiles.Certs("intermediate.pem"), testfiles.Certs("root.pem")},
 				ValidationTime: time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC),
 				OutputFmt:      "yaml",
 				ShowMeta:       true,
@@ -48,7 +49,7 @@ func TestLintRun(t *testing.T) {
 		},
 		{
 			name: "missing policy file",
-			cfg:  linter.Config{PolicyPaths: []string{"policies/missing.yaml"}, CertPath: "certs", OutputFmt: "text"},
+			cfg:  linter.Config{PolicyPaths: []string{testfiles.Policies("missing.yaml")}, CertPath: testfiles.Certs(), OutputFmt: "text"},
 			err:  "checking policy path",
 		},
 	}

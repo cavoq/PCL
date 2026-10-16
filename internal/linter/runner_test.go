@@ -23,6 +23,7 @@ import (
 	"github.com/cavoq/PCL/internal/output"
 	"github.com/cavoq/PCL/internal/policy"
 	"github.com/cavoq/PCL/internal/rule"
+	"github.com/cavoq/PCL/internal/testfiles"
 	"github.com/cavoq/PCL/internal/testpki"
 )
 
@@ -326,8 +327,8 @@ func TestLoadPoliciesRejectsEmptyInputs(t *testing.T) {
 
 func TestRunRejectsNoApplicablePolicy(t *testing.T) {
 	cfg := Config{
-		PolicyPaths: []string{filepath.Join("..", "..", "tests", "policies", "crl-validity.yaml")},
-		CertPath:    filepath.Join("..", "..", "tests", "certs", "root.pem"),
+		PolicyPaths: []string{testfiles.Policies("crl-validity.yaml")},
+		CertPath:    testfiles.Certs("root.pem"),
 	}
 
 	err := Run(cfg, &bytes.Buffer{})
@@ -339,7 +340,7 @@ func TestRunRejectsNoApplicablePolicy(t *testing.T) {
 func TestRunRejectsIssuerOnlyInputBeforeLoading(t *testing.T) {
 	cfg := Config{
 		PolicyPaths: []string{filepath.Join(t.TempDir(), "missing.yaml")},
-		IssuerPaths: []string{filepath.Join("..", "..", "tests", "certs", "root.pem")},
+		IssuerPaths: []string{testfiles.Certs("root.pem")},
 	}
 
 	err := Run(cfg, &bytes.Buffer{})
@@ -484,7 +485,7 @@ func TestLoadIssuers_returnsCleanupOnDownloadError(t *testing.T) {
 
 func TestRun_certificateLoadFailureIsFatal(t *testing.T) {
 	cfg := Config{
-		PolicyPaths: []string{filepath.Join("..", "..", "tests", "policies", "basic.yaml")},
+		PolicyPaths: []string{testfiles.Policies("basic.yaml")},
 		CertPath:    filepath.Join(t.TempDir(), "missing.pem"),
 	}
 
@@ -616,20 +617,20 @@ rules:
 }
 
 func TestAcquireInputs_withCRLAndResolve(t *testing.T) {
-	certDir := filepath.Join("..", "..", "tests", "certs")
+	certDir := testfiles.Certs()
 	cfg := Config{
 		CertPath: filepath.Join(certDir, "leaf.pem"),
 		IssuerPaths: []string{
 			filepath.Join(certDir, "intermediate.pem"),
 			filepath.Join(certDir, "root.pem"),
 		},
-		CRLPath:       filepath.Join("..", "..", "internal", "crl", "testdata", "test.crl"),
+		CRLPath:       testfiles.CRLTestdata("test.crl"),
 		CertTimeout:   5 * time.Second,
 		OCSPTimeout:   5 * time.Second,
 		MaxChainDepth: 10,
 	}
 
-	pol, err := policy.ParseFile(filepath.Join("..", "..", "tests", "policies", "crl-validity.yaml"))
+	pol, err := policy.ParseFile(testfiles.Policies("crl-validity.yaml"))
 	if err != nil {
 		t.Fatalf("load policy: %v", err)
 	}
@@ -676,7 +677,7 @@ func TestAcquireInputs_autoValidateExtendsChainFromIssuerPool(t *testing.T) {
 	}
 	applyDefaults(&cfg)
 
-	pol, err := policy.ParseFile(filepath.Join("..", "..", "tests", "policies", "basic.yaml"))
+	pol, err := policy.ParseFile(testfiles.Policies("basic.yaml"))
 	if err != nil {
 		t.Fatalf("load policy: %v", err)
 	}
@@ -948,7 +949,7 @@ func TestRun_downloadsSignerIssuersOnlyWhenClimbing(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	pol, err := policy.ParseFile(filepath.Join("..", "..", "tests", "policies", "crl-validity.yaml"))
+	pol, err := policy.ParseFile(testfiles.Policies("crl-validity.yaml"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -988,8 +989,8 @@ func TestRun_downloadsSignerIssuersOnlyWhenClimbing(t *testing.T) {
 
 func TestUnknownOutputFormatIsRejected(t *testing.T) {
 	cfg := Config{
-		PolicyPaths: []string{filepath.Join("..", "..", "tests", "policies", "basic.yaml")},
-		CertPath:    filepath.Join("..", "..", "tests", "certs", "leaf.pem"),
+		PolicyPaths: []string{testfiles.Policies("basic.yaml")},
+		CertPath:    testfiles.Certs("leaf.pem"),
 		OutputFmt:   "xml",
 	}
 	var out bytes.Buffer
@@ -1012,8 +1013,8 @@ func TestInvalidOCSPRequestOptionsAreRejected(t *testing.T) {
 		{OCSPNonceValue: "not hex"},
 		{OCSPNonceLength: 500},
 	} {
-		cfg.PolicyPaths = []string{filepath.Join("..", "..", "tests", "policies", "basic.yaml")}
-		cfg.CertPath = filepath.Join("..", "..", "tests", "certs", "leaf.pem")
+		cfg.PolicyPaths = []string{testfiles.Policies("basic.yaml")}
+		cfg.CertPath = testfiles.Certs("leaf.pem")
 		if err := Run(cfg, io.Discard); err == nil {
 			t.Errorf("Run(%+v) accepted invalid OCSP request options", cfg)
 		}
@@ -1063,7 +1064,7 @@ rules:
 			var out bytes.Buffer
 			err := Run(Config{
 				PolicyPaths: []string{policyPath},
-				CertPath:    filepath.Join("..", "..", "tests", "certs", "leaf.pem"),
+				CertPath:    testfiles.Certs("leaf.pem"),
 				OutputFmt:   output.FormatJSON,
 				FailOn:      tt.failOn,
 			}, &out)
@@ -1082,7 +1083,7 @@ rules:
 
 func TestRunReportsInputPathsWithoutFiles(t *testing.T) {
 	err := Run(Config{
-		PolicyPaths: []string{filepath.Join("..", "..", "tests", "policies", "basic.yaml")},
+		PolicyPaths: []string{testfiles.Policies("basic.yaml")},
 		CRLPath:     t.TempDir(),
 	}, io.Discard)
 	if err == nil || !strings.Contains(err.Error(), "no CRL or OCSP response files found") {

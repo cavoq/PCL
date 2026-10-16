@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/cavoq/PCL/internal/operator"
+	"github.com/cavoq/PCL/internal/testfiles"
 )
 
 // TestDomainPackagesDoNotDependOnNodeProjections keeps domain decisions on
@@ -24,7 +25,7 @@ func TestDomainPackagesDoNotDependOnNodeProjections(t *testing.T) {
 	}
 
 	for pkg, imports := range forbidden {
-		files, err := filepath.Glob(filepath.Join("..", "internal", pkg, "*.go"))
+		files, err := filepath.Glob(testfiles.Path("internal", pkg, "*.go"))
 		if err != nil || len(files) == 0 {
 			t.Fatalf("list %s sources: %v", pkg, err)
 		}
@@ -58,10 +59,10 @@ func TestDomainPackagesDoNotDependOnNodeProjections(t *testing.T) {
 func TestCertificatesParseThroughCertparse(t *testing.T) {
 	const zcryptoX509 = "github.com/zmap/zcrypto/x509"
 	allowed := map[string]bool{
-		filepath.Join("..", "internal", "certparse"): true,
-		filepath.Join("..", "internal", "testpki"):   true,
+		testfiles.Path("internal", "certparse"): true,
+		testfiles.Path("internal", "testpki"):   true,
 	}
-	for _, root := range []string{filepath.Join("..", "internal"), filepath.Join("..", "cmd")} {
+	for _, root := range []string{testfiles.Path("internal"), testfiles.Path("cmd")} {
 		err := filepath.WalkDir(root, func(file string, entry os.DirEntry, err error) error {
 			if err != nil || entry.IsDir() || allowed[filepath.Dir(file)] ||
 				!strings.HasSuffix(file, ".go") || strings.HasSuffix(file, "_test.go") {
@@ -99,6 +100,34 @@ func TestCertificatesParseThroughCertparse(t *testing.T) {
 	}
 }
 
+// TestOnlyTestsImportTestfiles keeps the source tree out of the pcl binary:
+// testfiles finds files relative to the repository checkout.
+func TestOnlyTestsImportTestfiles(t *testing.T) {
+	const testfilesImport = "github.com/cavoq/PCL/internal/testfiles"
+	allowed := map[string]bool{testfiles.Path("internal", "testpki"): true}
+	for _, root := range []string{testfiles.Path("internal"), testfiles.Path("cmd")} {
+		err := filepath.WalkDir(root, func(file string, entry os.DirEntry, err error) error {
+			if err != nil || entry.IsDir() || allowed[filepath.Dir(file)] ||
+				!strings.HasSuffix(file, ".go") || strings.HasSuffix(file, "_test.go") {
+				return err
+			}
+			parsed, err := parser.ParseFile(token.NewFileSet(), file, nil, parser.ImportsOnly)
+			if err != nil {
+				return err
+			}
+			for _, spec := range parsed.Imports {
+				if imported, _ := strconv.Unquote(spec.Path.Value); imported == testfilesImport {
+					t.Errorf("%s imports %s outside tests", file, imported)
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
 // TestRuleEvaluationNamesNoOperator keeps operator semantics, including how an
 // evaluation is explained, inside the operators.
 func TestRuleEvaluationNamesNoOperator(t *testing.T) {
@@ -106,7 +135,7 @@ func TestRuleEvaluationNamesNoOperator(t *testing.T) {
 	for _, name := range operator.DefaultRegistry().Names() {
 		names[name] = true
 	}
-	files, err := filepath.Glob(filepath.Join("..", "internal", "rule", "*.go"))
+	files, err := filepath.Glob(testfiles.Path("internal", "rule", "*.go"))
 	if err != nil {
 		t.Fatal(err)
 	}

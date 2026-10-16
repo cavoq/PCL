@@ -13,6 +13,7 @@ import (
 
 	"github.com/cavoq/PCL/internal/linter"
 	pathpkg "github.com/cavoq/PCL/internal/path"
+	"github.com/cavoq/PCL/internal/testfiles"
 )
 
 func TestRootCommandAcceptsApplicationPurpose(t *testing.T) {
@@ -145,7 +146,7 @@ func TestPoliciesCommandListsAndShowsBuiltinPacks(t *testing.T) {
 	if err := command.Execute(); err != nil {
 		t.Fatalf("policies show: %v", err)
 	}
-	shipped, err := os.ReadFile("../../policies/RFC5280.yaml")
+	shipped, err := os.ReadFile(testfiles.PolicyPacks("RFC5280.yaml"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -170,7 +171,7 @@ func TestSchemaCommandPrintsCommittedSchema(t *testing.T) {
 	if err := command.Execute(); err != nil {
 		t.Fatalf("schema command: %v", err)
 	}
-	committed, err := os.ReadFile("../../schemas/policy.schema.json")
+	committed, err := os.ReadFile(testfiles.Schema())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -183,7 +184,7 @@ func TestTestCommandRunsExampleSuites(t *testing.T) {
 	var out bytes.Buffer
 	command := newTestCmd()
 	command.SetOut(&out)
-	command.SetArgs([]string{"../../tests/policy-suites"})
+	command.SetArgs([]string{testfiles.PolicySuites()})
 	if err := command.Execute(); err != nil {
 		t.Fatalf("test command: %v\n%s", err, out.String())
 	}
@@ -225,10 +226,7 @@ func TestRuntimeErrorsDoNotPrintUsage(t *testing.T) {
 // Policy tests and inspection see the same external data as a lint run.
 func TestEvaluatingCommandsLoadPublicSuffixList(t *testing.T) {
 	dir := t.TempDir()
-	certs, err := filepath.Abs("../../tests/certs")
-	if err != nil {
-		t.Fatal(err)
-	}
+	certs := testfiles.Certs()
 	files := map[string]string{
 		"psl.dat": "// ===BEGIN ICANN DOMAINS===\ntest\n// ===END ICANN DOMAINS===\n",
 		"policy.yaml": `id: psl

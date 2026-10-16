@@ -3,7 +3,6 @@ package operator
 import (
 	"math/big"
 	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -12,6 +11,7 @@ import (
 
 	"github.com/cavoq/PCL/internal/cert"
 	"github.com/cavoq/PCL/internal/crl"
+	"github.com/cavoq/PCL/internal/testfiles"
 )
 
 func TestCRLOperators(t *testing.T) {
@@ -31,7 +31,7 @@ func TestCRLOperators(t *testing.T) {
 		}}
 	}
 
-	fixtureDER, err := os.ReadFile(filepath.Join("..", "..", "internal", "crl", "testdata", "test.crl"))
+	fixtureDER, err := os.ReadFile(testfiles.CRLTestdata("test.crl"))
 	if err != nil {
 		t.Fatalf("read CRL: %v", err)
 	}

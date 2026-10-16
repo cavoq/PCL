@@ -5,9 +5,18 @@ GOLANGCI_LINT_VERSION := v2.14.0
 GOVULNCHECK_VERSION := v1.9.0
 FUZZTIME ?= 10s
 
-LIMBO_JSON := tests/limbo/limbo.json
-LIMBO_COMMIT := $(shell sed -n 's/^commit=//p' tests/limbo/pin)
-LIMBO_SHA256 := $(shell sed -n 's/^sha256=//p' tests/limbo/pin)
+# Repository paths. Go tests locate their files through internal/testfiles;
+# keep both in step when the layout changes.
+CMD := ./cmd/pcl
+INTEGRATION := ./tests
+FIXTUREGEN := ./tests/fixturegen
+SCHEMA_JSON := schemas/policy.schema.json
+PSL_SNAPSHOT := internal/data/public_suffix_list.dat
+LIMBO_DIR := tests/limbo
+
+LIMBO_JSON := $(LIMBO_DIR)/limbo.json
+LIMBO_COMMIT := $(shell sed -n 's/^commit=//p' $(LIMBO_DIR)/pin)
+LIMBO_SHA256 := $(shell sed -n 's/^sha256=//p' $(LIMBO_DIR)/pin)
 
 LETSENCRYPT_CRL := internal/crl/testdata/letsencrypt
 LETSENCRYPT_CERT := internal/cert/testdata/letsencrypt
@@ -18,7 +27,7 @@ LETSENCRYPT_CERT := internal/cert/testdata/letsencrypt
 all: check
 
 build:
-	$(GO) build -trimpath -ldflags="-s -w" -o pcl ./cmd/pcl
+	$(GO) build -trimpath -ldflags="-s -w" -o pcl $(CMD)
 
 test:
 	$(GO) test ./...
@@ -32,10 +41,10 @@ cover:
 	$(GO) tool cover -func=coverage.out | tail -1
 
 integration:
-	$(GO) test -race ./tests
+	$(GO) test -race $(INTEGRATION)
 
 limbo: limbo-fetch
-	PCL_REQUIRE_LIMBO=1 $(GO) test -v -run '^TestLimbo$$' ./tests
+	PCL_REQUIRE_LIMBO=1 $(GO) test -v -run '^TestLimbo$$' $(INTEGRATION)
 
 # Downloads the x509-limbo testcases pinned in tests/limbo/pin and checks
 # their SHA-256; a current copy is kept.
@@ -68,27 +77,27 @@ tidy-check:
 	$(GO) mod tidy -diff
 
 schema:
-	$(GO) run ./cmd/pcl schema > schemas/policy.schema.json
+	$(GO) run $(CMD) schema > $(SCHEMA_JSON)
 
 schema-check:
-	$(GO) run ./cmd/pcl schema | diff -u schemas/policy.schema.json -
+	$(GO) run $(CMD) schema | diff -u $(SCHEMA_JSON) -
 
 # The checks to run before pushing.
 check: tidy-check schema-check lint race
 
 # Rewrites the CLI golden files in cmd/pcl/testdata/golden; review the diff.
 golden:
-	$(GO) test ./cmd/pcl -run '^TestGolden$$' -update
+	$(GO) test $(CMD) -run '^TestGolden$$' -update
 
 # Regenerates the certificate, CRL and OCSP fixtures in tests/certs,
 # tests/crls and tests/ocsps with new keys.
 fixtures:
-	$(GO) run ./tests/fixturegen
+	$(GO) run $(FIXTUREGEN)
 
 # Refreshes the Public Suffix List snapshot embedded in the binary.
 psl-snapshot:
-	curl -sSfL https://publicsuffix.org/list/public_suffix_list.dat -o internal/data/public_suffix_list.dat
-	grep -m1 '^// VERSION:' internal/data/public_suffix_list.dat
+	curl -sSfL https://publicsuffix.org/list/public_suffix_list.dat -o $(PSL_SNAPSHOT)
+	grep -m1 '^// VERSION:' $(PSL_SNAPSHOT)
 
 # Refreshes the Let's Encrypt CRL and CA fixtures from the official endpoints.
 letsencrypt-fixtures:

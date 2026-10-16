@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/cavoq/PCL/internal/source"
+	"github.com/cavoq/PCL/internal/testfiles"
 )
 
 func TestDownloadCertificatesWritesFiles(t *testing.T) {
@@ -81,7 +82,7 @@ func TestDownloadCertificatesRejectsHTTP(t *testing.T) {
 }
 
 func TestDownloadAndLoadCertificatesPreservesSource(t *testing.T) {
-	pemData, err := os.ReadFile("../../tests/certs/leaf.pem")
+	pemData, err := os.ReadFile(testfiles.Certs("leaf.pem"))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -3,18 +3,18 @@ package crlnode
 import (
 	"math/big"
 	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/cavoq/PCL/internal/crl"
+	"github.com/cavoq/PCL/internal/testfiles"
 	"github.com/zmap/zcrypto/x509"
 	"github.com/zmap/zcrypto/x509/pkix"
 )
 
 func readCRLFixture(t *testing.T) []byte {
 	t.Helper()
-	data, err := os.ReadFile(filepath.Join("..", "crl", "testdata", "test.crl"))
+	data, err := os.ReadFile(testfiles.CRLTestdata("test.crl"))
 	if err != nil {
 		t.Fatal(err)
 	}

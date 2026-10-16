@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -13,14 +12,15 @@ import (
 	"github.com/cavoq/PCL/internal/oid"
 	"github.com/cavoq/PCL/internal/operator"
 	"github.com/cavoq/PCL/internal/policy"
+	"github.com/cavoq/PCL/internal/testfiles"
 	zasn1 "github.com/zmap/zcrypto/encoding/asn1"
 	"github.com/zmap/zcrypto/x509"
 	"github.com/zmap/zcrypto/x509/pkix"
 )
 
 func TestRFC5280CoverageClassifiesEveryActiveRule(t *testing.T) {
-	policyPath := filepath.Join("..", "policies", "RFC5280.yaml")
-	coveragePath := filepath.Join("..", "policies", "RFC5280-COVERAGE.md")
+	policyPath := testfiles.PolicyPacks("RFC5280.yaml")
+	coveragePath := testfiles.PolicyPacks("RFC5280-COVERAGE.md")
 
 	active, err := policy.ParseFile(policyPath)
 	if err != nil {

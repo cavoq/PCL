@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/cavoq/PCL/internal/operator"
+	"github.com/cavoq/PCL/internal/testfiles"
 )
 
 func TestBuiltinPoliciesParse(t *testing.T) {
@@ -56,17 +57,13 @@ func TestLoadPoliciesResolvesBuiltinNames(t *testing.T) {
 }
 
 func TestPolicySuiteReferencesBuiltinPolicy(t *testing.T) {
-	root, err := filepath.Abs(filepath.Join("..", ".."))
-	if err != nil {
-		t.Fatal(err)
-	}
 	suite := filepath.Join(t.TempDir(), "builtin.test.yaml")
 	body := `policy: rfc5280
 time: 2026-10-01
 tests:
   - name: leaf against the built-in RFC 5280 pack
-    cert: ` + filepath.Join(root, "tests", "certs", "leaf.pem") + `
-    issuers: [` + filepath.Join(root, "tests", "certs", "intermediate.pem") + `]
+    cert: ` + testfiles.Certs("leaf.pem") + `
+    issuers: [` + testfiles.Certs("intermediate.pem") + `]
     expect:
       - input: leaf
         policy: rfc5280

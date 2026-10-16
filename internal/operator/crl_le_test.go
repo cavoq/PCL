@@ -3,18 +3,18 @@ package operator
 import (
 	"math/big"
 	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/cavoq/PCL/internal/cert"
 	"github.com/cavoq/PCL/internal/crl"
+	"github.com/cavoq/PCL/internal/testfiles"
 	"github.com/zmap/zcrypto/x509"
 	"github.com/zmap/zcrypto/x509/pkix"
 )
 
 func readLEFixture(t *testing.T, name string) []byte {
 	t.Helper()
-	data, err := os.ReadFile(filepath.Join("..", "crl", "testdata", "letsencrypt", name))
+	data, err := os.ReadFile(testfiles.CRLTestdata("letsencrypt", name))
 	if err != nil {
 		t.Fatalf("read LE fixture %s: %v", name, err)
 	}

@@ -12,11 +12,12 @@ import (
 	"github.com/zmap/zcrypto/x509/pkix"
 
 	"github.com/cavoq/PCL/internal/source"
+	"github.com/cavoq/PCL/internal/testfiles"
 	"github.com/cavoq/PCL/internal/testpki"
 )
 
 func TestLoadCertificates_Chain(t *testing.T) {
-	certs, err := LoadCertificates("../../tests/certs", nil)
+	certs, err := LoadCertificates(testfiles.Certs(), nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -44,7 +45,7 @@ func TestLoadCertificates_Chain(t *testing.T) {
 }
 
 func TestLoadCertificates_SingleCert(t *testing.T) {
-	certs, err := LoadCertificates("../../tests/certs/leaf.pem", nil)
+	certs, err := LoadCertificates(testfiles.Certs("leaf.pem"), nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -64,7 +65,7 @@ func TestLoadCertificates_SingleCert(t *testing.T) {
 }
 
 func TestParseCertificates(t *testing.T) {
-	data, err := os.ReadFile("../../tests/certs/leaf.pem")
+	data, err := os.ReadFile(testfiles.Certs("leaf.pem"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -136,7 +137,7 @@ func TestParseCertificates_inputs(t *testing.T) {
 
 // A PEM bundle passed as --issuer supplies every certificate it contains.
 func TestLoadCertificates_PEMBundleBuildsChain(t *testing.T) {
-	certs, err := LoadCertificates("../../tests/certs/chain.pem", nil)
+	certs, err := LoadCertificates(testfiles.Certs("chain.pem"), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -154,7 +155,7 @@ func TestLoadCertificates_PEMBundleBuildsChain(t *testing.T) {
 }
 
 func TestBuildChain_Positions(t *testing.T) {
-	certs, err := LoadCertificates("../../tests/certs", nil)
+	certs, err := LoadCertificates(testfiles.Certs(), nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -172,7 +173,7 @@ func TestBuildChain_Positions(t *testing.T) {
 }
 
 func TestBuildChain_Hashes(t *testing.T) {
-	certs, err := LoadCertificates("../../tests/certs", nil)
+	certs, err := LoadCertificates(testfiles.Certs(), nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -193,7 +194,7 @@ func TestBuildChain_Hashes(t *testing.T) {
 }
 
 func TestBuildChain_FilePaths(t *testing.T) {
-	certs, err := LoadCertificates("../../tests/certs", nil)
+	certs, err := LoadCertificates(testfiles.Certs(), nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -255,7 +256,7 @@ func TestGetCertType_ClassifiesIndependentOfPosition(t *testing.T) {
 
 func TestLoadCertificates_ReportsSkippedFiles(t *testing.T) {
 	dir := t.TempDir()
-	valid, err := os.ReadFile("../../tests/certs/leaf.pem")
+	valid, err := os.ReadFile(testfiles.Certs("leaf.pem"))
 	if err != nil {
 		t.Fatal(err)
 	}

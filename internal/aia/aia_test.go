@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -13,6 +12,7 @@ import (
 	"time"
 
 	"github.com/cavoq/PCL/internal/source"
+	"github.com/cavoq/PCL/internal/testfiles"
 	"github.com/cavoq/PCL/internal/testpki"
 	zx509 "github.com/zmap/zcrypto/x509"
 	zpkix "github.com/zmap/zcrypto/x509/pkix"
@@ -256,7 +256,7 @@ func testCertificateDER(t *testing.T, commonName string) []byte {
 func TestParseIssuerResponseAcceptsCompatibilityCertificates(t *testing.T) {
 	var ders [][]byte
 	for _, file := range []string{"DSAParametersInheritedCACert.crt", "ValiddistributionPointTest4EE.crt"} {
-		der, err := os.ReadFile(filepath.Join("..", "..", "tests", "pkits", "certs", file))
+		der, err := os.ReadFile(testfiles.PKITSCerts(file))
 		if err != nil {
 			t.Fatal(err)
 		}

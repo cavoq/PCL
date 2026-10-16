@@ -15,6 +15,7 @@ import (
 	"github.com/cavoq/PCL/internal/cert"
 	"github.com/cavoq/PCL/internal/linter"
 	pathpkg "github.com/cavoq/PCL/internal/path"
+	"github.com/cavoq/PCL/internal/testfiles"
 )
 
 // x509-limbo runs through the lint entry point with the shared path policy
@@ -22,7 +23,7 @@ import (
 // fetch it with `make limbo-fetch`. PCL_REQUIRE_LIMBO=1 turns a missing file
 // into a failure.
 
-const limboDir = "limbo"
+var limboDir = testfiles.Limbo()
 
 // limboValidationTime stands in for "now" in testcases without a validation
 // time. It lies inside the 2026-01-19 to 2027-01-21 validity of the pinned
@@ -130,7 +131,7 @@ func runLimbo(dir string, tc limboCase) (limboOutcome, error) {
 	cfg := linter.Config{
 		PolicyPaths: []string{
 			pathPolicy,
-			filepath.Join("..", "policies", "RFC5280.yaml"),
+			testfiles.PolicyPacks("RFC5280.yaml"),
 		},
 		CertPath:         filepath.Join(dir, "peer.pem"),
 		TrustAnchorPaths: []string{filepath.Join(dir, "anchors")},

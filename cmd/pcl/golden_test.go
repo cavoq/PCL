@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/cavoq/PCL/internal/linter"
+	"github.com/cavoq/PCL/internal/testfiles"
 )
 
 var update = flag.Bool("update", false, "rewrite the golden files in testdata/golden")
@@ -19,10 +20,15 @@ var update = flag.Bool("update", false, "rewrite the golden files in testdata/go
 // Public Suffix List and a fixed --validation-time for lint and inspect runs.
 // A golden file holds the output, then any error; only the run timestamp is
 // masked.
-const (
-	pkitsCerts = "../../tests/pkits/certs/"
-	pkitsCRLs  = "testdata/pkits-crls"
+//
+// Golden files print input paths, so inputs are named relative to this
+// package's directory, as a user would name them.
+var (
+	pkitsCerts = relativePath(testfiles.PKITSCerts()) + string(filepath.Separator)
+	pathSuite  = relativePath(testfiles.PolicySuites("path.test.yaml"))
 )
+
+const pkitsCRLs = "testdata/pkits-crls"
 
 const goldenTime = "2020-01-01T00:00:00Z"
 
@@ -65,7 +71,7 @@ func TestGolden(t *testing.T) {
 			"--crl", pkitsCRLs + "/GoodCACRL.crl"}},
 		{"policies", []string{"policies"}},
 		{"policies-show-rfc4055", []string{"policies", "show", "rfc4055"}},
-		{"test-path-suite", []string{"test", "../../tests/policy-suites/path.test.yaml"}},
+		{"test-path-suite", []string{"test", pathSuite}},
 		{"error-unknown-builtin", []string{"--policy", "builtin:nope", "--cert", pkitsCerts + "GoodCACert.crt"}},
 		{"error-peer-name-without-anchor", []string{"--policy", "rfc5280", "--peer-name", "example.com",
 			"--cert", pkitsCerts + "GoodCACert.crt"}},
@@ -112,6 +118,19 @@ func TestGolden(t *testing.T) {
 			}
 		})
 	}
+}
+
+// relativePath returns path relative to the working directory.
+func relativePath(path string) string {
+	wd, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+	relative, err := filepath.Rel(wd, path)
+	if err != nil {
+		panic(err)
+	}
+	return relative
 }
 
 // lintsOrInspects reports whether args run a lint or pcl inspect, the

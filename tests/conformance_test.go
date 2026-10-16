@@ -4,12 +4,14 @@ import (
 	"os"
 	"testing"
 
+	"github.com/cavoq/PCL/internal/testfiles"
+
 	"gopkg.in/yaml.v3"
 )
 
 // pathPolicy is the path engine's aggregate decision, shared by the PKITS and
 // x509-limbo harnesses.
-const pathPolicy = "policies/path-valid.yaml"
+var pathPolicy = testfiles.Policies("path-valid.yaml")
 
 // knownGap documents conformance runs whose PCL outcome differs from the
 // suite's expectation, grouped by cause.

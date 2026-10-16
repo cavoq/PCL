@@ -9,6 +9,7 @@ import (
 
 	"github.com/cavoq/PCL/internal/operator"
 	"github.com/cavoq/PCL/internal/rule"
+	"github.com/cavoq/PCL/internal/testfiles"
 )
 
 func TestParse_Valid(t *testing.T) {
@@ -500,7 +501,7 @@ rules:
 }
 
 func TestParseFile_ShippedPoliciesConformToSchema(t *testing.T) {
-	paths, err := filepath.Glob(filepath.Join("..", "..", "policies", "*.yaml"))
+	paths, err := filepath.Glob(testfiles.PolicyPacks("*.yaml"))
 	if err != nil {
 		t.Fatalf("glob shipped policies: %v", err)
 	}
@@ -518,7 +519,7 @@ func TestParseFile_ShippedPoliciesConformToSchema(t *testing.T) {
 }
 
 func TestRFC5280PolicyExcludesRFC6960AndLocalRules(t *testing.T) {
-	p, err := ParseFile(filepath.Join("..", "..", "policies", "RFC5280.yaml"))
+	p, err := ParseFile(testfiles.PolicyPacks("RFC5280.yaml"))
 	if err != nil {
 		t.Fatalf("parse RFC 5280 policy: %v", err)
 	}

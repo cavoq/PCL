@@ -5,13 +5,13 @@ import (
 	"encoding/pem"
 	"math/big"
 	"os"
-	"path/filepath"
 	"testing"
 
 	zasn1 "github.com/zmap/zcrypto/encoding/asn1"
 
 	"github.com/cavoq/PCL/internal/node"
 	"github.com/cavoq/PCL/internal/oid"
+	"github.com/cavoq/PCL/internal/testfiles"
 	"github.com/cavoq/PCL/internal/x509ext"
 	"github.com/zmap/zcrypto/x509"
 	"github.com/zmap/zcrypto/x509/pkix"
@@ -20,7 +20,7 @@ import (
 func loadTestCRL(t *testing.T, name string) *x509.RevocationList {
 	t.Helper()
 
-	path := filepath.Join("..", "crl", "testdata", name)
+	path := testfiles.CRLTestdata(name)
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("failed to read test CRL %s: %v", name, err)

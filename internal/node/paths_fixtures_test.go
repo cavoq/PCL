@@ -13,13 +13,14 @@ import (
 	"github.com/cavoq/PCL/internal/node"
 	"github.com/cavoq/PCL/internal/ocsp"
 	"github.com/cavoq/PCL/internal/ocspnode"
+	"github.com/cavoq/PCL/internal/testfiles"
 )
 
 // Every path listed for a projected tree must resolve back to the same node,
 // so policy authors can copy any listed path into a rule target.
 func TestPathsResolveToTheirNodes(t *testing.T) {
 	var trees []*node.Node
-	for _, dir := range []string{"../../tests/certs", "../cert/testdata", "../crl/testdata"} {
+	for _, dir := range []string{testfiles.Certs(), testfiles.CertTestdata(), testfiles.CRLTestdata()} {
 		_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 			if err != nil || info.IsDir() || !slices.Contains([]string{".pem", ".der", ".crt", ".cer"}, filepath.Ext(path)) {
 				return nil
@@ -34,7 +35,7 @@ func TestPathsResolveToTheirNodes(t *testing.T) {
 			return nil
 		})
 	}
-	for _, dir := range []string{"../../tests/crls", "../crl/testdata"} {
+	for _, dir := range []string{testfiles.CRLs(), testfiles.CRLTestdata()} {
 		lists, err := crl.GetCRLs(dir, nil)
 		if err != nil {
 			t.Fatalf("GetCRLs(%s): %v", dir, err)
@@ -43,7 +44,7 @@ func TestPathsResolveToTheirNodes(t *testing.T) {
 			trees = append(trees, crlnode.BuildTree(list.CRL))
 		}
 	}
-	responses, err := ocsp.GetOCSPs("../../tests/ocsps", nil)
+	responses, err := ocsp.GetOCSPs(testfiles.OCSPs(), nil)
 	if err != nil {
 		t.Fatalf("GetOCSPs: %v", err)
 	}

@@ -11,12 +11,13 @@ import (
 	"github.com/cavoq/PCL/internal/linter"
 	"github.com/cavoq/PCL/internal/operator"
 	pathpkg "github.com/cavoq/PCL/internal/path"
+	"github.com/cavoq/PCL/internal/testfiles"
 )
 
 // NIST PKITS 1.0.1 runs through the lint entry point. tests/pkits/manifest.json
 // is generated from the PKITS description by tests/scripts/pkits-manifest.py.
 
-const pkitsDir = "pkits"
+var pkitsDir = testfiles.PKITS()
 
 // pkitsValidationTime lies inside the 2010-2030 validity of the PKITS data.
 var pkitsValidationTime = time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)

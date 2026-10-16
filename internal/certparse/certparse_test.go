@@ -3,11 +3,11 @@ package certparse
 import (
 	"bytes"
 	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/zmap/zcrypto/dsa"
 
+	"github.com/cavoq/PCL/internal/testfiles"
 	"github.com/cavoq/PCL/internal/x509ext"
 )
 
@@ -76,7 +76,7 @@ func TestParseCertificateRejectsMalformedCRLDP(t *testing.T) {
 
 func readPKITSCertificate(t *testing.T, file string) []byte {
 	t.Helper()
-	der, err := os.ReadFile(filepath.Join("..", "..", "tests", "pkits", "certs", file))
+	der, err := os.ReadFile(testfiles.PKITSCerts(file))
 	if err != nil {
 		t.Fatal(err)
 	}

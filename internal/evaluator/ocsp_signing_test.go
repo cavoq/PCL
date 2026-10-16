@@ -4,7 +4,6 @@ import (
 	"crypto"
 	cryptox509 "crypto/x509"
 	"math/big"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -14,6 +13,7 @@ import (
 	"github.com/cavoq/PCL/internal/operator"
 	"github.com/cavoq/PCL/internal/policy"
 	"github.com/cavoq/PCL/internal/rule"
+	"github.com/cavoq/PCL/internal/testfiles"
 	"github.com/cavoq/PCL/internal/testpki"
 	stdocsp "golang.org/x/crypto/ocsp"
 )
@@ -78,7 +78,7 @@ func TestOCSP_evaluatesEmbeddedSigningCert(t *testing.T) {
 	resp.Certificate = responder.Std
 	issuerZ := issuer.Cert
 
-	pol, err := policy.ParseFile(filepath.Join("..", "..", "tests", "policies", "basic.yaml"))
+	pol, err := policy.ParseFile(testfiles.Policies("basic.yaml"))
 	if err != nil {
 		t.Fatalf("load policy: %v", err)
 	}

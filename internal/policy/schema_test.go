@@ -11,9 +11,10 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/cavoq/PCL/internal/operator"
+	"github.com/cavoq/PCL/internal/testfiles"
 )
 
-const committedSchemaPath = "../../schemas/policy.schema.json"
+var committedSchemaPath = testfiles.Schema()
 
 func compilePolicySchema(t *testing.T) *jsonschema.Schema {
 	t.Helper()
@@ -71,7 +72,7 @@ func TestCommittedSchemaIsCurrent(t *testing.T) {
 func TestSchemaAcceptsRepositoryPolicies(t *testing.T) {
 	schema := compilePolicySchema(t)
 	var files []string
-	for _, dir := range []string{"../../policies", "../../tests/policies"} {
+	for _, dir := range []string{testfiles.PolicyPacks(), testfiles.Policies()} {
 		matches, err := filepath.Glob(filepath.Join(dir, "*.yaml"))
 		if err != nil {
 			t.Fatal(err)

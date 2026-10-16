@@ -1,7 +1,7 @@
 // Command fixturegen writes the certificate, CRL and OCSP fixtures under
 // tests/certs, tests/crls and tests/ocsps, and the DER vectors under
-// tests/vectors. Run it from the repository root
-// with `make fixtures`. Keys are new on every run, so every fixture is
+// tests/vectors, or under the directory given as its argument. Run it with
+// `make fixtures`. Keys are new on every run, so every fixture is
 // rewritten; their names, extensions, validity windows and serial numbers
 // are fixed here. Private keys are never written.
 package main
@@ -24,11 +24,12 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/cavoq/PCL/internal/testfiles"
 	"golang.org/x/crypto/ocsp"
 )
 
 func main() {
-	dir := "tests"
+	dir := testfiles.Tests()
 	if len(os.Args) > 1 {
 		dir = os.Args[1]
 	}

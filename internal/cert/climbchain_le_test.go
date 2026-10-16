@@ -9,6 +9,7 @@ import (
 
 	"github.com/cavoq/PCL/internal/aia"
 	"github.com/cavoq/PCL/internal/source"
+	"github.com/cavoq/PCL/internal/testfiles"
 	"github.com/cavoq/PCL/internal/testpki"
 	zx509 "github.com/zmap/zcrypto/x509"
 )
@@ -129,7 +130,7 @@ func readLEFixtureCertDER(t *testing.T, name string) []byte {
 	t.Helper()
 	for _, base := range []string{
 		filepath.Join("testdata", "letsencrypt"),
-		filepath.Join("..", "crl", "testdata", "letsencrypt"),
+		testfiles.CRLTestdata("letsencrypt"),
 	} {
 		path := filepath.Join(base, name)
 		der, err := os.ReadFile(path)

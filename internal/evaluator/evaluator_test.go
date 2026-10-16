@@ -3,7 +3,6 @@ package evaluator
 import (
 	cryptox509 "crypto/x509"
 	"math/big"
-	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -18,6 +17,7 @@ import (
 	pathpkg "github.com/cavoq/PCL/internal/path"
 	"github.com/cavoq/PCL/internal/policy"
 	"github.com/cavoq/PCL/internal/rule"
+	"github.com/cavoq/PCL/internal/testfiles"
 	"github.com/cavoq/PCL/internal/testpki"
 	"github.com/zmap/zcrypto/x509"
 	"github.com/zmap/zcrypto/x509/pkix"
@@ -405,21 +405,21 @@ func (probe ocspAssessmentProbe) Evaluate(
 
 func TestChainSuppliesTargetScopedOCSPAssessments(t *testing.T) {
 	leafCertificates, err := cert.LoadCertificates(
-		filepath.Join("..", "..", "tests", "certs", "ocsp-leaf.pem"),
+		testfiles.Certs("ocsp-leaf.pem"),
 		nil,
 	)
 	if err != nil || len(leafCertificates) != 1 {
 		t.Fatalf("load OCSP leaf: certificates=%d err=%v", len(leafCertificates), err)
 	}
 	issuerCertificates, err := cert.LoadCertificates(
-		filepath.Join("..", "..", "tests", "certs", "ocsp-intermediate.pem"),
+		testfiles.Certs("ocsp-intermediate.pem"),
 		nil,
 	)
 	if err != nil || len(issuerCertificates) != 1 {
 		t.Fatalf("load OCSP issuer: certificates=%d err=%v", len(issuerCertificates), err)
 	}
 	responses, err := ocsp.GetOCSPs(
-		filepath.Join("..", "..", "tests", "ocsps", "good-leaf.ocsp"),
+		testfiles.OCSPs("good-leaf.ocsp"),
 		nil,
 	)
 	if err != nil || len(responses) != 1 || responses[0] == nil || responses[0].Response == nil {
@@ -607,7 +607,7 @@ func TestCRL_skipsNilEntries(t *testing.T) {
 		SerialNumber: big.NewInt(1),
 	}
 
-	pol, err := policy.ParseFile(filepath.Join("..", "..", "tests", "policies", "crl-validity.yaml"))
+	pol, err := policy.ParseFile(testfiles.Policies("crl-validity.yaml"))
 	if err != nil {
 		t.Fatalf("load policy: %v", err)
 	}
