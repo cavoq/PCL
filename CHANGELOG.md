@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [7.0.0] - 2026-10-16
+
 ### Breaking changes
 - `signatureValid`, `issuedBy` and `akiMatchesSki` are `inconclusive`
   instead of failing when the certificate's issuer is not in the evaluated
@@ -147,11 +149,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   [publicsuffix-go](https://github.com/weppos/publicsuffix-go), which zcrypto
   already linked, instead of a second snapshot, and list files given with
   `--psl-file` or found in the data directory are parsed by it; the binary
-  is about 440 KB smaller. `make psl-snapshot` updates the module, and
-  `pcl update-data` reports rule counts.
-- `make build` builds with `-trimpath -ldflags="-s -w"` like release builds:
-  the binary drops from about 14.9 MB to 10.8 MB and no longer embeds local
-  source paths.
+  is about 440 KB smaller. `pcl update-data` reports rule counts.
 - Release binaries are built with `-trimpath` and no longer embed the build
   machine's source paths.
 
@@ -690,7 +688,8 @@ Review any policies using `isNull` or absent-field checks against the updated no
 
 - See git history for earlier changes
 
-[Unreleased]: https://github.com/cavoq/PCL/compare/v6.0.0...HEAD
+[Unreleased]: https://github.com/cavoq/PCL/compare/v7.0.0...HEAD
+[7.0.0]: https://github.com/cavoq/PCL/compare/v6.0.0...v7.0.0
 [6.0.0]: https://github.com/cavoq/PCL/compare/v5.2.0...v6.0.0
 [5.2.0]: https://github.com/cavoq/PCL/compare/v5.1.0...v5.2.0
 [5.1.0]: https://github.com/cavoq/PCL/compare/v5.0.0...v5.1.0
