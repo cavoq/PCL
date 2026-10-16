@@ -5,7 +5,7 @@
     "policies": [
       {
         "id": "rfc5280",
-        "version": "2.0",
+        "version": "2.1",
         "title": "X.509 certificate, CRL, and certification-path checks",
         "standard": "RFC 5280",
         "edition": "2008",
@@ -47,10 +47,10 @@
       ]
     },
     "total_certs": 5,
-    "total_rules": 715,
-    "passed_rules": 167,
+    "total_rules": 720,
+    "passed_rules": 169,
     "failed_rules": 0,
-    "skipped_rules": 548,
+    "skipped_rules": 551,
     "inconclusive_rules": 0
   },
   "results": [
@@ -484,6 +484,21 @@
               "status": "pass",
               "certificate_index": -1,
               "message": "actual: false; expected: false"
+            }
+          ]
+        },
+        {
+          "rule_id": "aki-well-formed",
+          "reference": "RFC5280 4.2.1.1",
+          "verdict": "pass",
+          "severity": "error",
+          "requirement": "must",
+          "findings": [
+            {
+              "code": "absent",
+              "status": "pass",
+              "certificate_index": -1,
+              "message": "actual: absent; expected: absent"
             }
           ]
         },
@@ -1139,6 +1154,21 @@
               "status": "pass",
               "certificate_index": -1,
               "message": "actual: false; expected: false"
+            }
+          ]
+        },
+        {
+          "rule_id": "aki-well-formed",
+          "reference": "RFC5280 4.2.1.1",
+          "verdict": "pass",
+          "severity": "error",
+          "requirement": "must",
+          "findings": [
+            {
+              "code": "absent",
+              "status": "pass",
+              "certificate_index": -1,
+              "message": "actual: absent; expected: absent"
             }
           ]
         },

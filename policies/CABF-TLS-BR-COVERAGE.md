@@ -46,6 +46,7 @@ below.
 | Key Usage (7.1.2.7.11) | Covered | `br-subscriber-key-usage-*`, `br-subscriber-rsa-key-usage*`, `br-subscriber-ecc-key-usage*` | [CA/B suite](../tests/policy-suites/cabf.test.yaml) |
 | Basic Constraints, Name Constraints, SKI (7.1.2.7.6, 7.1.2.7.8) | Covered | `br-subscriber-basic-constraints-critical`, `br-subscriber-no-name-constraints`, `br-subscriber-no-subject-key-identifier` (NOT RECOMMENDED); cA and pathLenConstraint by `rfc5280` | Conforming chain |
 | CRL Distribution Points (7.1.2.11.2) | Covered | `br-subscriber-crl-distribution-points-required*` (short-lived 10 days, 7 days from 2026-03-15), `br-crl-distribution-points-*` | Conforming chain |
+| Authority Key Identifier (7.1.2.11.1, 7.1.2.1.3) | Covered for observable content | `br-aki-present` (subscriber, subordinate), `br-aki-not-critical` (every certificate); from 2023-09-15 `br-aki-well-formed`, `br-aki-key-identifier`, `br-aki-no-authority-cert-issuer`, `br-aki-no-authority-cert-serial-number`; presence for roots (recommended) and responders in their profiles | [AKI suite](../tests/policy-suites/cabf-aki.test.yaml) |
 | Subject by certificate type (7.1.2.7.2–7.1.2.7.4) | Covered for DV, OV, IV | `br-subscriber-dv-subject-attributes`, `br-subscriber-ov-*`, `br-subscriber-iv-*`, `br-subscriber-subject-not-metadata` | [CA/B suite](../tests/policy-suites/cabf.test.yaml) |
 | Common Name (7.1.4.3) | Partial | `br-subscriber-common-name-not-recommended`, `br-subscriber-common-name-from-san` | [CA/B suite](../tests/policy-suites/cabf.test.yaml) |
 | Common CA fields (7.1.2.10) | Partial | `br-ca-version-3`, `br-ca-key-usage-*`, `br-ca-aia-*`, `br-ca-name-constraints-critical` (SHOULD); required C/O/CN checked for roots only because cross-certificates may retain historical subjects | Conforming CA chain, bad subordinate and cross-subject vectors |
@@ -54,6 +55,7 @@ below.
 | OCSP responder profile (7.1.2.8) | Partial | `br-ocsp-responder-*`: version, AKI presence, sole OCSPSigning EKU, nocheck presence/DER/criticality, KU, BC DER/criticality, no SAN/NC/CRLDP, AIA methods/URLs, required C/O/CN and extension recommendations | Conforming responder, bad responder and weak responder key |
 | CRL signature encoding (7.1.3.2) | Covered | `br-crl-signature-algorithm-encoding` | Conforming CRL |
 | CRL validity (7.2) | Partial | `br-crl-next-update-12-months`, `br-crl-subscriber-next-update-10-days` when IDP asserts onlyContainsUserCerts | Conforming CRL, 11-day subscriber CRL and 400-day root CRL |
+| CRL Authority Key Identifier (7.2.2) | Covered for observable content | `br-crl-aki-present`, `-not-critical`, `-well-formed`, `-key-identifier`, `-no-authority-cert-issuer`, `-no-authority-cert-serial-number` from 2024-03-15 | [AKI suite](../tests/policy-suites/cabf-aki.test.yaml) |
 | CRL reasons and IDP (7.2.2) | Partial | Allowed reason codes, no indirect/attribute-certificate CRLs, named partitions, URI-only fullName, recommendation against reason partitions | Bad CRLs and an explicit unspecified reason requiring certificate context |
 | OCSP response profile (7.1.3.2, 7.3) | Partial | `br-ocsp-signature-algorithm-encoding`, `br-ocsp-no-reason-code-extension`, `br-ocsp-revocation-reason` | SHA-1 response, forbidden singleExtension and certificateHold vectors |
 
@@ -69,7 +71,7 @@ below.
 | Certificate Policies | Exactly-one cardinality is enforced for subscribers from 2023-09-15. It is not imposed on every CA: some cross-certificates may carry multiple reserved identifiers, and constrained non-TLS CAs may use private identifiers. CA profile, affiliation and direct/transitive subscriber issuance must be established before stricter cardinality/identifier checks can apply. Private identifiers' CP/CPS documentation, the truth of the asserted validation type, and CPS URL ownership/content are external evidence, not established by syntax checks |
 | ECDSA signature hash | Matching the hash to the signing key's curve (7.1.3.2.2) needs the issuer's key and is not checked |
 | Historical signature exceptions | Shared current signature allowlists do not implement the SHA-1 exception for reissued CA certificates before 2026-09-15 |
-| Authority Key Identifier | authorityCertIssuer and authorityCertSerialNumber (7.1.2.11.1) are not projected |
+| Authority Key Identifier | That keyIdentifier equals the issuer's subjectKeyIdentifier (7.1.2.11.1) needs the issuer certificate; the pack leaves it to rfc5280 `aki-matches-ski`, which fails without the issuer and passes when the issuer has no SKI |
 | Serial numbers | 64 bits of CSPRNG output and non-sequential issuance are not observable in one certificate |
 | Names | RDN order (7.1.4.2), byte-identical CA subject encodings across certificates (7.1.4.1), the IPv4/IPv6 text forms of a commonName, and Punycode validity of P-Labels are not checked |
 | Internal Names | Top-level domains come from the Public Suffix List ICANN section, embedded or loaded with `--psl-file` |

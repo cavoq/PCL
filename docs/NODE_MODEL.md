@@ -108,6 +108,10 @@ certificate.extensions.2.5.29.54        # inhibitAnyPolicy
 ```
 certificate.subjectKeyIdentifier        # SKI value ([]byte)
 certificate.authorityKeyIdentifier      # AKI value ([]byte)
+certificate.extensions.authorityKeyIdentifier.keyIdentifier  # strictly parsed; each field absent when not encoded
+certificate.extensions.authorityKeyIdentifier.authorityCertIssuer  # GeneralNames with count
+certificate.extensions.authorityKeyIdentifier.authorityCertSerialNumber  # with decimal/fitsInt
+certificate.extensions.authorityKeyIdentifier.malformed  # true when strict decoding failed
 certificate.basicConstraints.cA         # cA boolean
 certificate.basicConstraints.cAPresent  # encoded BOOLEAN presence
 certificate.basicConstraints.pathLenConstraint  # Path length

@@ -63,8 +63,6 @@
   cases:
     - crl::structure::crl-duplicate-revoked-serial
     - webpki::aki::root-with-aki-missing-keyidentifier
-    - webpki::aki::root-with-aki-authoritycertissuer
-    - webpki::aki::root-with-aki-authoritycertserialnumber
     - webpki::aki::root-with-aki-all-fields
     - webpki::aki::root-with-aki-ski-mismatch
     - webpki::cn::ipv4-hex-mismatch

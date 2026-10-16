@@ -139,6 +139,15 @@ tests:
         policy: rfc5280
         rules:
           key-usage-has-at-least-one-bit: fail
+  # authorityCertIssuer without authorityCertSerialNumber (4.2.1.1).
+  - name: rfc5280-aki-issuer-without-serial
+    cert: ../vectors/cabf-aki/leaf-issuer-without-serial.pem
+    issuers: [../vectors/cabf-aki/issuer.pem]
+    expect:
+      - input: leaf
+        policy: rfc5280
+        rules:
+          aki-well-formed: fail
   - name: rfc5280-ian-second-invalid-label
     cert: ../vectors/certificate-ian-second-invalid-dns-label/certificate.pem
     expect:

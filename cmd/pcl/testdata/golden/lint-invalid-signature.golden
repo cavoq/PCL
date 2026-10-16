@@ -1,12 +1,12 @@
-[Summary] Checked: <time> | Validation time: 2020-01-01T00:00:00Z | Certs: 5 | Rules: 715 | PASS: 165, FAIL: 2, SKIP: 548, WARN: 0
-[Policy] rfc5280 2.0 | RFC 5280 | 2008
+[Summary] Checked: <time> | Validation time: 2020-01-01T00:00:00Z | Certs: 5 | Rules: 720 | PASS: 167, FAIL: 2, SKIP: 551, WARN: 0
+[Policy] rfc5280 2.1 | RFC 5280 | 2008
 [Chain] 3 certificate(s), anchored
   leaf          CN=Invalid EE Signature Test3, O=Test Certificates 2011, C=US
   intermediate  CN=Good CA, O=Test Certificates 2011, C=US
   root          CN=Trust Anchor, O=Test Certificates 2011, C=US (trust anchor)
 
 ========================================================================
-[File] Policy: rfc5280 | Cert: leaf | File: ../../tests/pkits/certs/InvalidEESignatureTest3EE.crt | Verdict: FAIL | PASS: 41, FAIL: 2, SKIP: 100, WARN: 0
+[File] Policy: rfc5280 | Cert: leaf | File: ../../tests/pkits/certs/InvalidEESignatureTest3EE.crt | Verdict: FAIL | PASS: 42, FAIL: 2, SKIP: 100, WARN: 0
 ------------------------------------------------------------------------
   VERDICT  SEVERITY  REQUIREMENT  RULE                      REFERENCE      
   -------  --------  -----------  ------------------------  ---------------
@@ -16,22 +16,22 @@
                                   └─ path.signature: certificate signature is invalid
 
 ========================================================================
-[File] Policy: rfc5280 | Cert: intermediate | File: ../../tests/pkits/certs/GoodCACert.crt | Verdict: PASS | PASS: 48, FAIL: 0, SKIP: 95, WARN: 0
+[File] Policy: rfc5280 | Cert: intermediate | File: ../../tests/pkits/certs/GoodCACert.crt | Verdict: PASS | PASS: 49, FAIL: 0, SKIP: 95, WARN: 0
 ------------------------------------------------------------------------
   (no rules to display with current verbosity)
 
 ========================================================================
-[File] Policy: rfc5280 | Cert: root | File: ../../tests/pkits/certs/TrustAnchorRootCertificate.crt | Verdict: PASS | PASS: 38, FAIL: 0, SKIP: 105, WARN: 0
+[File] Policy: rfc5280 | Cert: root | File: ../../tests/pkits/certs/TrustAnchorRootCertificate.crt | Verdict: PASS | PASS: 38, FAIL: 0, SKIP: 106, WARN: 0
 ------------------------------------------------------------------------
   (no rules to display with current verbosity)
 
 ========================================================================
-[File] Policy: rfc5280 | Cert: crl | File: testdata/pkits-crls/GoodCACRL.crl | Verdict: PASS | PASS: 19, FAIL: 0, SKIP: 124, WARN: 0
+[File] Policy: rfc5280 | Cert: crl | File: testdata/pkits-crls/GoodCACRL.crl | Verdict: PASS | PASS: 19, FAIL: 0, SKIP: 125, WARN: 0
 ------------------------------------------------------------------------
   (no rules to display with current verbosity)
 
 ========================================================================
-[File] Policy: rfc5280 | Cert: crl | File: testdata/pkits-crls/TrustAnchorRootCRL.crl | Verdict: PASS | PASS: 19, FAIL: 0, SKIP: 124, WARN: 0
+[File] Policy: rfc5280 | Cert: crl | File: testdata/pkits-crls/TrustAnchorRootCRL.crl | Verdict: PASS | PASS: 19, FAIL: 0, SKIP: 125, WARN: 0
 ------------------------------------------------------------------------
   (no rules to display with current verbosity)
 error: 2 failed or inconclusive rule(s) with severity error or higher

@@ -17,7 +17,7 @@ func projectCRLExtension(extension pkix.Extension) (*node.Node, error) {
 		if err != nil {
 			return nil, err
 		}
-		return projectAuthorityKeyIdentifier(facts), nil
+		return x509node.ProjectAuthorityKeyIdentifier(facts), nil
 	case oid.CRLNumber:
 		facts, err := x509ext.DecodeIntegerExtension(extension)
 		if err != nil {
@@ -87,30 +87,6 @@ func projectEntryExtension(extension pkix.Extension) (*node.Node, error) {
 	default:
 		return nil, nil
 	}
-}
-
-func projectAuthorityKeyIdentifier(facts *x509ext.AuthorityKeyIdentifierFacts) *node.Node {
-	n := node.New("authorityKeyIdentifier", nil)
-	n.Children["raw"] = node.New("raw", append([]byte(nil), facts.RawDER...))
-	if facts.KeyIdentifier != nil {
-		n.Children["keyIdentifier"] = node.New(
-			"keyIdentifier",
-			append([]byte(nil), facts.KeyIdentifier...),
-		)
-	}
-	if facts.AuthorityIssuer != nil {
-		issuer := node.New("authorityCertIssuer", nil)
-		x509node.AddGeneralNames(issuer, facts.AuthorityIssuer)
-		issuer.Children["count"] = node.New("count", len(facts.AuthorityIssuer))
-		n.Children["authorityCertIssuer"] = issuer
-	}
-	if facts.SerialNumber != nil {
-		serial := node.New("authorityCertSerialNumber", facts.SerialNumber.Scalar())
-		serial.Children["decimal"] = node.New("decimal", facts.SerialNumber.Decimal)
-		serial.Children["fitsInt"] = node.New("fitsInt", facts.SerialNumber.FitsInt)
-		n.Children["authorityCertSerialNumber"] = serial
-	}
-	return n
 }
 
 func projectIntegerExtension(name string, facts *x509ext.IntegerExtensionFacts) *node.Node {

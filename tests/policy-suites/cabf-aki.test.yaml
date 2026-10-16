@@ -1,0 +1,77 @@
+policy: ../../policies/CABF-TLS-BR.yaml
+time: "2026-06-02T00:00:00Z"
+tests:
+  - name: key-identifier-only
+    cert: ../vectors/cabf-aki/leaf-key-identifier-only.pem
+    issuers: [../vectors/cabf-aki/issuer.pem]
+    crl: ../vectors/cabf-aki/key-identifier-only.crl
+    expect:
+      - {input: leaf, verdict: pass, failed: []}
+      - {input: crl, verdict: pass, failed: []}
+  - name: issuer-and-serial-are-forbidden
+    cert: ../vectors/cabf-aki/leaf-issuer-and-serial.pem
+    expect:
+      - input: leaf
+        verdict: fail
+        failed: [br-aki-no-authority-cert-issuer, br-aki-no-authority-cert-serial-number]
+  - name: key-identifier-is-required
+    cert: ../vectors/cabf-aki/leaf-no-key-identifier.pem
+    expect:
+      - input: leaf
+        verdict: fail
+        failed: [br-aki-key-identifier, br-aki-no-authority-cert-issuer, br-aki-no-authority-cert-serial-number]
+  - name: aki-must-not-be-critical
+    cert: ../vectors/cabf-aki/leaf-critical.pem
+    expect:
+      - {input: leaf, verdict: fail, failed: [br-aki-not-critical]}
+  # RFC 5280 requires authorityCertIssuer and authorityCertSerialNumber
+  # together; a lone one is malformed and projects no fields.
+  - name: malformed-aki
+    cert: ../vectors/cabf-aki/leaf-issuer-without-serial.pem
+    expect:
+      - input: leaf
+        verdict: fail
+        failed: [br-aki-well-formed, br-aki-key-identifier]
+  - name: subscriber-aki-is-required
+    cert: ../vectors/cabf-aki/leaf-missing.pem
+    expect:
+      - {input: leaf, verdict: fail, failed: [br-aki-present]}
+  - name: field-profile-not-retroactive
+    cert: ../vectors/cabf-aki/leaf-before-cutover.pem
+    expect:
+      - input: leaf
+        verdict: pass
+        failed: []
+        rules: {br-aki-present: pass, br-aki-not-critical: pass,
+          br-aki-no-authority-cert-issuer: skip, br-aki-no-authority-cert-serial-number: skip}
+  - name: ca-issuer-and-serial-are-forbidden
+    cert: ../vectors/cabf-aki/intermediate-issuer-and-serial.pem
+    issuers: [../vectors/cabf-aki/issuer.pem]
+    expect:
+      - input: intermediate
+        verdict: fail
+        failed: [br-aki-no-authority-cert-issuer, br-aki-no-authority-cert-serial-number]
+  - name: ca-aki-is-required
+    cert: ../vectors/cabf-aki/intermediate-missing.pem
+    issuers: [../vectors/cabf-aki/issuer.pem]
+    expect:
+      - {input: intermediate, verdict: fail, failed: [br-aki-present]}
+  # A root's AKI is only recommended, but when present has the same profile.
+  - name: root-issuer-and-serial-are-forbidden
+    cert: ../vectors/cabf-aki/root-issuer-and-serial.pem
+    expect:
+      - input: root
+        verdict: fail
+        failed: [br-aki-no-authority-cert-issuer, br-aki-no-authority-cert-serial-number]
+  - name: crl-issuer-and-serial-are-forbidden
+    cert: ../vectors/cabf-aki/issuer.pem
+    crl: ../vectors/cabf-aki/issuer-and-serial.crl
+    expect:
+      - input: crl
+        verdict: fail
+        failed: [br-crl-aki-no-authority-cert-issuer, br-crl-aki-no-authority-cert-serial-number]
+  - name: crl-aki-is-required
+    cert: ../vectors/cabf-aki/issuer.pem
+    crl: ../vectors/cabf-aki/missing.crl
+    expect:
+      - {input: crl, verdict: fail, failed: [br-crl-aki-present]}

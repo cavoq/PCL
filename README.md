@@ -130,7 +130,7 @@ runs** through the explicit-anchor path engine. This is test-suite evidence,
 not a claim of universal RFC coverage. See [PKITS](tests/pkits/README.md).
 
 The [x509-limbo](tests/limbo/README.md) suite, including BetterTLS, runs
-against the path engine and the RFC 5280 profile: **9737 of 9802 testcases**
+against the path engine and the RFC 5280 profile: **9739 of 9802 testcases**
 reach the limbo result. The rest are listed with their cause in
 [known gaps](tests/limbo/known-gaps.yaml), most of them CA/B Forum
 requirements outside RFC 5280.

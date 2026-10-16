@@ -39,13 +39,17 @@ certificate
 │   │   └── value: 300e300c060a60864801650302013001
 │   ├── 2.5.29.35
 │   │   ├── critical: false
+│   │   ├── keyIdentifier: 580184241bbc2b52944a3da510721451f5af3ac9
 │   │   ├── name: authorityKeyIdentifier
 │   │   ├── oid: 2.5.29.35
+│   │   ├── raw: 30168014580184241bbc2b52944a3da510721451f5af3ac9
 │   │   └── value: 30168014580184241bbc2b52944a3da510721451f5af3ac9
 │   ├── 2.5.29.35
 │   │   ├── critical: false
+│   │   ├── keyIdentifier: 580184241bbc2b52944a3da510721451f5af3ac9
 │   │   ├── name: authorityKeyIdentifier
 │   │   ├── oid: 2.5.29.35
+│   │   ├── raw: 30168014580184241bbc2b52944a3da510721451f5af3ac9
 │   │   └── value: 30168014580184241bbc2b52944a3da510721451f5af3ac9
 │   ├── 2.5.29.32
 │   │   ├── 0

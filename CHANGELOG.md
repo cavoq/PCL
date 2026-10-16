@@ -53,6 +53,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   inconclusive rules like failures, so exit statuses do not change.
 
 ### Added
+- Certificates project the strictly decoded authorityKeyIdentifier fields
+  (`keyIdentifier`, `authorityCertIssuer`, `authorityCertSerialNumber`) under
+  `certificate.extensions.authorityKeyIdentifier`, as CRLs already did. RFC5280
+  pack `2.1` adds `aki-well-formed`; it closes two x509-limbo known gaps.
+- CABF pack `2.3.1-4` checks the authorityKeyIdentifier profile (7.1.2.11.1,
+  7.1.2.1.3, 7.2.2) of certificates and CRLs: presence, criticality, a
+  required keyIdentifier and no authorityCertIssuer or
+  authorityCertSerialNumber.
 - CABF pack `2.3.1-3` checks subscriber `certificatePolicies` cardinality,
   recommended identifier ordering, CA anyPolicy exclusivity, strict policy
   DER and CPS-only qualifiers with HTTP(S) URLs. The new profile checks are

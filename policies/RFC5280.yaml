@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/cavoq/PCL/master/schemas/policy.schema.json
 id: rfc5280
-version: "2.0"
+version: "2.1"
 metadata:
   title: X.509 certificate, CRL, and certification-path checks
   standard: RFC 5280
@@ -211,6 +211,15 @@ rules:
     target: certificate.extensions.authorityKeyIdentifier.critical
     operator: eq
     operands: [false]
+    requirement: must
+
+  - id: aki-well-formed
+    reference: RFC5280 4.2.1.1
+    when:
+      target: certificate.extensions.authorityKeyIdentifier
+      operator: present
+    target: certificate.extensions.authorityKeyIdentifier.malformed
+    operator: absent
     requirement: must
 
   - id: aki-matches-ski

@@ -28,17 +28,18 @@ type ZCryptoBuilder struct{}
 type extensionNodeParser func([]byte) (*node.Node, error)
 
 var certificateExtensionParsers = map[string]extensionNodeParser{
-	oid.AuthorityInfoAccess:   ParseAIAStrict,
-	oid.KeyUsage:              ParseKeyUsageStrict,
-	oid.BasicConstraints:      ParseBasicConstraintsStrict,
-	oid.NameConstraints:       ParseNameConstraintsStrict,
-	oid.CRLDistributionPoints: ParseCRLDPStrict,
-	oid.FreshestCRL:           ParseFreshestCRLStrict,
-	oid.CertificatePolicies:   ParseCertPoliciesStrict,
-	oid.PolicyMappings:        ParsePolicyMappingsStrict,
-	oid.PolicyConstraints:     ParsePolicyConstraintsStrict,
-	oid.ExtendedKeyUsage:      ParseExtKeyUsageStrict,
-	oid.InhibitAnyPolicy:      ParseInhibitAnyPolicyStrict,
+	oid.AuthorityInfoAccess:    ParseAIAStrict,
+	oid.AuthorityKeyIdentifier: ParseAuthorityKeyIdentifierStrict,
+	oid.KeyUsage:               ParseKeyUsageStrict,
+	oid.BasicConstraints:       ParseBasicConstraintsStrict,
+	oid.NameConstraints:        ParseNameConstraintsStrict,
+	oid.CRLDistributionPoints:  ParseCRLDPStrict,
+	oid.FreshestCRL:            ParseFreshestCRLStrict,
+	oid.CertificatePolicies:    ParseCertPoliciesStrict,
+	oid.PolicyMappings:         ParsePolicyMappingsStrict,
+	oid.PolicyConstraints:      ParsePolicyConstraintsStrict,
+	oid.ExtendedKeyUsage:       ParseExtKeyUsageStrict,
+	oid.InhibitAnyPolicy:       ParseInhibitAnyPolicyStrict,
 }
 
 func NewZCryptoBuilder() *ZCryptoBuilder {

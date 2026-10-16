@@ -39,13 +39,17 @@ certificate.extensions.2.5.29.32.raw = 300e300c060a60864801650302013001 (bytes)
 certificate.extensions.2.5.29.32.value = 300e300c060a60864801650302013001 (bytes)
 certificate.extensions.2.5.29.35
 certificate.extensions.2.5.29.35.critical = false (bool)
+certificate.extensions.2.5.29.35.keyIdentifier = 580184241bbc2b52944a3da510721451f5af3ac9 (bytes)
 certificate.extensions.2.5.29.35.name = authorityKeyIdentifier (string)
 certificate.extensions.2.5.29.35.oid = 2.5.29.35 (string)
+certificate.extensions.2.5.29.35.raw = 30168014580184241bbc2b52944a3da510721451f5af3ac9 (bytes)
 certificate.extensions.2.5.29.35.value = 30168014580184241bbc2b52944a3da510721451f5af3ac9 (bytes)
 certificate.extensions.authorityKeyIdentifier
 certificate.extensions.authorityKeyIdentifier.critical = false (bool)
+certificate.extensions.authorityKeyIdentifier.keyIdentifier = 580184241bbc2b52944a3da510721451f5af3ac9 (bytes)
 certificate.extensions.authorityKeyIdentifier.name = authorityKeyIdentifier (string)
 certificate.extensions.authorityKeyIdentifier.oid = 2.5.29.35 (string)
+certificate.extensions.authorityKeyIdentifier.raw = 30168014580184241bbc2b52944a3da510721451f5af3ac9 (bytes)
 certificate.extensions.authorityKeyIdentifier.value = 30168014580184241bbc2b52944a3da510721451f5af3ac9 (bytes)
 certificate.extensions.certificatePolicies
 certificate.extensions.certificatePolicies.2.16.840.1.101.3.2.1.48.1
