@@ -31,10 +31,16 @@ func DefaultSeverity(requirement string) string {
 	}
 }
 
+// Condition is a rule precondition: either one check of a target with an
+// operator, or exactly one of AllOf, AnyOf and Not over nested conditions.
 type Condition struct {
-	Target   string `yaml:"target"`
-	Operator string `yaml:"operator"`
-	Operands any    `yaml:"operands"` // Can be []any or map[string]any
+	Target   string `yaml:"target,omitempty"`
+	Operator string `yaml:"operator,omitempty"`
+	Operands any    `yaml:"operands,omitempty"` // Can be []any or map[string]any
+
+	AllOf []Condition `yaml:"allOf,omitempty"`
+	AnyOf []Condition `yaml:"anyOf,omitempty"`
+	Not   *Condition  `yaml:"not,omitempty"`
 }
 
 type Rule struct {

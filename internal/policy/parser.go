@@ -38,6 +38,10 @@ func Parse(data []byte) (Policy, error) {
 		return Policy{}, fmt.Errorf("parsing yaml: %w", err)
 	}
 
+	p, err := expandGroups(p)
+	if err != nil {
+		return Policy{}, err
+	}
 	if err := validatePolicy(p); err != nil {
 		return Policy{}, err
 	}

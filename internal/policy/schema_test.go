@@ -134,6 +134,44 @@ metadata: {inputs: [" certificate"]}`},
 		{name: "metadata must be a mapping", policy: `
 id: example
 metadata: [certificate]`},
+		{name: "group with inherited fields", valid: true, policy: `
+id: example
+groups:
+  - id: section
+    reference: SPEC 1
+    requirement: must
+    certType: [leaf]
+    effective: {basis: issuance, from: 2023-09-15}
+    when: {target: certificate.extensions, operator: present}
+    rules:
+      - {id: r1, target: certificate.version, operator: present}`},
+		{name: "group without rules", policy: `
+id: example
+groups:
+  - {id: section, rules: []}`},
+		{name: "unknown group field", policy: `
+id: example
+groups:
+  - {id: section, severity: error, rules: [{id: r1, target: certificate.version, operator: present}]}`},
+		{name: "compound condition", valid: true, policy: `
+id: example
+rules:
+  - id: r1
+    target: certificate.version
+    operator: present
+    severity: error
+    when:
+      allOf:
+        - {target: certificate.extensions, operator: present}
+        - not: {anyOf: [{target: certificate.subject, operator: absent}, {target: certificate.issuer, operator: absent}]}`},
+		{name: "condition mixing forms", policy: `
+id: example
+rules:
+  - {id: r1, target: certificate.version, operator: present, severity: error, when: {target: a, operator: present, not: {target: b, operator: present}}}`},
+		{name: "allOf with one condition", policy: `
+id: example
+rules:
+  - {id: r1, target: certificate.version, operator: present, severity: error, when: {allOf: [{target: a, operator: present}]}}`},
 		{name: "effective window", valid: true, policy: `
 id: example
 rules:

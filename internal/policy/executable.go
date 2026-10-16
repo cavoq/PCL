@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/cavoq/PCL/internal/operator"
+	"github.com/cavoq/PCL/internal/rule"
 )
 
 // ValidateExecutable verifies the parts of a structurally valid policy that
@@ -22,10 +23,13 @@ func ValidateExecutable(p Policy, registry *operator.Registry) error {
 		if candidate.When == nil {
 			continue
 		}
-		if err := registry.Validate(
-			candidate.When.Operator,
-			operator.NormalizeOperands(candidate.When.Operands),
-		); err != nil {
+		var err error
+		candidate.When.Leaves(func(leaf *rule.Condition) {
+			if err == nil {
+				err = registry.Validate(leaf.Operator, operator.NormalizeOperands(leaf.Operands))
+			}
+		})
+		if err != nil {
 			return fmt.Errorf("rule %s: when: %w", candidate.ID, err)
 		}
 	}

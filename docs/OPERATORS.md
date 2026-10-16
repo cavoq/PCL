@@ -146,6 +146,8 @@ stale, unauthenticated, from an unauthorized signer, or Unknown still fails.
 |----------|----------|-------------|
 | `every` | [{path, operator, operands, skipMissing}] | Iterates array elements and checks each |
 | `anyOf` | [{path?, operator, operands?}, ...] (two or more) | True when at least one condition holds on the target; a condition whose path does not resolve holds only for `absent`, `neq` and other operators that decide absence |
+| `allOf` | Same as `anyOf` | True when every condition holds on the target |
+| `oneOf` | Same as `anyOf` | True when exactly one condition holds on the target |
 
 ## Path Validation Operators
 
@@ -232,6 +234,11 @@ operators that decide absence, such as `absent`, can hold:
     - {path: digitalSignature, operator: eq, operands: [true]}
     - {path: nonRepudiation, operator: eq, operands: [true]}
 ```
+
+`allOf` uses the same condition syntax as `anyOf`, but every condition must
+hold. A missing path fails its condition unless the condition's operator
+decides absence. It combines several checks of one target in one rule, for
+example the encoding facts of a time.
 
 `oneOf` uses the same condition syntax as `anyOf`, but exactly one condition
 must hold. It counts successful conditions, not distinct nodes; overlapping

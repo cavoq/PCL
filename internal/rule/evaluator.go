@@ -71,15 +71,7 @@ func Evaluate(
 			return newResult(r, VerdictFail, "when condition error: "+err.Error())
 		}
 		if !conditionMet {
-			return Skipped(r, CodeCondition, "condition not met: "+explain(
-				root,
-				r.When.Target,
-				r.When.Operator,
-				r.When.Operands,
-				false,
-				reg,
-				ctx,
-			))
+			return Skipped(r, CodeCondition, "condition not met: "+explainUnmet(root, r.When, reg, ctx))
 		}
 	}
 
@@ -186,21 +178,6 @@ func resolveTarget(root *node.Node, target string) (*node.Node, bool) {
 		return nil, false
 	}
 	return root.Resolve(target)
-}
-
-func evaluateCondition(
-	root *node.Node,
-	cond *Condition,
-	reg *operator.Registry,
-	ctx *operator.EvaluationContext,
-) (bool, error) {
-	ok, err := resolveAndEvaluate(root, cond.Target, cond.Operator, cond.Operands, reg, ctx)
-	// A condition on an absent target is not met: the rule is not applicable
-	// to an input that lacks the field the condition inspects.
-	if isTargetNotFound(err) {
-		return false, nil
-	}
-	return ok, err
 }
 
 type targetNotFoundError struct {

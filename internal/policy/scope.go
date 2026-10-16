@@ -58,9 +58,11 @@ func scopeForRule(candidate rule.Rule) ruleScope {
 	}
 
 	if candidate.When != nil {
-		if dependency, ok := inputKindFromTarget(candidate.When.Target); ok {
-			scope.dependencies.add(dependency)
-		}
+		candidate.When.Leaves(func(leaf *rule.Condition) {
+			if dependency, ok := inputKindFromTarget(leaf.Target); ok {
+				scope.dependencies.add(dependency)
+			}
+		})
 	}
 	return scope
 }

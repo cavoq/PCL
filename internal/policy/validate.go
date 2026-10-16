@@ -157,17 +157,49 @@ func validateRule(index int, candidate rule.Rule, seenIDs map[string]struct{}) e
 	if candidate.When == nil {
 		return nil
 	}
-	if strings.TrimSpace(candidate.When.Target) == "" {
-		return fmt.Errorf("rule %s: when.target is required", candidate.ID)
+	return validateCondition("rule "+candidate.ID+": when", *candidate.When)
+}
+
+// validateCondition checks that a condition is one target check or exactly
+// one of allOf, anyOf and not, recursively.
+func validateCondition(field string, condition rule.Condition) error {
+	forms := 0
+	for _, used := range []bool{condition.AllOf != nil, condition.AnyOf != nil, condition.Not != nil} {
+		if used {
+			forms++
+		}
 	}
-	if err := rejectSurroundingWhitespace("rule "+candidate.ID+" when.target", candidate.When.Target); err != nil {
+	leaf := condition.Target != "" || condition.Operator != "" || condition.Operands != nil
+	switch {
+	case forms > 1 || (forms == 1 && leaf):
+		return fmt.Errorf("%s: use one of target/operator, allOf, anyOf or not", field)
+	case condition.AllOf != nil:
+		return validateConditions(field+".allOf", condition.AllOf)
+	case condition.AnyOf != nil:
+		return validateConditions(field+".anyOf", condition.AnyOf)
+	case condition.Not != nil:
+		return validateCondition(field+".not", *condition.Not)
+	}
+	if strings.TrimSpace(condition.Target) == "" {
+		return fmt.Errorf("%s.target is required", field)
+	}
+	if err := rejectSurroundingWhitespace(field+".target", condition.Target); err != nil {
 		return err
 	}
-	if strings.TrimSpace(candidate.When.Operator) == "" {
-		return fmt.Errorf("rule %s: when.operator is required", candidate.ID)
+	if strings.TrimSpace(condition.Operator) == "" {
+		return fmt.Errorf("%s.operator is required", field)
 	}
-	if err := rejectSurroundingWhitespace("rule "+candidate.ID+" when.operator", candidate.When.Operator); err != nil {
-		return err
+	return rejectSurroundingWhitespace(field+".operator", condition.Operator)
+}
+
+func validateConditions(field string, conditions []rule.Condition) error {
+	if len(conditions) < 2 {
+		return fmt.Errorf("%s needs at least two conditions", field)
+	}
+	for i, condition := range conditions {
+		if err := validateCondition(fmt.Sprintf("%s[%d]", field, i), condition); err != nil {
+			return err
+		}
 	}
 	return nil
 }

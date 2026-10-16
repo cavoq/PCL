@@ -4,6 +4,852 @@
   "additionalProperties": false,
   "definitions": {
     "condition": {
+      "description": "Evaluate the rule only when this condition holds: one target check, or allOf, anyOf or not over nested conditions.",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "operator": {
+                    "enum": [
+                      "absent",
+                      "akiMatchesSki",
+                      "anyExtendedKeyUsageNotCritical",
+                      "applicationPurposeValid",
+                      "basicConstraintsDependenciesValid",
+                      "componentIsPublicSuffix",
+                      "componentNotPublicSuffix",
+                      "componentTLDNotRegistered",
+                      "containsBom",
+                      "crlDistributionPointsDependenciesValid",
+                      "crlNotExpired",
+                      "crlSignedBy",
+                      "crlValid",
+                      "ekuClientAuth",
+                      "ekuServerAuth",
+                      "httpURL",
+                      "inhibitAnyPolicyDependenciesValid",
+                      "isCritical",
+                      "isEmpty",
+                      "isIA5String",
+                      "isNotPublicSuffix",
+                      "isNull",
+                      "isPrintableString",
+                      "isPublicSuffix",
+                      "isUTF8String",
+                      "issuedBy",
+                      "keyUsageDependenciesValid",
+                      "nameConstraintsDependenciesValid",
+                      "nameConstraintsDistancesValid",
+                      "nameConstraintsValid",
+                      "noDuplicateAttributes",
+                      "noUnknownCriticalExtensions",
+                      "notCritical",
+                      "notEmpty",
+                      "notRevoked",
+                      "notRevokedByAvailableEvidence",
+                      "notRevokedOCSP",
+                      "ocspGood",
+                      "ocspValid",
+                      "odd",
+                      "pathLenValid",
+                      "pathValid",
+                      "policyConstraintsDependenciesValid",
+                      "policyMappingsDependenciesValid",
+                      "policyMappingsIssuerPoliciesPresent",
+                      "positive",
+                      "present",
+                      "serialNumberUnique",
+                      "signatureAlgorithmMatchesTBS",
+                      "signatureValid",
+                      "tldNotRegistered",
+                      "tldRegistered",
+                      "uniqueChildren",
+                      "uniqueValues",
+                      "utf8NoBom",
+                      "validIA5String",
+                      "validPrintableString",
+                      "validityOrderCorrect",
+                      "wildcardNotPublicSuffix"
+                    ]
+                  }
+                },
+                "required": [
+                  "operator"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "operands": {
+                    "$ref": "#/definitions/operands.absent"
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "operator": {
+                    "enum": [
+                      "after",
+                      "before",
+                      "onOrAfter",
+                      "onOrBefore"
+                    ]
+                  }
+                },
+                "required": [
+                  "operator"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "operands": {
+                    "$ref": "#/definitions/operands.after"
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "operator": {
+                    "enum": [
+                      "allOf"
+                    ]
+                  }
+                },
+                "required": [
+                  "operator"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "operands": {
+                    "$ref": "#/definitions/operands.allOf"
+                  }
+                },
+                "required": [
+                  "operands"
+                ]
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "operator": {
+                    "enum": [
+                      "anyComponentMatches",
+                      "noComponentMatches",
+                      "notRegex",
+                      "regex"
+                    ]
+                  }
+                },
+                "required": [
+                  "operator"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "operands": {
+                    "$ref": "#/definitions/operands.anyComponentMatches"
+                  }
+                },
+                "required": [
+                  "operands"
+                ]
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "operator": {
+                    "enum": [
+                      "anyOf"
+                    ]
+                  }
+                },
+                "required": [
+                  "operator"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "operands": {
+                    "$ref": "#/definitions/operands.anyOf"
+                  }
+                },
+                "required": [
+                  "operands"
+                ]
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "operator": {
+                    "enum": [
+                      "certificatePolicyValid"
+                    ]
+                  }
+                },
+                "required": [
+                  "operator"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "operands": {
+                    "$ref": "#/definitions/operands.certificatePolicyValid"
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "operator": {
+                    "enum": [
+                      "componentInCIDR",
+                      "componentNotInCIDR"
+                    ]
+                  }
+                },
+                "required": [
+                  "operator"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "operands": {
+                    "$ref": "#/definitions/operands.componentInCIDR"
+                  }
+                },
+                "required": [
+                  "operands"
+                ]
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "operator": {
+                    "enum": [
+                      "componentMaxLength",
+                      "componentMinLength"
+                    ]
+                  }
+                },
+                "required": [
+                  "operator"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "operands": {
+                    "$ref": "#/definitions/operands.componentMaxLength"
+                  }
+                },
+                "required": [
+                  "operands"
+                ]
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "operator": {
+                    "enum": [
+                      "componentNotRegex",
+                      "componentRegex"
+                    ]
+                  }
+                },
+                "required": [
+                  "operator"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "operands": {
+                    "$ref": "#/definitions/operands.componentNotRegex"
+                  }
+                },
+                "required": [
+                  "operands"
+                ]
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "operator": {
+                    "enum": [
+                      "contains",
+                      "in",
+                      "notIn"
+                    ]
+                  }
+                },
+                "required": [
+                  "operator"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "operands": {
+                    "$ref": "#/definitions/operands.contains"
+                  }
+                },
+                "required": [
+                  "operands"
+                ]
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "operator": {
+                    "enum": [
+                      "dateDiff"
+                    ]
+                  }
+                },
+                "required": [
+                  "operator"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "operands": {
+                    "$ref": "#/definitions/operands.dateDiff"
+                  }
+                },
+                "required": [
+                  "operands"
+                ]
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "operator": {
+                    "enum": [
+                      "derEqualsHex"
+                    ]
+                  }
+                },
+                "required": [
+                  "operator"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "operands": {
+                    "$ref": "#/definitions/operands.derEqualsHex"
+                  }
+                },
+                "required": [
+                  "operands"
+                ]
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "operator": {
+                    "enum": [
+                      "ekuContains",
+                      "ekuNotContains"
+                    ]
+                  }
+                },
+                "required": [
+                  "operator"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "operands": {
+                    "$ref": "#/definitions/operands.ekuContains"
+                  }
+                },
+                "required": [
+                  "operands"
+                ]
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "operator": {
+                    "enum": [
+                      "eq",
+                      "neq"
+                    ]
+                  }
+                },
+                "required": [
+                  "operator"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "operands": {
+                    "$ref": "#/definitions/operands.eq"
+                  }
+                },
+                "required": [
+                  "operands"
+                ]
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "operator": {
+                    "enum": [
+                      "every"
+                    ]
+                  }
+                },
+                "required": [
+                  "operator"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "operands": {
+                    "$ref": "#/definitions/operands.every"
+                  }
+                },
+                "required": [
+                  "operands"
+                ]
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "operator": {
+                    "enum": [
+                      "gt",
+                      "gte",
+                      "lt",
+                      "lte"
+                    ]
+                  }
+                },
+                "required": [
+                  "operator"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "operands": {
+                    "$ref": "#/definitions/operands.gt"
+                  }
+                },
+                "required": [
+                  "operands"
+                ]
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "operator": {
+                    "enum": [
+                      "matches"
+                    ]
+                  }
+                },
+                "required": [
+                  "operator"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "operands": {
+                    "$ref": "#/definitions/operands.matches"
+                  }
+                },
+                "required": [
+                  "operands"
+                ]
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "operator": {
+                    "enum": [
+                      "maxLength",
+                      "minLength"
+                    ]
+                  }
+                },
+                "required": [
+                  "operator"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "operands": {
+                    "$ref": "#/definitions/operands.maxLength"
+                  }
+                },
+                "required": [
+                  "operands"
+                ]
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "operator": {
+                    "enum": [
+                      "multipleOf"
+                    ]
+                  }
+                },
+                "required": [
+                  "operator"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "operands": {
+                    "$ref": "#/definitions/operands.multipleOf"
+                  }
+                },
+                "required": [
+                  "operands"
+                ]
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "operator": {
+                    "enum": [
+                      "oneOf"
+                    ]
+                  }
+                },
+                "required": [
+                  "operator"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "operands": {
+                    "$ref": "#/definitions/operands.oneOf"
+                  }
+                },
+                "required": [
+                  "operands"
+                ]
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "operator": {
+                    "enum": [
+                      "validityDays"
+                    ]
+                  }
+                },
+                "required": [
+                  "operator"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "operands": {
+                    "$ref": "#/definitions/operands.validityDays"
+                  }
+                },
+                "required": [
+                  "operands"
+                ]
+              }
+            }
+          ],
+          "properties": {
+            "operands": {
+              "description": "Operator operands: a sequence, or one value."
+            },
+            "operator": {
+              "description": "Operator applied to the target node.",
+              "enum": [
+                "absent",
+                "after",
+                "akiMatchesSki",
+                "allOf",
+                "anyComponentMatches",
+                "anyExtendedKeyUsageNotCritical",
+                "anyOf",
+                "applicationPurposeValid",
+                "basicConstraintsDependenciesValid",
+                "before",
+                "certificatePolicyValid",
+                "componentInCIDR",
+                "componentIsPublicSuffix",
+                "componentMaxLength",
+                "componentMinLength",
+                "componentNotInCIDR",
+                "componentNotPublicSuffix",
+                "componentNotRegex",
+                "componentRegex",
+                "componentTLDNotRegistered",
+                "contains",
+                "containsBom",
+                "crlDistributionPointsDependenciesValid",
+                "crlNotExpired",
+                "crlSignedBy",
+                "crlValid",
+                "dateDiff",
+                "derEqualsHex",
+                "ekuClientAuth",
+                "ekuContains",
+                "ekuNotContains",
+                "ekuServerAuth",
+                "eq",
+                "every",
+                "gt",
+                "gte",
+                "httpURL",
+                "in",
+                "inhibitAnyPolicyDependenciesValid",
+                "isCritical",
+                "isEmpty",
+                "isIA5String",
+                "isNotPublicSuffix",
+                "isNull",
+                "isPrintableString",
+                "isPublicSuffix",
+                "isUTF8String",
+                "issuedBy",
+                "keyUsageDependenciesValid",
+                "lt",
+                "lte",
+                "matches",
+                "maxLength",
+                "minLength",
+                "multipleOf",
+                "nameConstraintsDependenciesValid",
+                "nameConstraintsDistancesValid",
+                "nameConstraintsValid",
+                "neq",
+                "noComponentMatches",
+                "noDuplicateAttributes",
+                "noUnknownCriticalExtensions",
+                "notCritical",
+                "notEmpty",
+                "notIn",
+                "notRegex",
+                "notRevoked",
+                "notRevokedByAvailableEvidence",
+                "notRevokedOCSP",
+                "ocspGood",
+                "ocspValid",
+                "odd",
+                "onOrAfter",
+                "onOrBefore",
+                "oneOf",
+                "pathLenValid",
+                "pathValid",
+                "policyConstraintsDependenciesValid",
+                "policyMappingsDependenciesValid",
+                "policyMappingsIssuerPoliciesPresent",
+                "positive",
+                "present",
+                "regex",
+                "serialNumberUnique",
+                "signatureAlgorithmMatchesTBS",
+                "signatureValid",
+                "tldNotRegistered",
+                "tldRegistered",
+                "uniqueChildren",
+                "uniqueValues",
+                "utf8NoBom",
+                "validIA5String",
+                "validPrintableString",
+                "validityDays",
+                "validityOrderCorrect",
+                "wildcardNotPublicSuffix"
+              ],
+              "type": "string"
+            },
+            "target": {
+              "description": "Dotted node path; list paths with pcl inspect --paths.",
+              "pattern": "^\\S(.*\\S)?$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "target",
+            "operator"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "allOf": {
+              "description": "Every condition holds.",
+              "items": {
+                "$ref": "#/definitions/condition"
+              },
+              "minItems": 2,
+              "type": "array"
+            }
+          },
+          "required": [
+            "allOf"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "anyOf": {
+              "description": "At least one condition holds.",
+              "items": {
+                "$ref": "#/definitions/condition"
+              },
+              "minItems": 2,
+              "type": "array"
+            }
+          },
+          "required": [
+            "anyOf"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "not": {
+              "$ref": "#/definitions/condition",
+              "description": "The condition does not hold; a condition on an absent target does not hold."
+            }
+          },
+          "required": [
+            "not"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "group": {
+      "additionalProperties": false,
+      "description": "Rules of one source section. Rules inherit reference, requirement, certType and effective unless they state their own; the group's when must hold as well as each rule's.",
+      "properties": {
+        "certType": {
+          "description": "Default roles of the rules.",
+          "items": {
+            "enum": [
+              "attrCert",
+              "crl",
+              "intermediate",
+              "leaf",
+              "ocsp",
+              "ocspSigning",
+              "root",
+              "sct",
+              "tst"
+            ],
+            "type": "string"
+          },
+          "type": "array",
+          "uniqueItems": true
+        },
+        "effective": {
+          "additionalProperties": false,
+          "anyOf": [
+            {
+              "required": [
+                "from"
+              ]
+            },
+            {
+              "required": [
+                "until"
+              ]
+            }
+          ],
+          "description": "Evaluate the rule only when the basis time lies in [from, until); otherwise it is skipped as not effective.",
+          "properties": {
+            "basis": {
+              "description": "issuance: certificate notBefore, CRL thisUpdate or OCSP producedAt; validation: the evaluation time.",
+              "enum": [
+                "issuance",
+                "validation"
+              ],
+              "type": "string"
+            },
+            "from": {
+              "description": "First instant the rule is in effect (inclusive); YYYY-MM-DD is UTC midnight.",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}([Tt][0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?([Zz]|[+-][0-9]{2}:[0-9]{2}))?$",
+              "type": "string"
+            },
+            "until": {
+              "description": "First instant the rule is no longer in effect (exclusive).",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}([Tt][0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?([Zz]|[+-][0-9]{2}:[0-9]{2}))?$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "basis"
+          ],
+          "type": "object"
+        },
+        "id": {
+          "description": "Group identifier, unique within the policy.",
+          "pattern": "^\\S(.*\\S)?$",
+          "type": "string"
+        },
+        "reference": {
+          "description": "Default specification reference of the rules.",
+          "type": "string"
+        },
+        "requirement": {
+          "description": "Default requirement level of the rules.",
+          "enum": [
+            "may",
+            "must",
+            "should"
+          ],
+          "type": "string"
+        },
+        "rules": {
+          "items": {
+            "$ref": "#/definitions/groupRule"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "title": {
+          "description": "Section title, for example the source clause heading.",
+          "type": "string"
+        },
+        "when": {
+          "$ref": "#/definitions/condition"
+        }
+      },
+      "required": [
+        "id",
+        "rules"
+      ],
+      "type": "object"
+    },
+    "groupRule": {
       "additionalProperties": false,
       "allOf": [
         {
@@ -107,6 +953,30 @@
                 "$ref": "#/definitions/operands.after"
               }
             }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "operator": {
+                "enum": [
+                  "allOf"
+                ]
+              }
+            },
+            "required": [
+              "operator"
+            ]
+          },
+          "then": {
+            "properties": {
+              "operands": {
+                "$ref": "#/definitions/operands.allOf"
+              }
+            },
+            "required": [
+              "operands"
+            ]
           }
         },
         {
@@ -553,8 +1423,75 @@
           }
         }
       ],
-      "description": "Evaluate the rule only when this condition holds.",
       "properties": {
+        "certType": {
+          "description": "Evaluate the rule only for these roles; other roles skip it.",
+          "items": {
+            "enum": [
+              "attrCert",
+              "crl",
+              "intermediate",
+              "leaf",
+              "ocsp",
+              "ocspSigning",
+              "root",
+              "sct",
+              "tst"
+            ],
+            "type": "string"
+          },
+          "type": "array",
+          "uniqueItems": true
+        },
+        "effective": {
+          "additionalProperties": false,
+          "anyOf": [
+            {
+              "required": [
+                "from"
+              ]
+            },
+            {
+              "required": [
+                "until"
+              ]
+            }
+          ],
+          "description": "Evaluate the rule only when the basis time lies in [from, until); otherwise it is skipped as not effective.",
+          "properties": {
+            "basis": {
+              "description": "issuance: certificate notBefore, CRL thisUpdate or OCSP producedAt; validation: the evaluation time.",
+              "enum": [
+                "issuance",
+                "validation"
+              ],
+              "type": "string"
+            },
+            "from": {
+              "description": "First instant the rule is in effect (inclusive); YYYY-MM-DD is UTC midnight.",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}([Tt][0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?([Zz]|[+-][0-9]{2}:[0-9]{2}))?$",
+              "type": "string"
+            },
+            "until": {
+              "description": "First instant the rule is no longer in effect (exclusive).",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}([Tt][0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?([Zz]|[+-][0-9]{2}:[0-9]{2}))?$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "basis"
+          ],
+          "type": "object"
+        },
+        "id": {
+          "description": "Rule identifier, unique within the policy.",
+          "pattern": "^\\S(.*\\S)?$",
+          "type": "string"
+        },
+        "message": {
+          "description": "Message reported when the rule fails.",
+          "type": "string"
+        },
         "operands": {
           "description": "Operator operands: a sequence, or one value."
         },
@@ -564,6 +1501,7 @@
             "absent",
             "after",
             "akiMatchesSki",
+            "allOf",
             "anyComponentMatches",
             "anyExtendedKeyUsageNotCritical",
             "anyOf",
@@ -659,13 +1597,39 @@
           ],
           "type": "string"
         },
+        "reference": {
+          "description": "Specification reference, for example RFC 5280 4.2.1.9.",
+          "type": "string"
+        },
+        "requirement": {
+          "description": "RFC 2119 requirement level of the checked source clause: must (MUST, SHALL), should (SHOULD, RECOMMENDED) or may (MAY, OPTIONAL).",
+          "enum": [
+            "may",
+            "must",
+            "should"
+          ],
+          "type": "string"
+        },
+        "severity": {
+          "description": "Severity of a failure; defaults from requirement: must error, should warning, may info.",
+          "enum": [
+            "error",
+            "info",
+            "warning"
+          ],
+          "type": "string"
+        },
         "target": {
           "description": "Dotted node path; list paths with pcl inspect --paths.",
           "pattern": "^\\S(.*\\S)?$",
           "type": "string"
+        },
+        "when": {
+          "$ref": "#/definitions/condition"
         }
       },
       "required": [
+        "id",
         "target",
         "operator"
       ],
@@ -711,6 +1675,32 @@
         }
       ],
       "description": "Optional comparison time: \"now\", YYYY-MM-DD or RFC 3339; defaults to the evaluation time."
+    },
+    "operands.allOf": {
+      "description": "Conditions on the target; the rule passes when every one holds.",
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "operands": {
+            "description": "Operands of the condition's operator."
+          },
+          "operator": {
+            "description": "Operator of the condition.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "path": {
+            "description": "Path below the target; omit for the target itself.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "operator"
+        ],
+        "type": "object"
+      },
+      "minItems": 2,
+      "type": "array"
     },
     "operands.anyComponentMatches": {
       "anyOf": [
@@ -1592,6 +2582,30 @@
             "properties": {
               "operator": {
                 "enum": [
+                  "allOf"
+                ]
+              }
+            },
+            "required": [
+              "operator"
+            ]
+          },
+          "then": {
+            "properties": {
+              "operands": {
+                "$ref": "#/definitions/operands.allOf"
+              }
+            },
+            "required": [
+              "operands"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "operator": {
+                "enum": [
                   "anyComponentMatches",
                   "noComponentMatches",
                   "notRegex",
@@ -2121,6 +3135,7 @@
             "absent",
             "after",
             "akiMatchesSki",
+            "allOf",
             "anyComponentMatches",
             "anyExtendedKeyUsageNotCritical",
             "anyOf",
@@ -2312,6 +3327,13 @@
       },
       "type": "array",
       "uniqueItems": true
+    },
+    "groups": {
+      "description": "Rule groups, evaluated after rules in order.",
+      "items": {
+        "$ref": "#/definitions/group"
+      },
+      "type": "array"
     },
     "id": {
       "description": "Policy identifier.",

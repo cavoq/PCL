@@ -25,6 +25,10 @@ func JSONSchema(registry *operator.Registry) ([]byte, error) {
 	}
 	definitions["condition"] = conditionSchema(operatorName, operandRules)
 	definitions["rule"] = ruleSchema(operatorName, operandRules)
+	groupRule := ruleSchema(operatorName, operandRules)
+	delete(groupRule, "anyOf")
+	definitions["groupRule"] = groupRule
+	definitions["group"] = groupSchema()
 
 	schema := map[string]any{
 		"$schema":              "http://json-schema.org/draft-07/schema#",
@@ -77,17 +81,58 @@ func operandDefinitions(registry *operator.Registry, names []string) (map[string
 }
 
 func conditionSchema(operatorName map[string]any, operandRules []any) map[string]any {
+	nested := map[string]any{"$ref": "#/definitions/condition"}
+	conditions := map[string]any{"type": "array", "minItems": 2, "items": nested}
+	compound := func(name, description string, value map[string]any) map[string]any {
+		return map[string]any{
+			"type":                 "object",
+			"additionalProperties": false,
+			"required":             []any{name},
+			"properties":           map[string]any{name: withSchemaDescription(value, description)},
+		}
+	}
+	return map[string]any{
+		"description": "Evaluate the rule only when this condition holds: one target check, or allOf, anyOf or not over nested conditions.",
+		"oneOf": []any{
+			map[string]any{
+				"type":                 "object",
+				"additionalProperties": false,
+				"required":             []any{"target", "operator"},
+				"properties": map[string]any{
+					"target":   withSchemaDescription(trimmedString, targetDescription),
+					"operator": operatorName,
+					"operands": map[string]any{"description": "Operator operands: a sequence, or one value."},
+				},
+				"allOf": operandRules,
+			},
+			compound("allOf", "Every condition holds.", conditions),
+			compound("anyOf", "At least one condition holds.", conditions),
+			compound("not", "The condition does not hold; a condition on an absent target does not hold.", nested),
+		},
+	}
+}
+
+func groupSchema() map[string]any {
 	return map[string]any{
 		"type":                 "object",
-		"description":          "Evaluate the rule only when this condition holds.",
 		"additionalProperties": false,
-		"required":             []any{"target", "operator"},
+		"required":             []any{"id", "rules"},
+		"description":          "Rules of one source section. Rules inherit reference, requirement, certType and effective unless they state their own; the group's when must hold as well as each rule's.",
 		"properties": map[string]any{
-			"target":   withSchemaDescription(trimmedString, targetDescription),
-			"operator": operatorName,
-			"operands": map[string]any{"description": "Operator operands: a sequence, or one value."},
+			"id":          withSchemaDescription(trimmedString, "Group identifier, unique within the policy."),
+			"title":       map[string]any{"type": "string", "description": "Section title, for example the source clause heading."},
+			"reference":   map[string]any{"type": "string", "description": "Default specification reference of the rules."},
+			"requirement": map[string]any{"type": "string", "enum": setToAny(validRequirements), "description": "Default requirement level of the rules."},
+			"certType": map[string]any{
+				"type":        "array",
+				"uniqueItems": true,
+				"items":       map[string]any{"type": "string", "enum": setToAny(validRuleCertTypes)},
+				"description": "Default roles of the rules.",
+			},
+			"when":      map[string]any{"$ref": "#/definitions/condition"},
+			"effective": effectiveSchema(),
+			"rules":     map[string]any{"type": "array", "minItems": 1, "items": map[string]any{"$ref": "#/definitions/groupRule"}},
 		},
-		"allOf": operandRules,
 	}
 }
 
@@ -188,6 +233,11 @@ func policyProperties() map[string]any {
 		"tstType": map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
 		"sctType": map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
 		"rules":   map[string]any{"type": "array", "items": map[string]any{"$ref": "#/definitions/rule"}},
+		"groups": map[string]any{
+			"type":        "array",
+			"items":       map[string]any{"$ref": "#/definitions/group"},
+			"description": "Rule groups, evaluated after rules in order.",
+		},
 	}
 }
 

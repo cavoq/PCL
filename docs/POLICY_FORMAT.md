@@ -45,6 +45,7 @@ unreleased features. Execution validates semantic operand constraints as well.
 | `crlType` | No | CRL filter: `completeCRL`, `indirectCRL`, `deltaCRLIndicator`, or `2.5.29.27` |
 | `tstType`, `sctType` | No | Reserved subtype filters; no CLI loaders yet |
 | `rules` | No | Rule sequence; include-only packs are allowed |
+| `groups` | No | Rule groups, evaluated after `rules`; see [Groups](#groups) |
 
 Includes merge rules before the parent's own rules. Cycles and duplicate rule
 IDs fail loading. Shared included files are loaded once. Metadata and
@@ -99,7 +100,7 @@ part of this format.
 | `reference` | No | Requirement reference |
 | `message` | No | Human-readable failure message |
 | `certType` | No | Rule role filter; nonmatching roles skip |
-| `when` | No | Precondition with `target`, `operator`, and optional `operands` |
+| `when` | No | Precondition: `target`, `operator` and optional `operands`, or a [compound condition](#compound-conditions) |
 | `effective` | No | Window `{basis, from, until}` in which the rule is in effect; see [Effective dates](#effective-dates) |
 
 State `requirement` for rules that implement a normative source, so a SHOULD
@@ -115,6 +116,56 @@ and reserved `tst`, `sct`, `attrCert`. Omit `certType` to allow all roles.
 
 Unknown fields/operators, invalid operands, and multiple YAML documents are
 load errors. Validation includes `when` and nested `every` invocations.
+
+## Groups
+
+A group collects the rules of one source section and states what they
+share once:
+
+```yaml
+groups:
+  - id: subscriber-certificate-policies
+    title: Subscriber Certificate Policies (7.1.2.7.9)
+    reference: CABF-BR 7.1.2.7.9
+    certType: [leaf]
+    effective: {basis: issuance, from: 2023-09-15}
+    rules:
+      - id: br-subscriber-reserved-policy-exactly-one
+        target: certificate.extensions.certificatePolicies
+        operator: oneOf
+        operands: [...]
+        requirement: must
+```
+
+| Field | Meaning |
+|---|---|
+| `id` | Required, unique among the policy's groups |
+| `title` | Section title, for readers and tools |
+| `reference`, `requirement`, `certType`, `effective` | Defaults: a rule that states its own value keeps it |
+| `when` | Applies to every rule: it must hold as well as the rule's own `when` |
+| `rules` | Required, at least one rule |
+
+Groups are expanded when the policy is loaded: their rules follow the
+policy's own `rules`, in group order, and behave exactly like ungrouped rules
+with the inherited fields written out. Rule IDs stay unique across groups. A
+rule inherits the group's `requirement` even when it states a `severity`.
+
+## Compound conditions
+
+A condition is one target check, or exactly one of `allOf`, `anyOf` and `not`,
+which nest:
+
+```yaml
+when:
+  allOf:
+    - {target: certificate.extensions.certificatePolicies, operator: present}
+    - not: {target: certificate.extKeyUsage.serverAuth, operator: eq, operands: [true]}
+```
+
+`allOf` and `anyOf` take at least two conditions. A check on an absent target
+does not hold, so `not` of it does: use `absent` when absence is the point.
+A skipped rule names the first unmet condition of an `allOf`, every condition
+of an `anyOf`, or the condition a `not` found to hold.
 
 ## Effective dates
 

@@ -120,6 +120,7 @@ var builtins = []builtinOperator{
 	// Generic operators
 	{Every{}, operandContract{}},
 	{AnyOf{}, operandContract{}},
+	{AllOf{}, operandContract{}},
 	{OneOf{}, operandContract{}},
 	{HTTPURL{}, noOperandsContract},
 	{DateDiff{}, operandContract{}},

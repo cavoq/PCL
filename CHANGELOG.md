@@ -59,6 +59,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   inconclusive rules like failures, so exit statuses do not change.
 
 ### Added
+- Policy `groups` collect the rules of one source section and state their
+  shared `reference`, `requirement`, `certType`, `effective` window and
+  `when` once; groups are expanded into ordinary rules when loaded.
+- `when` takes compound conditions: `allOf`, `anyOf` and `not`, nested. The
+  `allOf` operator is the conjunction counterpart of `anyOf` and `oneOf`.
 - `wildcardNotPublicSuffix` checks that a wildcard does not cover a public
   suffix in the ICANN section of the Public Suffix List, honoring its
   wildcard, exception and implicit rules and IDN entries. CABF pack

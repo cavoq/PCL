@@ -19,6 +19,9 @@ type Policy struct {
 	TSTType   []string    `yaml:"tstType,omitempty"`
 	SCTType   []string    `yaml:"sctType,omitempty"`
 	Rules     []rule.Rule `yaml:"rules"`
+	// Groups are expanded into Rules, after the policy's own rules, when the
+	// policy is parsed; parsed policies carry no groups.
+	Groups []Group `yaml:"groups,omitempty"`
 }
 
 // Metadata describes a policy pack. It does not select inputs, grant trust,
