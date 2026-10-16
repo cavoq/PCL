@@ -146,6 +146,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `make build` builds with `-trimpath -ldflags="-s -w"` like release builds:
   the binary drops from about 14.9 MB to 10.8 MB and no longer embeds local
   source paths.
+- Release binaries are built with `-trimpath` and no longer embed the build
+  machine's source paths.
 
 ### Fixed
 - `--auto-validate` no longer warns about non-HTTP CA Issuers URLs, such as
