@@ -1,0 +1,137 @@
+# x509-limbo testcases whose PCL outcome differs from the limbo expectation,
+# grouped by cause. The list may only shrink: TestLimbo fails when a listed
+# testcase starts to conform, and when an unlisted one does not. A testcase is
+# listed once, under the cause that keeps it from conforming longest.
+
+- reason: >-
+    RFC5280.yaml fails leaf-not-ca and basic-constraints-critical-for-ca for an
+    end entity without a basicConstraints extension. Absent basicConstraints
+    means cA is false (RFC 5280 4.2.1.9), but neq fails on a missing target and
+    the eq `when` condition errors instead of skipping.
+  cases:
+    - crl::structure::crl-empty
+    - crl::structure::crl-very-large
+    - crl::structure::crl-unknown-noncritical-extension
+    - crl::certificate-not-on-crl
+    - crl::certificate-serial-on-crl-different-issuer
+    - crl::issuer-valid-crlsign-and-keycertsign
+    - pathlen::ee-with-intermediate-pathlen-0
+    - pathlen::ee-with-intermediate-pathlen-1
+    - pathlen::ee-with-intermediate-pathlen-2
+    - pathlen::intermediate-pathlen-may-increase
+    - pathlen::self-issued-certs-pathlen
+    - pathlen::max-chain-depth-0
+    - pathlen::max-chain-depth-1
+    - pathlen::max-chain-depth-1-self-issued
+    - pathological::multiple-chains-expired-intermediate
+    - rfc5280::aki::self-signed-root-missing-aki
+    - rfc5280::eku::ee-without-eku
+    - rfc5280::nc::permitted-dns-match
+    - rfc5280::nc::permitted-dns-match-more
+    - rfc5280::nc::permitted-ipv4-match
+    - rfc5280::nc::permitted-ipv6-match
+    - rfc5280::nc::permitted-dn-match
+    - rfc5280::nc::permitted-self-issued
+    - rfc5280::nc::permitted-nonempty-excluded-nonempty
+    - rfc5280::nc::permitted-different-constraint-type
+    - rfc5280::nc::excluded-different-constraint-type
+    - rfc5280::nc::nc-forbids-alternate-chain-ica
+    - rfc5280::nc::nc-forbids-same-chain-ica
+    - rfc5280::nc::nc-permits-email-exact
+    - rfc5280::nc::nc-permits-email-domain
+    - rfc5280::nc::nc-permits-email-literal-asterisk-exact-match
+    - rfc5280::nc::nc-permits-email-literal-double-asterisk
+    - rfc5280::nc::nc-permits-email-literal-mid-asterisk
+    - rfc5280::validity::notbefore-exact
+    - rfc5280::validity::notafter-exact
+    - rfc5280::unknown-critical-extension-unrelated-root
+    - rfc5280::unknown-critical-extension-unrelated-intermediate
+    - rfc5280::ee-aia
+    - rfc5280::no-keyusage
+    - rfc5280::no-basicconstraints
+    - webpki::nc::nc-permits-dns-san-pattern
+    - webpki::san::exact-dns-san
+    - webpki::san::exact-localhost-ip-san
+    - webpki::san::leftmost-wildcard-san
+
+- reason: >-
+    Path construction ranks candidate paths structurally and validates only
+    the best one. When that path fails validation (name constraints, key
+    usage), a valid alternative path is not tried (RFC 4158 backtracking).
+  cases:
+    - bettertls::pathbuilding::tc50
+    - bettertls::pathbuilding::tc52
+    - bettertls::pathbuilding::tc53
+    - bettertls::pathbuilding::tc56
+    - bettertls::pathbuilding::tc58
+    - bettertls::pathbuilding::tc59
+
+- reason: >-
+    A trust anchor that is not self-signed is linted as an intermediate, and
+    signature-valid fails because the anchor's own issuer is not supplied.
+    RFC 5280 6.1 takes trust anchor information as given.
+  cases:
+    - rfc5280::root-and-intermediate-swapped
+    - cve::cve-2024-0567
+
+- reason: >-
+    RFC5280.yaml lints every certificate, trust anchors included, against
+    issuance requirements that limbo does not treat as path validation
+    failures: keyUsage present in a CA (4.2.1.3), nameConstraints critical
+    (4.2.1.10, which CA/B Forum relaxes) and a positive serial number
+    (4.1.2.2).
+  cases:
+    - crl::issuer-no-keyusage-extension
+    - webpki::nc::permitted-dns-match-noncritical
+    - online::fastly.com
+
+- reason: >-
+    A critical nameConstraints extension with an otherName subtree is
+    rejected as unprocessable even though no otherName appears on the path;
+    RFC 5280 4.2.1.10 only requires constraints on name forms that appear.
+  cases:
+    - rfc5280::nc::nc-forbids-othername-noop
+
+- reason: >-
+    Validity is compared at the instant of the validation time; limbo expects
+    comparison at the one-second granularity of the encoded notAfter and
+    itself calls the case ambiguous.
+  cases:
+    - rfc5280::validity::notafter-fractional
+
+- reason: >-
+    ML-DSA (RFC 9881) keys and signatures are not supported by the
+    certificate parser.
+  cases:
+    - rfc9881::ml-dsa-44
+    - rfc9881::ml-dsa-65
+    - rfc9881::ml-dsa-87
+
+- reason: >-
+    BetterTLS rejects an intermediate signed with SHA-1, a CA/B Forum
+    requirement that RFC 5280 does not make.
+  cases:
+    - bettertls::pathbuilding::tc8
+    - bettertls::pathbuilding::tc15
+    - bettertls::pathbuilding::tc41
+    - bettertls::pathbuilding::tc47
+    - bettertls::pathbuilding::tc74
+    - bettertls::pathbuilding::tc80
+
+- reason: >-
+    BetterTLS rejects an intermediate whose extendedKeyUsage does not include
+    serverAuth (EKU chaining); RFC 5280 checks the application purpose on the
+    end entity only.
+  cases:
+    - bettertls::pathbuilding::tc5
+    - bettertls::pathbuilding::tc12
+    - bettertls::pathbuilding::tc38
+    - bettertls::pathbuilding::tc44
+    - bettertls::pathbuilding::tc71
+    - bettertls::pathbuilding::tc77
+
+- reason: >-
+    CA/B Forum forbids a CA certificate in end-entity position (7.1.2.7);
+    RFC 5280 allows it.
+  cases:
+    - webpki::ca-as-leaf

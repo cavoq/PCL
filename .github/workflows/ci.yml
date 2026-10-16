@@ -99,3 +99,23 @@ jobs:
 
       - name: Run integration tests
         run: go test -v -race ./tests
+
+  limbo-tests:
+    name: x509-limbo
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Fetch x509-limbo testcases
+        run: tests/scripts/fetch-limbo.sh
+
+      - name: Run x509-limbo
+        run: go test -v -run '^TestLimbo$' ./tests
+        env:
+          PCL_REQUIRE_LIMBO: "1"

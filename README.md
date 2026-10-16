@@ -124,6 +124,11 @@ The integration suite reaches the expected result for all **247 NIST PKITS
 runs** through the explicit-anchor path engine. This is test-suite evidence,
 not a claim of universal RFC coverage. See [PKITS](tests/pkits/README.md).
 
+The [x509-limbo](tests/limbo/README.md) suite, including BetterTLS, runs
+against the path engine and the RFC 5280 profile. Testcases that differ from
+the limbo result are listed with their cause in
+[known gaps](tests/limbo/known-gaps.yaml).
+
 ---
 
 ## 📚 Documentation

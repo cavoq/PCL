@@ -30,6 +30,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   through the CLI, API and policy-test cases. All 247 NIST PKITS runs now
   execute through the explicit-anchor path engine and reach their expected
   result with no gaps or unsupported inputs.
+- x509-limbo conformance suite in the integration tests, including the
+  BetterTLS name-constraint and path-building cases, run against the path
+  engine and the shipped RFC 5280 profile. `tests/scripts/fetch-limbo.sh`
+  downloads the pinned testcases; differences from the limbo result are
+  listed by cause in `tests/limbo/known-gaps.yaml`.
 
 ### Fixed
 - DSA public keys project `keySize` and `subgroupSize`. The projection

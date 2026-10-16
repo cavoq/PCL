@@ -79,8 +79,11 @@ Failure behavior: a malformed suite, run error, or unmet expectation exits
 nonzero. A deliberately failing policy rule is a successful test when the
 expected verdict is `fail`.
 
-See [repository suites](../tests/policy-suites) for runnable examples and
-[PKITS](../tests/pkits/README.md) for the NIST suite mapping.
+See [repository suites](../tests/policy-suites) for runnable examples,
+[PKITS](../tests/pkits/README.md) for the NIST suite mapping and
+[x509-limbo](../tests/limbo/README.md) for the limbo mapping. Limbo's
+testcases are downloaded with `tests/scripts/fetch-limbo.sh`; without them
+`TestLimbo` skips.
 
 ## Development checks
 

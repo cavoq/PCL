@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=../../schemas/policy.schema.json
+#
+# Certification path checks used to run x509-limbo through PCL. A limbo
+# testcase succeeds when no error rule fails for any certificate of the
+# chain. Trust anchors, intermediates, CRLs, the application purpose and the
+# maximum path length come from the testcase.
+id: limbo-path
+version: "1.0"
+appliesTo: [cert]
+
+rules:
+  # Aggregate decision from the dedicated Section 6/7 path engine.
+  - id: certification-path-valid
+    reference: RFC5280 6, 7
+    when:
+      target: certificate.pathValidation
+      operator: present
+    target: certificate
+    operator: pathValid
+    certType: [leaf, intermediate, ocspSigning]
+    severity: error

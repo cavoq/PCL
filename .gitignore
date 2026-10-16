@@ -10,6 +10,8 @@ CLAUDE.md
 .claude
 /data/
 tests/certs/generated
+tests/limbo/limbo.json
+tests/limbo/limbo.json.*
 
 # Test binary, built with `go test -c`
 *.test
