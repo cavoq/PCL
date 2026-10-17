@@ -101,7 +101,7 @@ jobs:
 
       # The testcases change only with tests/limbo/pin.
       - name: Cache x509-limbo testcases
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: tests/limbo/limbo.json
           key: limbo-${{ hashFiles('tests/limbo/pin') }}
