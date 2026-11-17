@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [7.0.1] - 2026-11-17
+
+### Security
+- Build with Go 1.26.11 to incorporate the standard-library fixes for
+  GO-2026-6859 in `net/http` and GO-2026-6809 in `crypto/x509`.
+
 ## [7.0.0] - 2026-10-16
 
 ### Breaking changes
