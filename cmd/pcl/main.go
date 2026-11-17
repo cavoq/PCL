@@ -20,7 +20,7 @@ import (
 	"github.com/cavoq/PCL/internal/policy"
 )
 
-var version = "7.0.0"
+var version = "7.0.1"
 
 func newRootCmd(opts *linter.Config) *cobra.Command {
 	var dataOpts dataOptions
